@@ -1,0 +1,28 @@
+{
+  "name": "@travel-agent/transaction",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Transactional semantics for agents that take irreversible actions: a write-ahead journal with replay recovery, commitments with drift detection, task checkpoints, and escalation.",
+  "engines": {
+    "node": ">=24"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.6"
+  }
+}
