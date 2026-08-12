@@ -15,11 +15,7 @@ import {
   DEFAULT_PROJECT_ID,
   KERNEL_HASH_HISTORY,
   KERNEL_VERSION,
-  LEGACY_SKILLS_SECTION,
-  LEGACY_VAULT_SECTION,
-  SCHEDULES_PLACEHOLDER,
-  SKILLS_PLACEHOLDER,
-  VAULT_PLACEHOLDER,
+  LEGACY_PRE_TOGGLES_SYSTEM_PROMPT,
   applyKernelUpdate,
   computeKernelHashes,
   defaultSystemConfig,
@@ -33,7 +29,6 @@ import {
 
 /** The two seeded generations (see KERNEL_HASH_HISTORY's doc comment). */
 const PRE_TOGGLES_GENERATION = "2026-08-10";
-const TOGGLES_GENERATION = "2026-08-11";
 
 /** A mutable plain-object clone of a config, for seeding on-disk scenarios. */
 function mutableConfig(config: SystemConfig): Record<string, unknown> {
@@ -41,31 +36,30 @@ function mutableConfig(config: SystemConfig): Record<string, unknown> {
 }
 
 /**
- * Reconstructs the pre-#257 (pre-toggles) default config from the current one: the frozen
- * LEGACY_* sections swapped back into the template in place of the section placeholders, no
- * `{{SCHEDULES}}` line, and no vault/skills/schedules config sections — exactly what a
- * `system_config.yaml` of that era carries (the same recipe prompt-sections.test.ts proves
- * byte-exact for the template).
+ * A genuine pre-toggles (pre-#257) config: no vault/skills/schedules sections and no stamp —
+ * exactly what a `system_config.yaml` of that era carries — with the frozen system prompt of
+ * that generation, plus the
+ * current values for every other leaf.
+ *
+ * The prompt used to be reconstructed here by substituting the legacy sections back into the
+ * *current* prompt, which only reproduced that era while the current generation was still the
+ * toggles one — the first later prompt change silently turned an "untouched old default" into
+ * an unrecognized value. `LEGACY_PRE_TOGGLES_SYSTEM_PROMPT` is the frozen artifact instead.
+ *
+ * The remaining leaves are still taken from the current defaults, which is exact only while
+ * they are unchanged since that generation. The pinned-hash proof below compares every leaf,
+ * so the next default that does change fails loudly and names itself — freeze that value the
+ * same way rather than letting the proof retire.
  */
 function preTogglesDefaultConfig(): SystemConfig {
-  const current = defaultSystemConfig();
   const {
     vault: _vault,
     skills: _skills,
     schedules: _schedules,
     kernel_version: _stamp,
     ...rest
-  } = current;
-  return {
-    ...rest,
-    system_prompt: current.system_prompt
-      .split(VAULT_PLACEHOLDER)
-      .join(LEGACY_VAULT_SECTION)
-      .split(SKILLS_PLACEHOLDER)
-      .join(LEGACY_SKILLS_SECTION)
-      .split(`${SCHEDULES_PLACEHOLDER}\n\n`)
-      .join(""),
-  };
+  } = defaultSystemConfig();
+  return { ...rest, system_prompt: LEGACY_PRE_TOGGLES_SYSTEM_PROMPT };
 }
 
 describe("kernel hash history (pinned-hash guard)", () => {
@@ -95,18 +89,17 @@ describe("kernel hash history (pinned-hash guard)", () => {
     ).toEqual([]);
   });
 
-  // Anchored to the first shipped generation: the reconstruction recipe reads the *current*
-  // defaults, so it only reproduces the pre-toggles era while the current generation is
-  // still the toggles one. Once the defaults evolve past it this proof self-retires — the
-  // pinned hashes remain the frozen source of truth on their own.
-  it.runIf(KERNEL_VERSION === TOGGLES_GENERATION)(
-    "the pre-toggles generation's pinned hashes equal the LEGACY_* reconstruction",
-    () => {
-      expect(computeKernelHashes(preTogglesDefaultConfig())).toEqual(
-        KERNEL_HASH_HISTORY[PRE_TOGGLES_GENERATION],
-      );
-    },
-  );
+  // Proves the seeded generation is reproducible from frozen values, so the kernel-update
+  // cases below can seed a genuine old config. Formerly self-retiring (the prompt was
+  // reconstructed from the current defaults); now anchored by
+  // LEGACY_PRE_TOGGLES_SYSTEM_PROMPT and expected to hold indefinitely. If it fails, a
+  // default other than the prompt has changed since that generation — the mismatch names
+  // the leaf; freeze that value alongside the prompt.
+  it("the pre-toggles generation's pinned hashes equal its frozen reconstruction", () => {
+    expect(computeKernelHashes(preTogglesDefaultConfig())).toEqual(
+      KERNEL_HASH_HISTORY[PRE_TOGGLES_GENERATION],
+    );
+  });
 
   it("excludes identity fields and mcpServers from the managed leaves", () => {
     const paths = kernelLeafEntries({

@@ -10,11 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import {
   KERNEL_VERSION,
-  LEGACY_SKILLS_SECTION,
-  LEGACY_VAULT_SECTION,
-  SCHEDULES_PLACEHOLDER,
-  SKILLS_PLACEHOLDER,
-  VAULT_PLACEHOLDER,
+  LEGACY_PRE_TOGGLES_SYSTEM_PROMPT,
   defaultSystemConfig,
   systemConfigPath,
 } from "@prismshadow/penguin-core";
@@ -59,13 +55,11 @@ describe("POST agent config kernel-update", () => {
     delete config.vault;
     delete config.skills;
     delete config.schedules;
-    config.system_prompt = defaultSystemConfig()
-      .system_prompt.split(VAULT_PLACEHOLDER)
-      .join(LEGACY_VAULT_SECTION)
-      .split(SKILLS_PLACEHOLDER)
-      .join(LEGACY_SKILLS_SECTION)
-      .split(`${SCHEDULES_PLACEHOLDER}\n\n`)
-      .join("");
+    // The frozen prompt of that generation, not one reconstructed from the current defaults:
+    // the recipe only reproduced the era while the current generation was still the toggles
+    // one, so any later prompt change would make this leaf look like a user customization
+    // (kept) instead of an untouched old default (advanced). See core's kernel-version test.
+    config.system_prompt = LEGACY_PRE_TOGGLES_SYSTEM_PROMPT;
     config.memory = { ...(config.memory as object), prompt: "my memory prompt" };
     await fs.writeFile(configPath, stringifyYaml(config), "utf8");
   }

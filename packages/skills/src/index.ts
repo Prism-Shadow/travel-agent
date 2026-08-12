@@ -197,7 +197,7 @@ export const SKILL_GROUPS: SkillGroupInfo[] = [
     id: "office-productivity",
     title: "Office Productivity",
     titleZh: "办公效率",
-    skills: ["data-analysis", "firecrawl", "bento-slides", "humanizer"],
+    skills: ["data-analysis", "firecrawl", "penguin-browser", "bento-slides", "humanizer"],
   },
   {
     id: "software-development",

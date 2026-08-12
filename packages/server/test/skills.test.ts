@@ -77,6 +77,7 @@ describe("skills api", () => {
     expect(body.groups[0]!.skills.map((s) => s.name)).toEqual([
       "data-analysis",
       "firecrawl",
+      "penguin-browser",
       "bento-slides",
       "humanizer",
     ]);

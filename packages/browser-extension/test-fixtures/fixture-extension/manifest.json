@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Penguin Browser Test Fixture",
+  "version": "1.0",
+  "description": "Minimal extension used by penguin-browser tests to reproduce chrome-extension:// iframe issues",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["page.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

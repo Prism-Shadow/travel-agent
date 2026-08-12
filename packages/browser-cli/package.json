@@ -1,0 +1,82 @@
+{
+  "name": "penguin-browser",
+  "description": "Control explicitly authorized Chrome tabs through Playwright, a local CDP relay, and the Penguin Browser extension.",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "rm -rf dist *.tsbuildinfo && mkdir dist && tsx scripts/build-client-bundles.ts && tsc && tsx scripts/build-extension-bundle.ts && tsx scripts/build-resources.ts",
+    "watch": "tsc -w",
+    "cli": "vite-node src/cli.ts",
+    "typecheck": "tsc",
+    "mcp": "vite-node src/cli.ts",
+    "test": "vitest run --no-file-parallelism",
+    "test:update": "vitest run -u",
+    "test:watch": "vitest"
+  },
+  "bin": {
+    "penguin-browser": "./bin.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin.js"
+  ],
+  "keywords": [
+    "penguin-browser",
+    "penguin-harness",
+    "playwright",
+    "browser-automation",
+    "mcp"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@browserbasehq/stagehand": "^3.0.5",
+    "@mizchi/selector-generator": "1.50.0-next",
+    "@mozilla/readability": "^0.6.0",
+    "@types/chrome": "^0.0.315",
+    "@types/node": "^24.10.1",
+    "@types/ws": "^8.18.1",
+    "@vitest/ui": "^4.0.8",
+    "bippy": "^0.5.27",
+    "devtools-protocol": "^0.0.1568893",
+    "esbuild": "^0.28.1",
+    "image-size": "^2.0.2",
+    "kitty-graphics-agent": "^0.0.5",
+    "marked": "^17.0.1",
+    "penguin-browser-extension": "workspace:^",
+    "vite-node": "^5.0.0",
+    "vitest": "^4.0.8"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "@hono/node-ws": "^1.2.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@xmorse/playwright-core": "^1.59.10",
+    "acorn": "^8.15.0",
+    "ajv": "^8.20.0",
+    "async-sema": "^3.1.1",
+    "better-auth": "^1.6.20",
+    "diff": "^8.0.2",
+    "dom-accessibility-api": "^0.7.1",
+    "goke": "^6.14.0",
+    "hono": "^4.12.12",
+    "picocolors": "^1.1.1",
+    "posthtml": "^0.16.7",
+    "posthtml-beautify": "^0.7.0",
+    "string-dedent": "^3.0.2",
+    "strip-ansi": "^7.1.2",
+    "ws": "^8.18.3",
+    "zod": "^4.3.5",
+    "zustand": "^5.0.8"
+  },
+  "optionalDependencies": {
+    "@playwriter/patchright-core": "^1.61.0-playwriter.1",
+    "sharp": "^0.34.5"
+  }
+}

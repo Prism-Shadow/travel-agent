@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Penguin Browser",
+  "version": "0.0.107",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoiXadVXRKWtMmkKh50xwQUKcq1OKMIVe5M8h/BJntymIwxAqrz7n1j+eMj8GAKuIvK1xLZIjUvb8gJwDdExGOnjJYm++5SFzksprr2jb0wdmszM8K+eZ6/eoxhci0gxLhDVOfYW44Px09c4ozrrjA+PZrbQHqQfdbLE7y4q6SwJt637oCjktIk282WkuOMVn8JRhLAalYMUZAdZ1t/oILlPsFfWUxjZPqnLvGOZyBOyTZqj13HcYuRmyoOniROYdFIsLiFxF4rhIZNLuJf4E3IVjSDhsWjkKRflsm720cl+MderlZWvPg5HjbHbLSXy+lyn7XvAvbb4AK093lFJ/CwIDAQAB",
+  "description": "Control explicitly authorized Chrome tabs through Penguin Browser, Playwright, and PenguinHarness.",
+  "permissions": [
+    "debugger",
+    "scripting",
+    "tabGroups",
+    "contextMenus",
+    "tabs",
+    "tabCapture",
+    "offscreen",
+    "storage",
+    "identity",
+    "identity.email",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Attach Penguin Browser to this tab",
+    "default_icon": {
+      "16": "icons/penguin-browser-16.png",
+      "32": "icons/penguin-browser-32.png",
+      "48": "icons/penguin-browser-48.png",
+      "128": "icons/penguin-browser-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/penguin-browser-16.png",
+    "32": "icons/penguin-browser-32.png",
+    "48": "icons/penguin-browser-48.png",
+    "128": "icons/penguin-browser-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/penguin-browser-icon-black.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}
