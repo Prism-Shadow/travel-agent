@@ -36,5 +36,10 @@ packages/landing/.blog-assets/
 
 # local design-doc symlink and agent instructions
 /design
+# travel-agent keeps its design docs in the repo. Upstream ignores /design because there it is a
+# symlink to a separate private repo; here the directory is real and tracked, so it is re-included
+# rather than the ignore rule being deleted — leaving the rule in place keeps this a one-line
+# divergence from upstream instead of a conflicting deletion.
+!/design/
 /AGENTS.md
 /CLAUDE.md
