@@ -9,20 +9,13 @@
 # First-time setup: repository Settings -> Pages -> Source = "GitHub Actions".
 name: Deploy Site
 
+# travel-agent: the automatic triggers are removed. This deploys PenguinHarness's public site,
+# which this project does not have — `packages/landing` and `packages/docs` are excluded from the
+# workspace (see design/001-architecture.md §3), so the build here would fail on every push that
+# happened to touch those paths. The job is left in place rather than deleted: upstream edits it
+# regularly, and a deleted file turns every one of those into a delete/modify conflict.
+# `workflow_dispatch` keeps it runnable by hand if the site is ever wanted.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/landing/**"
-      - "packages/docs/**"
-      - "scripts/build-site.mjs"
-      - ".github/workflows/pages.yml"
-  pull_request:
-    paths:
-      - "packages/landing/**"
-      - "packages/docs/**"
-      - "scripts/build-site.mjs"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
