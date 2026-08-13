@@ -10,8 +10,8 @@
  * - copy the web build to `node_modules/@prismshadow/penguin-server/web-dist`, the npm
  *   package layout the server's static-hosting lookup checks first;
  * - copy build/icon.png into the app dir (the runtime window icon, see src/app-icon.ts);
- * - generate the `penguin` CLI launchers into `bin/` (POSIX + Windows, see
- *   src/launcher.ts): they run the bundled CLI on the app's Electron runtime as Node;
+ * - generate the `penguin` and `penguin-browser` CLI launchers into `bin/`;
+ * - copy the unpacked Chrome extension into `resources/penguin-browser-extension`;
  * - ensure `stage/minigit` exists (may be empty): the Windows CI job downloads MinGit
  *   into it, and electron-builder's win extraResources entry must always have a source.
  *
@@ -90,6 +90,7 @@ for (const [what, file] of [
     "CLI entry",
     path.join(appDir, "node_modules", "@prismshadow", "penguin-cli", "dist", "index.js"),
   ],
+  ["penguin-browser CLI", path.join(appDir, "node_modules", "penguin-browser", "dist", "cli.js")],
   ["launcher generator (dist/launcher.js)", launcherModule],
 ]) {
   if (!fs.existsSync(file)) {
@@ -108,9 +109,17 @@ if (!fs.existsSync(iconSrc)) {
 fs.mkdirSync(path.join(appDir, "build"), { recursive: true });
 fs.copyFileSync(iconSrc, path.join(appDir, "build", "icon.png"));
 
-// CLI launchers (bin/penguin, bin/penguin.cmd): generated, not committed — the script
-// text lives in src/launcher.ts so it is unit-tested with the rest of the shell.
-const { posixLauncherScript, windowsLauncherScript } = await import(
+// Unpacked Chrome extension (users load this folder in chrome://extensions).
+const extensionSrc = path.join(repoRoot, "packages", "browser-extension", "dist");
+if (!fs.existsSync(path.join(extensionSrc, "manifest.json"))) {
+  console.error("[stage] packages/browser-extension/dist is missing — run `pnpm -r build` first.");
+  process.exit(1);
+}
+const extensionDest = path.join(appDir, "resources", "penguin-browser-extension");
+fs.cpSync(extensionSrc, extensionDest, { recursive: true, dereference: true });
+
+// CLI launchers: generated, not committed — the script text lives in src/launcher.ts.
+const { posixLauncherScript, windowsLauncherScript, BROWSER_CLI_ENTRY_RELPATH } = await import(
   pathToFileURL(launcherModule).href
 );
 const binDir = path.join(appDir, "bin");
@@ -118,6 +127,18 @@ fs.mkdirSync(binDir, { recursive: true });
 fs.writeFileSync(path.join(binDir, "penguin"), posixLauncherScript(), { mode: 0o755 });
 fs.chmodSync(path.join(binDir, "penguin"), 0o755);
 fs.writeFileSync(path.join(binDir, "penguin.cmd"), windowsLauncherScript());
+fs.writeFileSync(
+  path.join(binDir, "penguin-browser"),
+  posixLauncherScript("penguin-browser", BROWSER_CLI_ENTRY_RELPATH),
+  {
+    mode: 0o755,
+  },
+);
+fs.chmodSync(path.join(binDir, "penguin-browser"), 0o755);
+fs.writeFileSync(
+  path.join(binDir, "penguin-browser.cmd"),
+  windowsLauncherScript("penguin-browser", BROWSER_CLI_ENTRY_RELPATH),
+);
 
 fs.mkdirSync(path.join(stageDir, "minigit"), { recursive: true });
 

@@ -21,6 +21,9 @@ fi
 if [ ! -e '/usr/bin/penguin' ] || [ -L '/usr/bin/penguin' ]; then
     ln -sf '/opt/${sanitizedProductName}/resources/app/bin/penguin' '/usr/bin/penguin'
 fi
+if [ ! -e '/usr/bin/penguin-browser' ] || [ -L '/usr/bin/penguin-browser' ]; then
+    ln -sf '/opt/${sanitizedProductName}/resources/app/bin/penguin-browser' '/usr/bin/penguin-browser'
+fi
 
 # Check if user namespaces are supported by the kernel and working with a quick test:
 if ! { [[ -L /proc/self/ns/user ]] && unshare --user true; }; then

@@ -17,6 +17,9 @@ fi
 if [ -L '/usr/bin/penguin' ] && [ "`readlink '/usr/bin/penguin'`" = '/opt/${sanitizedProductName}/resources/app/bin/penguin' ]; then
     rm -f '/usr/bin/penguin'
 fi
+if [ -L '/usr/bin/penguin-browser' ] && [ "`readlink '/usr/bin/penguin-browser'`" = '/opt/${sanitizedProductName}/resources/app/bin/penguin-browser' ]; then
+    rm -f '/usr/bin/penguin-browser'
+fi
 
 APPARMOR_PROFILE_DEST='/etc/apparmor.d/${executable}'
 

@@ -20,7 +20,7 @@ importers:
         version: file:packages/cli(supports-color@10.2.2)
       '@prismshadow/penguin-core':
         specifier: workspace:*
-        version: file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+        version: file:packages/core(supports-color@10.2.2)
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
@@ -280,16 +280,19 @@ importers:
     dependencies:
       '@prismshadow/penguin-cli':
         specifier: workspace:*
-        version: file:packages/cli(supports-color@10.2.2)
+        version: file:packages/cli(bufferutil@4.1.0)(supports-color@10.2.2)
       '@prismshadow/penguin-core':
         specifier: workspace:*
-        version: file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+        version: file:packages/core(bufferutil@4.1.0)(supports-color@10.2.2)
       '@prismshadow/penguin-server':
         specifier: workspace:*
-        version: link:../server
+        version: file:packages/server(bufferutil@4.1.0)(supports-color@10.2.2)
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9(supports-color@10.2.2)
+      penguin-browser:
+        specifier: workspace:*
+        version: file:packages/browser-cli(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@10.2.2)(vitest@3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(supports-color@10.2.2)(tsx@4.22.4)(yaml@2.9.0))
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
@@ -317,7 +320,7 @@ importers:
         version: 2.0.12(hono@4.12.34)
       '@prismshadow/penguin-core':
         specifier: workspace:*
-        version: file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+        version: file:packages/core(supports-color@10.2.2)
       '@prismshadow/penguin-skills':
         specifier: workspace:*
         version: link:../skills
@@ -406,7 +409,7 @@ importers:
     dependencies:
       '@prismshadow/penguin-core':
         specifier: workspace:*
-        version: file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+        version: file:packages/core(supports-color@10.2.2)
       react:
         specifier: ^19.1.0
         version: 19.2.7
@@ -6189,6 +6192,17 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  '@google/genai@1.52.0(supports-color@10.2.2)':
+    dependencies:
+      google-auth-library: 10.7.0(supports-color@10.2.2)
+      p-retry: 4.6.2
+      protobufjs: 7.6.5
+      ws: 8.21.0(bufferutil@4.1.0)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
   '@hono/node-server@2.0.12(hono@4.12.34)':
     dependencies:
       hono: 4.12.34
@@ -6465,12 +6479,61 @@ snapshots:
       - ws
       - zod
 
+  '@prismshadow/agenthub@0.4.1(bufferutil@4.1.0)(supports-color@10.2.2)':
+    dependencies:
+      '@anthropic-ai/bedrock-sdk': 0.26.4(zod@4.4.3)
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)
+      express: 4.22.2(supports-color@10.2.2)
+      openai: 6.42.0(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@prismshadow/agenthub@0.4.1(supports-color@10.2.2)':
+    dependencies:
+      '@anthropic-ai/bedrock-sdk': 0.26.4(zod@4.4.3)
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
+      '@google/genai': 1.52.0(supports-color@10.2.2)
+      express: 4.22.2(supports-color@10.2.2)
+      openai: 6.42.0(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@prismshadow/penguin-cli@file:packages/cli(bufferutil@4.1.0)(supports-color@10.2.2)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.0.0
+      '@prismshadow/agenthub': 0.4.1(bufferutil@4.1.0)(supports-color@10.2.2)
+      '@prismshadow/penguin-core': file:packages/core(bufferutil@4.1.0)(supports-color@10.2.2)
+      '@prismshadow/penguin-server': file:packages/server(bufferutil@4.1.0)(supports-color@10.2.2)
+      '@prismshadow/penguin-skills': file:packages/skills
+      commander: 13.1.0
+      dotenv: 17.4.2
+      smol-toml: 1.6.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
   '@prismshadow/penguin-cli@file:packages/cli(supports-color@10.2.2)':
     dependencies:
       '@modelcontextprotocol/client': 2.0.0
-      '@prismshadow/agenthub': 0.4.1(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
-      '@prismshadow/penguin-core': file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
-      '@prismshadow/penguin-server': file:packages/server(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+      '@prismshadow/agenthub': 0.4.1(supports-color@10.2.2)
+      '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)
+      '@prismshadow/penguin-server': file:packages/server(supports-color@10.2.2)
       '@prismshadow/penguin-skills': file:packages/skills
       commander: 13.1.0
       dotenv: 17.4.2
@@ -6499,10 +6562,80 @@ snapshots:
       - ws
       - zod
 
+  '@prismshadow/penguin-core@file:packages/core(bufferutil@4.1.0)(supports-color@10.2.2)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.0.0
+      '@prismshadow/agenthub': 0.4.1(bufferutil@4.1.0)(supports-color@10.2.2)
+      '@prismshadow/penguin-skills': file:packages/skills
+      smol-toml: 1.6.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@prismshadow/penguin-core@file:packages/core(supports-color@10.2.2)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.0.0
+      '@prismshadow/agenthub': 0.4.1(supports-color@10.2.2)
+      '@prismshadow/penguin-skills': file:packages/skills
+      smol-toml: 1.6.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
   '@prismshadow/penguin-server@file:packages/server(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 2.0.12(hono@4.12.34)
       '@prismshadow/penguin-core': file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
+      '@prismshadow/penguin-skills': file:packages/skills
+      dotenv: 17.4.2
+      fflate: 0.8.3
+      hono: 4.12.34
+      smol-toml: 1.6.1
+      tar: 7.5.22
+      undici: 7.29.0
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@prismshadow/penguin-server@file:packages/server(bufferutil@4.1.0)(supports-color@10.2.2)':
+    dependencies:
+      '@hono/node-server': 2.0.12(hono@4.12.34)
+      '@prismshadow/penguin-core': file:packages/core(bufferutil@4.1.0)(supports-color@10.2.2)
+      '@prismshadow/penguin-skills': file:packages/skills
+      dotenv: 17.4.2
+      fflate: 0.8.3
+      hono: 4.12.34
+      smol-toml: 1.6.1
+      tar: 7.5.22
+      undici: 7.29.0
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@prismshadow/penguin-server@file:packages/server(supports-color@10.2.2)':
+    dependencies:
+      '@hono/node-server': 2.0.12(hono@4.12.34)
+      '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)
       '@prismshadow/penguin-skills': file:packages/skills
       dotenv: 17.4.2
       fflate: 0.8.3

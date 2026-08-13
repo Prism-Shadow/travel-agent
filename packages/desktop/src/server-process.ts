@@ -11,6 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, utilityProcess } from "electron";
 import type { UtilityProcess } from "electron";
+import { pathWithPackagedBin } from "./browser-relay.js";
 import { osProxyEnv } from "./os-proxy.js";
 import { choosePort, readPreferredPort, rememberPreferredPort } from "./port-memory.js";
 import { appOriginFor, parsePortFile } from "./util.js";
@@ -135,6 +136,9 @@ export async function startEmbeddedServer(opts: {
       PORT: String(requestedPort),
       PENGUIN_DESKTOP_TOKEN: token,
       PENGUIN_PORT_FILE: opts.portFile,
+      // Finder-launched apps do not inherit a login PATH. The agent runs
+      // exec_command in this process, so it must see bin/penguin-browser.
+      PATH: pathWithPackagedBin(process.env.PATH),
     },
   });
   child.stdout?.on("data", (chunk: Buffer) => opts.log(String(chunk)));

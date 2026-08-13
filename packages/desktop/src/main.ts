@@ -20,10 +20,12 @@ import { app, BrowserWindow, dialog, shell } from "electron";
 import { resolveRoot } from "@prismshadow/penguin-core";
 import { liveServerLock } from "@prismshadow/penguin-server/lock";
 import { resolveWindowIcon } from "./app-icon.js";
+import { startBrowserRelay, stopBrowserRelay, revealBrowserExtension } from "./browser-relay.js";
 import { installCliCommand, maybeOfferCliInstall, currentCliInstallKind } from "./cli-install.js";
 import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
 import type { EmbeddedServer } from "./server-process.js";
+import type { UtilityProcess } from "electron";
 import { initUpdater } from "./updater.js";
 import {
   desktopLoginUrl,
@@ -41,6 +43,7 @@ if (process.platform === "win32") app.setAppUserModelId("com.prismshadow.penguin
 
 let win: BrowserWindow | null = null;
 let server: EmbeddedServer | null = null;
+let browserRelay: UtilityProcess | null = null;
 /** App origin (embedded or attached); null until boot resolves. */
 let appOrigin: string | null = null;
 let quitting = false;
@@ -207,12 +210,17 @@ if (!app.requestSingleInstanceLock()) {
   // then let the quit proceed. Attach mode has no child to stop.
   app.on("before-quit", (event) => {
     quitting = true;
-    if (server !== null && stopPromise === null) {
-      event.preventDefault();
-      const running = server;
-      server = null;
-      stopPromise = stopEmbeddedServer(running).finally(() => app.quit());
-    }
+    if (stopPromise !== null) return;
+    if (server === null && browserRelay === null) return;
+    event.preventDefault();
+    const running = server;
+    const relay = browserRelay;
+    server = null;
+    browserRelay = null;
+    stopPromise = Promise.all([
+      running !== null ? stopEmbeddedServer(running) : Promise.resolve(),
+      stopBrowserRelay(relay),
+    ]).then(() => undefined).finally(() => app.quit());
   });
 
   void app.whenReady().then(() =>
@@ -221,10 +229,12 @@ if (!app.requestSingleInstanceLock()) {
       installAppMenu({
         includeCliInstall: currentCliInstallKind() !== null,
         onInstallCli: () => void installCliCommand(win),
+        onLoadExtension: () => void revealBrowserExtension(win),
       });
       initUpdater(() => win);
+      browserRelay = await startBrowserRelay((chunk) => process.stdout.write(chunk));
       await boot();
-      // First launch only: offer the 'penguin' command once; the menu entry remains.
+      // First launch only: offer the CLI commands once; the menu entry remains.
       // Skipped in smoke mode — a modal dialog would hang the automated run.
       if (process.env.PENGUIN_DESKTOP_SMOKE !== "1") await maybeOfferCliInstall(win);
     })().catch((err) => fatal("PenguinHarness failed to start.", err)),

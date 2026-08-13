@@ -7,19 +7,30 @@ import { app, Menu, shell } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 import { checkForUpdatesManually, updatesAvailableInThisForm } from "./updater.js";
 
-export const INSTALL_CLI_MENU_LABEL = "Install 'penguin' Command…";
+export const INSTALL_CLI_MENU_LABEL = "Install CLI Commands…";
 
 const CHECK_FOR_UPDATES_MENU_LABEL = "Check for Updates…";
 const REPO_URL = "https://github.com/Prism-Shadow/penguin-harness";
 
+export const LOAD_EXTENSION_MENU_LABEL = "Load Penguin Browser Extension…";
+
 export function installAppMenu(opts: {
   includeCliInstall: boolean;
   onInstallCli: () => void;
+  onLoadExtension: () => void;
 }): void {
   const isMac = process.platform === "darwin";
-  const cliItems: MenuItemConstructorOptions[] = opts.includeCliInstall
-    ? [{ label: INSTALL_CLI_MENU_LABEL, click: opts.onInstallCli }]
-    : [];
+  const cliItems: MenuItemConstructorOptions[] = [
+    { label: LOAD_EXTENSION_MENU_LABEL, click: opts.onLoadExtension },
+    ...(opts.includeCliInstall
+      ? [
+          {
+            label: INSTALL_CLI_MENU_LABEL,
+            click: opts.onInstallCli,
+          } satisfies MenuItemConstructorOptions,
+        ]
+      : []),
+  ];
   const checkForUpdates: MenuItemConstructorOptions = {
     label: CHECK_FOR_UPDATES_MENU_LABEL,
     enabled: updatesAvailableInThisForm(),

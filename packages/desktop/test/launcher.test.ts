@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   appImageBootstrapJs,
   appImageWrapperScript,
+  BROWSER_CLI_APPIMAGE_SEGMENTS,
+  BROWSER_CLI_ENTRY_RELPATH,
   CLI_ENTRY_RELPATH,
   cliInstallKind,
   LINUX_EXECUTABLE,
@@ -38,6 +40,15 @@ describe("posixLauncherScript", () => {
   });
 });
 
+describe("posixLauncherScript (penguin-browser)", () => {
+  const script = posixLauncherScript("penguin-browser", BROWSER_CLI_ENTRY_RELPATH);
+
+  it("points at the bundled penguin-browser CLI", () => {
+    expect(script).toContain(`CLI_ENTRY="$APP_DIR/${BROWSER_CLI_ENTRY_RELPATH}"`);
+    expect(script).toContain("penguin-browser:");
+  });
+});
+
 describe("windowsLauncherScript", () => {
   const script = windowsLauncherScript();
 
@@ -49,6 +60,11 @@ describe("windowsLauncherScript", () => {
   it("finds the exe three levels up from bin\\ and the CLI entry in the app dir", () => {
     expect(script).toContain(`"%~dp0..\\..\\..\\${WIN_EXECUTABLE}"`);
     expect(script).toContain(`"%~dp0..\\${CLI_ENTRY_RELPATH.replaceAll("/", "\\")}"`);
+  });
+
+  it("can target the penguin-browser entry", () => {
+    const browser = windowsLauncherScript("penguin-browser", BROWSER_CLI_ENTRY_RELPATH);
+    expect(browser).toContain(`"%~dp0..\\${BROWSER_CLI_ENTRY_RELPATH.replaceAll("/", "\\")}"`);
   });
 
   it("runs as Node, forwards arguments and propagates the exit code", () => {
@@ -90,6 +106,9 @@ describe("appImageBootstrapJs", () => {
     expect(js).toContain("process.execPath");
     expect(js).toContain('"resources","app"');
     expect(js).toContain('"penguin-cli","dist","index.js"');
+    expect(appImageBootstrapJs([...BROWSER_CLI_APPIMAGE_SEGMENTS])).toContain(
+      '"penguin-browser","dist","cli.js"',
+    );
     // node -e argv is [execPath, ...args]; the CLI slices argv from index 2, so the
     // entry path must be spliced in at index 1.
     expect(js).toContain("process.argv.splice(1,0,cli)");

@@ -4,8 +4,8 @@
  *
  * Per platform (deb is absent on purpose — its postinst ships /usr/bin/penguin, see
  * build/linux/after-install.tpl):
- * - macOS: symlink /usr/local/bin/penguin → <app>/bin/penguin; on permission errors,
- *   escalate ONCE via osascript "with administrator privileges".
+ * - macOS: symlink /usr/local/bin/penguin and penguin-browser → <app>/bin/…; on
+ *   permission errors, escalate ONCE via osascript "with administrator privileges".
  * - Windows: append <app>\bin to the user PATH (HKCU\Environment) via reg.exe,
  *   idempotently (read + compare first); new terminals pick it up.
  * - Linux AppImage: write an executable ~/.local/bin/penguin wrapper that runs the
@@ -22,7 +22,12 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { app, dialog } from "electron";
 import type { BrowserWindow } from "electron";
-import { appImageWrapperScript, cliInstallKind, mergeWindowsUserPath } from "./launcher.js";
+import {
+  appImageWrapperScript,
+  BROWSER_CLI_APPIMAGE_SEGMENTS,
+  cliInstallKind,
+  mergeWindowsUserPath,
+} from "./launcher.js";
 import type { CliInstallKind } from "./launcher.js";
 
 const execFileAsync = promisify(execFile);
@@ -46,8 +51,8 @@ function showResult(win: BrowserWindow | null, ok: boolean, detail: string): voi
     type: ok ? ("info" as const) : ("error" as const),
     title: "PenguinHarness",
     message: ok
-      ? "The 'penguin' command is installed."
-      : "Could not install the 'penguin' command.",
+      ? "The 'penguin' and 'penguin-browser' commands are installed."
+      : "Could not install the CLI commands.",
     detail,
   };
   void (win !== null ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts));
@@ -55,25 +60,31 @@ function showResult(win: BrowserWindow | null, ok: boolean, detail: string): voi
 
 /** macOS: /usr/local/bin/penguin symlink, escalating once via osascript on EACCES/EPERM. */
 async function installDarwin(win: BrowserWindow | null): Promise<void> {
-  const target = path.join(binDir(), "penguin");
-  const link = "/usr/local/bin/penguin";
+  const names = ["penguin", "penguin-browser"] as const;
   try {
     fs.mkdirSync("/usr/local/bin", { recursive: true });
-    fs.rmSync(link, { force: true });
-    fs.symlinkSync(target, link);
+    for (const name of names) {
+      const target = path.join(binDir(), name);
+      const link = `/usr/local/bin/${name}`;
+      fs.rmSync(link, { force: true });
+      fs.symlinkSync(target, link);
+    }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== "EACCES" && code !== "EPERM") {
       showResult(win, false, String(err));
       return;
     }
-    // Privileged retry; paths contain no single quotes (the bundle path is fixed and
-    // /Applications-style paths at most contain spaces).
-    const shellCmd = `mkdir -p /usr/local/bin && ln -sf '${target}' '${link}'`;
+    const shellCmd = names
+      .map((name) => {
+        const target = path.join(binDir(), name);
+        return `ln -sf '${target}' '/usr/local/bin/${name}'`;
+      })
+      .join(" && ");
     try {
       await execFileAsync("osascript", [
         "-e",
-        `do shell script "${shellCmd.replace(/"/g, '\\"')}" with administrator privileges`,
+        `do shell script "mkdir -p /usr/local/bin && ${shellCmd.replace(/"/g, '\\"')}" with administrator privileges`,
       ]);
     } catch (escalated) {
       showResult(
@@ -87,7 +98,7 @@ async function installDarwin(win: BrowserWindow | null): Promise<void> {
   showResult(
     win,
     true,
-    `${link} now points at the app's bundled CLI. Run 'penguin' from any terminal.`,
+    `/usr/local/bin/penguin and penguin-browser now point at the app's bundled CLIs.`,
   );
 }
 
@@ -105,7 +116,11 @@ async function installWindows(win: BrowserWindow | null): Promise<void> {
   }
   const merged = mergeWindowsUserPath(current, dir);
   if (merged === null) {
-    showResult(win, true, `${dir} is already on your PATH. Run 'penguin' from any terminal.`);
+    showResult(
+      win,
+      true,
+      `${dir} is already on your PATH. Run 'penguin' or 'penguin-browser' from any terminal.`,
+    );
     return;
   }
   try {
@@ -128,7 +143,7 @@ async function installWindows(win: BrowserWindow | null): Promise<void> {
   showResult(
     win,
     true,
-    `${dir} was added to your user PATH. Open a NEW terminal (existing ones keep the old PATH) and run 'penguin'.`,
+    `${dir} was added to your user PATH. Open a NEW terminal (existing ones keep the old PATH) and run 'penguin' or 'penguin-browser'.`,
   );
 }
 
@@ -140,18 +155,18 @@ function installAppImage(win: BrowserWindow | null): void {
     return;
   }
   const dir = path.join(os.homedir(), ".local", "bin");
-  const wrapper = path.join(dir, "penguin");
-  let script: string;
-  try {
-    script = appImageWrapperScript(appImage);
-  } catch (err) {
-    showResult(win, false, String(err));
-    return;
-  }
+  const jobs = [
+    { name: "penguin", segments: ["@prismshadow", "penguin-cli", "dist", "index.js"] as const },
+    { name: "penguin-browser", segments: BROWSER_CLI_APPIMAGE_SEGMENTS },
+  ];
   try {
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(wrapper, script, { mode: 0o755 });
-    fs.chmodSync(wrapper, 0o755); // writeFileSync mode is ignored when the file existed.
+    for (const job of jobs) {
+      const wrapper = path.join(dir, job.name);
+      const script = appImageWrapperScript(appImage, job.name, [...job.segments]);
+      fs.writeFileSync(wrapper, script, { mode: 0o755 });
+      fs.chmodSync(wrapper, 0o755);
+    }
   } catch (err) {
     showResult(win, false, String(err));
     return;
@@ -159,7 +174,7 @@ function installAppImage(win: BrowserWindow | null): void {
   showResult(
     win,
     true,
-    `${wrapper} now runs the CLI bundled in this AppImage. Make sure ~/.local/bin is on your PATH (most distributions add it at login), then run 'penguin' from a new terminal. Re-run this menu item if you move the AppImage.`,
+    `${dir}/penguin and penguin-browser now run the CLIs bundled in this AppImage. Make sure ~/.local/bin is on your PATH, then open a new terminal. Re-run this menu item if you move the AppImage.`,
   );
 }
 
@@ -176,7 +191,11 @@ export async function installCliCommand(win: BrowserWindow | null): Promise<void
       installAppImage(win);
       return;
     case null:
-      showResult(win, false, "This build has no bundled CLI to install (development run).");
+      showResult(
+        win,
+        false,
+        "This build has no bundled CLI to install (development run). Use PATH from pnpm build.",
+      );
   }
 }
 
@@ -198,9 +217,9 @@ export async function maybeOfferCliInstall(win: BrowserWindow | null): Promise<v
   const opts = {
     type: "question" as const,
     title: "PenguinHarness",
-    message: "Install the 'penguin' command line tool?",
+    message: "Install the 'penguin' and 'penguin-browser' commands?",
     detail:
-      "Makes the CLI bundled with this app available in your terminal. You can do this later from the application menu: Install 'penguin' Command.",
+      "Puts the CLIs bundled with this app on your PATH. You can do this later from the application menu: Install CLI Commands.",
     buttons: ["Install", "Not Now"],
     defaultId: 0,
     cancelId: 1,
