@@ -40,7 +40,14 @@ describe("checkDrift", () => {
     const result = checkDrift(commitment(), { ...commitment().approved, price: 900 });
     expect(result.withinCommitment).toBe(false);
     expect(result.drifts).toEqual([
-      { path: "price", approved: 780, actual: 900, delta: 120, allowed: 50, reason: "over_tolerance" },
+      {
+        path: "price",
+        approved: 780,
+        actual: 900,
+        delta: 120,
+        allowed: 50,
+        reason: "over_tolerance",
+      },
     ]);
   });
 
@@ -49,14 +56,22 @@ describe("checkDrift", () => {
   it("treats an unexplained price drop as drift when only a rise was allowed", () => {
     const result = checkDrift(commitment(), { ...commitment().approved, price: 600 });
     expect(result.withinCommitment).toBe(false);
-    expect(result.drifts[0]).toMatchObject({ path: "price", delta: -180, reason: "over_tolerance" });
+    expect(result.drifts[0]).toMatchObject({
+      path: "price",
+      delta: -180,
+      reason: "over_tolerance",
+    });
   });
 
   it("accepts any drop once the caller declares drops harmless", () => {
     const cheapOk = commitment({ tolerance: { price: { increase: 50, decrease: ANY } } });
-    expect(checkDrift(cheapOk, { ...commitment().approved, price: 600 }).withinCommitment).toBe(true);
+    expect(checkDrift(cheapOk, { ...commitment().approved, price: 600 }).withinCommitment).toBe(
+      true,
+    );
     // The rise half of the same entry still binds.
-    expect(checkDrift(cheapOk, { ...commitment().approved, price: 900 }).withinCommitment).toBe(false);
+    expect(checkDrift(cheapOk, { ...commitment().approved, price: 900 }).withinCommitment).toBe(
+      false,
+    );
   });
 
   it("a shrinking count is drift even though the number got smaller", () => {
@@ -90,9 +105,9 @@ describe("checkDrift", () => {
       approved: { outbound: { flight: "MU5137", price: 1280 } },
       tolerance: { "outbound.price": 100 },
     });
-    expect(checkDrift(nested, { outbound: { flight: "MU5137", price: 1350 } }).withinCommitment).toBe(
-      true,
-    );
+    expect(
+      checkDrift(nested, { outbound: { flight: "MU5137", price: 1350 } }).withinCommitment,
+    ).toBe(true);
     const breach = checkDrift(nested, { outbound: { flight: "MU5137", price: 1500 } });
     expect(breach.drifts[0]).toMatchObject({ path: "outbound.price", reason: "over_tolerance" });
   });

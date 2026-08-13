@@ -160,13 +160,10 @@ const UNSURE_REASON =
  * a duplicate — and collapsing them hides a real choice. This rule is not delegated because no
  * adjudicator can see it: from the outside the two listings look identical.
  */
-export async function alignOffers(
-  offers: Offer[],
-  identity: Identity,
-): Promise<AlignmentResult> {
+export async function alignOffers(offers: Offer[], identity: Identity): Promise<AlignmentResult> {
   const groups: Offer[][] = [];
   const ambiguous: AmbiguousPair[] = [];
-  const askAbove = identity.kind === "adjudicated" ? identity.askAbove ?? DEFAULT_ASK_ABOVE : 0;
+  const askAbove = identity.kind === "adjudicated" ? (identity.askAbove ?? DEFAULT_ASK_ABOVE) : 0;
 
   for (const offer of offers) {
     let target: Offer[] | undefined;

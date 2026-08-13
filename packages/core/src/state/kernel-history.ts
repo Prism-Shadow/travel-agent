@@ -234,8 +234,7 @@ export const KERNEL_HASH_HISTORY: Readonly<Record<string, Readonly<Record<string
     "skills.prompt": "42934d17f5dd9c02dfa7c1d37f255dea92bd36905c96a54775c65ef7db713bd9",
     "memory.enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
     "memory.prompt": "9380e2382e5dd3d37a6470b0bc0d27c9ed113fa9a54ff78122784c57a16b992c",
-    "memory.workspace_prompt":
-      "76c5a8e18a568f471593ef1da6d75d2596f27619cb877703b2dd28bb0554e0d5",
+    "memory.workspace_prompt": "76c5a8e18a568f471593ef1da6d75d2596f27619cb877703b2dd28bb0554e0d5",
     "schedules.enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
     "schedules.prompt": "3c690ff9bb3e4d423b2d5dfce74f5890d52bf8ae159cfe135a671ac3d46da75a",
     "tools.builtin.read_file": "858f128945421043f5f373c908a0ee081e93e9413debaa49c8c7af1c1c76db3c",

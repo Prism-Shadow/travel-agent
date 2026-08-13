@@ -100,7 +100,8 @@ function isDominated(a: Candidate, b: Candidate, objectives: Objective[]): boole
  */
 export function paretoFrontier(candidates: Candidate[], objectives: Objective[]): Candidate[] {
   return candidates.filter(
-    (candidate) => !candidates.some((other) => other !== candidate && isDominated(candidate, other, objectives)),
+    (candidate) =>
+      !candidates.some((other) => other !== candidate && isDominated(candidate, other, objectives)),
   );
 }
 
@@ -197,9 +198,7 @@ export function selectRepresentatives(
         const delta = mine - theirs;
         if (Math.abs(delta) < (objective.epsilon ?? 0)) continue;
         const better = objective.direction === "min" ? delta < 0 : delta > 0;
-        (better ? gains : costs).push(
-          `${better ? "省" : "多"}${formatDelta(objective, delta)}`,
-        );
+        (better ? gains : costs).push(`${better ? "省" : "多"}${formatDelta(objective, delta)}`);
       }
       // Needs a real gain to justify a slot; a pure downgrade is never worth a line.
       if (gains.length === 0) continue;

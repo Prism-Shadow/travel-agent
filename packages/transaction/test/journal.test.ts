@@ -318,7 +318,10 @@ describe("Journal durability details", () => {
   });
 
   it("refuses to load a log corrupt anywhere but the last line", async () => {
-    await fs.writeFile(journalPath(), 'not json\n{"seq":2,"kind":"intent","key":"k","action":"a","params":{},"at":"x"}\n');
+    await fs.writeFile(
+      journalPath(),
+      'not json\n{"seq":2,"kind":"intent","key":"k","action":"a","params":{},"at":"x"}\n',
+    );
     await expect(openJournal(journalPath())).rejects.toThrow(/corrupt at line 1/);
   });
 

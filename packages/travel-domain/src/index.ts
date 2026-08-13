@@ -28,8 +28,6 @@ export {
   type SameThingVerdict,
 } from "./alignment.js";
 
-
-
 export {
   submitBooking,
   type BookingResult,

@@ -78,9 +78,7 @@ export function buildEscalationCard(escalation: Escalation): CardPayload {
   if (options.length > 0) {
     elements.push({ tag: "hr" });
     for (const [index, option] of options.entries()) {
-      elements.push(
-        markdown(`**${index + 1}. ${option.label}**\n${option.rationale}`),
-      );
+      elements.push(markdown(`**${index + 1}. ${option.label}**\n${option.rationale}`));
     }
     elements.push({
       tag: "action",
@@ -96,7 +94,9 @@ export function buildEscalationCard(escalation: Escalation): CardPayload {
     // person's reason back into the search rather than ending the task.
     elements.push({
       tag: "action",
-      actions: [button("都不合适，换个条件", { escalationId: escalation.id, intent: "reject_all" })],
+      actions: [
+        button("都不合适，换个条件", { escalationId: escalation.id, intent: "reject_all" }),
+      ],
     });
   } else if (escalation.kind === "authority_gap") {
     elements.push({

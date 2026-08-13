@@ -17,7 +17,12 @@ import {
   type SameThingVerdict,
 } from "../src/index.js";
 
-function offer(platform: string, name: string, price: number, extra?: Record<string, unknown>): Offer {
+function offer(
+  platform: string,
+  name: string,
+  price: number,
+  extra?: Record<string, unknown>,
+): Offer {
   return { platform, id: `${platform}-${name}-${price}`, name, price, extra };
 }
 
@@ -55,7 +60,9 @@ describe("affinity", () => {
 });
 
 describe("alignOffers — exact-key identity", () => {
-  const byFlight = identityByKey((o) => (o.extra?.flight ? `${o.extra.flight}@${o.extra.date}` : undefined));
+  const byFlight = identityByKey((o) =>
+    o.extra?.flight ? `${o.extra.flight}@${o.extra.date}` : undefined,
+  );
   const flight = (platform: string, code: string, price: number, date = "2026-08-20") =>
     offer(platform, code, price, { flight: code, date });
 
@@ -169,7 +176,11 @@ describe("alignOffers — rules the judge cannot see", () => {
 
   it("still merges across platforms when the judge says same", async () => {
     const result = await alignOffers(
-      [offer("a", "Same Hotel", 780), offer("b", "Same Hotel", 700), offer("a", "Same Hotel", 1180)],
+      [
+        offer("a", "Same Hotel", 780),
+        offer("b", "Same Hotel", 700),
+        offer("a", "Same Hotel", 1180),
+      ],
       identityByJudgement(() => "same"),
     );
     // The two `a` listings stay apart; `b` joins the first of them.
@@ -188,7 +199,10 @@ describe("alignOffers — shape", () => {
   });
 
   it("a single-platform offer aligns to itself with no saving", async () => {
-    const result = await alignOffers([offer("a", "Only", 400)], identityByJudgement(() => "same"));
+    const result = await alignOffers(
+      [offer("a", "Only", 400)],
+      identityByJudgement(() => "same"),
+    );
     expect(result.aligned).toHaveLength(1);
     expect(result.aligned[0]!.saving).toBe(0);
   });

@@ -35,11 +35,7 @@ export {
   type Tolerance,
 } from "./commitment.js";
 
-export {
-  CheckpointStore,
-  type Checkpoint,
-  type TaskStage,
-} from "./checkpoint.js";
+export { CheckpointStore, type Checkpoint, type TaskStage } from "./checkpoint.js";
 
 export {
   escalation,
@@ -52,11 +48,7 @@ export {
   type TimeoutPolicy,
 } from "./escalation.js";
 
-export {
-  buildEscalationCard,
-  type CardActionValue,
-  type CardPayload,
-} from "./channel/card.js";
+export { buildEscalationCard, type CardActionValue, type CardPayload } from "./channel/card.js";
 
 export {
   FeishuCardChannel,

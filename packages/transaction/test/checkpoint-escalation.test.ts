@@ -91,7 +91,12 @@ describe("escalation", () => {
       summary: "北京 → 上海 8月20日",
       options: [
         { id: "a", label: "东航 MU5137 14:20 ¥1280", rationale: "唯一直飞", plan: { price: 1280 } },
-        { id: "b", label: "春秋 9C8916 13:05 ¥880", rationale: "最便宜，省 400", plan: { price: 880 } },
+        {
+          id: "b",
+          label: "春秋 9C8916 13:05 ¥880",
+          rationale: "最便宜，省 400",
+          plan: { price: 880 },
+        },
       ],
     });
     expect(esc.context.options).toHaveLength(2);
@@ -111,8 +116,9 @@ describe("escalation", () => {
 
   it("ids are unique within a process", () => {
     const ids = new Set(
-      Array.from({ length: 50 }, () =>
-        escalation({ kind: "authority_gap", ask: "确认", summary: "s" }).id,
+      Array.from(
+        { length: 50 },
+        () => escalation({ kind: "authority_gap", ask: "确认", summary: "s" }).id,
       ),
     );
     expect(ids.size).toBe(50);

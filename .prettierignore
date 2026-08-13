@@ -10,3 +10,8 @@ specs/
 # Playwright e2e artifacts
 test-results/
 playwright-report/
+
+# Vendored penguin-browser: keeps its own formatting. Checking it against this
+# repo's Prettier would rewrite ~200 files on every CI run.
+packages/browser-cli/
+packages/browser-extension/

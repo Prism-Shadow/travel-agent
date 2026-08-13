@@ -30,10 +30,7 @@ import {
 
 /** Why a booking did not go through. Every one of these is a normal outcome, not an error. */
 export type RefusalReason =
-  | "ceiling_too_low"
-  | "plan_drifted"
-  | "escalation_declined"
-  | "escalation_lapsed";
+  "ceiling_too_low" | "plan_drifted" | "escalation_declined" | "escalation_lapsed";
 
 export type BookingResult<T> =
   | { status: "submitted"; outcome: T; replayed: boolean }
@@ -72,7 +69,9 @@ export interface SubmitBookingOptions<T> {
  * outcome the task has to report, and throwing would push it into a catch block alongside genuine
  * faults, where the distinction gets lost.
  */
-export async function submitBooking<T>(options: SubmitBookingOptions<T>): Promise<BookingResult<T>> {
+export async function submitBooking<T>(
+  options: SubmitBookingOptions<T>,
+): Promise<BookingResult<T>> {
   const { journal, commitment, actualPlan, requiredCeiling, action, submit } = options;
 
   if (!permits(commitment, requiredCeiling)) {

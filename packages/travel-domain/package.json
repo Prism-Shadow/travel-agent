@@ -4,16 +4,25 @@
   "private": true,
   "type": "module",
   "description": "Travel domain logic: intents, and turning a search result set into the three or four options a person can actually decide between.",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": { "@travel-agent/transaction": "workspace:^" },
+  "dependencies": {
+    "@travel-agent/transaction": "workspace:^"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.6.0",

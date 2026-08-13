@@ -26,7 +26,13 @@ function flight(
   durationMin: number,
   facets: Record<string, string | boolean> = {},
 ): Candidate {
-  return { id, label: `${id} ¥${price}`, attrs: { price, durationMin }, facets, plan: { id, price } };
+  return {
+    id,
+    label: `${id} ¥${price}`,
+    attrs: { price, durationMin },
+    facets,
+    plan: { id, price },
+  };
 }
 
 describe("paretoFrontier", () => {
@@ -43,7 +49,9 @@ describe("paretoFrontier", () => {
   });
 
   it("keeps ties — neither strictly beats the other", () => {
-    expect(paretoFrontier([flight("a", 800, 120), flight("b", 800, 120)], OBJECTIVES)).toHaveLength(2);
+    expect(paretoFrontier([flight("a", 800, 120), flight("b", 800, 120)], OBJECTIVES)).toHaveLength(
+      2,
+    );
   });
 });
 
@@ -142,7 +150,9 @@ describe("selectRepresentatives", () => {
 
   it("never exceeds the card's capacity", () => {
     const many = Array.from({ length: 40 }, (_, i) => flight(`f${i}`, 700 + i * 13, 200 - i * 3));
-    expect(selectRepresentatives(many, { objectives: OBJECTIVES, max: 4 }).length).toBeLessThanOrEqual(4);
+    expect(
+      selectRepresentatives(many, { objectives: OBJECTIVES, max: 4 }).length,
+    ).toBeLessThanOrEqual(4);
   });
 
   it("every representative carries a non-empty rationale, always", () => {

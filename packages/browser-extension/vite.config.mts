@@ -29,8 +29,10 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: resolve(__dirname, 'icons/*'),
-          dest: 'icons',
+          // Copy the directory, not `icons/*`: path.resolve() + a glob dies on Windows
+          // (`D:\...\icons\*` is not a match for vite-plugin-static-copy).
+          src: 'icons',
+          dest: '.',
         },
 
         {
