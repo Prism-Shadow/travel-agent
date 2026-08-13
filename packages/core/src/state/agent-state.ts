@@ -6,7 +6,7 @@
  *   the default `system_config.yaml` and `AGENTS.md`.
  * - Otherwise loads the existing system config and editable Prompt for the given `agentId`.
  *   On that path, default_agent also receives any preinstalled library skills it does not
- *   already have on disk.
+ *   already have on disk, and refreshes a copy whose version is behind the library.
  *
  * The full runtime Prompt is rendered from the system-level Prompt template in
  * `system_config.yaml`; placeholders in the template are replaced with `AGENTS.md` and the
@@ -172,8 +172,9 @@ export async function loadOrInitAgentState(opts?: {
     systemConfig = parsed as SystemConfig;
     agentsMd = (await fileExists(mdPath)) ? await fs.readFile(mdPath, "utf8") : defaultAgentsMd();
     // default_agent created before a library skill existed never received it (install ran
-    // only on init). Fill in missing preinstalled skills; do not touch ones already on disk.
-    await syncMissingPreinstalledSkills(root, projectId, agentId);
+    // only on init). Fill in missing preinstalled skills, and replace a copy whose
+    // frontmatter version is behind the library.
+    await syncPreinstalledSkills(root, projectId, agentId);
   } else {
     // Init path: create the directory structure and write default config (preset only takes effect here).
     await Promise.all([
@@ -463,21 +464,28 @@ function assertSafeSkillFile(rel: string): void {
  * Docs: /docs/skills § "Installation and storage".
  */
 /**
- * Installs library skills that default_agent is supposed to carry but this on-disk agent
- * is missing. Existing skill directories are left alone (the user may have edited them).
- * Skills marked `preinstall: false` stay out. Other agents are not touched.
+ * Keeps default_agent's preinstalled set current: installs a library skill that is
+ * missing, or whose installed frontmatter version is behind the library. Same-or-newer
+ * copies are left alone (the user may have edited them). Skills marked
+ * `preinstall: false` stay out. Other agents are not touched.
  */
-async function syncMissingPreinstalledSkills(
+async function syncPreinstalledSkills(
   root: string,
   projectId: string,
   agentId: string,
 ): Promise<void> {
   if (agentId !== DEFAULT_AGENT_ID) return;
-  const installed = new Set(
-    (await listInstalledSkills(root, projectId, agentId)).map((skill) => skill.name),
+  const installed = new Map(
+    (await listInstalledSkills(root, projectId, agentId)).map((skill) => [
+      skill.name,
+      skill.version,
+    ]),
   );
-  const missing = loadPreinstalledSkills().filter((skill) => !installed.has(skill.name));
-  await Promise.all(missing.map((skill) => installSkill(root, projectId, agentId, skill)));
+  const stale = loadPreinstalledSkills().filter((skill) => {
+    const have = installed.get(skill.name);
+    return have === undefined || have < skill.version;
+  });
+  await Promise.all(stale.map((skill) => installSkill(root, projectId, agentId, skill)));
 }
 
 export async function installSkill(

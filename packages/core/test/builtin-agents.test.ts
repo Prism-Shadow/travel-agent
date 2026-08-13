@@ -90,15 +90,30 @@ describe("Skill installation policy", () => {
     expect(after).toEqual(loadPreinstalledSkills().map((s) => s.name));
   });
 
-  it("does not overwrite a skill directory the user already has", async () => {
+  it("does not overwrite a skill whose installed version is current", async () => {
     await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
-    const custom = "---\nname: penguin-browser\nversion: 1\n---\n\nedited by the user\n";
+    const current = librarySkill("penguin-browser")!.version;
+    const custom = `---\nname: penguin-browser\nversion: ${current}\n---\n\nedited by the user\n`;
     await fs.writeFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"), custom, "utf8");
 
     await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
     expect(await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"), "utf8")).toBe(
       custom,
     );
+  });
+
+  it("replaces a preinstalled skill whose installed version is behind the library", async () => {
+    await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
+    await fs.writeFile(
+      skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"),
+      "---\nname: penguin-browser\nversion: 1\n---\n\nstale checkout path\n",
+      "utf8",
+    );
+
+    await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
+    const onDisk = await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"), "utf8");
+    expect(onDisk).toBe(librarySkill("penguin-browser")!.content);
+    expect(onDisk).not.toContain("stale checkout path");
   });
 
   it("does not install preinstalled skills onto a non-default agent", async () => {

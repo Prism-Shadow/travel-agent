@@ -3,8 +3,8 @@ name: penguin-browser
 description: Control explicitly authorized tabs in the user's local Chrome through the Penguin Browser CLI, a local CDP relay, and persistent Playwright sessions. Use for interactive or authenticated browser tasks that require the rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
 short_description: Automate authorized Chrome tabs through the local CLI.
 short_description_zh: 通过本地 CLI 自动化已授权的 Chrome 标签页。
-version: 3
-updated: 2026-08-12T00:00:00Z
+version: 4
+updated: 2026-08-13T00:00:00Z
 ---
 
 # Penguin Browser
@@ -15,39 +15,40 @@ Use Penguin Browser only through normal command execution. PenguinHarness does n
 
 ## Before you start
 
+Penguin Browser lives **in this travel-agent checkout**, not in a separate `penguin-browser` repository. Do not look for `PENGUIN_BROWSER_REPO`, do not `npm install` a public penguin-browser package, and do not fall back to the official Playwright CLI.
+
 ### 1. Resolve the local CLI
 
-This is currently a source-only development project. Prefer an already verified `penguin-browser` executable on `PATH`. Otherwise set a shell variable to the local TypeScript entry point:
+Prefer `penguin-browser` on `PATH` (`pnpm build` at the repo root links it). If it is missing, use the built CLI in this repo:
 
 ```bash
-# Replace with the user's actual private checkout.
-export PENGUIN_BROWSER_REPO=/absolute/path/to/penguin-browser
-export PENGUIN_BROWSER_CLI="pnpm exec tsx $PENGUIN_BROWSER_REPO/penguin-browser/src/cli.ts"
+command -v penguin-browser
+# fallback, from the travel-agent repo root:
+node packages/browser-cli/dist/cli.js session list
 ```
 
-The source invocation is the supported local-development path when the checkout exists and its dependencies have been installed. Do not install an npm package or claim a public package exists. If neither an executable nor a source checkout is available, stop and ask the user for the local checkout path.
+If neither the command nor `packages/browser-cli/dist/cli.js` exists, stop and tell the user to run `pnpm build` in the travel-agent checkout (or put `penguin-browser` on `PATH`). Do not invent another checkout path.
+
+In every example below, `penguin-browser` means that resolved command.
 
 ### 2. Check prerequisites and status
 
-Run read-only checks before creating a session:
-
 ```bash
-command -v node
-command -v pnpm
-command -v tsx || pnpm exec tsx --version
-[ -d "${PENGUIN_BROWSER_REPO:-/nonexistent}/extension/dist" ] && echo "extension build present" || echo "extension build missing"
+command -v penguin-browser || test -f packages/browser-cli/dist/cli.js
+test -f packages/browser-extension/dist/manifest.json && echo "extension build present" || echo "extension build missing"
 lsof -nP -iTCP:19989 -sTCP:LISTEN 2>/dev/null || true
+penguin-browser session list
 ```
 
-Then ask the CLI for active sessions. Use one of these forms, according to the resolved installation:
+If nothing is listening on `19989`, start the relay and leave it running:
 
 ```bash
-penguin-browser session list
-# or, from the source checkout:
-pnpm exec tsx "$PENGUIN_BROWSER_REPO/penguin-browser/src/cli.ts" session list
+penguin-browser serve
 ```
 
-A listener on `19989` is not sufficient proof of readiness: that port must belong to the Penguin Browser relay, the extension must be connected, and at least one tab must be authorized. If the port belongs to an unrelated process, report the conflict; do not kill it without permission.
+A listener on `19989` is not enough: that port must belong to this relay, the Chrome extension must be connected, and at least one tab must be authorized. The unpacked extension is `packages/browser-extension/dist` (not `extension/dist`). If the port belongs to an unrelated process, report the conflict; do not kill it without permission.
+
+For logged-in sites (booking, mail, anything with a session cookie) use **extension mode only**. Do not pass `--browser headless` or `--direct` as a shortcut around the extension.
 
 ### 3. Require explicit tab authorization
 
@@ -69,12 +70,6 @@ Create one CLI session per task and preserve its ID for every call:
 penguin-browser session new
 # Keep the returned ID, for example: 1
 export PENGUIN_BROWSER_SESSION=1
-```
-
-For source execution, replace `penguin-browser` in every example with:
-
-```text
-pnpm exec tsx "$PENGUIN_BROWSER_REPO/penguin-browser/src/cli.ts"
 ```
 
 Always pass `-s "$PENGUIN_BROWSER_SESSION"`. The `state` object persists between calls in that session; tabs in `context.pages()` are shared browser resources. Store the selected page in `state.page` and use it consistently:
