@@ -1475,7 +1475,7 @@ cli
   )
   .option(
     '--host [host]',
-    z.string().default('0.0.0.0').describe('Host to bind to (use "localhost" for Docker, "0.0.0.0" for remote access)'),
+    z.string().default('127.0.0.1').describe('Host to bind to (default: 127.0.0.1 for local-only access; use "localhost" for Docker; use "0.0.0.0" for LAN/internet access, requires --token)'),
   )
   .option(
     '--token <token>',

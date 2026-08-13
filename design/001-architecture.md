@@ -2,10 +2,10 @@
 
 | | |
 | --- | --- |
-| 状态 | M0–M2 已实现并验证；M3 起未开始 |
+| 状态 | 硬分叉（不再 merge penguin-harness）；M0–M2 库已验证；M3 闭环未完成 |
 | 日期 | 2026-08-12 |
 | 基线 | penguin-harness `d14be6f` (0.2.2) · penguin-browser `ba9e13b` |
-| 最近更新 | 2026-08-12 |
+| 最近更新 | 2026-08-13 |
 
 ---
 
@@ -147,55 +147,25 @@ graph TB
 
 Escalation 的 payload 里带截图路径，但事务层只管传输，不管这个路径是谁生成的。保持这条约束，三层才能各自独立演进——即使它们现在住在同一个仓库里，边界也不该塌掉。
 
-### 仓库策略：只维护 travel-agent 一个
+### 仓库策略：硬分叉（2026-08-13 更正）
+
+初版把 penguin-harness 留作只读 upstream、定期 merge，把 landing/docs 留在树上以免 delete/modify 冲突。那是一份**从未行使的期权**：remote 没有配过 `upstream`，日常 100% 在本仓改，保费却写进每个决定（不能改 README 身份、改一行提示词要走 kernel 哈希、新预装 skill 进不了旧 agent）。
+
+**2026-08-13 起不再 merge penguin-harness。** 引擎冻结在基线 `d14be6f`（0.2.2）加上本仓的补丁。需要上游某一刀时再 cherry-pick，不为「永远可 merge」约束仓库形状。
 
 | 项目 | 处置 |
 | --- | --- |
-| **travel-agent** | 唯一维护的仓库，日常开发全在这里 |
-| **penguin-harness** | 保留为**只读 upstream remote**，定期 merge，从不 push |
-| **penguin-browser** | **并入 travel-agent**，原仓库不再维护 |
+| **travel-agent** | 唯一维护的仓库 |
+| **penguin-harness** | 硬分叉来源，不当下游。不配 upstream remote，不定期 merge |
+| **penguin-browser** | 已并入，原仓库不再维护 |
 
-两者待遇不同，是因为它们在"有没有真实上游"这个问题上处于光谱两端：
+分层纪律还在，理由从「merge 便宜」改回「语义边界」：
 
-| | penguin-harness | penguin-browser |
-| --- | --- | --- |
-| 可见性 | 公开 | 私有 |
-| 消费者 | npm 发包、官网、社群 | 无 |
-| 提交速度 | **216 提交 / 24 天 ≈ 9 提交/天** | 1 个 "Initial import" |
-| 自陈状态 | 0.2.2 正式版 | "no supported public distribution" |
+1. **新能力走新 package**——旅行语义、浏览器层、事务层各过各的，不把旅行写进 `packages/core`。
+2. **事务层继续是 `packages/transaction`**——不进 core。将来若要回赠上游，搬一个目录。
+3. **landing / docs 不再为 merge 留着。** workspace 仍排除它们，因为我们不发布官网；目录暂时还在，是因为 `scripts/test-installer.sh` 和 desktop 图标脚本还引用 `packages/landing` 里的文件。拆掉那两处引用后再删目录。
 
-penguin-harness 的 MCP Server 支持和跨 Session Memory 都是 2026-08-11 前后才落地的。按这个速度切断上游，等于把引擎冻结在一个高速演进项目的快照上，几个月后就追不回来了。
-
-penguin-browser 相反：所谓"回流"就是把代码从一个自己的私有仓库搬到另一个自己的私有仓库，没有任何人受益。
-
-**关键区分：保留只读 remote ≠ 维护两个仓库。** 从不 push、不开 PR、不管 issue、不看它的 CI，只在想要新能力时 `git fetch && git merge`。日常 100% 在一个仓库里。
-
-```bash
-git remote add upstream https://github.com/Prism-Shadow/penguin-harness.git
-git remote set-url --push upstream no_push    # 防手滑
-```
-
-### 让上游合并保持廉价
-
-合并会不会打架，取决于我们改了多少 penguin-harness **自己的**文件。所以有三条纪律：
-
-1. **新增的一律是新 package**——旅行领域代码、vendored 浏览器层，全走全新路径，零冲突。
-2. **事务层写成 `packages/transaction`，不改 `packages/core` 里的文件**，只在目标模式循环里留最小挂载点。
-3. **不需要的包用 workspace 排除，不要删目录。**
-
-第 3 条针对 `packages/landing`（官网）和 `packages/docs`（文档站）：它们是上游改动最频繁的两个路径（docs 占 37% 的提交，landing 占 20%），删掉会让**每次** merge 都撞 delete/modify 冲突。排除后不装依赖、不构建、不进产物，产品上等同于不存在，而上游对它们的改动始终干净合并。
-
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - "packages/*"
-  - "!packages/landing"
-  - "!packages/docs"
-```
-
-同时移除 root `package.json` 的 `dev:docs` / `dev:landing` / `build:site` 三个脚本。
-
-> 待办：`.github/workflows/pages.yml` 是官网部署流水线，对 travel-agent 无用。当前仓库还没有 origin，Actions 不会运行，暂不处理；配置远端时一并禁用。
+`.github/workflows/pages.yml` 已改为仅 `workflow_dispatch`，不随 push 部署 penguin.ooo。
 
 ### penguin-browser 的并入方式
 
@@ -686,7 +656,7 @@ M2  事务层 + 异步通道 ─┘         ↓
 | ~~构建重~~ | ~~vendoring 整个 Playwright（71M）+ bun + `pnpm bootstrap`~~ | **M0 已消除**：Playwright 切 npm 同版本包（bootstrap 取消），`Bun.build()` 移植到 esbuild（bun 依赖取消） |
 | **账号风控** | 使用用户真实账号，异常操作模式可能触发携程风控 | 扩展模式复用真实 profile；不做高频操作；离场段只读。**M0 实测**：headless + 全新 profile + 机房 IP 访问携程首页与酒店频道首页，未触发任何反爬拦截——挡路的是登录墙不是风控 |
 | **页面漂移** | 携程改版、大促弹窗、价格跳动 | 快照驱动（每次动作前取 ARIA 快照），不写死选择器 |
-| **上游合并成本** | penguin-harness 以 9 提交/天演进，改动越深合并越痛 | §3 三条纪律：只加新 package、事务层不改 core 文件、不需要的包用排除而非删除 |
+| **引擎冻结** | 硬分叉后不再吃到 penguin-harness 的修复与新能力 | 需要某一刀时再 cherry-pick；不为此约束日常改动 |
 
 ### 未决问题
 

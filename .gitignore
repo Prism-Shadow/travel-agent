@@ -6,6 +6,9 @@ node_modules/
 # build output
 dist/
 *.tsbuildinfo
+# browser-extension E2E/build writes port-scoped dirs (dist-19989, dist-packaged)
+# that the `dist/` rule above does not match. Recreated on test/build; do not commit.
+packages/browser-extension/dist-*/
 # web assets copied into the server package at npm publish time
 packages/server/web-dist/
 

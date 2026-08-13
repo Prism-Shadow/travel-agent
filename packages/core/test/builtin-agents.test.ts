@@ -71,6 +71,41 @@ describe("Skill installation policy", () => {
       expect(names, name).not.toContain(name);
     }
   });
+
+  it("reloading an older default_agent installs preinstalled skills it never received", async () => {
+    await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
+    await fs.rm(path.dirname(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser")), {
+      recursive: true,
+      force: true,
+    });
+    expect(
+      (await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID)).map((s) => s.name),
+    ).not.toContain("penguin-browser");
+
+    await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
+    const after = (await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID)).map(
+      (s) => s.name,
+    );
+    expect(after).toContain("penguin-browser");
+    expect(after).toEqual(loadPreinstalledSkills().map((s) => s.name));
+  });
+
+  it("does not overwrite a skill directory the user already has", async () => {
+    await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
+    const custom = "---\nname: penguin-browser\nversion: 1\n---\n\nedited by the user\n";
+    await fs.writeFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"), custom, "utf8");
+
+    await loadOrInitAgentState({ agentId: DEFAULT_AGENT_ID });
+    expect(await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"), "utf8")).toBe(
+      custom,
+    );
+  });
+
+  it("does not install preinstalled skills onto a non-default agent", async () => {
+    await loadOrInitAgentState({ agentId: "some_agent" });
+    await loadOrInitAgentState({ agentId: "some_agent" });
+    expect(await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, "some_agent")).toEqual([]);
+  });
 });
 
 describe("provisionProjectAgents", () => {

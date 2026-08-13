@@ -1,9 +1,9 @@
 packages:
   - "packages/*"
-  # travel-agent 不需要 PenguinHarness 的官网(landing)与文档站(docs)。这里用排除而不是
-  # 删目录：这两个路径是上游改动最频繁的(docs 37%、landing 20% 的提交),删掉会让每次
-  # `git merge upstream/main` 都撞 delete/modify 冲突。排除后它们不装依赖、不构建、不进
-  # 产物,而上游对它们的改动始终干净合并。见 design/001-architecture.md §3。
+  # travel-agent does not ship PenguinHarness's marketing site or docs site.
+  # They stay on disk only because installer tests and the desktop icon script
+  # still point at files under packages/landing. Excluded so they are not
+  # installed or built. See design/001-architecture.md §3.
   - "!packages/landing"
   - "!packages/docs"
 # Dependency pins. pnpm 11 reads overrides ONLY from here — the package.json

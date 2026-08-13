@@ -3,8 +3,9 @@
  * (the library files are read live when building the preset).
  *
  * - Every Project comes with a single builtin Agent: `default_agent` (the General Agent, the
- *   default conversational Agent), which has the library's preinstalled Skill set installed at
- *   initialization (Skills marked `preinstall: false` are excluded and stay manual-install).
+ *   default conversational Agent), which has the library's preinstalled Skill set. Missing
+ *   members of that set are installed on load, not only at initialization (Skills marked
+ *   `preinstall: false` stay manual-install).
  *   Dedicated capabilities (creating an Agent, optimizing an Agent, etc.)
  *   are carried by Skills rather than dedicated builtin Agents.
  * - The preset carries no AGENTS.md: the default AGENTS.md is empty, with delegation and task

@@ -1,7 +1,8 @@
-# Contributing to PenguinHarness
+# Contributing to travel-agent
 
-Thanks for helping build PenguinHarness! This guide covers the workspace setup, daily
-commands, quality gates, and the repo's working rules.
+This guide covers the workspace setup, daily commands, quality gates, and the
+repo's working rules. The execution engine is a hard fork of PenguinHarness
+0.2.2 — we do not merge that upstream. See [design/001-architecture.md](design/001-architecture.md) §3.
 
 ## Prerequisites
 
@@ -20,8 +21,6 @@ pnpm dev:web     # web app (Vite) at 127.0.0.1:7365, /api proxied to 7368
 pnpm dev:docs    # docs site (Vite) at 127.0.0.1:7367
 pnpm dev:landing # landing page (Vite) at 127.0.0.1:7366
 pnpm penguin ... # CLI from source; `penguin web` serves at 127.0.0.1:7369
-
-BASE_PATH=/ pnpm build:site   # assemble landing + docs exactly like the Pages deploy
 ```
 
 Every dev command runs `scripts/dev-prebuild.mjs` first, which (behind a lock that
@@ -32,8 +31,7 @@ core) with back-to-back builds deduped: starting `dev:server` and `dev:web` at t
 time (or just `pnpm dev`) installs and builds exactly once. When that build changes
 skills/core output, the prestep also clears the web app's Vite dep cache
 (`packages/web/node_modules/.vite`), which is keyed by lockfile/config only and would
-otherwise keep serving the browser the previous core. `dev:docs` / `dev:landing`
-run the install check only (`--install-only`).
+otherwise keep serving the browser the previous core.
 
 One rule when bypassing the dev commands: **rebuild skills/core through pnpm, in that
 order** (`pnpm build`, or restart `pnpm dev`) — the workspace uses injected dependencies
@@ -62,15 +60,17 @@ single data directory (`~/.penguin/data`) and a single message protocol (OmniMes
 | [`packages/cli`](packages/cli)       | `@prismshadow/penguin-cli`    | The `penguin` command: REPL, one-shot runs, model & vault config, service launcher                      |
 | [`packages/server`](packages/server) | `@prismshadow/penguin-server` | Web backend: HTTP API + SSE streaming, multi-user auth, Project authorization, usage stats              |
 | [`packages/web`](packages/web)       | `@prismshadow/penguin-web`    | Web App: multi-session chat, Agent/skill/model management, Trace observability, evaluation center       |
-| [`packages/skills`](packages/skills) | `@prismshadow/penguin-skills` | Built-in skill library (agent creation, benchmarking, evaluation, optimization, …)                      |
-| [`packages/landing`](packages/landing) | —                           | Product landing page (this repo's website)                                                              |
-| [`packages/docs`](packages/docs)     | —                             | Documentation site (bilingual, deployed under `/docs/`)                                                 |
+| [`packages/skills`](packages/skills) | `@prismshadow/penguin-skills` | Built-in skill library (includes `penguin-browser`)                                                     |
+| [`packages/browser-cli`](packages/browser-cli) | `penguin-browser`     | Browser CLI, CDP relay, Playwright executor                                                             |
+| [`packages/browser-extension`](packages/browser-extension) | `penguin-browser-extension` | Chrome extension that attaches the relay to the user's Chrome                          |
+| [`packages/transaction`](packages/transaction) | `@travel-agent/transaction` | WAL journal, commitments, checkpoints, escalation                                         |
+| [`packages/travel-domain`](packages/travel-domain) | `@travel-agent/domain` | Representatives, offer alignment, guarded booking                                           |
 
 Responsibilities split by source of truth: the **SDK** owns protocol and execution
 (message parsing, the agent loop, tools), the **Server** owns the multi-user runtime
 (auth, SSE streaming, scheduled tasks), and the **file layer** under `~/.penguin/data`
 owns everything editable and recorded (prompts, Skills, secrets, Traces). The full map
-is in [Architecture → Division of responsibilities](https://penguin.ooo/docs/architecture).
+is in [design/001-architecture.md](design/001-architecture.md).
 
 ## Quality gates
 
@@ -115,10 +115,9 @@ pnpm test:e2e                                        # core live-model e2e, need
   version. The release workflow refuses a tag push whose version does not match the
   repo's, so a forgotten bump fails before anything is published (v0.2.1 was tagged with a
   0.2.0 repo, and every dev build nagged about an update until the repo caught up).
-- README assets under `assets/readme/` are generated — the benchmark charts from the
-  landing benchmark data, and the demo screenshots via
-  `node packages/landing/scripts/capture-readme-demo.mjs` (build first; needs Playwright
-  chromium). Regenerate rather than hand-editing.
+- travel-agent does not maintain the PenguinHarness landing or docs sites. Those
+  packages remain in the tree only while installer tests and the desktop icon
+  script still reference them; they are excluded from the workspace.
 
 ## Pull requests
 
@@ -126,4 +125,4 @@ pnpm test:e2e                                        # core live-model e2e, need
 - Make sure CI is green (build, format, typecheck, tests) and describe user-visible
   changes in the PR body.
 - New user-facing behavior should come with tests, and with docs updates when it changes
-  documented behavior (README, docs site).
+  documented behavior (README, `design/`).

@@ -5,6 +5,8 @@
  *   `agent_state/`, `tools/`, `memory/`, `skills/`, and the sibling `scratchpad/`, and writes
  *   the default `system_config.yaml` and `AGENTS.md`.
  * - Otherwise loads the existing system config and editable Prompt for the given `agentId`.
+ *   On that path, default_agent also receives any preinstalled library skills it does not
+ *   already have on disk.
  *
  * The full runtime Prompt is rendered from the system-level Prompt template in
  * `system_config.yaml`; placeholders in the template are replaced with `AGENTS.md` and the
@@ -169,6 +171,9 @@ export async function loadOrInitAgentState(opts?: {
     }
     systemConfig = parsed as SystemConfig;
     agentsMd = (await fileExists(mdPath)) ? await fs.readFile(mdPath, "utf8") : defaultAgentsMd();
+    // default_agent created before a library skill existed never received it (install ran
+    // only on init). Fill in missing preinstalled skills; do not touch ones already on disk.
+    await syncMissingPreinstalledSkills(root, projectId, agentId);
   } else {
     // Init path: create the directory structure and write default config (preset only takes effect here).
     await Promise.all([
@@ -221,8 +226,9 @@ export async function loadOrInitAgentState(opts?: {
  * Initializes a Project's built-in Agent (the only built-in Agent: default_agent).
  *
  * Calls loadOrInitAgentState for each one: an Agent whose directory already exists (including a
- * default_agent created earlier by the CLI) is only loaded, never overwritten (preset only
- * takes effect on initialization). Returns the list of built-in Agent ids.
+ * default_agent created earlier by the CLI) is not overwritten (preset only takes effect on
+ * initialization). Missing preinstalled skills on default_agent are filled in on load.
+ * Returns the list of built-in Agent ids.
  */
 export async function provisionProjectAgents(opts?: {
   root?: string;
@@ -456,6 +462,24 @@ function assertSafeSkillFile(rel: string): void {
  * skill directory before anything is written.
  * Docs: /docs/skills § "Installation and storage".
  */
+/**
+ * Installs library skills that default_agent is supposed to carry but this on-disk agent
+ * is missing. Existing skill directories are left alone (the user may have edited them).
+ * Skills marked `preinstall: false` stay out. Other agents are not touched.
+ */
+async function syncMissingPreinstalledSkills(
+  root: string,
+  projectId: string,
+  agentId: string,
+): Promise<void> {
+  if (agentId !== DEFAULT_AGENT_ID) return;
+  const installed = new Set(
+    (await listInstalledSkills(root, projectId, agentId)).map((skill) => skill.name),
+  );
+  const missing = loadPreinstalledSkills().filter((skill) => !installed.has(skill.name));
+  await Promise.all(missing.map((skill) => installSkill(root, projectId, agentId, skill)));
+}
+
 export async function installSkill(
   root: string,
   projectId: string,
