@@ -71,19 +71,32 @@ describe('buildStableExtensionKey', () => {
 
     expect(profiles).toMatchInlineSnapshot(`
       [
-        "install:Chrome:profile-a-install",
-        "install:Chrome:profile-b-install",
+        "install:profile-a-install",
+        "install:profile-b-install",
       ]
     `)
   })
 
-  test('falls back to account identity for older extensions without install ids', () => {
-    const key = relayState.buildStableExtensionKey(
-      { browser: 'Chrome', email: 'tommy@example.com', id: 'google-account-id' },
-      'connection-fallback',
-    )
+  test('keeps older extensions connection-scoped instead of trusting account labels', () => {
+    const info = { browser: 'Chrome', email: 'tommy@example.com', id: 'google-account-id' }
 
-    expect(key).toMatchInlineSnapshot(`"profile:google-account-id"`)
+    expect(relayState.hasPersistentExtensionIdentity(info)).toBe(false)
+    expect(relayState.buildStableExtensionKey(info, 'legacy-a')).toBe('connection:legacy-a')
+    expect(relayState.buildStableExtensionKey(info, 'legacy-b')).toBe('connection:legacy-b')
+  })
+
+  test('recognizes install ids as the only persistent session identity', () => {
+    const info = { browser: 'Chrome', installId: 'install-a' }
+
+    expect(relayState.hasPersistentExtensionIdentity(info)).toBe(true)
+    expect(relayState.buildStableExtensionKey(info, 'ignored')).toBe('install:install-a')
+  })
+
+  test('does not let changing browser display metadata change an installation key', () => {
+    const chromeKey = relayState.buildStableExtensionKey({ browser: 'Chrome', installId: 'install-a' }, 'ignored')
+    const chromiumKey = relayState.buildStableExtensionKey({ browser: 'Chromium', installId: 'install-a' }, 'ignored')
+
+    expect(chromiumKey).toBe(chromeKey)
   })
 })
 
@@ -171,6 +184,19 @@ describe('removeExtension', () => {
     const after = relayState.removeExtension(before, { extensionId: 'ext-999' })
 
     expect(after).toBe(before) // Same reference — no allocation
+  })
+
+  test('can preserve bound Playwright clients long enough to deliver disconnect errors', () => {
+    let state = stateWithExtension('ext-1')
+    state = relayState.addPlaywrightClient(state, { id: 'c1', extensionId: 'ext-1', ws: fakeWs() })
+
+    const after = relayState.removeExtension(state, {
+      extensionId: 'ext-1',
+      preservePlaywrightClients: true,
+    })
+
+    expect(after.extensions.size).toBe(0)
+    expect(after.playwrightClients.get('c1')?.extensionId).toBe('ext-1')
   })
 
   test('also removes playwright clients bound to the extension', () => {

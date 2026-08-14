@@ -40,6 +40,14 @@ lsof -nP -iTCP:19989 -sTCP:LISTEN 2>/dev/null || true
 penguin-browser session list
 ```
 
+`session list` reports `CONNECTED`, `DISCONNECTED`, or `N/A` (direct/headless). A disconnected
+extension session stays visible so its state is not silently discarded, and it recovers automatically
+if the same installation reconnects after a brief worker or network interruption. If that installation
+will not return, delete the session and create a new one after authorizing a tab in the current
+extension. Removing and loading an unpacked extension again creates a new installation identity;
+ordinary `session reset` deliberately does not migrate a session across identities. Browser names,
+account emails, and profile labels are display metadata, never safe session-rebinding identities.
+
 If nothing is listening on `19989`, start the relay and leave it running:
 
 ```bash
@@ -88,7 +96,10 @@ penguin-browser -s "$PENGUIN_BROWSER_SESSION" -e 'state.page = await tabs.open("
 ```
 
 `tabs.open()` claims the tab before handing it back, which is what removes the race: a tab you
-just opened cannot have been adopted in between. The older idiom —
+just opened cannot have been adopted in between. It also reuses an unclaimed `about:blank` tab
+when one is already there — `session new` and a later execute after the last authorized tab
+closes both auto-create one, and opening a URL on top of that leftover would otherwise leave
+an empty tab in the penguin-browser group. The older idiom —
 `context.pages().find((p) => p.url() === "about:blank") ?? (await context.newPage())` — is a race
 whenever a second session runs it, and two agents typing into one page is the *expected* outcome,
 not a rare interleaving.

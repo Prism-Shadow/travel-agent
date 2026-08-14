@@ -83,6 +83,18 @@
 
 未在本环境验证（需要图形界面的真实 Chrome）：扩展 attach、真实登录态下的完整搜索。已由项目维护者在本机确认可用。
 
+## 版本策略
+
+三个版本域彼此独立，不能在产品发版时递归改成同一个值：
+
+| 位置 | 语义 |
+| --- | --- |
+| 仓库根 `package.json` | travel-agent 产品版本 |
+| `packages/browser-cli/package.json` | CLI / relay 版本，也是扩展构建时嵌入并向 relay 报告的兼容版本 |
+| `packages/browser-extension/manifest.json` | Chrome 扩展的单调递增发布序列 |
+
+`packages/browser-extension/package.json` 是私有 workspace 元数据，不构成第四个版本域；它必须与 manifest 保持一致。扩展从 `vite.config.mts` 读取 browser-cli 版本并嵌入 bundle，因此 relay API 中的 `penguinBrowserVersion` 指的是 CLI 兼容版本，不是 Chrome manifest 版本。
+
 ## 构建顺序（有循环依赖，不能颠倒）
 
 `penguin-browser` 的 devDependencies 含 `penguin-browser-extension`（测试要加载扩展），而扩展的 dependencies 含 `penguin-browser`。pnpm 能处理这种 dep ↔ devDep 环，但构建必须按序：

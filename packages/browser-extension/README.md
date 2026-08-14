@@ -2,7 +2,17 @@
 
 Control your Chrome browser via Model Context Protocol (MCP) using Chrome DevTools Protocol (CDP) events.
 
-This repository currently provides a source-only development build. Build the workspace and load `extension/dist` as an unpacked extension from `chrome://extensions`.
+This repository currently provides a source-only development build. Build the workspace and load `packages/browser-extension/dist` as an unpacked extension from `chrome://extensions`.
+
+## Versioning
+
+Penguin Browser has separate release domains:
+
+- `manifest.json` is the monotonically increasing Chrome extension release sequence. The private extension package metadata stays equal to it so the repository has one extension version.
+- `packages/browser-cli/package.json` is the CLI/relay release and compatibility-build version. The extension reports that value to the relay so mismatched runtime builds can warn.
+- The repository root version is the Travel Agent product release. It does not replace either browser version.
+
+Reloading an unpacked extension keeps its installation identity, but removing and loading it again creates a new identity. A temporarily disconnected session remains visible as `DISCONNECTED` and automatically recovers when the same installation reconnects. If the original installation will not return—for example, after removal and reinstallation—delete the old session and create a new one after authorizing a tab in the current installation. Account email, profile labels, and browser names are never used to migrate a session automatically. Legacy extension builds without an installation ID must be rebuilt/reloaded before they can create a persistent session safely.
 
 ## What is Penguin Browser MCP?
 
@@ -46,7 +56,7 @@ This extension requires the following permissions:
 
 1. From the repository root, run `pnpm install && pnpm build`.
 2. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**.
-3. Select `<repository>/extension/dist`.
+3. Select `<repository>/packages/browser-extension/dist`.
 4. Navigate to a webpage and click the Penguin Browser extension icon.
 5. Confirm the tab joins the cyan `penguin-browser` group, then start the local CLI or MCP server.
 

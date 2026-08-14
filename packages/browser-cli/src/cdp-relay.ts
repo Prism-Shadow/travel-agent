@@ -37,6 +37,15 @@ import { StreamRelay } from './stream-relay.js'
 import { appendSessionToWsUrl } from './chrome-discovery.js'
 import * as relayState from './relay-state.js'
 import {
+  ExtensionTransportDisconnectedError,
+  extensionTransportDisconnectedMessage,
+} from './extension-errors.js'
+import {
+  disconnectedSessionError,
+  errorForBoundExtensionDisconnect,
+  withSessionConnection,
+} from './session-lifecycle.js'
+import {
   assertStorageCookiesAreAuthorized,
   getAuthorizedCookieUrls,
   ROOT_STORAGE_COOKIE_METHODS,
@@ -430,7 +439,7 @@ export async function startPenguinBrowserCDPRelayServer({
   }): Promise<unknown> {
     const conn = getExtensionConnection(extensionId)
     if (!conn) {
-      throw new Error('Extension not connected')
+      throw new ExtensionTransportDisconnectedError('Extension not connected')
     }
     const resolvedExtensionId = conn.id
 
@@ -447,7 +456,7 @@ export async function startPenguinBrowserCDPRelayServer({
     })
 
     if (!id) {
-      throw new Error('Extension not connected')
+      throw new ExtensionTransportDisconnectedError('Extension not connected')
     }
 
     const message = { id, method, params }
@@ -504,7 +513,7 @@ export async function startPenguinBrowserCDPRelayServer({
             requestId: id,
           }),
         )
-        reject(new Error('Extension not connected'))
+        reject(new ExtensionTransportDisconnectedError('Extension not connected'))
         return
       }
 
@@ -519,7 +528,7 @@ export async function startPenguinBrowserCDPRelayServer({
           }),
         )
         const sendError = error instanceof Error ? error : new Error(String(error))
-        reject(new Error(`Extension send failed: ${method}`, { cause: sendError }))
+        reject(new ExtensionTransportDisconnectedError(`Extension send failed: ${method}`, { cause: sendError }))
       }
     })
   }
@@ -1139,10 +1148,7 @@ export async function startPenguinBrowserCDPRelayServer({
 
   app.get('/extension/status', (c) => {
     const requestedInfo = getExtensionInfoFromRequest(c)
-    const hasStableIdentity = Boolean(
-      requestedInfo.installId || requestedInfo.id || requestedInfo.email || requestedInfo.browser,
-    )
-    const requestedStableKey = hasStableIdentity
+    const requestedStableKey = relayState.hasPersistentExtensionIdentity(requestedInfo)
       ? relayState.buildStableExtensionKey(requestedInfo, 'status-check')
       : null
     const extension = requestedStableKey
@@ -1380,7 +1386,7 @@ export async function startPenguinBrowserCDPRelayServer({
               message: {
                 id,
                 sessionId,
-                error: { message: 'Extension not connected' },
+                error: { message: extensionTransportDisconnectedMessage('Extension not connected') },
               },
               clientId,
             })
@@ -1990,7 +1996,7 @@ export async function startPenguinBrowserCDPRelayServer({
           if (closingExt) {
             stopExtensionPing(connectionId)
             for (const pending of closingExt.pendingRequests.values()) {
-              pending.reject(new Error('Extension connection closed'))
+              pending.reject(new ExtensionTransportDisconnectedError('Extension connection closed'))
             }
           }
 
@@ -2019,18 +2025,35 @@ export async function startPenguinBrowserCDPRelayServer({
             })
           }
 
-          // Close playwright clients bound to this extension when no successor exists.
-          if (!successorExtension) {
-            const { playwrightClients } = store.getState()
-            for (const client of playwrightClients.values()) {
-              if (client.extensionId === connectionId) {
-                client.ws.close(1000, 'Extension disconnected')
-              }
-            }
+          if (successorExtension) {
+            store.setState((s) => relayState.removeExtension(s, { extensionId: connectionId }))
+            return
           }
 
-          // State transition: remove extension + its bound clients atomically
-          store.setState((s) => relayState.removeExtension(s, { extensionId: connectionId }))
+          // Keep bound Playwright clients alive until the next event-loop turn. The
+          // marked pending-request rejections above may cross multiple await layers
+          // before they reach Playwright, so one queueMicrotask would still close too early.
+          // Deliver them before the socket closes; otherwise a fast reconnect can turn the
+          // interrupted operation into an untyped HTTP 200/500 failure.
+          store.setState((s) =>
+            relayState.removeExtension(s, {
+              extensionId: connectionId,
+              preservePlaywrightClients: true,
+            }),
+          )
+          setImmediate(() => {
+            const { playwrightClients } = store.getState()
+            for (const client of playwrightClients.values()) {
+              if (client.extensionId !== connectionId) continue
+              try {
+                client.ws.close(1011, extensionTransportDisconnectedMessage('Extension disconnected'))
+              } catch (error) {
+                logger?.log(pc.dim(`Playwright client ${client.id} was already closed: ${String(error)}`))
+              } finally {
+                store.setState((s) => relayState.removePlaywrightClient(s, { clientId: client.id }))
+              }
+            }
+          })
         },
 
         onError(event) {
@@ -2134,6 +2157,18 @@ export async function startPenguinBrowserCDPRelayServer({
 
   const DEFAULT_EXEC_TIMEOUT = Number(process.env.PENGUIN_BROWSER_EXEC_TIMEOUT) || 10000
 
+  const connectedExtensionKeys = (): Set<string> => {
+    return new Set(
+      Array.from(store.getState().extensions.values())
+        .filter((extension) => extension.ws !== null)
+        .map((extension) => extension.stableKey),
+    )
+  }
+
+  const disconnectedExtensionSession = (sessionId: string, executor: import('./executor.js').PlaywrightExecutor) => {
+    return disconnectedSessionError(executor.getSessionInfo({ id: sessionId }), connectedExtensionKeys())
+  }
+
   app.post('/cli/execute', async (c) => {
     try {
       const body = (await c.req.json()) as { sessionId: string | number; code: string; timeout?: number }
@@ -2157,6 +2192,10 @@ export async function startPenguinBrowserCDPRelayServer({
           404,
         )
       }
+      const disconnected = disconnectedExtensionSession(sessionId, existingExecutor)
+      if (disconnected) {
+        return c.json(disconnected, 409)
+      }
       // Touch cloud session activity tracking if this session is cloud-backed
       const cloudTracking = cloudSessionTracking.get(sessionId)
       if (cloudTracking) {
@@ -2179,6 +2218,10 @@ export async function startPenguinBrowserCDPRelayServer({
       // report isCloud correctly.
       return c.json({ ...result, isCloud: Boolean(cloudTracking) })
     } catch (error: any) {
+      const disconnectError = errorForBoundExtensionDisconnect(error)
+      if (disconnectError) {
+        return c.json(disconnectError, 409)
+      }
       logger?.error('Execute endpoint error:', error)
       return c.json({ text: `Server error: ${error.message}`, images: [], screenshots: [], isError: true }, 500)
     }
@@ -2198,6 +2241,10 @@ export async function startPenguinBrowserCDPRelayServer({
       if (!existingExecutor) {
         return c.json({ error: `Session ${sessionId} not found. Run 'penguin-browser session new' first.` }, 404)
       }
+      const disconnected = disconnectedExtensionSession(sessionId, existingExecutor)
+      if (disconnected) {
+        return c.json(disconnected, 409)
+      }
       const { page, context } = await existingExecutor.reset()
 
       return c.json({
@@ -2206,6 +2253,10 @@ export async function startPenguinBrowserCDPRelayServer({
         pagesCount: context.pages().length,
       })
     } catch (error: any) {
+      const disconnectError = errorForBoundExtensionDisconnect(error)
+      if (disconnectError) {
+        return c.json(disconnectError, 409)
+      }
       logger?.error('Reset endpoint error:', error)
       return c.json({ error: error.message }, 500)
     }
@@ -2213,7 +2264,8 @@ export async function startPenguinBrowserCDPRelayServer({
 
   app.get('/cli/sessions', async (c) => {
     const manager = await getExecutorManager()
-    return c.json({ sessions: manager.listSessions() })
+    const liveKeys = connectedExtensionKeys()
+    return c.json({ sessions: manager.listSessions().map((session) => withSessionConnection(session, liveKeys)) })
   })
 
   app.get('/cli/session/suggest', (c) => {
@@ -2337,6 +2389,22 @@ export async function startPenguinBrowserCDPRelayServer({
         : 'Multiple extensions connected. Specify extensionId.'
       return c.json({ error }, 404)
     }
+    if (!relayState.hasPersistentExtensionIdentity(conn.info)) {
+      return c.json(
+        {
+          error: {
+            code: 'EXTENSION_UPGRADE_REQUIRED',
+            message:
+              'This Penguin Browser extension does not provide an installation identity and cannot back a persistent session safely.',
+            recovery: [
+              'Rebuild the current extension and reload packages/browser-extension/dist.',
+              'Authorize a tab, then create the session again.',
+            ],
+          },
+        },
+        409,
+      )
+    }
     const manager = await getExecutorManager()
     const executor = manager.getExecutor({
       sessionId,
@@ -2364,7 +2432,7 @@ export async function startPenguinBrowserCDPRelayServer({
     if (!executor) {
       return c.json({ error: 'not found' }, 404)
     }
-    return c.json(executor.getSessionInfo({ id: sessionId }))
+    return c.json(withSessionConnection(executor.getSessionInfo({ id: sessionId }), connectedExtensionKeys()))
   })
 
   app.post('/cli/session/delete', async (c) => {

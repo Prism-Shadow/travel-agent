@@ -9,6 +9,7 @@ declare const __PENGUIN_BROWSER_OPEN_WELCOME_PAGE__: boolean
 import dedent from 'string-dedent'
 const js = dedent
 import { createStore } from 'zustand/vanilla'
+import { resolvePersistentInstallId } from './install-identity.js'
 import type { ExtensionState, ConnectionState, TabState, TabInfo } from './types'
 import { initPenguinBrowserToolbar } from './toolbar/toolbar'
 import type { CDPEvent, Protocol } from 'penguin-browser/src/cdp-types'
@@ -89,7 +90,7 @@ type ExtensionIdentity = {
   browser: string
   email: string
   id: string
-  installId: string
+  installId: string | null
 }
 
 function sleep(ms: number): Promise<void> {
@@ -198,11 +199,10 @@ async function getExtensionIdentity(): Promise<ExtensionIdentity> {
 
   identityPromise = (async () => {
     const browser = await detectBrowserName()
-    const installId = await getInstallId().catch(() => {
-      // Storage can be unavailable briefly during startup. Fall back to the runtime scope so
-      // we still avoid the coarse browser-only key that causes cross-browser relay takeovers.
-      return tabSessionScope
-    })
+    // A runtime-only fallback is not a persistent installation identity. If storage is
+    // unavailable, connect without installId so the relay can reject persistent sessions
+    // instead of accepting a binding that a service-worker restart would immediately strand.
+    const installId = await resolvePersistentInstallId(getInstallId)
     try {
       const info = await chrome.identity.getProfileUserInfo({ accountStatus: 'ANY' })
       return {

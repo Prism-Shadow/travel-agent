@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { TabRegistry } from './tab-ownership.js'
+import {
+  acquireAndNavigateOwnedTab,
+  acquireOwnedTab,
+  selectReusableBlankTargetId,
+  SerializedOwnedTabOpener,
+  TabRegistry,
+} from './tab-ownership.js'
 
 let registry: TabRegistry
 
@@ -83,5 +89,172 @@ describe('TabRegistry', () => {
     for (const outcome of outcomes.filter((o) => !o.ok)) {
       expect(outcome).toEqual({ ok: false, heldBy: 's1' })
     }
+  })
+})
+
+describe('acquireOwnedTab', () => {
+  it('returns a reusable tab only after claiming it', async () => {
+    const claimed: string[] = []
+    const tab = await acquireOwnedTab({
+      findReusable: async () => 'blank',
+      create: async () => 'created',
+      claim: async (candidate) => {
+        claimed.push(candidate)
+        return true
+      },
+    })
+
+    expect(tab).toEqual({ tab: 'blank', source: 'reused' })
+    expect(claimed).toEqual(['blank'])
+  })
+
+  it('never returns or discards a freshly created tab when another session wins its claim', async () => {
+    let reusableCalls = 0
+    let created = 0
+    const tab = await acquireOwnedTab({
+      findReusable: async () => {
+        reusableCalls++
+        return reusableCalls === 1 ? 'contested-blank' : null
+      },
+      create: async () => `created-${++created}`,
+      claim: async (candidate) => candidate === 'created-2',
+    })
+
+    expect(tab).toEqual({ tab: 'created-2', source: 'created' })
+    expect(created).toBe(2)
+  })
+
+  it('fails after bounded repeated claim losses', async () => {
+    await expect(
+      acquireOwnedTab({
+        findReusable: async () => null,
+        create: async () => 'created',
+        claim: async () => false,
+        attempts: 2,
+      }),
+    ).rejects.toThrow('another session won each tab claim')
+  })
+})
+
+describe('acquireAndNavigateOwnedTab', () => {
+  it('releases a reused tab when navigation fails without closing it', async () => {
+    const released: string[] = []
+    const discarded: string[] = []
+
+    await expect(
+      acquireAndNavigateOwnedTab({
+        findReusable: async () => 'blank',
+        create: async () => 'created',
+        claim: async () => true,
+        release: async (tab) => released.push(tab),
+        navigate: async () => {
+          throw new Error('navigation failed')
+        },
+        discardCreated: async (tab) => {
+          discarded.push(tab)
+        },
+      }),
+    ).rejects.toThrow('navigation failed')
+
+    expect(released).toEqual(['blank'])
+    expect(discarded).toEqual([])
+  })
+
+  it('releases and closes a newly created tab when navigation fails', async () => {
+    const released: string[] = []
+    const discarded: string[] = []
+
+    await expect(
+      acquireAndNavigateOwnedTab({
+        findReusable: async () => null,
+        create: async () => 'created',
+        claim: async () => true,
+        release: async (tab) => released.push(tab),
+        navigate: async () => {
+          throw new Error('navigation failed')
+        },
+        discardCreated: async (tab) => {
+          discarded.push(tab)
+        },
+      }),
+    ).rejects.toThrow('navigation failed')
+
+    expect(released).toEqual(['created'])
+    expect(discarded).toEqual(['created'])
+  })
+})
+
+describe('SerializedOwnedTabOpener', () => {
+  it('returns different tabs for concurrent opens in one session', async () => {
+    const opener = new SerializedOwnedTabOpener<string>()
+    const owners = new Set<string>()
+    const tabs = ['blank']
+    let created = 0
+    let firstClaimed!: () => void
+    const firstClaim = new Promise<void>((resolve) => {
+      firstClaimed = resolve
+    })
+    let releaseFirstNavigation!: () => void
+    const firstNavigation = new Promise<void>((resolve) => {
+      releaseFirstNavigation = resolve
+    })
+    const options = (navigationGate?: Promise<void>) => ({
+      findReusable: async () => tabs.find((tab) => !owners.has(tab)) ?? null,
+      create: async () => {
+        const tab = `created-${++created}`
+        tabs.push(tab)
+        return tab
+      },
+      claim: async (tab: string) => {
+        if (owners.has(tab)) return false
+        owners.add(tab)
+        if (tab === 'blank') firstClaimed()
+        return true
+      },
+      release: async (tab: string) => owners.delete(tab),
+      navigate: async () => navigationGate,
+    })
+
+    const first = opener.open(options(firstNavigation))
+    const second = opener.open(options())
+    await firstClaim
+    expect(owners).toEqual(new Set(['blank']))
+    releaseFirstNavigation()
+
+    await expect(Promise.all([first, second])).resolves.toEqual(['blank', 'created-1'])
+    expect(owners).toEqual(new Set(['blank', 'created-1']))
+  })
+})
+
+describe('selectReusableBlankTargetId', () => {
+  it('reuses an unclaimed about:blank — the leftover AUTO_ENABLE tab', () => {
+    expect(
+      selectReusableBlankTargetId([
+        { targetId: 'xhs', isBlank: false },
+        { targetId: 'blank', isBlank: true },
+      ]),
+    ).toBe('blank')
+  })
+
+  it('does not take a blank another session already claimed', () => {
+    expect(
+      selectReusableBlankTargetId([{ targetId: 'blank', isBlank: true, owner: 's1' }]),
+    ).toBeUndefined()
+  })
+
+  it('does not adopt a tab that already has a URL', () => {
+    expect(
+      selectReusableBlankTargetId([{ targetId: 'ctrip', isBlank: false }]),
+    ).toBeUndefined()
+  })
+
+  it('picks the first unclaimed blank when several exist', () => {
+    expect(
+      selectReusableBlankTargetId([
+        { targetId: 'owned-blank', isBlank: true, owner: 's1' },
+        { targetId: 'first-free', isBlank: true },
+        { targetId: 'second-free', isBlank: true },
+      ]),
+    ).toBe('first-free')
   })
 })

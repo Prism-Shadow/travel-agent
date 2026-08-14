@@ -4,3 +4,6 @@
 - [2026-08-13] CI: ignore penguin-browser formatting; copy extension icons as a directory on Windows. ([details](2026-08-13-ci-browser-packages.md))
 - [2026-08-13] penguin-browser skill v4: resolve the CLI in this checkout; refresh stale preinstalled copies. ([details](2026-08-13-penguin-browser-skill.md))
 - [2026-08-13] Desktop installers ship penguin-browser, start the relay, and bundle the Chrome extension. ([details](2026-08-13-desktop-penguin-browser.md))
+- [2026-08-13] `tabs.open` reuses the leftover AUTO_ENABLE `about:blank` tab instead of stacking a second one. ([details](2026-08-13-blank-tab-reuse.md))
+- [2026-08-13] Desktop source runs serve the built Web app instead of landing on a JSON 404. ([details](2026-08-13-desktop-source-web-dist.md))
+- [2026-08-13] Penguin Browser reports disconnected installation-bound sessions consistently and defines its independent extension version policy. ([details](2026-08-13-browser-session-lifecycle.md))

@@ -109,12 +109,16 @@ pnpm test:e2e                                        # core live-model e2e, need
   before creating the tag** — the release workflow reads it from the tag's checkout, so a
   file added later never reaches the Release page. Without it the workflow falls back to
   GitHub's auto-generated notes.
-- **Release prep bumps the repo version**: the same `release: X.Y.Z` PR that renames
-  `changelog/unreleased/` also bumps the root and every `packages/*/package.json`
-  `version`, plus core's `VERSION` constant (`packages/core/src/index.ts`), to the release
-  version. The release workflow refuses a tag push whose version does not match the
-  repo's, so a forgotten bump fails before anything is published (v0.2.1 was tagged with a
-  0.2.0 repo, and every dev build nagged about an update until the repo caught up).
+- **Release prep bumps the product version**: the same `release: X.Y.Z` PR that renames
+  `changelog/unreleased/` bumps the root and the public PenguinHarness packages shipped by
+  that release (`skills`, `core`, `server`, and `cli`), plus core's `VERSION` constant
+  (`packages/core/src/index.ts`). Browser packages are private, independently versioned
+  exceptions: `browser-cli` carries the CLI/relay compatibility version, while
+  `browser-extension/package.json` stays equal to `browser-extension/manifest.json`'s
+  monotonic Chrome release sequence. The release workflow refuses a tag push whose product
+  version does not match the repo's, so a forgotten bump fails before anything is published
+  (v0.2.1 was tagged with a 0.2.0 repo, and every dev build nagged about an update until the
+  repo caught up).
 - travel-agent does not maintain the PenguinHarness landing or docs sites. Those
   packages remain in the tree only while installer tests and the desktop icon
   script still reference them; they are excluded from the workspace.

@@ -26,8 +26,8 @@
 
 /** Outcome of a claim attempt. */
 export type ClaimResult =
-  | { ok: true; state: "claimed" | "already_yours" }
-  | { ok: false; heldBy: string };
+  | { ok: true; state: 'claimed' | 'already_yours' }
+  | { ok: false; heldBy: string }
 
 export class TabRegistry {
   private readonly owners = new Map<string, string>();
@@ -92,6 +92,105 @@ export class TabRegistry {
   }
 }
 
+export type AcquiredTab<T> = {
+  tab: T
+  source: 'reused' | 'created'
+}
+
+/**
+ * Acquires a tab only when this call creates the ownership claim. Treating an
+ * idempotent same-owner claim as success would let two concurrent opens return
+ * the same page, so callers must map `already_yours` to false.
+ */
+export async function acquireOwnedTab<T>(options: {
+  findReusable: () => Promise<T | null>
+  create: () => Promise<T>
+  claim: (tab: T) => Promise<boolean>
+  attempts?: number
+}): Promise<AcquiredTab<T>> {
+  const attempts = options.attempts ?? 3
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const reusable = await options.findReusable()
+    if (reusable && (await options.claim(reusable))) return { tab: reusable, source: 'reused' }
+
+    const created = await options.create()
+    if (await options.claim(created)) return { tab: created, source: 'created' }
+  }
+  throw new Error('Could not open a tab: another session won each tab claim. Retry the operation.')
+}
+
+export async function acquireAndNavigateOwnedTab<T>(options: {
+  findReusable: () => Promise<T | null>
+  create: () => Promise<T>
+  claim: (tab: T) => Promise<boolean>
+  release: (tab: T) => Promise<unknown>
+  navigate?: (tab: T) => Promise<unknown>
+  discardCreated?: (tab: T) => Promise<void>
+  attempts?: number
+}): Promise<T> {
+  const acquired = await acquireOwnedTab(options)
+  try {
+    await options.navigate?.(acquired.tab)
+    return acquired.tab
+  } catch (error) {
+    await options.release(acquired.tab).catch(() => undefined)
+    if (acquired.source === 'created') {
+      await options.discardCreated?.(acquired.tab)
+    }
+    throw error
+  }
+}
+
+/** Serializes a small critical section without serializing whole execute calls. */
+class AsyncTaskQueue {
+  private tail: Promise<void> = Promise.resolve()
+
+  async run<T>(task: () => Promise<T>): Promise<T> {
+    const previous = this.tail
+    let release!: () => void
+    this.tail = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await previous
+    try {
+      return await task()
+    } finally {
+      release()
+    }
+  }
+}
+
+export class SerializedOwnedTabOpener<T> {
+  private readonly queue = new AsyncTaskQueue()
+
+  open(options: Parameters<typeof acquireAndNavigateOwnedTab<T>>[0]): Promise<T> {
+    return this.queue.run(() => acquireAndNavigateOwnedTab(options))
+  }
+}
+
+/** A live tab considered by `tabs.open()` when deciding whether to create another. */
+export type BlankReuseCandidate = {
+  targetId: string
+  isBlank: boolean
+  owner?: string
+}
+
+/**
+ * Prefer an unclaimed about:blank over `newPage()`.
+ *
+ * `session new` and every later `-e` call auto-create a blank tab when no Playwright
+ * pages remain (AUTO_ENABLE). The skill then teaches `tabs.open(url)`, which used to
+ * always create a second tab and leave the empty one sitting in the penguin-browser
+ * group. Reusing the unclaimed blank is not the old racy "adopt any idle tab" idiom:
+ * a claimed blank stays with its owner, and a tab that already has a URL is never
+ * taken this way.
+ */
+export function selectReusableBlankTargetId(
+  candidates: readonly BlankReuseCandidate[],
+): string | undefined {
+  return candidates.find((candidate) => candidate.isBlank && candidate.owner === undefined)?.targetId
+}
+
 /**
  * The registry every session in this process shares.
  *
@@ -100,4 +199,4 @@ export class TabRegistry {
  * registry would defeat the purpose — the sessions that need to see each other's claims are
  * exactly the ones that would each have their own.
  */
-export const tabRegistry = new TabRegistry();
+export const tabRegistry = new TabRegistry()

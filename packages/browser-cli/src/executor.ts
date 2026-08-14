@@ -25,9 +25,10 @@ import * as acorn from 'acorn'
 import { createSmartDiff } from './diff-utils.js'
 import { getCdpUrl, parseRelayHost, shouldAutoEnablePenguinBrowser } from './utils.js'
 import { getExtensionOutdatedWarning } from './relay-client.js'
+import { isExtensionTransportDisconnectedError } from './extension-errors.js'
 import { waitForPageLoad, WaitForPageLoadOptions, WaitForPageLoadResult } from './wait-for-page-load.js'
 import { requestHelp, type RequestHelpOptions } from './request-help.js'
-import { tabRegistry } from './tab-ownership.js'
+import { selectReusableBlankTargetId, SerializedOwnedTabOpener, tabRegistry } from './tab-ownership.js'
 import {
   classifyOutcome,
   clickThrough,
@@ -171,9 +172,26 @@ export function wrapCode(code: string): string {
 
 const EXTENSION_NOT_CONNECTED_ERROR = `The Penguin Browser Chrome extension is not connected. Make sure you have:
 1. From the Penguin Browser project root, run: pnpm install && pnpm build
-2. Open chrome://extensions, enable Developer mode, choose "Load unpacked", and select extension/dist
+2. Open chrome://extensions, enable Developer mode, choose "Load unpacked", and select packages/browser-extension/dist
 3. Click the Penguin Browser extension icon on the tab you want to control
 Alternatively, use \`penguin-browser session new --browser headless\`, or connect to a Chrome debugging endpoint with \`penguin-browser session new --direct [endpoint]\`.`
+
+export class BoundExtensionDisconnectedError extends Error {
+  readonly sessionId: string
+  readonly boundExtensionKey: string
+
+  constructor(sessionId: string, boundExtensionKey: string, options?: { cause?: unknown }) {
+    super(
+      `Session ${sessionId} is bound to extension installation ${boundExtensionKey}, which is currently disconnected. ` +
+        `Wait for that installation to reconnect, or run \`penguin-browser session delete ${sessionId}\` ` +
+        'and create a new session after authorizing a tab in the current extension.',
+      options,
+    )
+    this.name = 'BoundExtensionDisconnectedError'
+    this.sessionId = sessionId
+    this.boundExtensionKey = boundExtensionKey
+  }
+}
 
 const NO_PAGES_AVAILABLE_ERROR =
   'No Playwright pages are available. Enable Penguin Browser on a tab or unset PENGUIN_BROWSER_AUTO_ENABLE=false to auto-create one.'
@@ -365,6 +383,8 @@ export class PlaywrightExecutor {
   private readonly sessionId: string
   /** Page -> CDP target id. Resolving costs a round trip; identity never changes. */
   private readonly targetIdCache = new WeakMap<Page, string>()
+  /** Only tab acquisition is serialized; independent execute calls may otherwise run concurrently. */
+  private readonly tabOpener = new SerializedOwnedTabOpener<Page>()
 
   private userState: Record<string, any> = {}
   private browserLogs: Map<Page, string[]> = new Map()
@@ -877,13 +897,27 @@ export class PlaywrightExecutor {
     // Extension mode: check status first for better error messages
     const extensionStatus = await this.checkExtensionStatus()
     if (!extensionStatus.connected) {
+      if (this.cdpConfig.extensionId) {
+        throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId)
+      }
       throw new Error(EXTENSION_NOT_CONNECTED_ERROR)
     }
     this.warnIfExtensionOutdated(extensionStatus.penguinBrowserVersion)
 
     const cdpUrl = getCdpUrl(this.cdpConfig)
     const chromium = await getChromium()
-    const browser = await chromium.connectOverCDP(cdpUrl)
+    let browser: Browser
+    try {
+      browser = await chromium.connectOverCDP(cdpUrl)
+    } catch (error) {
+      if (
+        this.cdpConfig.extensionId &&
+        (isExtensionTransportDisconnectedError(error) || (error instanceof Error && isDisconnectionError(error)))
+      ) {
+        throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId, { cause: error })
+      }
+      throw error
+    }
 
     browser.on('disconnected', () => {
       this.logger.log('Browser disconnected, clearing connection state')
@@ -1243,14 +1277,28 @@ export class PlaywrightExecutor {
     this.clearConnectionState()
     this.clearUserState()
 
-    const { browser, page, context } = await this.connectToBrowser()
+    try {
+      const { browser, page, context } = await this.connectToBrowser()
 
-    this.browser = browser
-    this.page = page
-    this.context = context
-    this.isConnected = true
+      this.browser = browser
+      this.page = page
+      this.context = context
+      this.isConnected = true
 
-    return { page, context }
+      return { page, context }
+    } catch (error) {
+      if (error instanceof BoundExtensionDisconnectedError) throw error
+      if (this.cdpConfig.extensionId && isExtensionTransportDisconnectedError(error)) {
+        throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId, { cause: error })
+      }
+      if (this.cdpConfig.extensionId && error instanceof Error && isDisconnectionError(error)) {
+        const extensionStatus = await this.checkExtensionStatus()
+        if (!extensionStatus.connected) {
+          throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId, { cause: error })
+        }
+      }
+      throw error
+    }
   }
 
   async execute(code: string, timeout = 10000): Promise<ExecuteResult> {
@@ -1751,8 +1799,9 @@ export class PlaywrightExecutor {
           available: async () => this.availablePages(),
           ownerOf: async (target: Page) => tabRegistry.ownerOf(await this.targetIdFor(target)) ?? null,
           /**
-           * Opens a new tab already claimed by this session — the safe replacement for
-           * `context.pages().find(idle) ?? context.newPage()`, which is the racy idiom.
+           * A tab already claimed by this session. Reuses an unclaimed about:blank when
+           * AUTO_ENABLE left one behind; otherwise creates a new tab. Safe replacement
+           * for `context.pages().find(idle) ?? context.newPage()`, which is the racy idiom.
            */
           open: async (url?: string) => this.openOwnedTab(url),
           snapshot: () => tabRegistry.snapshot(),
@@ -1930,10 +1979,24 @@ export class PlaywrightExecutor {
         if (this.cloudSession && isDisconnect) {
           return `\n\n[Cloud browser expired or disconnected. Create a new session with: penguin-browser session new --browser cloud]`
         }
+        if (error instanceof BoundExtensionDisconnectedError) return ''
         return '\n\n[HINT: If this is an internal Playwright error, page/browser closed, or connection issue, call reset to reconnect.]'
       })()
 
       // timeout stacks are internal noise (Promise.race / setTimeout); only show the message
+      if (error instanceof BoundExtensionDisconnectedError) {
+        throw error
+      }
+      if (this.cdpConfig.extensionId && isExtensionTransportDisconnectedError(error)) {
+        throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId, { cause: error })
+      }
+      if (this.cdpConfig.extensionId && error instanceof Error && isDisconnectionError(error)) {
+        const extensionStatus = await this.checkExtensionStatus()
+        if (!extensionStatus.connected) {
+          throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId, { cause: error })
+        }
+      }
+
       const errorText = isTimeoutError ? error.message : errorStack
       return {
         text: `${logsText}${warningText}\nError executing code: ${errorText}${resetHint}`,
@@ -1968,6 +2031,9 @@ export class PlaywrightExecutor {
 
     const extensionStatus = await this.checkExtensionStatus()
     if (!extensionStatus.connected) {
+      if (this.cdpConfig.extensionId) {
+        throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId)
+      }
       throw new Error(EXTENSION_NOT_CONNECTED_ERROR)
     }
 
@@ -2040,9 +2106,10 @@ export class PlaywrightExecutor {
     return targetId
   }
 
-  private async claimTab(target: Page): Promise<{ ok: boolean; heldBy?: string }> {
-    const result = tabRegistry.claim(await this.targetIdFor(target), this.sessionId)
-    return result.ok ? { ok: true } : { ok: false, heldBy: result.heldBy }
+  private async claimTab(
+    target: Page,
+  ): Promise<{ ok: true; state: 'claimed' | 'already_yours' } | { ok: false; heldBy: string }> {
+    return tabRegistry.claim(await this.targetIdFor(target), this.sessionId)
   }
 
   private async releaseTab(target: Page): Promise<boolean> {
@@ -2077,18 +2144,47 @@ export class PlaywrightExecutor {
   }
 
   /**
-   * A new tab, claimed before it is handed back.
+   * A tab claimed before it is handed back.
    *
-   * Claiming after creation rather than adopting an idle tab is what removes the race: a tab
-   * this session just opened cannot have been adopted by another in between.
+   * Reuses an unclaimed about:blank when one is already sitting there — AUTO_ENABLE
+   * creates one on connect and again after the last authorized tab is closed, and
+   * `tabs.open(url)` used to stack a second tab on top of it. A claimed blank, or a
+   * tab that already has a URL, is left alone. If the reuse claim loses a race,
+   * fall through to `newPage()` so two sessions never share the same tab.
    */
   private async openOwnedTab(url?: string): Promise<Page> {
     const context = this.context
     if (!context) throw new Error('No browser context is connected')
-    const created = await context.newPage()
-    await this.claimTab(created)
-    if (url) await created.goto(url, { waitUntil: 'domcontentloaded' })
-    return created
+
+    // A freshly created about:blank is briefly visible to every executor before this
+    // session resolves its target id and claims it. If another session wins that window,
+    // never return the now-foreign page: retry and preserve no-stealing.
+    return this.tabOpener.open({
+      findReusable: () => this.findUnclaimedBlankPage(),
+      create: () => context.newPage(),
+      claim: async (candidate) => {
+        const result = await this.claimTab(candidate)
+        return result.ok && result.state === 'claimed'
+      },
+      release: (candidate) => this.releaseTab(candidate),
+      navigate: url ? (candidate) => candidate.goto(url, { waitUntil: 'domcontentloaded' }) : undefined,
+      discardCreated: async (candidate) => candidate.close().catch(() => {}),
+    })
+  }
+
+  private async findUnclaimedBlankPage(): Promise<Page | null> {
+    const candidates: Array<{ page: Page; targetId: string; isBlank: boolean; owner?: string }> = []
+    for (const page of this.livePages()) {
+      const targetId = await this.targetIdFor(page)
+      candidates.push({
+        page,
+        targetId,
+        isBlank: this.isBlankPage(page),
+        owner: tabRegistry.ownerOf(targetId),
+      })
+    }
+    const reusableId = selectReusableBlankTargetId(candidates)
+    return candidates.find((candidate) => candidate.targetId === reusableId)?.page ?? null
   }
 
 }

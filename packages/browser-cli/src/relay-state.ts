@@ -96,21 +96,17 @@ export function findExtensionByStableKey(state: RelayState, stableKey: string): 
   return match
 }
 
+export function hasPersistentExtensionIdentity(info: ExtensionInfo): boolean {
+  return Boolean(info.installId)
+}
+
 export function buildStableExtensionKey(info: ExtensionInfo, connectionId: string): string {
-  // chrome.identity ids and emails identify the signed-in Google account, not
-  // the Chrome profile. Use the per-profile extension storage install id first
-  // so two profiles signed into the same account never replace each other.
+  // chrome.identity ids/emails identify an account, not one Chrome profile or
+  // extension installation. Only the per-install storage id is safe for a
+  // reconnectable session binding. Older extensions remain connection-scoped
+  // until upgraded instead of silently taking over another installation's session.
   if (info.installId) {
-    return `install:${info.browser || 'unknown'}:${info.installId}`
-  }
-  if (info.id) {
-    return `profile:${info.id}`
-  }
-  if (info.email) {
-    return `email:${info.email}`
-  }
-  if (info.browser) {
-    return `browser:${info.browser}`
+    return `install:${info.installId}`
   }
   return `connection:${connectionId}`
 }
@@ -169,15 +165,25 @@ export function addExtension(
   return { ...state, extensions: newExtensions }
 }
 
-/** Remove an extension, its targets, and any playwright clients bound to it. */
-export function removeExtension(state: RelayState, { extensionId }: { extensionId: string }): RelayState {
+/** Remove an extension, its targets, and (normally) any Playwright clients bound to it. */
+export function removeExtension(
+  state: RelayState,
+  {
+    extensionId,
+    preservePlaywrightClients = false,
+  }: { extensionId: string; preservePlaywrightClients?: boolean },
+): RelayState {
   if (!state.extensions.has(extensionId)) {
     return state
   }
   const newExtensions = new Map(state.extensions)
   newExtensions.delete(extensionId)
 
-  // Also remove playwright clients bound to this extension
+  if (preservePlaywrightClients) {
+    return { ...state, extensions: newExtensions }
+  }
+
+  // Also remove playwright clients bound to the extension
   const clientsToRemove = Array.from(state.playwrightClients.values()).filter(
     (client) => client.extensionId === extensionId,
   )

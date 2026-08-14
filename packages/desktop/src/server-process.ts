@@ -14,6 +14,7 @@ import type { UtilityProcess } from "electron";
 import { pathWithPackagedBin } from "./browser-relay.js";
 import { osProxyEnv } from "./os-proxy.js";
 import { choosePort, readPreferredPort, rememberPreferredPort } from "./port-memory.js";
+import { developmentWebDistEnv } from "./runtime-env.js";
 import { appOriginFor, parsePortFile } from "./util.js";
 
 export interface EmbeddedServer {
@@ -127,6 +128,7 @@ export async function startEmbeddedServer(opts: {
     env: {
       ...process.env,
       ...bundledShellEnv(),
+      ...developmentWebDistEnv(app.isPackaged),
       // OS proxy settings resolved at fork time (Electron resolveProxy) — only for the
       // proxy variables the environment leaves unset, never overriding existing values.
       // The server's "use system HTTP proxy" switch then governs whether they are used.

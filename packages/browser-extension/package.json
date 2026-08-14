@@ -1,6 +1,6 @@
 {
   "name": "penguin-browser-extension",
-  "version": "0.0.99",
+  "version": "0.0.107",
   "description": "Penguin Browser Chrome extension for Playwright and PenguinHarness",
   "private": true,
   "engines": {
@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc --project . && vite build --config vite.config.mts && tsx scripts/copy-prism.ts",
     "typecheck": "tsc --project . --noEmit",
+    "test": "vitest run --passWithNoTests",
     "reload": "pnpm build && open -a 'Google Chrome' 'chrome://extensions/'",
     "watch": "vite build --watch --config vite.config.mts",
     "clean": "rm -rf dist"
@@ -19,7 +20,8 @@
     "concurrently": "^8.2.2",
     "typescript": "^5.8.2",
     "vite": "^8.0.13",
-    "vite-plugin-static-copy": "^3.1.1"
+    "vite-plugin-static-copy": "^3.1.1",
+    "vitest": "^3.2.6"
   },
   "dependencies": {
     "penguin-browser": "workspace:^",

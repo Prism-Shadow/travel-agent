@@ -26,8 +26,32 @@ import {
 } from './relay-client.js'
 import { discoverChromeInstances, resolveDirectInput, type DiscoveredInstance } from './chrome-discovery.js'
 import { getCloudClient, loadCloudAuth, saveCloudAuth, CloudClient, buildLiveUrl } from './cloud-client.js'
+import type { SessionConnectionStatus } from './session-lifecycle.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+async function printHttpError(response: Response): Promise<void> {
+  const text = await response.text()
+  try {
+    const payload = JSON.parse(text) as {
+      error?: string | { message?: string; recovery?: string[] }
+    }
+    if (typeof payload.error === 'object' && payload.error !== null && payload.error.message) {
+      console.error(`Error: ${payload.error.message}`)
+      for (const recovery of payload.error.recovery ?? []) {
+        console.error(`  - ${recovery}`)
+      }
+      return
+    }
+    if (typeof payload.error === 'string') {
+      console.error(`Error: ${payload.error}`)
+      return
+    }
+  } catch {
+    // The endpoint may return plain text for middleware and infrastructure errors.
+  }
+  console.error(`Error: ${response.status} ${text}`)
+}
 
 const cli = goke('penguin-browser')
 
@@ -293,8 +317,7 @@ async function executeCode(options: {
     })
 
     if (!response.ok) {
-      const text = await response.text()
-      console.error(`Error: ${response.status} ${text}`)
+      await printHttpError(response)
       process.exit(1)
     }
 
@@ -1139,7 +1162,7 @@ function printBrowserTable(options: BrowserOption[]): void {
 }
 
 cli
-  .command('session list', 'List all active sessions')
+  .command('session list', 'List relay sessions and their browser connection status')
   .option('--host <host>', 'Remote relay server host')
   .option('--token <token>', 'Authentication token (or use PENGUIN_BROWSER_TOKEN env var)')
   .action(async (options) => {
@@ -1155,6 +1178,7 @@ cli
       profile: { email: string; id: string } | null
       extensionId: string | null
       cwd: string | null
+      connectionStatus: SessionConnectionStatus
     }> = []
 
     try {
@@ -1174,6 +1198,7 @@ cli
           profile: { email: string; id: string } | null
           extensionId: string | null
           cwd: string | null
+          connectionStatus: SessionConnectionStatus
         }>
       }
       sessions = result.sessions
@@ -1183,11 +1208,17 @@ cli
     }
 
     if (sessions.length === 0) {
-      console.log('No active sessions')
+      console.log('No sessions')
       return
     }
 
     const idWidth = Math.max(2, ...sessions.map((session) => String(session.id).length))
+    const statusLabel = (status: SessionConnectionStatus): string => {
+      if (status === 'connected') return 'CONNECTED'
+      if (status === 'disconnected') return 'DISCONNECTED'
+      return 'N/A'
+    }
+    const statusWidth = Math.max(6, ...sessions.map((session) => statusLabel(session.connectionStatus).length))
     const browserWidth = Math.max(7, ...sessions.map((session) => (session.browser || 'Chrome').length))
     const profileWidth = Math.max(7, ...sessions.map((session) => (session.profile?.email || '').length || 1))
     const extensionWidth = Math.max(2, ...sessions.map((session) => (session.extensionId || '').length || 1))
@@ -1196,6 +1227,8 @@ cli
 
     console.log(
       'ID'.padEnd(idWidth) +
+        '  ' +
+        'STATUS'.padEnd(statusWidth) +
         '  ' +
         'BROWSER'.padEnd(browserWidth) +
         '  ' +
@@ -1207,7 +1240,9 @@ cli
         '  ' +
         'STATE KEYS',
     )
-    console.log('-'.repeat(idWidth + browserWidth + profileWidth + extensionWidth + cwdWidth + stateWidth + 10))
+    console.log(
+      '-'.repeat(idWidth + statusWidth + browserWidth + profileWidth + extensionWidth + cwdWidth + stateWidth + 12),
+    )
 
     for (const session of sessions) {
       const stateStr = session.stateKeys.length > 0 ? session.stateKeys.join(', ') : '-'
@@ -1215,6 +1250,8 @@ cli
       const cwdLabel = session.cwd || '-'
       console.log(
         String(session.id).padEnd(idWidth) +
+          '  ' +
+          statusLabel(session.connectionStatus).padEnd(statusWidth) +
           '  ' +
           (session.browser || 'Chrome').padEnd(browserWidth) +
           '  ' +
@@ -1280,8 +1317,7 @@ cli
       })
 
       if (!response.ok) {
-        const text = await response.text()
-        console.error(`Error: ${response.status} ${text}`)
+        await printHttpError(response)
         process.exit(1)
       }
 
