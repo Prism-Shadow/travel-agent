@@ -68,11 +68,40 @@ export function getCdpUrl({
   host = '127.0.0.1',
   token,
   extensionId,
+  iabTaskId,
+  iabSessionId,
+  iabRelaySessionId,
 }: {
   port?: number
   host?: string
   token?: string
   extensionId?: string | null
+  /**
+   * The task this connection drives on behalf of (in-app browser sessions only).
+   *
+   * On the URL rather than on each command because it is a property of the connection: the
+   * executor is created for one task and every command it ever sends belongs to that task. The
+   * shell checks it against each tab's owner, which is what stops a finished task from writing to
+   * a page the user has since been handed.
+   */
+  iabTaskId?: string
+  /**
+   * The conversation this connection belongs to (in-app browser sessions only).
+   *
+   * One desktop shell serves every conversation over a single backend connection, so the relay
+   * needs to know which one a client is in before it hands over a list of targets — otherwise a
+   * client sees the URLs and titles of conversations it has nothing to do with, well before any
+   * ownership check gets a chance to refuse a command.
+   */
+  iabSessionId?: string
+  /**
+   * Which relay session this connection is (in-app browser sessions only).
+   *
+   * The relay records a new or claimed tab as held by this session, and it takes the id from here
+   * rather than from the command's parameters — a client that could state its own would be able to
+   * take tabs out under another session's claim.
+   */
+  iabRelaySessionId?: string
 } = {}) {
   const id = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}`
   const params = new URLSearchParams()
@@ -81,6 +110,15 @@ export function getCdpUrl({
   }
   if (extensionId) {
     params.set('extensionId', extensionId)
+  }
+  if (iabTaskId) {
+    params.set('iabTask', iabTaskId)
+  }
+  if (iabSessionId) {
+    params.set('iabSession', iabSessionId)
+  }
+  if (iabRelaySessionId) {
+    params.set('iabRelaySession', iabRelaySessionId)
   }
   const queryString = params.toString()
   const suffix = queryString ? `?${queryString}` : ''

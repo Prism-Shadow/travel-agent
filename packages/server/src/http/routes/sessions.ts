@@ -14,6 +14,7 @@ import { imageUrlMessage, scratchpadDir, userText } from "@prismshadow/penguin-c
 import type { OmniMessage, ThinkingLevelName } from "@prismshadow/penguin-core";
 import type {
   ApprovalMode,
+  CompactionResponse,
   FilesStatResponse,
   GoalResponse,
   MessagesLiveTail,
@@ -57,6 +58,14 @@ import {
   removeAttachments,
 } from "../../services/task-attachments.js";
 import type { TaskAttachment } from "../../services/task-attachments.js";
+
+/**
+ * Cap on how many Sessions one browser-task query may ask about.
+ *
+ * The shell asks about the conversations it currently holds tabs for, which is a handful. The cap is
+ * there so a malformed query cannot turn into an unbounded walk of the sessions index.
+ */
+const MAX_BROWSER_TASK_SESSIONS = 100;
 
 /** Max title length for manual renames: looser than the auto-generated 30-char limit, to accommodate users' own organizing conventions. */
 const SESSION_TITLE_MAX = 120;
@@ -379,6 +388,74 @@ export function agentSessionsRoutes(deps: AppDeps): Hono<AppEnv> {
 export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  /**
+   * Task state for a set of Sessions, for the desktop shell's browser supervisor.
+   *
+   * The shell holds real resources — in-app browser tabs — on behalf of a *turn*, and has to know
+   * which turns are running and which have finished. It cannot learn that from a renderer: the chat
+   * page holds one session stream and disposes it on a route change, and a reload takes any
+   * renderer-side bookkeeping with it entirely.
+   *
+   * An ordinary cookie-authenticated route rather than a desktop-token one, deliberately: the shell
+   * does not always own a desktop token. When it attaches to a server someone else started
+   * (`penguin web`) there is no token and no desktop mode at all, and a token-only channel would
+   * leave that mode permanently unable to release a finished turn's tabs. The shell fetches this
+   * through its own window's session, so the same request works in both.
+   *
+   * `projectId` and `agentId` come with it because the shell places a Session's downloads in that
+   * Session's own scratchpad, and must not take the renderer's word for which Agent a Session
+   * belongs to. Access is checked per Session exactly as elsewhere: one the caller cannot see is
+   * reported as absent, which the shell reads as "nothing is running here".
+   */
+  app.get("/browser-tasks", (c) => {
+    const requested = [
+      ...new Set(
+        (c.req.query("sessions") ?? "")
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    ];
+    // Refused rather than truncated. The caller reconciles what it is told against what it
+    // believes, so a silently shortened answer is not a smaller answer — it is a *wrong* one, and
+    // the caller cannot tell the difference. The desktop shell asks in batches for this reason.
+    if (requested.length > MAX_BROWSER_TASK_SESSIONS) {
+      throw new HttpError(
+        400,
+        "too_many_sessions",
+        `Ask about at most ${MAX_BROWSER_TASK_SESSIONS} conversations at a time.`,
+      );
+    }
+
+    const sessions = requested.map((sessionId) => {
+      const row = deps.sessionsRepo.findById(sessionId);
+      let visible = row !== null && row !== undefined;
+      if (row) {
+        try {
+          deps.projectService.requireProjectAccess(c.var.user.userId, row.projectId);
+        } catch {
+          visible = false;
+        }
+      }
+      // Unknown and not-yours answer identically, and both answer *something*: the contract is one
+      // state per requested id, so the caller can tell a complete answer from a partial one. What
+      // it must not do is disclose which of the two it was.
+      if (!row || !visible) {
+        return { sessionId, projectId: null, agentId: null, running: null, lastFinished: null };
+      }
+      const state = deps.manager.browserTaskState(sessionId);
+      return {
+        sessionId,
+        projectId: row.projectId,
+        agentId: row.agentId,
+        running: state.running,
+        lastFinished: state.lastFinished,
+      };
+    });
+
+    return c.json({ sessions });
+  });
+
   /** Look up ownership and check access (404 if the index has no such Session, or access is denied — never leaking existence). */
   const resolveSession = (c: Context<AppEnv>): SessionRow => {
     const sessionId = c.req.param("sessionId");
@@ -638,16 +715,14 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
     // this as authoritative, eliminating input-area lockup or premature Task closure
     // caused by a stale running/idle in the list; followed by replaying all still-pending
     // approval requests.
-    const pendingSteering = deps.manager.pendingSteeringOf(row.sessionId);
     const initialEvents: ServerEvent[] = [
-      {
-        type: "task_state",
-        state: deps.manager.statusOf(row.sessionId),
-        queued: deps.manager.pendingFollowUpCount(row.sessionId),
-        // Undelivered steering rides the snapshot too, so the composer's "steering queued"
-        // hint (and what it says) survives a reload.
-        ...(pendingSteering.length > 0 ? { pendingSteering } : {}),
-      },
+      // Built by the manager rather than assembled here, so a reconnecting client is told exactly
+      // what a connected one was told. It carries the task's identity as well as the state:
+      // undelivered steering (so the composer's hint survives a reload), and the running — or most
+      // recently finished — task id, without which a client that reloads after a turn ended would
+      // never learn which turn that was. Anything holding per-task resources would then hold them
+      // forever; replaying is safe because releasing a task is idempotent.
+      deps.manager.taskStateSnapshot(row.sessionId),
       ...deps.manager.pendingApprovals(row.sessionId).map((p) => ({
         type: "approval_request" as const,
         toolCall: p.toolCall,
@@ -684,12 +759,12 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
       if (attachments.length > 0) {
         throw badRequest("goal mode accepts text and images only (no file attachments).");
       }
-      const { sessionId } = await deps.manager.startGoal(row.sessionId, {
+      const { sessionId, taskId } = await deps.manager.startGoal(row.sessionId, {
         input: messages,
         budget: goal.budget,
         ...(thinkingLevel !== undefined ? { thinkingLevel } : {}),
       });
-      return c.json({ sessionId } satisfies TaskCreateResponse, 202);
+      return c.json({ sessionId, taskId } satisfies TaskCreateResponse, 202);
     }
     const parsed = parseTaskInput(body);
     // Follow-up queue: with queueIfBusy, a busy session enqueues the input instead of 409
@@ -714,11 +789,11 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
     );
     try {
       // 202: the Task executes on the server, decoupled from the SSE connection; sessionId is the current actual id (the new id after self-heal).
-      const { sessionId, queued } = await deps.manager.startTask(row.sessionId, input, {
+      const { sessionId, queued, taskId } = await deps.manager.startTask(row.sessionId, input, {
         ...(thinkingLevel !== undefined ? { thinkingLevel } : {}),
         queueIfBusy,
       });
-      return c.json({ sessionId, queued } satisfies TaskCreateResponse, 202);
+      return c.json({ sessionId, queued, taskId } satisfies TaskCreateResponse, 202);
     } catch (err) {
       // The Task never started, so nothing references these files and nothing will ever clean
       // them up — and the Web keeps the chips on failure, so the user's retry would otherwise
@@ -858,7 +933,7 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
   app.post("/:sessionId/compact", async (c) => {
     const row = resolveSession(c);
     const { sessionId } = await deps.manager.startCompact(row.sessionId);
-    return c.json({ sessionId } satisfies TaskCreateResponse, 202);
+    return c.json({ sessionId } satisfies CompactionResponse, 202);
   });
 
   // —— Workspace file browsing (Files tab) ——

@@ -17,6 +17,7 @@
  * `iab-open-tab` asks the shell to construct a view; everything else is ordinary CDP.
  */
 import { WebContents } from "electron";
+import type { ClaimResult, DriveDecision, TabOwnership } from "./browser-pane.js";
 
 /** Attaching uses a fixed protocol revision so a Chromium upgrade cannot silently change semantics. */
 const DEBUGGER_PROTOCOL_VERSION = "1.3";
@@ -49,10 +50,60 @@ interface AttachedView {
   announced: boolean;
   /** In flight, so a retry and a reconnect cannot announce the same view twice. */
   announcing: boolean;
+  /** The CDP target id this view announced itself under. Null until the announcement succeeds. */
+  targetId: string | null;
+  /**
+   * CDP sessions Chromium minted *underneath* this view — an out-of-process iframe, a worker.
+   * Tracked so a command addressed to one of them lands on the view that owns it rather than on
+   * whichever view happened to be convenient.
+   */
+  children: Set<string>;
   /** Pending retry, cancelled when the view is released. */
   retryTimer: NodeJS.Timeout | null;
   dispose: () => void;
 }
+
+/** What is known about a tab when the user closes it, as the pane reports it. */
+export interface ClosedTabNotice {
+  tabId: string;
+  targetId: string | null;
+  sessionScope: string;
+  ownedByTask: string | null;
+}
+
+/**
+ * Turns a refusal into something the agent can act on.
+ *
+ * Each carries a code the skill documents, because "permission denied" tells an agent nothing about
+ * whether to retry, claim, or start over — and each of these calls for a different next step.
+ */
+function ownershipError(decision: Exclude<DriveDecision, { allowed: true }>): string {
+  switch (decision.reason) {
+    case "gone":
+      return "IAB_TAB_GONE: that page is no longer a tab of the in-app browser.";
+    case "released":
+      return (
+        `IAB_TAB_RELEASED: tab ${decision.tabId} outlived the task that opened it and belongs to ` +
+        "the user now. It was left open on purpose. Claim it with tabs.claim() if you need it, or " +
+        "open a new tab."
+      );
+    case "foreign":
+      return (
+        `IAB_TAB_FOREIGN: tab ${decision.tabId} is owned by task ${String(decision.owner)}, not by ` +
+        "the task making this call. Open your own tab rather than writing to another task's page."
+      );
+  }
+}
+
+/** Where a command should be sent, or why it cannot be. */
+type CommandRoute =
+  | { kind: "view"; contents: WebContents; cdpSessionId: string | undefined }
+  /** The tab this session belonged to was closed by the user. */
+  | { kind: "closed"; tabId: string }
+  /** A session id that is not ours and never was. */
+  | { kind: "unknown" }
+  /** No view at all — the pane is empty. */
+  | { kind: "none" };
 
 export interface IabTransportOptions {
   /** Relay port. The shell forked the relay, so it knows this without discovery. */
@@ -61,12 +112,79 @@ export interface IabTransportOptions {
   key: string;
   /** Stable identity for this installation, so the relay can recognise a reconnect. */
   installId: string;
-  /** Creates a view on `iab-open-tab` and returns its CDP target id. */
-  openTab: (url?: string) => Promise<string>;
+  /**
+   * Creates a view on `iab-open-tab` and returns its CDP target id.
+   *
+   * `relaySessionId` is the relay session that will hold the tab's concurrency claim. Optional
+   * because a caller that has not got one yet — the relay's own cold-start bootstrap runs before
+   * the executor exists — still opens a tab; the claim is then established by the announcement.
+   */
+  openTab: (options: {
+    url?: string;
+    sessionId: string;
+    taskId: string;
+    relaySessionId?: string;
+  }) => Promise<string>;
   /** Every view the transport should be attached to right now. */
   liveTargets: () => WebContents[];
+  /**
+   * The view the user is looking at.
+   *
+   * Used for commands that carry no session the relay recognises. With one view "the only
+   * attachment" and "the one on screen" were the same thing; with a tab strip they are not, and a
+   * browser-scoped command landing on a background tab would act on a page nobody is watching.
+   */
+  activeTarget?: () => WebContents | null;
+  /**
+   * Whether the task driving a command may touch the page it reached.
+   *
+   * Supplied by the pane, which owns the tab model. Optional so a transport can be built without
+   * one in a test; in the shell it is always wired, because without it there is no ownership at
+   * all — only a field the tab strip draws.
+   */
+  mayDrive?: (contents: WebContents, taskId: string | undefined) => DriveDecision;
+  /** Takes ownership of an unowned tab for a task, for `iab-claim-tab`. */
+  claimTab?: (
+    targetId: string,
+    identity: { sessionId: string; taskId: string; relaySessionId?: string },
+  ) => ClaimResult;
+  /**
+   * Who owns the tab behind a view, for the relay's own registry.
+   *
+   * Sent with every target announcement — first attach and every reconnect — so the relay can
+   * rebuild its claims from the authority rather than from a stream of notifications it may have
+   * missed while the socket was down.
+   */
+  ownershipOf?: (contents: WebContents) => TabOwnership | null;
+  /**
+   * A live view the calling task may drive, for commands that name no target.
+   *
+   * Browser-scoped commands (`Target.*`, `Browser.*`) have to land *somewhere*, and the tab the
+   * user happens to be looking at is the wrong answer: it may belong to another task, or to nobody
+   * at all, and the still-running task's own command would then be refused for a page it never
+   * asked about.
+   */
+  taskTarget?: (taskId: string | undefined) => WebContents | null;
+  /**
+   * The agent's own account of how its task went (`iab-end-task`), recorded for later.
+   *
+   * The outcome arrives as a raw string and is validated by the pane: this side has no business
+   * deciding which values are meaningful, and an unrecognised one must land on the conservative
+   * rule rather than being rejected outright.
+   */
+  declareOutcome?: (taskId: string, outcome: string) => void;
   log?: (message: string) => void;
 }
+
+/**
+ * How many closed-session tombstones are remembered.
+ *
+ * A tombstone is what turns "that session does not exist" into "the user closed that tab", and a
+ * closed tab can leave several behind at once — its root session and every child session under it.
+ * Sized for the commands still in flight when a tab goes away, several tabs deep. Not a ledger:
+ * once evicted, the answer degrades to the generic unknown-session error, which is still a refusal.
+ */
+const TOMBSTONE_MEMORY = 128;
 
 /**
  * Bridges Electron's per-view debuggers to the relay.
@@ -84,6 +202,10 @@ export class IabTransport {
   private nextSessionOrdinal = 1;
   /** Scope makes session ids unique across reconnects, matching the extension's own scheme. */
   private readonly sessionScope = Math.random().toString(36).slice(2, 8);
+  /** Child CDP session id → the root session of the view that owns it. */
+  private readonly childToRoot = new Map<string, string>();
+  /** Session ids (root and child alike) whose view the user closed, and the tab it was. */
+  private readonly tombstones = new Map<string, string>();
 
   constructor(private readonly options: IabTransportOptions) {}
 
@@ -183,10 +305,67 @@ export class IabTransport {
 
     try {
       if (message.method === "iab-open-tab") {
-        const requested = (message.params as { url?: unknown } | undefined)?.url;
-        const url = typeof requested === "string" ? requested : undefined;
-        const targetId = await this.options.openTab(url);
+        const params = message.params as
+          | { url?: unknown; sessionId?: unknown; taskId?: unknown; relaySessionId?: unknown }
+          | undefined;
+        const url = typeof params?.url === "string" ? params.url : undefined;
+        // Both identities travel from the harness — the session that owns the conversation, the
+        // task that owns the turn — through the CLI and the relay to here. Neither is defaulted:
+        // a tab with no session would appear in no strip, and one with no task would never be
+        // subject to the end-of-task rules. Refusing is the only honest answer, and it surfaces
+        // as a failed `tabs.open()` rather than as a tab nobody can account for.
+        const sessionId = typeof params?.sessionId === "string" ? params.sessionId : "";
+        const taskId = typeof params?.taskId === "string" ? params.taskId : "";
+        if (!sessionId || !taskId) {
+          throw new Error(
+            "iab-open-tab needs both a sessionId and a taskId; the in-app browser will not open " +
+              "a tab that belongs to no conversation and no task",
+          );
+        }
+        const relaySessionId =
+          typeof params?.relaySessionId === "string" ? params.relaySessionId : undefined;
+        const targetId = await this.options.openTab({
+          url,
+          sessionId,
+          taskId,
+          ...(relaySessionId ? { relaySessionId } : {}),
+        });
         this.send({ id, result: { targetId } });
+        return;
+      }
+
+      if (message.method === "iab-claim-tab") {
+        const params = message.params as
+          | { targetId?: unknown; sessionId?: unknown; taskId?: unknown; relaySessionId?: unknown }
+          | undefined;
+        const targetId = typeof params?.targetId === "string" ? params.targetId : "";
+        const sessionId = typeof params?.sessionId === "string" ? params.sessionId : "";
+        const taskId = typeof params?.taskId === "string" ? params.taskId : "";
+        if (!targetId || !sessionId || !taskId) {
+          throw new Error("iab-claim-tab needs a targetId, a sessionId and a taskId");
+        }
+        const relaySessionId =
+          typeof params?.relaySessionId === "string" ? params.relaySessionId : undefined;
+        const result = this.options.claimTab?.(targetId, {
+          sessionId,
+          taskId,
+          ...(relaySessionId ? { relaySessionId } : {}),
+        }) ?? { claimed: false, reason: "gone" as const };
+        this.send({ id, result });
+        return;
+      }
+
+      if (message.method === "iab-end-task") {
+        // The agent closing its browser session, saying how the task went. It is the only party
+        // that knows whether a turn merely searched or left an order behind (design/002 §6.4) — but
+        // it is saying so *before* the turn is over, so this only records the claim. The rules run
+        // at the harness's own end-of-task boundary, where an abort can still override it.
+        const params = message.params as { taskId?: unknown; outcome?: unknown } | undefined;
+        const taskId = typeof params?.taskId === "string" ? params.taskId : "";
+        if (!taskId) throw new Error("iab-end-task needs a taskId");
+        const outcome = typeof params?.outcome === "string" ? params.outcome : "unknown";
+        this.options.declareOutcome?.(taskId, outcome);
+        this.send({ id, result: { recorded: true } });
         return;
       }
 
@@ -206,46 +385,142 @@ export class IabTransport {
     method?: string;
     sessionId?: string;
     params?: unknown;
+    taskId?: string;
   }): Promise<unknown> {
-    const { method, sessionId } = params;
+    const { method, sessionId, taskId } = params;
     if (!method) throw new Error("forwardCDPCommand without a method");
 
-    const contents = this.contentsForSession(sessionId);
-    if (!contents) {
-      throw new Error(
-        sessionId
-          ? `No in-app browser view is attached for session ${sessionId}`
-          : "No in-app browser view is attached",
-      );
+    const route = this.routeFor(sessionId, taskId);
+    switch (route.kind) {
+      case "closed":
+        // A tab the user closed is a different situation from a backend that is not there, and the
+        // agent can only replan if it is told which one happened (002 §6.4 四). Nothing reopens the
+        // tab: the user closed it on purpose.
+        throw new Error(
+          `IAB_TAB_CLOSED: the user closed the in-app browser tab this session was using ` +
+            `(${route.tabId}). It was not reopened. Open a new tab and continue from there.`,
+        );
+      case "unknown":
+        throw new Error(
+          `IAB_UNKNOWN_SESSION: no in-app browser view is attached for session ${String(sessionId)}`,
+        );
+      case "none":
+        throw new Error("No in-app browser view is attached");
+      case "view":
+        break;
     }
-    if (contents.isDestroyed()) throw new Error("The in-app browser view was destroyed");
 
-    // A session id we minted is a routing label, not something Electron knows — passing it to
-    // sendCommand would be rejected. Only ids Chromium itself produced (an out-of-process iframe,
-    // a worker) are forwarded, and those are exactly the ones absent from our table.
-    const ours = sessionId !== undefined && this.attached.has(sessionId);
-    return contents.debugger.sendCommand(
+    if (route.contents.isDestroyed()) throw new Error("The in-app browser view was destroyed");
+
+    // Ownership, checked on the page this command actually reached rather than on the session it
+    // named. A retained tab is deliberately still alive, so nothing else would refuse the write:
+    // the executor that opened it is connected, its CDP session is valid, and the page is there.
+    const decision = this.options.mayDrive?.(route.contents, taskId) ?? { allowed: true };
+    if (!decision.allowed) throw new Error(ownershipError(decision));
+
+    return route.contents.debugger.sendCommand(
       method,
       params.params as object | undefined,
-      ours ? undefined : sessionId,
+      route.cdpSessionId,
     );
   }
 
   /**
-   * Resolves which view a command is for.
+   * Resolves where a command goes.
    *
-   * Phase 1 is a single view by design, so an unrouted command goes to the only attachment. Keeping
-   * the lookup in one place is what lets Phase 2 add real per-session routing without touching the
-   * message loop.
+   * **A named session never falls back.** With one view "the only attachment" and "the session you
+   * asked for" were the same thing, so an unrecognised id could be sent to the only view without
+   * consequence. With a tab strip that is a bug with teeth: a command left over from a tab the user
+   * closed, or addressed to an iframe that has gone, would execute on whatever tab is on screen —
+   * a click, a fill, a submit landing on a page the agent has never seen. Worse, it made the
+   * closed-tab tombstone unreachable, because there was always another view to fall through to.
+   *
+   * So only three things route:
+   *   - **no session id** — a browser-scoped command (`Target.*`, `Browser.*`), which goes to a page
+   *     of the *calling task*. The tab the user is looking at is a fallback for a caller with no
+   *     task at all, because a user who clicks onto a retained tab must not make a running task's
+   *     untargeted commands start landing somewhere else;
+   *   - **a root session we minted** — that view, with no CDP session id, because ours is a routing
+   *     label Electron would reject;
+   *   - **a child session Chromium minted** — the view it was created under, *with* the id, since
+   *     that one is Chromium's own.
+   *
+   * Everything else is refused, with a tombstone's explanation when there is one.
    */
-  private contentsForSession(sessionId: string | undefined): WebContents | null {
-    if (sessionId) {
-      const match = this.attached.get(sessionId)?.contents;
-      if (match && !match.isDestroyed()) return match;
-      // A browser-scoped command carries no session id the relay recognises; fall through.
+  private routeFor(sessionId: string | undefined, taskId?: string): CommandRoute {
+    if (sessionId === undefined || sessionId === "") {
+      // A page of the *calling task* first — its own active one when it has several. The tab on
+      // screen is only a fallback for a caller with no task (a browser-scoped probe from the
+      // relay's own bootstrap), because a user who clicks onto a retained tab must not make a
+      // running task's untargeted commands start failing.
+      const mine = this.options.taskTarget?.(taskId);
+      if (mine && !mine.isDestroyed()) {
+        return { kind: "view", contents: mine, cdpSessionId: undefined };
+      }
+      if (taskId === undefined) {
+        const active = this.options.activeTarget?.();
+        if (active && !active.isDestroyed()) {
+          return { kind: "view", contents: active, cdpSessionId: undefined };
+        }
+        for (const entry of this.attached.values()) {
+          if (!entry.contents.isDestroyed()) {
+            return { kind: "view", contents: entry.contents, cdpSessionId: undefined };
+          }
+        }
+      }
+      return { kind: "none" };
     }
-    for (const entry of this.attached.values()) {
-      if (!entry.contents.isDestroyed()) return entry.contents;
+
+    const root = this.attached.get(sessionId);
+    if (root && !root.contents.isDestroyed()) {
+      return { kind: "view", contents: root.contents, cdpSessionId: undefined };
+    }
+
+    const parent = this.childToRoot.get(sessionId);
+    if (parent) {
+      const owner = this.attached.get(parent);
+      if (owner && !owner.contents.isDestroyed()) {
+        return { kind: "view", contents: owner.contents, cdpSessionId: sessionId };
+      }
+    }
+
+    const tabId = this.tombstones.get(sessionId);
+    return tabId ? { kind: "closed", tabId } : { kind: "unknown" };
+  }
+
+  /**
+   * Records that a view is going away because the user closed its tab.
+   *
+   * Called before the view is destroyed, because afterwards there is nothing left to look it up by.
+   * The pane knows *that* a user closed a tab and what its target id was; only this side knows
+   * which CDP sessions that target had — the root one and every child under it, all of which can
+   * still have commands in flight.
+   */
+  noteUserClosed(notice: ClosedTabNotice): void {
+    const rootSessionId = notice.targetId ? this.sessionForTarget(notice.targetId) : null;
+    if (!rootSessionId) return;
+    this.markTombstone(rootSessionId, notice.tabId);
+    for (const [child, parent] of this.childToRoot) {
+      if (parent === rootSessionId) this.markTombstone(child, notice.tabId);
+    }
+  }
+
+  private markTombstone(sessionId: string, tabId: string): void {
+    // Re-inserted rather than updated in place so the most recently closed tab is the last to be
+    // evicted: the commands still in flight are the ones for the tab that just went away.
+    this.tombstones.delete(sessionId);
+    this.tombstones.set(sessionId, tabId);
+    while (this.tombstones.size > TOMBSTONE_MEMORY) {
+      const oldest = this.tombstones.keys().next().value;
+      if (oldest === undefined) break;
+      this.tombstones.delete(oldest);
+    }
+  }
+
+  /** The root session a target id was announced under. */
+  private sessionForTarget(targetId: string): string | null {
+    for (const [sessionId, entry] of this.attached) {
+      if (entry.targetId === targetId) return sessionId;
     }
     return null;
   }
@@ -278,6 +553,22 @@ export class IabTransport {
       params: unknown,
       cdpSessionId?: string,
     ): void => {
+      // Chromium announces its own sub-targets through this stream: an out-of-process iframe, a
+      // service worker. Recording which view they belong to is what lets a later command addressed
+      // to one of them be routed exactly, instead of being sent somewhere plausible.
+      if (method === "Target.attachedToTarget") {
+        const child = (params as { sessionId?: unknown } | undefined)?.sessionId;
+        if (typeof child === "string" && child) {
+          this.childToRoot.set(child, sessionId);
+          this.attached.get(sessionId)?.children.add(child);
+        }
+      } else if (method === "Target.detachedFromTarget") {
+        const child = (params as { sessionId?: unknown } | undefined)?.sessionId;
+        if (typeof child === "string" && child) {
+          this.childToRoot.delete(child);
+          this.attached.get(sessionId)?.children.delete(child);
+        }
+      }
       this.send({
         method: "forwardCDPEvent",
         params: { method, params, sessionId: cdpSessionId || sessionId },
@@ -294,6 +585,8 @@ export class IabTransport {
       contents,
       announced: false,
       announcing: false,
+      targetId: null,
+      children: new Set(),
       retryTimer: null,
       dispose: () => {
         try {
@@ -323,8 +616,21 @@ export class IabTransport {
     const entry = this.attached.get(sessionId);
     if (!entry) return;
     this.attached.delete(sessionId);
+    // The child sessions go with it. Leaving them mapped to a root that no longer exists would make
+    // `routeFor` look up a parent that is gone and fall through to "unknown" — the right answer,
+    // but reached by accident, and the map would grow for the life of the process.
+    for (const child of entry.children) this.childToRoot.delete(child);
     if (entry.retryTimer) clearTimeout(entry.retryTimer);
     entry.dispose();
+    // The relay's picture of the browser is built from these events; without a detach it keeps
+    // offering Playwright a page that no longer exists, and the next command against it fails as a
+    // timeout rather than as a closed tab.
+    if (entry.announced) {
+      this.send({
+        method: "forwardCDPEvent",
+        params: { method: "Target.detachedFromTarget", params: { sessionId } },
+      });
+    }
   }
 
   /**
@@ -352,6 +658,9 @@ export class IabTransport {
       const current = this.attached.get(sessionId);
       if (!current || current.announced) return;
       current.announced = true;
+      // Kept so a closed tab can be matched back to its CDP session by target id — the pane knows
+      // the target id, this side knows the session.
+      current.targetId = typeof targetInfo.targetId === "string" ? targetInfo.targetId : null;
 
       this.send({
         method: "forwardCDPEvent",
@@ -362,6 +671,12 @@ export class IabTransport {
             targetInfo: { ...targetInfo, attached: true },
             waitingForDebugger: false,
           },
+          // The authority's statement of who holds this page, restated on every reconnect. Null
+          // means nobody does — a tab that outlived its task — and the relay releases its claim
+          // accordingly. This is what makes the two registries converge without a durable log.
+          iabOwner: current.contents.isDestroyed()
+            ? null
+            : (this.options.ownershipOf?.(current.contents) ?? null),
         },
       });
       this.log(`announced target ${String(targetInfo.targetId)} as ${sessionId}`);
@@ -388,6 +703,17 @@ export class IabTransport {
       const current = this.attached.get(sessionId);
       if (current) current.announcing = false;
     }
+  }
+
+  /**
+   * Tells the relay something happened on this side that its own registries need to know about.
+   *
+   * Fire-and-forget, with no id: these are notifications, not requests, and there is nothing useful
+   * to do with a failure. A message dropped because the socket is down is re-established by the
+   * next reconnect's re-announcement, which rebuilds the relay's picture from scratch anyway.
+   */
+  notify(method: string, params: Record<string, unknown>): void {
+    this.send({ method, params });
   }
 
   /** Stops reconnecting, closes the socket, and detaches every listener this transport added. */

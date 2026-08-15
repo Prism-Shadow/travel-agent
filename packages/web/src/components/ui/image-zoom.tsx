@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { S } from "../../lib/strings";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 
 export function ZoomableImage({
   src,
@@ -33,6 +34,9 @@ export function ZoomableImage({
 }
 
 function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  // Full-screen, like Modal: the lightbox must not end up behind the in-app browser's native view.
+  useOccludePane(true);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

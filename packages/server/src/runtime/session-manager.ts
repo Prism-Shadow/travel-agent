@@ -30,6 +30,7 @@ import path from "node:path";
 import {
   createAgent,
   findLatestTraceFile,
+  formatTaskId,
   goalFinishedOf,
   goalTokenDelta,
   isGoalRoundInput,
@@ -84,6 +85,12 @@ export interface RuntimeSession {
       approve: ApproveFn;
       signal: AbortSignal;
       thinkingLevel?: ThinkingLevelName;
+      /**
+       * This Task's id, allocated when the task was accepted (see `startTask`). Core mints one
+       * itself when a caller omits it; this manager never does, because the id has to exist before
+       * the run in order to be returned to the poster and published on `task_state`.
+       */
+      taskId?: string;
       /** Present = goal mode: core loops rounds inside this one run (see core SessionRunOptions). */
       goal?: { budget?: number };
     },
@@ -228,6 +235,14 @@ export interface SessionManagerDeps {
 interface QueuedFollowUp {
   input: OmniMessage[];
   thinkingLevel?: ThinkingLevelName;
+  /**
+   * The id allocated when this follow-up was accepted.
+   *
+   * Carried rather than minted at launch so the id the caller was handed is the id the run
+   * actually uses. A queued task can sit for minutes; a caller that cannot name it until it starts
+   * cannot act on it in the meantime.
+   */
+  taskId: string;
 }
 
 /** Active-table entry: a loaded runtime Session plus its running state. */
@@ -244,6 +259,16 @@ interface RuntimeEntry {
   abort: AbortController | null;
   /** The in-flight drive Promise (awaited during graceful shutdown). */
   running: Promise<void> | null;
+  /**
+   * The running Task's id, or null when the session is idle.
+   *
+   * Published with every `task_state` so a subscriber can tell which turn started and which one
+   * ended, rather than only that *a* turn did. Cleared when the run finishes — including on abort,
+   * which is an ending like any other as far as anything owning resources for that task is
+   * concerned.
+   */
+  currentTaskId: string | null;
+
   /**
    * Agent config generation this runtime was built under (see
    * invalidateAgentRuntimes): once it falls behind the Agent's current generation,
@@ -287,6 +312,14 @@ interface RuntimeEntry {
   /** Timestamp of last activity (refreshed on load / status flip / drive completion), used for idle-eviction checks. */
   lastActivityMs: number;
 }
+
+/**
+ * How many Sessions' finished-task records are kept (see `finishedTasks`).
+ *
+ * Only the most recent task per Session, and only until the next one starts, so this is a few tens
+ * of bytes each. The cap exists because the map outlives the runtime entries it describes.
+ */
+const MAX_FINISHED_TASK_TOMBSTONES = 500;
 
 /** Active-table idle eviction: same convention as the SSE channel (an idle entry with no activity for 30 minutes releases its memory). */
 const ENTRY_IDLE_MS = 30 * 60 * 1000;
@@ -382,6 +415,14 @@ function nestedAssistantText(msg: OmniMessage): { sessionId: string; text: strin
 
 export class SessionManager {
   private readonly entries = new Map<string, RuntimeEntry>();
+  /**
+   * How each Session's most recent Task ended, kept past the entry's own lifetime.
+   *
+   * Separate from the entries on purpose: those are evicted when a Session goes idle for half an
+   * hour, and this is precisely what a client reconnecting after that needs. Replaced when the next
+   * task starts, dropped with the Session.
+   */
+  private readonly finishedTasks = new Map<string, { taskId: string; failed: boolean }>();
   /** Per-Session mutex (serializes get-or-load and status flips); auto-cleaned once the chain drains. */
   private readonly locks = new Map<string, Promise<unknown>>();
   private readonly log: (line: string) => void;
@@ -475,6 +516,7 @@ export class SessionManager {
       approvals: new ApprovalRegistry(),
       abort: null,
       running: null,
+      currentTaskId: null,
       generation: this.generationOf(row.projectId, row.agentId),
       followUps: [],
       pendingInputs: [],
@@ -549,26 +591,31 @@ export class SessionManager {
     sessionId: string,
     input: OmniMessage[],
     opts?: { thinkingLevel?: ThinkingLevelName; queueIfBusy?: boolean },
-  ): Promise<{ sessionId: string; queued: boolean }> {
+  ): Promise<{ sessionId: string; queued: boolean; taskId: string }> {
     return this.withLock(sessionId, async () => {
       this.assertOpen();
       this.assertAgentNotDeleting(sessionId);
       this.assertSessionNotDeleting(sessionId);
       const entry = await this.ensureEntry(sessionId);
+      // Allocated at acceptance, for queued and immediate work alike, and never re-minted. This is
+      // the id the caller is handed, the id published on `task_state`, and the id the Agent's
+      // subprocesses carry — one turn, one name, from the moment the turn is taken on.
+      const taskId = formatTaskId();
       if (entry.status !== "idle" && opts?.queueIfBusy) {
         entry.followUps.push({
           input,
+          taskId,
           ...(opts.thinkingLevel !== undefined ? { thinkingLevel: opts.thinkingLevel } : {}),
         });
         entry.lastActivityMs = Date.now();
         // Re-publish the current state so subscribers pick up the new queued count (the
         // input itself is published when the follow-up actually starts).
         this.publishState(entry, entry.status);
-        return { sessionId: entry.sessionId, queued: true };
+        return { sessionId: entry.sessionId, queued: true, taskId };
       }
       this.assertIdle(entry);
-      this.launchTask(entry, input, opts?.thinkingLevel);
-      return { sessionId: entry.sessionId, queued: false };
+      this.launchTask(entry, input, taskId, opts?.thinkingLevel);
+      return { sessionId: entry.sessionId, queued: false, taskId };
     });
   }
 
@@ -590,7 +637,7 @@ export class SessionManager {
       /** Optional per-goal thinking level: rides every round's Task (route-validated). */
       thinkingLevel?: ThinkingLevelName;
     },
-  ): Promise<{ sessionId: string }> {
+  ): Promise<{ sessionId: string; taskId: string }> {
     return this.withLock(sessionId, async () => {
       this.assertOpen();
       this.assertAgentNotDeleting(sessionId);
@@ -612,6 +659,13 @@ export class SessionManager {
       const ac = new AbortController();
       entry.status = "running";
       entry.abort = ac;
+      // A goal is one accepted unit of work: one id for the whole loop, inherited by every round.
+      // Core subdivides a goal into per-round Tasks internally, but nothing outside ever sees those
+      // — so anything that holds resources for "this task" (the in-app browser holds tabs) must be
+      // able to keep them for the length of the goal and release them once, at the end.
+      const taskId = formatTaskId();
+      entry.currentTaskId = taskId;
+      this.finishedTasks.delete(entry.sessionId);
       entry.lastActivityMs = Date.now();
       // Round-1 objective input: same pendingInputs hold as launchTask (core yields round
       // inputs onto the stream, but the Trace write still waits for the bootstrap);
@@ -646,6 +700,7 @@ export class SessionManager {
       const gen = this.goalStream(entry, {
         input: args.input,
         budget: args.budget,
+        taskId,
         ...(args.thinkingLevel !== undefined ? { thinkingLevel: args.thinkingLevel } : {}),
         approve,
         signal: ac.signal,
@@ -653,7 +708,7 @@ export class SessionManager {
       });
       // The objective doubles as the title material (same role as a task's input text).
       entry.running = this.drive(entry, gen, { userExcerpt: objective });
-      return { sessionId: entry.sessionId };
+      return { sessionId: entry.sessionId, taskId };
     });
   }
 
@@ -673,11 +728,14 @@ export class SessionManager {
       approve: ApproveFn;
       signal: AbortSignal;
       goalId?: number;
+      /** The goal's own task id: every round runs under it (see startGoal). */
+      taskId: string;
     },
   ): AsyncGenerator<OmniMessage> {
     const gen = entry.session.run(args.input, {
       approve: args.approve,
       signal: args.signal,
+      taskId: args.taskId,
       ...(args.thinkingLevel !== undefined ? { thinkingLevel: args.thinkingLevel } : {}),
       goal: { budget: args.budget },
     });
@@ -756,12 +814,15 @@ export class SessionManager {
   private launchTask(
     entry: RuntimeEntry,
     input: OmniMessage[],
+    taskId: string,
     thinkingLevel?: ThinkingLevelName,
   ): void {
     const channel = this.deps.channels.get(entry.sessionId);
     const ac = new AbortController();
     entry.status = "running";
     entry.abort = ac;
+    entry.currentTaskId = taskId;
+    this.finishedTasks.delete(entry.sessionId);
     entry.lastActivityMs = Date.now();
     // Publish the input messages first (visible to other subscribers; the Trace is
     // persisted by the SDK), then flip the running status. The same envelopes are held as
@@ -791,6 +852,7 @@ export class SessionManager {
     const gen = entry.session.run(input, {
       approve,
       signal: ac.signal,
+      taskId,
       ...(thinkingLevel !== undefined ? { thinkingLevel } : {}),
     });
     // Title material is collected by the core Session itself during run; here we only
@@ -820,7 +882,9 @@ export class SessionManager {
         const entry = this.entries.get(sessionId);
         if (!entry || entry.status !== "idle" || entry.followUps.length === 0) return;
         const next = entry.followUps.shift()!;
-        this.launchTask(entry, next.input, next.thinkingLevel);
+        // Its id was allocated when the user queued it, not now: the caller has been able to name
+        // this task since the moment it was accepted.
+        this.launchTask(entry, next.input, next.taskId, next.thinkingLevel);
       });
     } catch (err) {
       this.log(`[followup] auto-start failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -1009,6 +1073,8 @@ export class SessionManager {
    * so cleanup writes don't recreate the file.
    */
   beginSessionDeletion(sessionId: string): Promise<void>[] {
+    // The Session is going; so is what we remember about its last turn.
+    this.finishedTasks.delete(sessionId);
     this.deletingSessions.add(sessionId);
     const entry = this.entries.get(sessionId);
     if (!entry) return [];
@@ -1170,6 +1236,7 @@ export class SessionManager {
       approvals: new ApprovalRegistry(),
       abort: null,
       running: null,
+      currentTaskId: null,
       generation,
       followUps: [],
       pendingInputs: [],
@@ -1198,6 +1265,14 @@ export class SessionManager {
     this.deps.sessions.markHasTrace(entry.sessionId);
     let earlyTitleFired = false;
     let mainBodyChars = 0;
+    /**
+     * Whether this run ended badly: the user aborted it, or it threw.
+     *
+     * Published on the idle flip. It is the only account of *how* a turn went that the server has
+     * of its own — everything finer is the agent's to declare — and it is what a consumer holding
+     * per-task resources falls back on when the agent declared nothing.
+     */
+    let abnormalEnding = false;
     const ctx: UsageContext = {
       projectId: entry.projectId,
       agentId: entry.agentId,
@@ -1338,6 +1413,19 @@ export class SessionManager {
         // holding a stale reference would send output to an orphaned, detached channel.
         this.deps.channels.get(entry.sessionId).publish(msg);
         watcher?.observe(msg);
+        // A terminal failure does not throw. Core converges LLM and tool failures into the message
+        // stream (see StreamErrorWatcher's header), and the run's ending is marked by an `abort`
+        // message on the main session — a rejected credential, a malformed response the retries
+        // never recovered, a timeout that exhausted the ladder, or the user pressing stop. A
+        // try/catch sees none of those, so a task that declared "just a search" and then died on a
+        // 401 would look like a clean read-only run and have its evidence closed.
+        //
+        // Only the main session's: a subagent that fails feeds the failure back to its parent,
+        // which goes on working. If it does end the parent, the parent emits its own abort.
+        const abortPayload = msg.payload as { type?: string };
+        if (abortPayload.type === "abort" && (!msg.origin || msg.origin.length === 0)) {
+          abnormalEnding = true;
+        }
         try {
           await this.deps.recorder.record(ctx, msg);
         } catch (err) {
@@ -1348,6 +1436,7 @@ export class SessionManager {
     } catch (err) {
       // The SDK doesn't normally throw (errors are converged into the message stream);
       // this is a defensive record here to avoid crashing the runtime.
+      abnormalEnding = true;
       this.log(
         `[session] Run failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
       );
@@ -1362,16 +1451,31 @@ export class SessionManager {
       // to the Trace, so its held input (and the aborted connect pair) are the only copy
       // a reload can show until the next run carries the input forward and persists it.
       // Runs that issued a request already cleared them at their first request_begin.
+      if (entry.abort?.signal.aborted === true) abnormalEnding = true;
       entry.approvals.denyAll();
       entry.status = "idle";
       entry.abort = null;
       entry.running = null;
+      // Held for the idle publish below so the event names the task that just ended. Anything
+      // holding resources for a turn — the in-app browser holds tabs — learns of the ending from
+      // this event, and "some task ended" is not something it can act on.
+      const endedTaskId = entry.currentTaskId;
+      entry.currentTaskId = null;
+      // Held so a client that connects after this point still learns which turn ended, and how.
+      // Outside the entry, because the entry is evicted after 30 idle minutes and a renderer that
+      // reconnects past that point would otherwise see a bare "idle" — leaving a consumer holding
+      // that task's resources with nothing to release them on.
+      if (endedTaskId !== null) {
+        this.rememberFinishedTask(entry.sessionId, endedTaskId, abnormalEnding);
+      }
       // The run is over, so core has discarded any undelivered steering (see ContextEngine's
       // steeringQueue) — drop the mirror with it; the idle publish below broadcasts the
       // now-empty state.
       entry.pendingSteering = [];
       entry.lastActivityMs = Date.now();
-      this.publishState(entry, "idle");
+      // Aborted or thrown, as far as the server can tell. That is the coarsest possible account of
+      // how a turn went and deliberately so — it is the only part the server witnesses.
+      this.publishState(entry, "idle", endedTaskId ?? undefined, abnormalEnding);
       if (titleSource && titleSource.userExcerpt.trim()) {
         // Attempt generation whenever there's user material; whether generation is
         // actually needed (title still NULL, etc.) is decided by the generator itself.
@@ -1473,14 +1577,94 @@ export class SessionManager {
     return child;
   }
 
-  private publishState(entry: RuntimeEntry, state: SessionStatus): void {
+  /**
+   * The authoritative task-state snapshot for a Session.
+   *
+   * One producer for the subscription's first event and for every live transition, so a client that
+   * reconnects cannot be told a different story from one that stayed connected. Deliberately built
+   * from the runtime entry rather than reconstructed from `statusOf` alone: status says *whether*
+   * something is running, and a consumer that owns per-task resources needs to know *which*.
+   */
+  taskStateSnapshot(sessionId: string): Extract<ServerEvent, { type: "task_state" }> {
+    const entry = this.entries.get(sessionId);
+    const pendingSteering = this.pendingSteeringOf(sessionId);
+    const state = entry?.status ?? this.statusOf(sessionId);
+    const running = entry?.currentTaskId ?? null;
+    // Falls back to the tombstone, which is deliberately not on the entry: an entry is evicted
+    // after 30 idle minutes, and a renderer reconnecting past that would otherwise be told only
+    // "idle" and never learn which turn ended — stranding whatever it was holding for that turn.
+    const finished = running === null ? this.finishedTasks.get(sessionId) : undefined;
+    const taskId = running ?? finished?.taskId ?? null;
+    return {
+      type: "task_state",
+      state,
+      queued: entry?.followUps.length ?? this.pendingFollowUpCount(sessionId),
+      ...(pendingSteering.length > 0 ? { pendingSteering } : {}),
+      ...(taskId !== null ? { taskId } : {}),
+      // Carried with the id, not separately. A client that missed the live idle event and
+      // reconnects has no other way to learn the turn ended badly, and reading a failed turn as a
+      // clean one is what lets a declared "just a search" close the evidence of what went wrong.
+      ...(finished?.failed === true ? { taskFailed: true } : {}),
+    };
+  }
+
+  /**
+   * The authoritative state of one Session's Task, for the desktop shell.
+   *
+   * The shell owns browser tabs on behalf of a turn and has to know — independently of any renderer,
+   * which comes and goes with a reload — which turns are running and which have finished. This is
+   * that answer, from the same records the SSE snapshot is built from, so the two cannot disagree.
+   */
+  browserTaskState(sessionId: string): {
+    running: string | null;
+    lastFinished: { taskId: string; failed: boolean } | null;
+  } {
+    const entry = this.entries.get(sessionId);
+    const finished = this.finishedTasks.get(sessionId) ?? null;
+    return {
+      running: entry?.currentTaskId ?? null,
+      lastFinished: finished ? { ...finished } : null,
+    };
+  }
+
+  /**
+   * Records how a Session's most recent Task ended, for subscribers that were not there.
+   *
+   * Bounded, because sessions accumulate and this outlives their runtime entries. Evicting the
+   * oldest costs a reconnecting client the identity of a turn that ended long ago — by which point
+   * anything holding resources for it has been through a restart of its own.
+   */
+  private rememberFinishedTask(sessionId: string, taskId: string, failed: boolean): void {
+    this.finishedTasks.delete(sessionId);
+    this.finishedTasks.set(sessionId, { taskId, failed });
+    while (this.finishedTasks.size > MAX_FINISHED_TASK_TOMBSTONES) {
+      const oldest = this.finishedTasks.keys().next().value;
+      if (oldest === undefined) break;
+      this.finishedTasks.delete(oldest);
+    }
+  }
+
+  private publishState(
+    entry: RuntimeEntry,
+    state: SessionStatus,
+    taskId?: string,
+    taskFailed?: boolean,
+  ): void {
     // Every state flip also reports the queued follow-up count and the undelivered steering
     // mirror, so subscribers can render both hints without a dedicated event type.
+    //
+    // `taskId` names the turn this flip is about. Normally that is whatever is running; the flip
+    // *back* to idle passes the ending task explicitly, because by then the entry has already let
+    // go of it and a subscriber that only learns "idle" cannot tell which turn just ended — which
+    // is exactly what a consumer holding resources for that turn needs to know.
+    const named = taskId ?? entry.currentTaskId;
     this.publishEvent(entry, {
       type: "task_state",
       state,
       queued: entry.followUps.length,
       ...(entry.pendingSteering.length > 0 ? { pendingSteering: entry.pendingSteering } : {}),
+      ...(named !== null && named !== undefined ? { taskId: named } : {}),
+      ...(taskFailed === true ? { taskFailed: true } : {}),
     });
   }
 

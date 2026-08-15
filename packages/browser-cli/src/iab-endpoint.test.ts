@@ -12,9 +12,13 @@
  */
 import { describe, expect, it, afterAll, beforeAll } from 'vitest'
 import { WebSocket } from 'ws'
+import { createCdpLogger } from './cdp-log.js'
 import { startPenguinBrowserCDPRelayServer } from './cdp-relay.js'
 
+import fs from 'node:fs'
 import net from 'node:net'
+import os from 'node:os'
+import path from 'node:path'
 
 const KEY = 'unit-test-iab-key'
 
@@ -31,6 +35,7 @@ function freePort(): Promise<number> {
 }
 
 let PORT: number
+let logDir: string
 let server: Awaited<ReturnType<typeof startPenguinBrowserCDPRelayServer>>
 
 /** What an attempt observed, plus the socket, so cleanup itself can be asserted. */
@@ -95,11 +100,20 @@ async function attempt(url: string, headers: Record<string, string> = {}): Promi
 
 beforeAll(async () => {
   PORT = await freePort()
-  server = await startPenguinBrowserCDPRelayServer({ port: PORT, host: '127.0.0.1', iabKey: KEY })
+  // Its own CDP log: the default path is shared, and `createCdpLogger` truncates it on creation,
+  // so a relay started in one suite silently empties the file another suite is measuring.
+  logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'iab-endpoint-log-'))
+  server = await startPenguinBrowserCDPRelayServer({
+    port: PORT,
+    host: '127.0.0.1',
+    iabKey: KEY,
+    cdpLogger: createCdpLogger({ logFilePath: path.join(logDir, 'cdp.jsonl') }),
+  })
 })
 
 afterAll(() => {
   server?.close()
+  if (logDir) fs.rmSync(logDir, { recursive: true, force: true })
 })
 
 describe('/iab authentication', () => {
@@ -158,7 +172,11 @@ describe('/iab on a relay started without a key', () => {
 
   beforeAll(async () => {
     bareePort = await freePort()
-    bare = await startPenguinBrowserCDPRelayServer({ port: bareePort, host: '127.0.0.1' })
+    bare = await startPenguinBrowserCDPRelayServer({
+      port: bareePort,
+      host: '127.0.0.1',
+      cdpLogger: createCdpLogger({ logFilePath: path.join(logDir, 'cdp-bare.jsonl') }),
+    })
   })
   afterAll(() => bare?.close())
 

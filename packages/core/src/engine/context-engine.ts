@@ -128,6 +128,16 @@ interface CompactionResult {
 export interface RunOptions {
   /** Abort signal (e.g. Ctrl-C). */
   signal?: AbortSignal;
+  /**
+   * This Task's id (see `task-id.ts`).
+   *
+   * A Session is a conversation and a Task is one turn of it; hosts that accept a task before it
+   * starts — the Web server queues them — mint the id there so they can hand it back to the caller
+   * and publish it. A Session run without one mints its own: what must not happen is a turn with no
+   * identity, because tools that hand work to another process (the in-app browser's tab ownership)
+   * have nothing else to name the turn by.
+   */
+  taskId?: string;
   /** Per-tool approval callback; defaults to denying everything (conservative, to avoid accidental approval when unattended). */
   approve?: ApproveFn;
   /**

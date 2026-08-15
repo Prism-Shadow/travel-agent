@@ -16,21 +16,48 @@
  *   - **This preload is attached to the app window only.** In-app browser views get no preload at
  *     all — see `session-partition.ts`, where that is stated as an explicit `undefined`.
  *
- * The surface is Phase 1's: place the pane, open and close it, hide it while a modal is up, and
- * observe the one view's state.
+ * The surface is a browser's: place the pane, drive its tabs, and observe them. Note what is *not*
+ * here — nothing takes a task id. Ownership of a tab is decided by the harness identity that
+ * travels with the agent's own commands, never by something the renderer asserts.
  */
 import { contextBridge, ipcRenderer } from "electron";
 import { IAB_ENABLED_SWITCH } from "./iab-switch.js";
 
-/** Matches `PaneState` in `browser-pane.ts`. Duplicated to keep the preload dependency-free. */
-export interface BridgePaneState {
-  present: boolean;
-  visible: boolean;
+/** Matches `TabFailure` in `browser-pane.ts`. Duplicated to keep the preload dependency-free. */
+export interface BridgeTabFailure {
+  code: number;
+  description: string;
+  url: string;
+}
+
+/** Matches `PaneTabState` in `browser-pane.ts`. */
+export interface BridgeTabState {
+  id: string;
+  targetId: string | null;
   url: string;
   title: string;
   loading: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  ownedByTask: string | null;
+  retain: boolean;
+  failed: BridgeTabFailure | null;
+}
+
+/** Matches `PaneState` in `browser-pane.ts`. */
+export interface BridgePaneState {
+  present: boolean;
+  visible: boolean;
   /** Whether the pane should be showing; main owns it, the renderer follows it. */
   requested: boolean;
+  tabs: BridgeTabState[];
+  activeTabId: string | null;
+  sessionScope: string | null;
+  backend: "iab" | "extension";
+  backendLocked: boolean;
+  extensionBackendAvailable: boolean;
+  profileResetLocked: boolean;
+  restorable: number;
 }
 
 export interface BridgeRect {
@@ -39,6 +66,21 @@ export interface BridgeRect {
   width: number;
   height: number;
 }
+
+/** The three ids that identify a conversation to main. */
+export interface BridgeSessionIds {
+  sessionId: string;
+  projectId: string;
+  agentId: string;
+}
+
+export interface BridgeHandoff {
+  url: string;
+  sessionScope: string;
+}
+
+/** Matches `TaskOutcome` in `tab-lifecycle.ts`. */
+export type BridgeTaskOutcome = "read_only" | "committed" | "failed" | "unknown";
 
 /**
  * Whether the shell actually wired a pane this run.
@@ -53,7 +95,9 @@ const api = {
   /** False when the pane is switched off, so the web app hides the column exactly as it does in a browser tab. */
   available: enabled,
 
-  /** Open or close the pane. Opening creates the view if it does not exist yet. */
+  // —— panel ——
+
+  /** Open or close the pane. */
   setOpen: (open: boolean): Promise<void> => ipcRenderer.invoke("iab:set-open", open),
 
   /**
@@ -65,12 +109,96 @@ const api = {
    */
   setBounds: (rect: BridgeRect | null): Promise<void> => ipcRenderer.invoke("iab:set-bounds", rect),
 
+  /**
+   * Hide the native view **before this call returns**.
+   *
+   * The one synchronous channel in this file, and it exists because the asynchronous one cannot
+   * state the guarantee that matters. When the route changes, React commits the new conversation's
+   * frame and the browser paints it; the `WebContentsView` is a surface composited *above* that
+   * frame, and it goes on showing the previous conversation's page until main is told to hide it.
+   * An `invoke` from a layout effect only *starts* that conversation — the effect returns, the
+   * paint happens, and whether the view was hidden first is a race with the IPC.
+   *
+   * `sendSync` blocks the renderer until main has answered, so the frame the user sees cannot be
+   * the one with the wrong page on it. It is deliberately the narrowest thing that can be: it takes
+   * no arguments, it can only *hide*, and showing again goes back through the ordinary async path
+   * once the new conversation's own bounds are measured. Returns whether main confirmed it.
+   */
+  hideNow: (): boolean => ipcRenderer.sendSync("iab:hide-now") === true,
+
   /** Hide the view while something in the DOM covers its area, then show it again. */
   setOccluded: (occluded: boolean): Promise<void> =>
     ipcRenderer.invoke("iab:set-occluded", occluded),
 
+  /**
+   * Which conversation the user is looking at.
+   *
+   * Decides which tabs the strip shows. `null` when no conversation is open, which shows none — a
+   * tab belongs to the conversation it was opened in, and no other one may display it. The three
+   * ids also tell main where this conversation's downloads go; main builds that path from its own
+   * data root, so what travels here is identity, never a location.
+   *
+   * Answers with the scope main is now showing, so a renderer that changed route twice in quick
+   * succession can tell which switch this reply belongs to.
+   */
+  setSession: (sessionId: string | null): Promise<string | null> =>
+    ipcRenderer.invoke("iab:set-session", sessionId),
+
+  /** Which browser the next agent session should use (002 §6.1). */
+  setBackend: (backend: "iab" | "extension"): Promise<void> =>
+    ipcRenderer.invoke("iab:set-backend", backend),
+
   /** Current state, for a renderer that has just mounted. */
   getState: (): Promise<BridgePaneState> => ipcRenderer.invoke("iab:get-state"),
+
+  // —— tabs ——
+
+  openTab: (url?: string): Promise<string> => ipcRenderer.invoke("iab:open-tab", { url }),
+  closeTab: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:close-tab", tabId),
+  selectTab: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:select-tab", tabId),
+  /** The user's "keep this page past the end of the task" mark. */
+  setRetain: (tabId: string, retain: boolean): Promise<void> =>
+    ipcRenderer.invoke("iab:set-retain", { tabId, retain }),
+  navigate: (tabId: string, url: string): Promise<void> =>
+    ipcRenderer.invoke("iab:navigate", { tabId, url }),
+  goBack: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:go-back", tabId),
+  goForward: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:go-forward", tabId),
+  reload: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:reload", tabId),
+  stop: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:stop", tabId),
+
+  // —— lifecycle ——
+
+  /**
+   * Something about the running turns changed — one started, one finished.
+   *
+   * A **hint**, carrying nothing. Main owns which turns are running: it asks the server directly,
+   * because the chat page's stream is disposed on every route change and a reload takes any
+   * renderer bookkeeping with it. All this does is bring main's next question forward.
+   *
+   * Deliberately argument-free. Anything it named would be a fact the renderer had asserted, and a
+   * stale frame asserting a finished turn is exactly the authority a leftover background command is
+   * trying to reuse.
+   */
+  tasksChanged: (): Promise<void> => ipcRenderer.invoke("iab:tasks-changed"),
+
+  /** Answer the "the last run left N pages" prompt: restore them, or discard them. */
+  restore: (accept: boolean): Promise<void> => ipcRenderer.invoke("iab:restore", accept),
+
+  /** Sign out of everything: clear the pane's cookies and storage, and close its tabs. */
+  clearProfile: (): Promise<void> => ipcRenderer.invoke("iab:clear-profile"),
+
+  /** What would move to the user's own browser (002 §7.2). Null when there is no page to hand over. */
+  handoff: (): Promise<BridgeHandoff | null> => ipcRenderer.invoke("iab:handoff"),
+
+  /**
+   * Open the active tab in the user's own browser.
+   *
+   * Takes no URL on purpose: main re-derives it from the tab. A channel that accepted one would be
+   * a "launch any URL in the OS" primitive wearing a browser's name.
+   */
+  handoffOpen: (): Promise<boolean> => ipcRenderer.invoke("iab:handoff-open"),
+
+  // —— events ——
 
   /**
    * Subscribe to state changes. Returns an unsubscribe function.
@@ -82,6 +210,19 @@ const api = {
     const wrapped = (_event: unknown, state: BridgePaneState): void => listener(state);
     ipcRenderer.on("iab:state", wrapped);
     return () => ipcRenderer.removeListener("iab:state", wrapped);
+  },
+
+  /**
+   * Cmd/Ctrl+L arrived while the pane had the keyboard.
+   *
+   * The shortcut table lives in main because keyboard focus can be inside a page, where the
+   * renderer sees nothing; focusing the address bar is the one action main cannot carry out
+   * itself, so it comes back here.
+   */
+  onFocusAddress: (listener: () => void): (() => void) => {
+    const wrapped = (): void => listener();
+    ipcRenderer.on("iab:focus-address", wrapped);
+    return () => ipcRenderer.removeListener("iab:focus-address", wrapped);
   },
 };
 

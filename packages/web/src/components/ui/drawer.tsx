@@ -3,6 +3,7 @@
  * `side` determines the docking direction; the panel width defaults to 80vw, capped by widthClass.
  */
 import { useEffect } from "react";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 import type { ReactNode } from "react";
 import { CloseButton } from "./icons";
 
@@ -17,6 +18,10 @@ export interface DrawerProps {
 }
 
 export function Drawer({ open, side = "left", title, onClose, children, widthClass }: DrawerProps) {
+  // See Modal: the in-app browser renders above the DOM and has to step aside for a full-screen
+  // overlay, or the half of the drawer over the pane is unclickable.
+  useOccludePane(open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

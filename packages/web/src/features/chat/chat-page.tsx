@@ -303,8 +303,6 @@ export function ChatPage() {
   const [turnThinkingLevel, setTurnThinkingLevel] = useState("");
 
   const routeSessionId = params.sessionId ?? null;
-  // Desktop only: `supported` is false in a browser tab, and the column is not rendered at all.
-  const browserPane = useBrowserPane();
   const filesPanelRaw = useFilesPanel(routeSessionId);
   const subagentsPanelRaw = useSubagentsPanel(routeSessionId);
   // The two docked panels are MUTUALLY EXCLUSIVE — side by side they'd crush the chat column at
@@ -345,28 +343,51 @@ export function ChatPage() {
       open(true);
     }
   };
+  // The browser is a third docked utility and obeys the same exclusivity (design/004: three-panel
+  // coordination). Three fixed-width siblings leave the chat column and its composer unusable — the
+  // browser takes a fraction of the whole row and a utility panel independently takes up to half of
+  // it, which at an ordinary desktop width leaves the conversation a tenth of the window.
+  //
+  // Two halves to the rule. Opening a utility panel *from here* retracts the browser, because the
+  // user chose the panel. The browser opening on its own — the agent opened a tab, and that arrives
+  // as a state push from main — instead **suppresses** the panels where they are rendered, leaving
+  // their own state untouched so whatever was open comes back when the browser closes. Closing
+  // someone's file tree because an agent started browsing would be the wrong way round.
   const filesPanel: FilesPanelState = {
     ...filesPanelRaw,
     setOpen: (next: boolean) => {
       cancelPanelSwap();
-      if (next) swapPanels(subagentsPanelRaw, filesPanelRaw.setOpen);
-      else filesPanelRaw.setOpen(false);
+      if (next) {
+        browserPane.setOpen(false);
+        swapPanels(subagentsPanelRaw, filesPanelRaw.setOpen);
+      } else filesPanelRaw.setOpen(false);
     },
   };
   const subagentsPanel: SubagentsPanelState = {
     ...subagentsPanelRaw,
     setOpen: (next: boolean) => {
       cancelPanelSwap();
-      if (next) swapPanels(filesPanelRaw, subagentsPanelRaw.setOpen);
-      else subagentsPanelRaw.setOpen(false);
+      if (next) {
+        browserPane.setOpen(false);
+        swapPanels(filesPanelRaw, subagentsPanelRaw.setOpen);
+      } else subagentsPanelRaw.setOpen(false);
     },
   };
+
   // Parked draft conversations (`/chat/draft-…`) render the same DraftView as `/chat/new`,
   // just bound to their own stored entry — every "this is a draft, not a Session" branch
   // below treats the two alike.
   const parkedDraftId = parkedDraftIdOf(routeSessionId);
   const draft = routeSessionId === DRAFT_SESSION_ID || parkedDraftId !== null;
   const selected = draft ? null : (sessions.find((s) => s.sessionId === routeSessionId) ?? null);
+
+  // Desktop only: `supported` is false in a browser tab, and the column is not rendered at all.
+  //
+  // The route's session is what scopes the tab strip: a tab belongs to the conversation it was
+  // opened in, and switching conversations swaps the whole strip rather than filtering it. Only the
+  // conversation travels — which Agent it belongs to, and therefore where its downloads go, main
+  // learns from the server rather than from here.
+  const browserPane = useBrowserPane(selected?.sessionId ?? null);
   // Currently effective model (session state, the model reference comes from the Session DTO): model selection in draft state is handled internally by DraftView.
   const activeModelRef = selected
     ? { provider: selected.provider, modelId: selected.modelId }
@@ -1320,7 +1341,7 @@ export function ChatPage() {
 
           {/* In-app browser toggle. Desktop only — a browser tab has no main process to host a
               WebContentsView, so the control is absent rather than disabled (desktop-bridge.ts). */}
-          {browserPane.supported && browserPane.splittable && (
+          {browserPane.supported && (
             <button
               type="button"
               aria-expanded={browserPane.open}
@@ -1615,7 +1636,9 @@ export function ChatPage() {
       {/* Body: chat column + the docked panels on the right (message file cards jump to and locate a file in the tree via onOpenFile). */}
       {/* The splitter converts a pointer x into a fraction of *this* row, so it needs the row's box. */}
       <div className="flex min-h-0 flex-1" ref={browserPane.containerRef}>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          className={`flex min-h-0 min-w-0 flex-1 flex-col ${browserPane.fullscreen ? "hidden" : ""}`}
+        >
           {draft ? (
             // Draft state: DraftView's vertically centered input card + Agent / Workspace
             // selection panel; the Session is only created once the first message is sent. Keyed
@@ -1722,7 +1745,8 @@ export function ChatPage() {
           )}
         </div>
 
-        {selected && (
+        {/* Suppressed, not closed, while the browser column is up — see the note by `filesPanel`. */}
+        {selected && !browserPane.open && (
           <SubagentsPanel
             session={selected}
             panel={subagentsPanel}
@@ -1734,8 +1758,8 @@ export function ChatPage() {
             ctx={ctx}
           />
         )}
-        {selected && <FilesPanel session={selected} panel={filesPanel} />}
-        {browserPane.supported && browserPane.open && browserPane.splittable && (
+        {selected && !browserPane.open && <FilesPanel session={selected} panel={filesPanel} />}
+        {browserPane.supported && browserPane.open && !browserPane.fullscreen && (
           <>
             <BrowserPaneSplitter state={browserPane} />
             <div
@@ -1746,6 +1770,13 @@ export function ChatPage() {
               <BrowserPanePanel state={browserPane} />
             </div>
           </>
+        )}
+        {/* Too narrow to split: the browser takes the whole area rather than being open with
+            nowhere to draw it (design/002 §6.2). The toolbar toggle is still there to close it. */}
+        {browserPane.supported && browserPane.fullscreen && (
+          <div className="flex min-h-0 min-w-0 flex-1" data-testid="iab-column">
+            <BrowserPanePanel state={browserPane} />
+          </div>
         )}
       </div>
 

@@ -19,19 +19,31 @@ import path from "node:path";
 import { app, BrowserWindow, dialog, shell } from "electron";
 import { resolveRoot, resolveFlagsFromEnv } from "@prismshadow/penguin-core";
 import { liveServerLock } from "@prismshadow/penguin-server/lock";
+import { planBoot } from "./boot-plan.js";
 import { resolveWindowIcon } from "./app-icon.js";
 import { BrowserPane } from "./browser-pane.js";
 import {
   IAB_KEY,
   browserRelayPort,
   iabInstallId,
+  relayMovedOffConventionalPort,
   startBrowserRelay,
   stopBrowserRelay,
   revealBrowserExtension,
 } from "./browser-relay.js";
+import { attachShortcutRouter } from "./browser-shortcut-router.js";
+// Deep subpath, like the relay discovery helper above: importing the package root would pull in
+// the relay itself and its side effects.
+import {
+  readAllBackendPreferences,
+  writeBackendPreference,
+} from "penguin-browser/dist/relay-discovery.js";
 import { IAB_ENABLED_SWITCH, isIabAvailable } from "./iab-switch.js";
 import { IabTransport } from "./iab-transport.js";
 import { installBrowserIpc } from "./ipc.js";
+import { batchSessions, parseBrowserTaskState, TaskSupervisor } from "./task-supervisor.js";
+import type { SessionTaskState } from "./task-supervisor.js";
+import { resolveSessionDownloadDir } from "./session-partition.js";
 import { installCliCommand, maybeOfferCliInstall, currentCliInstallKind } from "./cli-install.js";
 import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
@@ -58,6 +70,7 @@ let browserRelay: UtilityProcess | null = null;
 let browserPane: BrowserPane | null = null;
 let iabTransport: IabTransport | null = null;
 let disposeBrowserIpc: (() => void) | null = null;
+let taskSupervisor: TaskSupervisor | null = null;
 
 /**
  * Whether the in-app browser pane is wired this run.
@@ -67,9 +80,26 @@ let disposeBrowserIpc: (() => void) | null = null;
  * pane — not the view, not the IPC handlers, not the relay transport — is constructed when it is
  * off, so the capability is genuinely absent rather than merely hidden.
  */
-const iabEnabled = resolveFlagsFromEnv(process.env).flags["iab.enabled"];
+const resolvedFlags = resolveFlagsFromEnv(process.env).flags;
+const iabEnabled = resolvedFlags["iab.enabled"];
+/**
+ * Whether the Chrome extension backend may be offered as an alternative to the in-app browser.
+ *
+ * Its own flag, off by default like the pane's (design/004 §5): the choice changes whose browser an
+ * order is placed in, and it is not something to ship enabled before the handoff has been tried by
+ * hand. Read once here and passed to the pane, which refuses the backend when it is off — the
+ * renderer's own control is disabled too, but a disabled control is a hint, not an enforcement.
+ */
+const chromeFallbackEnabled = resolvedFlags["chrome.fallback"];
 /** App origin (embedded or attached); null until boot resolves. */
 let appOrigin: string | null = null;
+/**
+ * The data root this app is serving, once boot has resolved it.
+ *
+ * Held because the in-app browser writes downloads into a Session's own scratchpad underneath it,
+ * and the path must be built from what main knows rather than from anything the renderer says.
+ */
+let appDataRoot: string | null = null;
 let quitting = false;
 let stopPromise: Promise<void> | null = null;
 let restartAttempts = 0;
@@ -78,6 +108,48 @@ function fatal(context: string, err: unknown): void {
   const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
   dialog.showErrorBox("PenguinHarness", `${context}\n\n${detail}`);
   app.exit(1);
+}
+
+/**
+ * Asks the server which turns are running, as the app's own window.
+ *
+ * Through the window's session, so the request carries the same cookie the window signed in with.
+ * That is what makes this work in **both** modes the shell runs in: when it forked the server it
+ * holds a desktop token, but when it attached to one somebody else started (`penguin web`) there is
+ * no token and no desktop mode at all — and a token-only channel would leave that mode permanently
+ * unable to release a finished turn's tabs.
+ *
+ * Fails closed. Before the window has signed in, and whenever the server is unreachable, this
+ * throws and the supervisor applies nothing: treating "cannot ask" as "nothing is running" would
+ * release the tabs of every turn still in progress.
+ */
+async function fetchBrowserTaskState(
+  window: BrowserWindow | null,
+  origin: string | null,
+  sessionIds: string[],
+): Promise<SessionTaskState[]> {
+  if (!window || window.isDestroyed() || origin === null) {
+    throw new Error("the app window is not ready to ask the server about task state");
+  }
+  // In batches, because the server refuses a query naming more conversations than it will answer
+  // about, and the pane holds tabs across as many conversations as the user has visited. Every
+  // batch must come back complete: a single failure throws, the supervisor applies nothing, and the
+  // next tick asks again — which is the same fail-closed rule as an unreachable server.
+  const states: SessionTaskState[] = [];
+  for (const batch of batchSessions(sessionIds)) {
+    const url = new URL("/api/sessions/browser-tasks", origin);
+    url.searchParams.set("sessions", batch.join(","));
+    // `session.fetch`, not `net.fetch`: the latter always issues from the default session, and the
+    // cookie that authenticates this request belongs to the window's.
+    const response = await window.webContents.session.fetch(url.toString(), {
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error(`the server answered ${response.status} for browser task state`);
+    }
+    states.push(...parseBrowserTaskState((await response.json()) as unknown, batch));
+  }
+  return states;
 }
 
 function createWindow(url: string): void {
@@ -127,6 +199,8 @@ function createWindow(url: string): void {
     // no longer exist — forever, and again for every window the user reopens.
     iabTransport?.stop();
     iabTransport = null;
+    taskSupervisor?.stop();
+    taskSupervisor = null;
     browserPane?.destroy();
     browserPane = null;
     win = null;
@@ -136,23 +210,99 @@ function createWindow(url: string): void {
   // The view itself is created lazily: nothing renders until the renderer opens the pane or an
   // agent asks for a tab, so a user who never opens it pays nothing.
   if (iabAvailable && relayPort !== null) {
+    // Declared before the pane so the pane's close callback can reach it; assigned right after,
+    // because the transport in turn needs the pane's ownership check.
+    let transport: IabTransport | null = null;
     const pane = new BrowserPane({
       window: win,
       onState: (state) => win?.webContents.send("iab:state", state),
+      // Tabs outlive a run that crashes, which is the whole point of the checkpoint: the file
+      // surviving into the next launch is the evidence that the last one never shut down.
+      checkpointPath: path.join(app.getPath("userData"), "iab-tabs.json"),
+      // Told before the view is destroyed, because afterwards there is nothing left to look the
+      // CDP session up by.
+      onTabClosedByUser: (notice) => transport?.noteUserClosed(notice),
+      // The choice of backend is read by a different process — the CLI, when the agent asks for an
+      // in-app browser session — so it is persisted where that process looks. Per conversation,
+      // because two chats can legitimately want different browsers (design/002 §6.1).
+      initialBackends: readAllBackendPreferences(),
+      // The extension connects to the conventional relay port, which this run may not own. Every
+      // command the agent runs resolves *this* relay, so offering a backend that lives on another
+      // one would produce a conversation whose browser sessions cannot be created.
+      // Two conditions, both real. The flag is the product decision that the Chrome backend is
+      // offered at all (design/004 §5); the port is whether it could work in this run.
+      extensionBackendAvailable: chromeFallbackEnabled && !relayMovedOffConventionalPort(),
+      onBackendChange: (sessionId, backend) => writeBackendPreference(sessionId, backend),
+      onNotifyRelay: (method, params) => transport?.notify(method, params),
+      // An agent's first command in a turn can outrun the poll; this makes the race a bounded wait.
+      refreshTaskState: async () => {
+        await taskSupervisor?.reconcile();
+      },
+      // The Session's own scratchpad, built from *our* data root and the server's own answer for
+      // which Agent the conversation belongs to. The renderer never names either.
+      onSessionResolved: (ids) => {
+        if (appDataRoot === null) return;
+        const directory = resolveSessionDownloadDir(appDataRoot, ids);
+        // The root travels with the directory: containment is checked again when the file is
+        // written, because between now and then anything running as the user can turn a component
+        // of that path into a link pointing somewhere else.
+        if (directory) {
+          pane.setSessionDownloadDir(ids.sessionId, { directory, root: appDataRoot });
+        }
+      },
       log: (message) => process.stdout.write(message),
     });
     browserPane = pane;
-    disposeBrowserIpc = installBrowserIpc({ window: win, pane });
 
-    const transport = new IabTransport({
+    // The authority for which turns are running, owned here rather than in the renderer: the chat
+    // page disposes its stream on a route change and a reload takes its bookkeeping with it, so a
+    // task that finished while the user was elsewhere would never be reported. A reconcile loop
+    // against the server converges after all of those without a queue, an acknowledgement or a
+    // retry to lose.
+    taskSupervisor = new TaskSupervisor({
+      fetchState: (sessionIds) => fetchBrowserTaskState(win, appOrigin, sessionIds),
+      sessionsOfInterest: () => pane.sessionsOfInterest(),
+      apply: (states) => pane.applyTaskState(states),
+      log: (message) => process.stdout.write(message),
+    });
+    taskSupervisor.start();
+
+    disposeBrowserIpc = installBrowserIpc({
+      window: win,
+      pane,
+      promptTaskRefresh: () => taskSupervisor?.prompt(),
+    });
+
+    // Cmd+L has to reach a DOM element main cannot touch: the routing table decides, the renderer
+    // does the focusing.
+    const shortcuts = {
+      pane,
+      focusAddressBar: () => win?.webContents.send("iab:focus-address"),
+    };
+
+    transport = new IabTransport({
       port: relayPort,
       key: IAB_KEY,
       installId: iabInstallId(),
-      openTab: (url) => pane.openTabForAgent(url),
+      openTab: (options) => pane.openTabForAgent(options),
       liveTargets: () => pane.liveContents(),
+      activeTarget: () => pane.activeContents(),
+      taskTarget: (taskId) => pane.taskContents(taskId),
+      mayDrive: (contents, taskId) => pane.mayDrive(contents, taskId),
+      claimTab: (targetId, identity) => pane.claimTab(targetId, identity),
+      ownershipOf: (contents) => pane.ownershipOf(contents),
+      // Declare only. The agent says how its task went when it closes its browser session, which
+      // is before the turn is actually over; the rules run at the harness's own idle boundary.
+      declareOutcome: (taskId, outcome) => pane.declareTaskOutcome(taskId, outcome),
       log: (message) => process.stdout.write(message),
     });
-    pane.setViewCreatedHandler((contents) => transport.attach(contents));
+    pane.setViewCreatedHandler((contents) => {
+      transport?.attach(contents);
+      // Keyboard focus can be inside a page as easily as inside the app, and the shortcuts have to
+      // work either way (design/004 M9). Same table, both paths.
+      attachShortcutRouter(contents, shortcuts);
+    });
+    attachShortcutRouter(win.webContents, shortcuts);
     transport.start();
     iabTransport = transport;
   }
@@ -209,6 +359,7 @@ function createWindow(url: string): void {
 
 /** Starts (or restarts) the embedded server and points the window at desktop-login. */
 async function startServerAndWindow(dataRoot: string): Promise<void> {
+  appDataRoot = dataRoot;
   const started = await startEmbeddedServer({
     dataRoot,
     portFile: path.join(app.getPath("userData"), "server-port"),
@@ -252,17 +403,22 @@ async function handleServerExit(dataRoot: string, code: number): Promise<void> {
 }
 
 async function boot(): Promise<void> {
-  const dataRoot = process.env.PENGUIN_HOME ?? resolveRoot();
-  const existing = await liveServerLock(dataRoot);
-  if (existing !== null) {
-    // Attach mode: the one-shot token only works against a server this shell spawned,
-    // so the window goes through the normal login page of the existing instance.
-    appOrigin = `http://localhost:${existing.port}`;
-    process.stdout.write(`[shell] attaching to the running server at ${appOrigin}\n`);
-    createWindow(`${appOrigin}/`);
+  const root = process.env.PENGUIN_HOME ?? resolveRoot();
+  const plan = planBoot(root, await liveServerLock(root));
+  // Before the branch, and for both modes. Downloads are resolved from this — a mode that leaves it
+  // unset does not fail loudly, it silently cancels every download in that mode, which is exactly
+  // what attach mode used to do.
+  appDataRoot = plan.dataRoot;
+  if (plan.mode === "attach") {
+    // The one-shot token only works against a server this shell spawned, so the window goes through
+    // the normal login page of the existing instance. The in-app browser is unaffected: it asks the
+    // server about running turns over the window's own session cookie, which both modes have.
+    appOrigin = plan.origin;
+    process.stdout.write(`[shell] attaching to the running server at ${plan.origin}\n`);
+    createWindow(`${plan.origin}/`);
     return;
   }
-  await startServerAndWindow(dataRoot);
+  await startServerAndWindow(plan.dataRoot);
 }
 
 // --- app lifecycle ---------------------------------------------------------

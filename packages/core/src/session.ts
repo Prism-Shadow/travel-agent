@@ -32,6 +32,7 @@ import type {
   ToolDefinition,
 } from "./omnimessage/index.js";
 import { imagesToScratchpadPaths } from "./internal/session-support.js";
+import { formatTaskId } from "./task-id.js";
 import { runGoalLoop } from "./goal/goal-loop.js";
 import { goalFinishedOf } from "./goal/goal-stream.js";
 import type {
@@ -296,8 +297,16 @@ export class Session {
   async *run(newMessages: OmniMessage[], opts?: SessionRunOptions): AsyncGenerator<OmniMessage> {
     if (opts?.goal) {
       // Rounds run with the caller's per-call options minus `goal` (each round is a plain Task).
+      //
+      // **Every round carries the same task id**, minted once here when the caller did not supply
+      // one. A goal is a single accepted unit of work to the host — one `task_state` bracket, one
+      // id published to the renderer, one release at the end — and the rounds inside it are core's
+      // own subdivision. Giving each round its own id would produce ownership no host ever saw:
+      // browser tabs opened in round one would be closed at the end of round one, or left owned by
+      // an id nothing will ever end.
       const { goal, ...roundOpts } = opts;
-      yield* this.runGoal(newMessages, goal, roundOpts);
+      const goalTaskId = opts.taskId ?? formatTaskId();
+      yield* this.runGoal(newMessages, goal, { ...roundOpts, taskId: goalTaskId });
       return;
     }
     yield* this.runTask(newMessages, opts);
@@ -305,6 +314,24 @@ export class Session {
 
   /** The single-Task path (a goal round runs one of these per round). */
   private async *runTask(
+    newMessages: OmniMessage[],
+    opts?: RunOptions,
+  ): AsyncGenerator<OmniMessage> {
+    // A Task always has an id. The host mints it when it accepts the task — the Web server does,
+    // so it can hand the id to the caller and publish it before the run starts — and a standalone
+    // embedder that just calls `run()` gets one here. The `finally` below is what makes the
+    // identity truthful in the other direction: a tool executed after this returns belongs to no
+    // task, and must not still be carrying this one's authority.
+    const taskId = opts?.taskId ?? formatTaskId();
+    this.environment.enterTask?.({ sessionId: this.sessionId, taskId });
+    try {
+      yield* this.runTaskInner(newMessages, opts);
+    } finally {
+      this.environment.exitTask?.(taskId);
+    }
+  }
+
+  private async *runTaskInner(
     newMessages: OmniMessage[],
     opts?: RunOptions,
   ): AsyncGenerator<OmniMessage> {

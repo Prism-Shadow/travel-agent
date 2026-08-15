@@ -33,6 +33,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { VERSION, EXTENSION_IDS, IAB_BACKEND_ID, isLoopbackAddress, shouldAutoEnablePenguinBrowser } from './utils.js'
+import { isIdentityValue } from './agent-identity.js'
+import { tabRegistry } from './tab-ownership.js'
 import { createCdpLogger, type CdpLogEntry, type CdpLogger } from './cdp-log.js'
 import { RecordingRelay } from './recording-relay.js'
 import { StreamRelay } from './stream-relay.js'
@@ -153,7 +155,15 @@ export async function startPenguinBrowserCDPRelayServer({
 } = {}): Promise<RelayServer> {
   const emitter = new EventEmitter()
   const store = relayState.createRelayStore()
+  /**
+   * Remembered download behaviour, keyed by who set it.
+   *
+   * An extension keeps one behaviour for the browser, as a browser does. The in-app browser keys by
+   * conversation *and* task, because it is one backend shared by every conversation and every turn.
+   */
   const extensionDownloadBehavior = new Map<string, Protocol.Browser.SetDownloadBehaviorRequest>()
+  const downloadBehaviorKey = (extensionId: string, sessionScope?: string, taskId?: string): string =>
+    sessionScope ? `${extensionId}\u0000${sessionScope}\u0000${taskId ?? ''}` : extensionId
 
   const resolvedCdpLogger = cdpLogger || createCdpLogger()
   const logCdpJson = (entry: CdpLogEntry) => {
@@ -199,22 +209,29 @@ export async function startPenguinBrowserCDPRelayServer({
       return null
     }
 
+    // From here on, the reserved in-app browser backend is invisible.
+    //
+    // It registers on the same table as Chrome extensions because it speaks the same protocol, but
+    // it is not one, and nothing that *picks a browser on the user's behalf* may land on it. With
+    // the desktop app running and no extension installed, this would otherwise find one connected
+    // backend, choose it, and drive the in-app browser for a user who explicitly asked for their
+    // own Chrome. An explicit lookup by id or stableKey above still finds it — that is how the IAB
+    // path reaches its own backend.
+    const candidates = publicExtensions()
+
     // Single extension — use it directly
-    if (extensions.size === 1) {
-      const fallbackId = getDefaultExtensionId()
-      if (fallbackId) {
-        const ext = extensions.get(fallbackId)
-        if (ext?.ws) {
-          return ext
-        }
+    if (candidates.size === 1) {
+      const only = [...candidates.values()][0]
+      if (only?.ws) {
+        return only
       }
     }
 
     // Multiple extensions — auto-select if exactly one has active targets.
     // This handles the common case of multiple Chrome profiles with the extension
     // installed, where only one profile has penguin-browser-enabled tabs. (#52)
-    if (extensions.size > 1) {
-      const activeExtensions = Array.from(extensions.values()).filter((ext) => {
+    if (candidates.size > 1) {
+      const activeExtensions = Array.from(candidates.values()).filter((ext) => {
         return ext.connectedTargets.size > 0
       })
       if (activeExtensions.length === 1 && activeExtensions[0].ws) {
@@ -223,6 +240,22 @@ export async function startPenguinBrowserCDPRelayServer({
     }
 
     return null
+  }
+
+  /**
+   * The connected Chrome extensions, excluding the reserved in-app browser backend.
+   *
+   * Everything a user or the CLI can *discover* goes through this: status endpoints, `/json/list`,
+   * the single-backend fallback. "IAB only" has to look exactly like "no Chrome extension", or the
+   * extension backend silently becomes the in-app browser again.
+   */
+  const publicExtensions = (): Map<string, relayState.ExtensionEntry> => {
+    const filtered = new Map<string, relayState.ExtensionEntry>()
+    for (const [id, entry] of store.getState().extensions) {
+      if (entry.info.id === IAB_BACKEND_ID) continue
+      filtered.set(id, entry)
+    }
+    return filtered
   }
 
   const getExtensionInfoFromRequest = (c: {
@@ -351,11 +384,20 @@ export async function startPenguinBrowserCDPRelayServer({
     clientId,
     source = 'extension',
     extensionId,
+    scopeHint,
   }: {
     message: CDPResponseBase | CDPEventBase
     clientId?: string
     source?: 'extension' | 'server'
     extensionId?: string | null
+    /**
+     * The conversation a message belongs to when the message itself cannot say.
+     *
+     * Only the synthesised browser-wide download events need it: they carry neither a target nor a
+     * session by design, and a scoped client would otherwise refuse them — leaving the client that
+     * started the download as the one client that never hears about it.
+     */
+    scopeHint?: string
   }) {
     const messageToSend = source === 'server' && 'method' in message ? { ...message, __serverGenerated: true } : message
 
@@ -388,10 +430,15 @@ export async function startPenguinBrowserCDPRelayServer({
     // arrives after callbacks were cleared. We wrap in try-catch to handle this gracefully.
     const safeSend = (client: relayState.PlaywrightClient) => {
       try {
+        // Another conversation's page, in a shell that serves them all over one connection. The
+        // ownership gate would refuse a *command* against it, but by then its URL, its title and
+        // everything its page emitted have already been handed over.
+        if (!clientMaySeeEvent(client, message, scopeHint)) return
         if ('method' in message && message.method === 'Target.attachedToTarget') {
           const params = message.params as Protocol.Target.AttachedToTargetEvent
           const targetId = params.targetInfo.targetId
           const sessionId = params.sessionId
+          if (!clientMaySeeTarget(client, targetId)) return
           if (client.attachedTargets.has(targetId)) {
             logger?.log(
               pc.gray(`[Relay] Skipped duplicate Target.attachedToTarget for client ${client.id}: ${targetId}`),
@@ -401,6 +448,7 @@ export async function startPenguinBrowserCDPRelayServer({
           client.attachedTargets.set(targetId, sessionId)
         } else if ('method' in message && message.method === 'Target.detachedFromTarget') {
           const params = message.params as Protocol.Target.DetachedFromTargetEvent
+          if (!clientMaySeeTarget(client, params.targetId)) return
           if (params.targetId) {
             client.attachedTargets.delete(params.targetId)
           } else {
@@ -587,7 +635,7 @@ export async function startPenguinBrowserCDPRelayServer({
   }
 
   const getRecordingRelay = (extensionId?: string | null): RecordingRelay | null => {
-    const allowDefault = !extensionId && store.getState().extensions.size === 1
+    const allowDefault = !extensionId && publicExtensions().size === 1
     const conn = getExtensionConnection(extensionId, { allowFallback: allowDefault })
     if (!conn) {
       return null
@@ -612,7 +660,7 @@ export async function startPenguinBrowserCDPRelayServer({
   const streamRelays = new Map<string, StreamRelay>()
 
   const getStreamRelay = (extensionId?: string | null): StreamRelay | null => {
-    const allowDefault = !extensionId && store.getState().extensions.size === 1
+    const allowDefault = !extensionId && publicExtensions().size === 1
     const conn = getExtensionConnection(extensionId, { allowFallback: allowDefault })
     if (!conn) {
       return null
@@ -688,10 +736,20 @@ export async function startPenguinBrowserCDPRelayServer({
     method,
     params,
     extensionId,
+    scopeHint,
   }: {
     method: string
     params: unknown
     extensionId: string
+    /**
+     * Which conversation this download belongs to, for fan-out only.
+     *
+     * The compatibility event Playwright expects is browser-wide: no target, no session. Scoped
+     * clients refuse browser-wide events precisely because they cannot be attributed — which would
+     * mean nobody ever sees their own download. The scope travels beside the message instead of
+     * inside it, so the payload stays exactly the one Playwright parses.
+     */
+    scopeHint?: string
   }): void {
     const browserEventMethod =
       method === 'Page.downloadWillBegin'
@@ -709,7 +767,24 @@ export async function startPenguinBrowserCDPRelayServer({
       } as CDPEventBase,
       source: 'server',
       extensionId,
+      ...(scopeHint ? { scopeHint } : {}),
     })
+  }
+
+  /**
+   * A readable message from whatever the backend rejected with.
+   *
+   * A refusal comes back as the CDP error object the shell sent — `{ message }` — not as an
+   * `Error`, so the obvious `String(error)` renders it as `[object Object]` and the reason the
+   * caller needs is thrown away at the last step.
+   */
+  function describeRelayError(error: unknown): string {
+    if (error instanceof Error) return error.message
+    if (error && typeof error === 'object') {
+      const message = (error as { message?: unknown }).message
+      if (typeof message === 'string') return message
+    }
+    return String(error)
   }
 
   async function applyDownloadBehaviorToTargets({
@@ -717,12 +792,21 @@ export async function startPenguinBrowserCDPRelayServer({
     behavior,
     source,
     targetSessionIds,
+    taskId,
   }: {
     extensionId: string
     behavior: Protocol.Browser.SetDownloadBehaviorRequest
     source?: CDPCommand['source']
     targetSessionIds?: string[]
-  }): Promise<void> {
+    /**
+     * The task on whose behalf this is applied.
+     *
+     * The in-app browser refuses a command that arrives without one, so a download path set up
+     * on a client's behalf has to carry that client's task or it is rejected as foreign — and the
+     * setting silently never takes effect.
+     */
+    taskId?: string
+  }): Promise<{ failures: Array<{ sessionId: string; message: string }> }> {
     const pageBehavior: Protocol.Page.SetDownloadBehaviorRequest['behavior'] =
       behavior.behavior === 'allowAndName' ? 'allow' : behavior.behavior
     const pageParams: Protocol.Page.SetDownloadBehaviorRequest = (() => {
@@ -732,8 +816,9 @@ export async function startPenguinBrowserCDPRelayServer({
       return { behavior: pageBehavior }
     })()
     const sessions = targetSessionIds || getPageTargetSessionIds({ extensionId })
+    const failures: Array<{ sessionId: string; message: string }> = []
     if (sessions.length === 0) {
-      return
+      return { failures }
     }
     await Promise.all(
       sessions.map(async (targetSessionId) => {
@@ -742,6 +827,7 @@ export async function startPenguinBrowserCDPRelayServer({
             extensionId,
             method: 'forwardCDPCommand',
             params: {
+              ...(taskId ? { taskId } : {}),
               sessionId: targetSessionId,
               method: 'Page.setDownloadBehavior',
               params: pageParams,
@@ -749,7 +835,7 @@ export async function startPenguinBrowserCDPRelayServer({
             },
           })
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
+          const message = describeRelayError(error)
           // chrome.debugger is attached to a page target, and current Chromium
           // rejects this deprecated Page-domain shim when it internally needs
           // browser-level access. Downloads still surface through Playwright and
@@ -758,11 +844,19 @@ export async function startPenguinBrowserCDPRelayServer({
           if (message.includes('Cannot not access browser-level commands')) {
             return
           }
+          // Collected rather than only logged. A refused `setDownloadBehavior` means the caller's
+          // downloads are going somewhere it did not choose — silently, and it has no other way to
+          // find out. The caller decides what to do with that; see Browser.setDownloadBehavior.
+          failures.push({ sessionId: targetSessionId, message })
           logger?.log(pc.yellow(`[Server] Failed to apply Page.setDownloadBehavior to ${targetSessionId}: ${message}`))
         }
       }),
     )
+    return { failures }
   }
+
+  /** The commands whose identity is rebuilt from the socket; see `withBoundIdentity`. */
+  const IDENTITY_BOUND_METHODS = new Set(['iab-open-tab', 'iab-claim-tab'])
 
   async function routeCdpCommand({
     extensionId,
@@ -770,16 +864,167 @@ export async function startPenguinBrowserCDPRelayServer({
     params,
     sessionId,
     source,
+    taskId,
+    sessionScope,
+    relayScope,
   }: {
     extensionId: string | null
     method: CDPCommand['method'] | (string & {})
     params: CDPCommand['params']
     sessionId?: CDPCommand['sessionId']
     source?: CDPCommand['source']
+    /**
+     * The task driving this connection, for in-app browser backends.
+     *
+     * Stamped onto the forwarded command so the shell can check it against the tab's owner. The
+     * shell is the only place that check can happen: it is the one that knows a tab was retained
+     * and handed back to the user, and a retained tab stays *alive* on purpose — there is no
+     * destroyed view to fail against.
+     */
+    taskId?: string
+    /**
+     * The conversation this connection is in, for in-app browser backends.
+     *
+     * Decides which targets the command may see or act on. Filtering only the events would leave
+     * every root operation — enumerating targets, reading cookies, setting a download path —
+     * ranging over the whole shared backend, which is both a disclosure and a source of
+     * nondeterministic ownership failures when another conversation's page happens to be first.
+     */
+    sessionScope?: string
+    /**
+     * Which relay session this connection *is*, for in-app browser backends.
+     *
+     * Bound at the socket, never taken from a payload: it is the concurrency claim a new or claimed
+     * tab is recorded under, and a client able to name someone else's would take tabs out under
+     * another session's identity.
+     */
+    relayScope?: string
   }) {
     const conn = getExtensionConnection(extensionId)
     const connectedTargets = conn?.connectedTargets || new Map<string, relayState.ConnectedTarget>()
     const resolvedExtensionId = conn?.id || extensionId
+
+    /** The targets this client's conversation may act on (all of them for a non-IAB client). */
+    const visibleTargets = (): relayState.ConnectedTarget[] =>
+      targetsVisibleTo(connectedTargets.values(), sessionScope)
+
+    /**
+     * Forwards a command on behalf of this client, carrying its task.
+     *
+     * Every branch below goes through this rather than calling `sendToExtension` directly. The
+     * in-app browser's ownership check is fail-closed, so a command that arrives without the task
+     * that issued it is refused as foreign — and the branches that would have lost it are exactly
+     * the ones Playwright uses to *start*: `Target.setAutoAttach`, `Runtime.enable`, closing a
+     * page, reading cookies. Losing the identity there does not fail a feature, it fails the
+     * connection.
+     */
+    const forwardForClient = async (forwarded: {
+      method: string
+      params?: unknown
+      sessionId?: string
+    }): Promise<unknown> => {
+      return await sendToExtension({
+        extensionId: resolvedExtensionId,
+        method: 'forwardCDPCommand',
+        params: { ...forwarded, source, ...(taskId ? { taskId } : {}) },
+      })
+    }
+
+    /**
+     * Every named target and CDP session on this command, checked in one place.
+     *
+     * Root operations name what they act on in their parameters rather than being *sent* to it, so
+     * the shell's per-tab ownership gate never sees them: `Target.closeTarget`, `activateTarget`,
+     * `detachFromTarget`, `exposeDevToolsProtocol` and `sendMessageToTarget` would each have
+     * reached another conversation's page with nothing in the way. Special-casing them one at a
+     * time is how the first four were missed, so this runs before the switch and covers whatever
+     * the protocol grows next: if a command names a target or a session, it must be one this
+     * conversation may see.
+     *
+     * Scope comes from the two scope maps rather than from the visible-target list because a
+     * command may legitimately address a *child* session — an out-of-process iframe, a worker —
+     * which is attributed by inheritance. Unknown attribution fails closed either way.
+     */
+    const assertNamesOnlyOwnScope = (): void => {
+      if (!sessionScope) return
+      const inScopeSession = (candidate: string): boolean =>
+        iabSessionScopes.get(candidate) === sessionScope ||
+        visibleTargets().some((target) => target.sessionId === candidate)
+      if (sessionId !== undefined && !inScopeSession(sessionId)) {
+        throw new Error(`No such target session in this conversation: ${sessionId}`)
+      }
+      const record =
+        params && typeof params === 'object' && !Array.isArray(params)
+          ? (params as Record<string, unknown>)
+          : undefined
+      const namedTarget = record?.targetId
+      if (typeof namedTarget === 'string' && iabScopes.get(namedTarget) !== sessionScope) {
+        throw new Error(`No such target in this conversation: ${namedTarget}`)
+      }
+      const namedSession = record?.sessionId
+      if (typeof namedSession === 'string' && !inScopeSession(namedSession)) {
+        throw new Error(`No such target session in this conversation: ${namedSession}`)
+      }
+    }
+
+    /**
+     * Rebuilds the identity on the two shell commands from what this socket is bound to.
+     *
+     * `iab-open-tab` and `iab-claim-tab` are ours rather than CDP's, and they are the two commands
+     * that *confer* authority: one creates a tab owned by a task, the other transfers an existing
+     * one. Forwarding the caller's parameters meant the caller stated its own conversation, task
+     * and relay session — so any client could name another client's live task and open tabs as it,
+     * with the shell's "is that task running?" check passing because the *named* task genuinely
+     * was. The shell cannot catch this: it is being told a true fact by the wrong party.
+     *
+     * So identity is never read from the payload. It comes from the URL the socket was opened with,
+     * which the executor builds once from the environment its session was created with, and a
+     * payload that names something different is refused rather than quietly overwritten — a
+     * mismatch is either a bug or an attempt, and neither should proceed.
+     */
+    const withBoundIdentity = (raw: CDPCommand['params'], label: string): Record<string, unknown> => {
+      if (!sessionScope || !taskId || !relayScope) {
+        throw new Error(
+          `${label} requires a connection bound to a conversation, a task and a relay session`,
+        )
+      }
+      const record =
+        raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {}
+      const bound: Record<string, string> = {
+        sessionId: sessionScope,
+        taskId,
+        relaySessionId: relayScope,
+      }
+      for (const [key, value] of Object.entries(bound)) {
+        const stated = record[key]
+        if (stated !== undefined && stated !== value) {
+          throw new Error(
+            `${label} was sent with a ${key} this connection does not hold; the in-app browser ` +
+              'refuses it. A session may only open and claim tabs for its own conversation and task.',
+          )
+        }
+      }
+      // A claim names an existing page, and that one *is* a target id: it must be one this
+      // conversation can see. Checked here rather than by the generic validator because this is
+      // the only parameter of these two commands that the generic rules apply to.
+      const namedTarget = record.targetId
+      if (label === 'iab-claim-tab') {
+        if (typeof namedTarget !== 'string' || !namedTarget) {
+          throw new Error('iab-claim-tab needs the target id of the tab to claim')
+        }
+        if (iabScopes.get(namedTarget) !== sessionScope) {
+          throw new Error(`No such target in this conversation: ${namedTarget}`)
+        }
+      }
+      return { ...record, ...bound }
+    }
+
+    // The two custom shell commands are **not** CDP and their parameters do not mean what the
+    // generic validator assumes: their `sessionId` is a Travel Agent conversation, not a CDP
+    // session, so checking it as one refuses every legitimate claim. They are validated entirely by
+    // `withBoundIdentity`, which checks the thing that actually matters — that the caller is not
+    // naming someone else's conversation, task or relay session.
+    if (!IDENTITY_BOUND_METHODS.has(method)) assertNamesOnlyOwnScope()
 
     if (!sessionId && ROOT_STORAGE_COOKIE_METHODS.has(method)) {
       const browserContextIdValue =
@@ -795,24 +1040,22 @@ export async function startPenguinBrowserCDPRelayServer({
       // Route through one already-authorized page in the same browser context.
       // connectedTargets belongs only to this client's bound extension, which
       // prevents a root command from crossing Chrome profiles/extensions.
+      // Scoped: a root cookie command routed through the first page of the shared in-app browser
+      // would nondeterministically pick another conversation's tab — which then fails the ownership
+      // gate, or worse, succeeds against a page this client should not be touching.
       const target = selectStorageCookieRoutingTarget({
-        connectedTargets: connectedTargets.values(),
+        connectedTargets: visibleTargets(),
         browserContextId: browserContextIdValue,
       })
       const authorizedUrls = getAuthorizedCookieUrls({
-        connectedTargets: connectedTargets.values(),
+        connectedTargets: visibleTargets(),
         selectedTarget: target,
       })
       const sendPageCookieCommand = async (pageMethod: string, pageParams?: unknown): Promise<unknown> => {
-        return await sendToExtension({
-          extensionId: resolvedExtensionId,
-          method: 'forwardCDPCommand',
-          params: {
-            sessionId: target.sessionId,
-            method: pageMethod,
-            params: pageParams,
-            source,
-          },
+        return await forwardForClient({
+          sessionId: target.sessionId,
+          method: pageMethod,
+          params: pageParams,
         })
       }
 
@@ -872,12 +1115,35 @@ export async function startPenguinBrowserCDPRelayServer({
           throw new Error('behavior is required for Browser.setDownloadBehavior')
         }
         if (resolvedExtensionId) {
-          extensionDownloadBehavior.set(resolvedExtensionId, downloadBehaviorParams)
-          await applyDownloadBehaviorToTargets({
+          // Extension mode keeps one behaviour for the whole browser, which is what a browser has.
+          // The in-app browser is shared by every conversation *and* by successive turns within
+          // one, so the behaviour is remembered per **owner** — conversation and task — rather than
+          // per browser. Keyed by conversation alone, a later turn's pages inherited an earlier
+          // turn's download path, replayed under a task that no longer owned anything.
+          const behaviorKey = downloadBehaviorKey(resolvedExtensionId, sessionScope, taskId)
+          extensionDownloadBehavior.set(behaviorKey, downloadBehaviorParams)
+          const { failures } = await applyDownloadBehaviorToTargets({
             extensionId: resolvedExtensionId,
             behavior: downloadBehaviorParams,
             source,
+            // Only the pages this task actually owns, and stamped with its task so the shell's
+            // ownership check sees who is asking. A released tab, or one belonging to another turn,
+            // is not this caller's to redirect — and asking anyway produced a guaranteed refusal
+            // for every such tab in the conversation.
+            ...(sessionScope
+              ? { targetSessionIds: ownedTargetSessionIds({ sessionScope, taskId }) }
+              : {}),
+            ...(taskId ? { taskId } : {}),
           })
+          if (failures.length > 0) {
+            // Returned to the caller instead of swallowed: downloads that quietly keep going to the
+            // default directory look like a working `setDownloadBehavior` until a file goes
+            // missing, and the executor can neither see nor retry what it was never told about.
+            throw new Error(
+              `Browser.setDownloadBehavior could not be applied to ${failures.length} page(s): ` +
+                failures.map((failure) => `${failure.sessionId}: ${failure.message}`).join('; '),
+            )
+          }
         }
         return {}
       }
@@ -894,11 +1160,7 @@ export async function startPenguinBrowserCDPRelayServer({
         }
         // Forward auto-attach so Chrome emits iframe Target.attachedToTarget events.
         // Playwright relies on these (with parentFrameId) when reconnecting over CDP.
-        await sendToExtension({
-          extensionId: resolvedExtensionId,
-          method: 'forwardCDPCommand',
-          params: { method, params, source },
-        })
+        await forwardForClient({ method, params })
         return {}
       }
 
@@ -912,7 +1174,7 @@ export async function startPenguinBrowserCDPRelayServer({
           throw new Error('targetId is required for Target.attachToTarget')
         }
 
-        for (const target of connectedTargets.values()) {
+        for (const target of visibleTargets()) {
           if (target.targetId === attachParams.targetId) {
             return { sessionId: target.sessionId } satisfies Protocol.Target.AttachToTargetResponse
           }
@@ -926,27 +1188,39 @@ export async function startPenguinBrowserCDPRelayServer({
         const targetId = infoReqParams?.targetId
 
         if (targetId) {
-          for (const target of connectedTargets.values()) {
+          for (const target of visibleTargets()) {
             if (target.targetId === targetId) {
               return { targetInfo: target.targetInfo }
             }
           }
+          // Asked about a specific target and it is not one of ours. Falling through to "the first
+          // target this client can see" answers a question nobody asked with another page's URL and
+          // title, and Playwright then treats that page as the one it addressed.
+          throw new Error(`Target ${targetId} not found in connected targets`)
         }
 
         if (sessionId) {
-          const target = connectedTargets.get(sessionId)
+          // Through the scoped set, not the raw map: a client bound to one conversation asking about
+          // a CDP session belonging to another must be told nothing, and `connectedTargets.get`
+          // would have answered with the page's URL and title.
+          const target = visibleTargets().find((candidate) => candidate.sessionId === sessionId)
           if (target) {
             return { targetInfo: target.targetInfo }
           }
+          // A named session this client may not see is refused rather than silently answered with
+          // some other page's information.
+          if (sessionScope) {
+            throw new Error(`No such target session in this conversation: ${sessionId}`)
+          }
         }
 
-        const firstTarget = Array.from(connectedTargets.values())[0]
+        const firstTarget = visibleTargets()[0]
         return { targetInfo: firstTarget?.targetInfo }
       }
 
       case 'Target.getTargets': {
         return {
-          targetInfos: Array.from(connectedTargets.values())
+          targetInfos: visibleTargets()
             .filter((t) => !isRestrictedTarget(t.targetInfo))
             .map((t) => ({
               ...t.targetInfo,
@@ -956,19 +1230,22 @@ export async function startPenguinBrowserCDPRelayServer({
       }
 
       case 'Target.createTarget': {
-        return await sendToExtension({
-          extensionId: resolvedExtensionId,
-          method: 'forwardCDPCommand',
-          params: { method, params, source },
-        })
+        return await forwardForClient({ method, params })
       }
 
       case 'Target.closeTarget': {
-        return await sendToExtension({
-          extensionId: resolvedExtensionId,
-          method: 'forwardCDPCommand',
-          params: { method, params, source },
-        })
+        // A root command naming a target id, forwarded as-is, would let a client close another
+        // conversation's page — the ownership gate never sees it, because closing a target is not a
+        // command *to* that page. Refused unless the id is one this client may see at all.
+        const closeParams = params as Protocol.Target.CloseTargetRequest | undefined
+        const closeTargetId = closeParams?.targetId
+        if (sessionScope && typeof closeTargetId === 'string') {
+          const visible = visibleTargets().some((target) => target.targetId === closeTargetId)
+          if (!visible) {
+            throw new Error(`No such target in this conversation: ${closeTargetId}`)
+          }
+        }
+        return await forwardForClient({ method, params })
       }
 
       /**
@@ -984,7 +1261,22 @@ export async function startPenguinBrowserCDPRelayServer({
         return await sendToExtension({
           extensionId: resolvedExtensionId,
           method: 'iab-open-tab',
-          params,
+          params: withBoundIdentity(params, 'iab-open-tab'),
+        })
+      }
+
+      /**
+       * In-app browser tab ownership.
+       *
+       * Like `iab-open-tab`, this is ours rather than CDP's, and it has to reach the shell as its
+       * own method: forwarded as a CDP command it would be handed to Chromium, which has never
+       * heard of it. Sent through the same tunnel so the executor needs no second channel.
+       */
+      case 'iab-claim-tab': {
+        return await sendToExtension({
+          extensionId: resolvedExtensionId,
+          method: 'iab-claim-tab',
+          params: withBoundIdentity(params, 'iab-claim-tab'),
         })
       }
 
@@ -1025,11 +1317,7 @@ export async function startPenguinBrowserCDPRelayServer({
           emitter.on('cdp:event', handler)
         })
 
-        const result = await sendToExtension({
-          extensionId: resolvedExtensionId,
-          method: 'forwardCDPCommand',
-          params: { sessionId, method, params, source },
-        })
+        const result = await forwardForClient({ sessionId, method, params })
 
         await contextCreatedPromise
 
@@ -1037,11 +1325,7 @@ export async function startPenguinBrowserCDPRelayServer({
       }
     }
 
-    return await sendToExtension({
-      extensionId: resolvedExtensionId,
-      method: 'forwardCDPCommand',
-      params: { sessionId, method, params, source },
-    })
+    return await forwardForClient({ sessionId, method, params })
   }
 
   const app = new Hono()
@@ -1212,7 +1496,10 @@ export async function startPenguinBrowserCDPRelayServer({
   })
 
   app.get('/extensions/status', (c) => {
-    const extensions = Array.from(store.getState().extensions.values()).map((ext) => {
+    // Public discovery: the reserved in-app browser backend is not a Chrome extension and does not
+    // appear here. With the desktop app running and no extension installed, this reports zero —
+    // which is the truth a caller asking about Chrome extensions needs.
+    const extensions = Array.from(publicExtensions().values()).map((ext) => {
       return {
         extensionId: ext.id,
         stableKey: ext.stableKey,
@@ -1353,6 +1640,20 @@ export async function startPenguinBrowserCDPRelayServer({
       const clientId = c.req.param('clientId') || 'default'
       const url = new URL(c.req.url, 'http://localhost')
       const requestedExtensionId = url.searchParams.get('extensionId')
+      // Which task opened this Playwright connection (in-app browser only). Carried in the URL
+      // because that is the one thing every command on this socket has in common — the executor
+      // builds the URL once, from the identity its session was created with.
+      const rawTaskId = url.searchParams.get('iabTask')
+      const clientTaskId = isIdentityValue(rawTaskId) ? rawTaskId : undefined
+      // And which conversation it is in, which decides what it may be *shown* rather than what it
+      // may do. Validated the same way: it arrives on a URL and ends up gating disclosure.
+      const rawSessionId = url.searchParams.get('iabSession')
+      const clientSessionId = isIdentityValue(rawSessionId) ? rawSessionId : undefined
+      // And which relay session it is. On the URL for the same reason as the other two: it is a
+      // property of the connection, and the two commands that confer tab ownership must take it
+      // from here rather than from a payload the client writes.
+      const rawRelaySessionId = url.searchParams.get('iabRelaySession')
+      const clientRelaySessionId = isIdentityValue(rawRelaySessionId) ? rawRelaySessionId : undefined
       // When extensionId is explicit, resolve directly. Otherwise use fallback which
       // handles single-extension and uniquely-active-extension cases (#52).
       const resolvedExtension = requestedExtensionId
@@ -1373,6 +1674,21 @@ export async function startPenguinBrowserCDPRelayServer({
             return
           }
 
+          // A client bound to the reserved in-app browser backend must say which conversation and
+          // task it is. Without both, everything downstream treats it as unscoped: it would be
+          // shown every conversation's targets, and its commands would carry no task for the
+          // ownership gate to check. Refused at the door rather than silently degraded.
+          if (
+            resolvedExtension?.info.id === IAB_BACKEND_ID &&
+            (!clientSessionId || !clientTaskId || !clientRelaySessionId)
+          ) {
+            const reason =
+              'In-app browser clients must carry a valid iabSession, iabTask and iabRelaySession'
+            logger?.log(pc.red(`Rejecting Playwright client ${clientId}: ${reason}`))
+            ws.close(4003, reason)
+            return
+          }
+
           if (!clientExtensionId) {
             const reason = requestedExtensionId
               ? `Unknown extensionId: ${requestedExtensionId}`
@@ -1384,7 +1700,13 @@ export async function startPenguinBrowserCDPRelayServer({
 
           // Add client first so it can receive Target.attachedToTarget events
           store.setState((s) => {
-            return relayState.addPlaywrightClient(s, { id: clientId, extensionId: clientExtensionId, ws })
+            return relayState.addPlaywrightClient(s, {
+              id: clientId,
+              extensionId: clientExtensionId,
+              ws,
+              ...(clientSessionId ? { iabSession: clientSessionId } : {}),
+              ...(clientTaskId ? { iabTask: clientTaskId } : {}),
+            })
           })
           const extensionConnection = getExtensionConnection(clientExtensionId)
           const targetCount = extensionConnection?.connectedTargets.size || 0
@@ -1444,6 +1766,9 @@ export async function startPenguinBrowserCDPRelayServer({
               params,
               sessionId,
               source,
+              ...(clientTaskId ? { taskId: clientTaskId } : {}),
+              ...(clientSessionId ? { sessionScope: clientSessionId } : {}),
+              ...(clientRelaySessionId ? { relayScope: clientRelaySessionId } : {}),
             })
 
             if (method === 'Target.setAutoAttach' && !sessionId) {
@@ -1601,8 +1926,20 @@ export async function startPenguinBrowserCDPRelayServer({
   const backendSocket = upgradeWebSocket((c) => {
       const incomingExtensionInfo = getExtensionInfoFromRequest(c)
       const connectionId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+      // Which backend this socket is. The implementation is shared by `/extension` and `/iab`, and
+      // exactly one piece of it is not: ownership reconciliation, which reads a field only the
+      // in-app browser sends. A Chrome extension's announcements carry no owner, and treating that
+      // absence as "nobody holds this page" would clear the extension's own concurrency claims on
+      // every attach and every reconnect.
+      const isIabBackend = incomingExtensionInfo.id === IAB_BACKEND_ID
       return {
         onOpen(_event, ws) {
+          // A reconnecting in-app browser is about to restate the whole truth about its tabs, so
+          // whatever we still believe about the *old* connection has to go first. A tab destroyed
+          // while the socket was down is never re-announced and never detached, and its concurrency
+          // claim would otherwise sit in the registry forever — held by a session, against a page
+          // that no longer exists, blocking anyone who wanted that target id back.
+          if (isIabBackend) forgetIabBackendState()
           const stableKey = relayState.buildStableExtensionKey(incomingExtensionInfo, connectionId)
 
           // Check for existing connection with same stableKey and close it
@@ -1689,7 +2026,10 @@ export async function startPenguinBrowserCDPRelayServer({
             }
 
             if (message.error) {
-              pending.reject(new Error(message.error))
+              // A backend states its refusal as a string; a CDP-shaped `{ message }` is read too,
+              // because `new Error({...})` renders as `[object Object]` and the reason the caller
+              // needs — which task owns the page, why the tab was refused — is lost at the last hop.
+              pending.reject(new Error(describeRelayError(message.error)))
             } else {
               pending.resolve(message.result)
             }
@@ -1717,6 +2057,41 @@ export async function startPenguinBrowserCDPRelayServer({
                 relay.handleRecordingCancelled(message as RecordingCancelledMessage)
               }
             }
+          } else if (
+            isIabBackend &&
+            (message as { method?: string }).method === 'iab-ownership-changed'
+          ) {
+            // A tab changed hands without a reconnect — a later task claimed one the user had been
+            // left with. Applied immediately, because the alternative is a claim this relay cannot
+            // find when that task ends, leaving the page unclaimable by anyone.
+            const changed = (message as { params?: { targetId?: unknown } }).params
+            if (typeof changed?.targetId === 'string') {
+              applyIabOwnership(changed.targetId, changed)
+            }
+          } else if (isIabBackend && (message as { method?: string }).method === 'iab-task-ended') {
+            // The desktop shell telling us a harness task is over.
+            //
+            // The two ownership layers have to move together. The shell has already dropped the
+            // tab's `ownedByTask` — which stops any *write* — and this drops the matching
+            // `tabRegistry` claim, which is the concurrency lock. Releasing the lock does not grant
+            // anyone write access: a later task still has to claim the tab through the shell before
+            // `mayDrive` will allow anything. Without this the tab would be permanently
+            // unclaimable — refused by the pane because it is unowned, and refused by the registry
+            // because a dead session still holds it.
+            const endedTaskId = (message as { params?: { taskId?: unknown } }).params?.taskId
+            if (typeof endedTaskId === 'string' && endedTaskId) {
+              releaseIabClaimsForTask(endedTaskId)
+            }
+          } else if (isIabBackend && (message as { method?: string }).method === 'iab-tab-closed') {
+            // A tab the user closed. Its target id will never be seen again, so the registry must
+            // forget the claim rather than hold it against a page that no longer exists.
+            const closedTargetId = (message as { params?: { targetId?: unknown } }).params?.targetId
+            if (typeof closedTargetId === 'string' && closedTargetId) {
+              // The owner goes; the *scope* stays. The detach event still has to reach the client
+              // that could see this target, and that check reads the scope.
+              iabOwners.delete(closedTargetId)
+              tabRegistry.forget(closedTargetId)
+            }
           } else {
             const extensionEvent = message as ExtensionEventMessage
 
@@ -1725,6 +2100,19 @@ export async function startPenguinBrowserCDPRelayServer({
             }
 
             const { method, params, sessionId } = extensionEvent.params
+
+            // The in-app browser announces who holds each page alongside the target itself. The
+            // shell is the authority on that — it knows which task owns a tab and which relay
+            // session claimed it — and it restates the whole truth on every reconnect, so this is
+            // where the two registries are brought back into agreement after a dropped message or
+            // a socket that went away mid-task.
+            if (isIabBackend && method === 'Target.attachedToTarget') {
+              reconcileIabOwnership(
+                params as { targetInfo?: { targetId?: unknown }; sessionId?: unknown } | undefined,
+                (extensionEvent.params as { iabOwner?: unknown }).iabOwner,
+                sessionId,
+              )
+            }
 
             // Drop high-frequency noise events before logging or forwarding.
             // Old extensions may still send these; the relay filters them here.
@@ -1750,7 +2138,16 @@ export async function startPenguinBrowserCDPRelayServer({
             const cdpEvent: CDPEventBase = { method, sessionId, params }
             emitter.emit('cdp:event', { event: cdpEvent, sessionId })
 
-            maybeEmitBrowserDownloadCompatEvent({ method, params, extensionId: connectionId })
+            maybeEmitBrowserDownloadCompatEvent({
+              method,
+              params,
+              extensionId: connectionId,
+              // The originating page's conversation, so the client that started the download is the
+              // one that hears about it — and the only one.
+              ...(sessionId && iabSessionScopes.has(sessionId)
+                ? { scopeHint: iabSessionScopes.get(sessionId)! }
+                : {}),
+            })
 
             if (method === 'Target.attachedToTarget') {
               const targetParams = params as Protocol.Target.AttachedToTargetEvent
@@ -1813,12 +2210,28 @@ export async function startPenguinBrowserCDPRelayServer({
                 }),
               )
 
-              const cachedDownloadBehavior = extensionDownloadBehavior.get(connectionId)
+              // A new page inherits the download behaviour of *its own conversation*, and of the
+              // task that set it. The cache is keyed per conversation for the in-app browser (see
+              // Browser.setDownloadBehavior); an extension keeps one behaviour for the browser, as
+              // a browser does.
+              const behaviorScope = iabScopes.get(targetParams.targetInfo.targetId)
+              const behaviorOwner = iabOwners.get(targetParams.targetInfo.targetId)
+              // A new page inherits the behaviour set by *its own owner*: the conversation it
+              // belongs to and the task that holds it. An unowned page — one retained from a
+              // finished turn — inherits nothing, because the turn whose download path it would
+              // have taken is over and the page is the user's.
+              const cachedDownloadBehavior =
+                !behaviorScope || behaviorOwner
+                  ? extensionDownloadBehavior.get(
+                      downloadBehaviorKey(connectionId, behaviorScope, behaviorOwner?.taskId),
+                    )
+                  : undefined
               if (cachedDownloadBehavior && targetParams.targetInfo.type === 'page') {
                 void applyDownloadBehaviorToTargets({
                   extensionId: connectionId,
                   behavior: cachedDownloadBehavior,
                   targetSessionIds: [targetParams.sessionId],
+                  ...(behaviorOwner ? { taskId: behaviorOwner.taskId } : {}),
                 })
               }
 
@@ -2162,6 +2575,251 @@ export async function startPenguinBrowserCDPRelayServer({
   // Session counter for suggesting next session number
   let nextSessionNumber = 1
 
+  /**
+   * What the in-app browser last told us about who holds each of its pages.
+   *
+   * Keyed by CDP target id. Rebuilt from target announcements, which the shell repeats on every
+   * reconnect, so this converges on the shell's truth rather than accumulating whichever
+   * notifications happened to get through.
+   */
+  const iabOwners = new Map<string, { taskId: string; relaySessionId: string }>()
+
+  /**
+   * The CDP sessions of the pages a task owns in its own conversation.
+   *
+   * Ownership, not visibility: a conversation's strip also holds tabs released to the user and tabs
+   * belonging to other turns, and neither is this caller's to reconfigure.
+   */
+  const ownedTargetSessionIds = ({
+    sessionScope,
+    taskId,
+  }: {
+    sessionScope: string
+    taskId?: string
+  }): string[] => {
+    const owned: string[] = []
+    for (const extension of store.getState().extensions.values()) {
+      for (const target of extension.connectedTargets.values()) {
+        if (iabScopes.get(target.targetId) !== sessionScope) continue
+        const owner = iabOwners.get(target.targetId)
+        if (!owner || !taskId || owner.taskId !== taskId) continue
+        owned.push(target.sessionId)
+      }
+    }
+    return owned
+  }
+
+  /**
+   * Which conversation each in-app browser target belongs to.
+   *
+   * One desktop shell serves every conversation over a single backend connection, so without this
+   * every Playwright client would be shown every conversation's targets — their URLs and titles
+   * included, before an ownership check has any chance to refuse a command. Recorded for released
+   * tabs too: a tab that outlived its task still belongs to the conversation it was opened in.
+   */
+  const iabScopes = new Map<string, string>()
+  /** How many target scopes are remembered; see `rememberScope` for why they are never deleted. */
+  const MAX_IAB_SCOPES = 2000
+  /**
+   * Conversation scope by CDP session — roots and their children alike.
+   *
+   * Two jobs. A child target (an out-of-process iframe, a worker) announces itself through the view
+   * that owns it and carries no owner of its own, so it inherits from here. And every *ordinary*
+   * event — `Page.frameNavigated`, `Network.responseReceived`, `Runtime.consoleAPICalled` — is
+   * routed by session id and nothing else, so this is the only way to tell whose page it is
+   * before deciding which client may see it.
+   */
+  const iabSessionScopes = new Map<string, string>()
+
+  /**
+   * Records a target's conversation.
+   *
+   * Entries are **not** removed when a tab closes. A detach or crash event has to be delivered to
+   * the client that could see the target, and deleting the scope first would fail that check closed
+   * — the client would never learn its page went away. Target ids are never reused, so a stale entry
+   * is inert; the map is bounded instead.
+   */
+  const rememberScope = (targetId: string, scope: string): void => {
+    iabScopes.delete(targetId)
+    iabScopes.set(targetId, scope)
+    while (iabScopes.size > MAX_IAB_SCOPES) {
+      const oldest = iabScopes.keys().next().value
+      if (oldest === undefined) break
+      iabScopes.delete(oldest)
+    }
+  }
+
+  /**
+   * Whether a client may be shown a target at all.
+   *
+   * Extension and direct clients carry no conversation and are unaffected — they connect to a
+   * browser that has no such concept. A client that *is* bound to a conversation fails **closed**
+   * on a target whose scope is unknown: the in-app browser serves every conversation over one
+   * connection, so "we have not been told whose this is" is not a reason to disclose a URL.
+   */
+  const clientMaySeeTarget = (
+    client: { iabSession?: string },
+    targetId: string | undefined,
+  ): boolean => {
+    if (!client.iabSession) return true
+    if (!targetId) return true
+    return iabScopes.get(targetId) === client.iabSession
+  }
+
+  /**
+   * Whether a client may be shown one backend event.
+   *
+   * Filtering only the target events was not enough: a shared in-app browser backend forwards every
+   * `Page.*`, `Network.*`, `Runtime.*` and `DOM.*` event from every conversation's tabs down every
+   * client socket. Playwright ignores sessions it does not know, but the payloads are page data —
+   * URLs, headers, console output — and they can confuse its session graph besides.
+   *
+   * Three ways to attribute an event, and a deliberate refusal when none of them works: a
+   * browser-wide event that cannot be tied to a conversation is not broadcast to a scoped client,
+   * because "we cannot tell whose this is" is not a reason to send it to everyone.
+   */
+  const clientMaySeeEvent = (
+    client: { iabSession?: string },
+    message: CDPResponseBase | CDPEventBase,
+    scopeHint?: string,
+  ): boolean => {
+    if (!client.iabSession) return true
+    if (!('method' in message)) return true
+    if (scopeHint !== undefined) return scopeHint === client.iabSession
+
+    const params = (message.params ?? {}) as {
+      targetInfo?: { targetId?: unknown }
+      targetId?: unknown
+      sessionId?: unknown
+    }
+    const targetId =
+      typeof params.targetInfo?.targetId === 'string'
+        ? params.targetInfo.targetId
+        : typeof params.targetId === 'string'
+          ? params.targetId
+          : undefined
+    if (targetId !== undefined) return iabScopes.get(targetId) === client.iabSession
+
+    const routed = (message as { sessionId?: unknown }).sessionId
+    if (typeof routed === 'string') return iabSessionScopes.get(routed) === client.iabSession
+
+    const inner = typeof params.sessionId === 'string' ? params.sessionId : undefined
+    if (inner !== undefined) return iabSessionScopes.get(inner) === client.iabSession
+
+    return false
+  }
+
+  /** The subset of a backend's targets a conversation may see. */
+  const targetsVisibleTo = (
+    targets: Iterable<relayState.ConnectedTarget>,
+    sessionScope: string | undefined,
+  ): relayState.ConnectedTarget[] => {
+    const all = [...targets]
+    if (!sessionScope) return all
+    return all.filter((target) => iabScopes.get(target.targetId) === sessionScope)
+  }
+
+  /**
+   * Brings the concurrency registry in line with what the shell says about one target.
+   *
+   * The claim is made for the *exact* relay session the shell names, not for one inferred from the
+   * task: a task can create more than one browser session, and guessing between them would claim
+   * the page under a session that never asked for it. A null owner means the tab outlived its task
+   * and belongs to the user — the claim is dropped so a later task can take it, which is a
+   * different thing from being allowed to write to it (the shell still refuses that until the tab
+   * is claimed there too).
+   *
+   * Safe before the executor exists: the registry is keyed by session id, and the cold-start
+   * bootstrap deliberately opens its first tab under the id the session is about to be created
+   * with. That is what makes the very first target of a fresh session claimed rather than orphaned.
+   */
+  const applyIabOwnership = (targetId: string, owner: unknown): void => {
+    if (!targetId) return
+    const record =
+      owner && typeof owner === 'object'
+        ? (owner as { sessionScope?: unknown; taskId?: unknown; relaySessionId?: unknown })
+        : null
+    const sessionScope = typeof record?.sessionScope === 'string' ? record.sessionScope : null
+    const taskId = typeof record?.taskId === 'string' ? record.taskId : null
+    const relaySessionId = typeof record?.relaySessionId === 'string' ? record.relaySessionId : null
+
+    // The conversation is recorded even for a tab nobody owns. A released tab still belongs to the
+    // conversation it was opened in, and that is what keeps it out of another conversation's view.
+    if (sessionScope) rememberScope(targetId, sessionScope)
+
+    if (!taskId || !relaySessionId) {
+      iabOwners.delete(targetId)
+      tabRegistry.forget(targetId)
+      return
+    }
+    iabOwners.set(targetId, { taskId, relaySessionId })
+    if (tabRegistry.ownerOf(targetId) !== relaySessionId) {
+      // The shell is the authority; a stale claim on this target is replaced rather than allowed to
+      // block the one the shell reports.
+      tabRegistry.forget(targetId)
+      tabRegistry.claim(targetId, relaySessionId)
+    }
+  }
+
+  const reconcileIabOwnership = (
+    params: { targetInfo?: { targetId?: unknown }; sessionId?: unknown } | undefined,
+    owner: unknown,
+    routedSessionId: string | undefined,
+  ): void => {
+    const targetId = params?.targetInfo?.targetId
+    if (typeof targetId !== 'string') return
+
+    if (owner) {
+      applyIabOwnership(targetId, owner)
+      // The shell's own announcement names the root CDP session it minted for this view. Children
+      // attach *through* that session and inherit its conversation.
+      const rootSessionId = params?.sessionId
+      const scope = iabScopes.get(targetId)
+      if (typeof rootSessionId === 'string' && scope) iabSessionScopes.set(rootSessionId, scope)
+      return
+    }
+
+    // No owner: an out-of-process iframe or a worker, announced by Chromium through the view that
+    // owns it. It inherits that view's conversation rather than being treated as unowned — and
+    // certainly rather than having its scope cleared, which would make a client fail closed on its
+    // own page's iframes.
+    const inherited = routedSessionId ? iabSessionScopes.get(routedSessionId) : undefined
+    if (!inherited) return
+    rememberScope(targetId, inherited)
+    // The child's own session inherits too, so events routed through it are attributable.
+    const childSessionId = params?.sessionId
+    if (typeof childSessionId === 'string') iabSessionScopes.set(childSessionId, inherited)
+  }
+
+  /**
+   * Drops the concurrency claims held by a finished task's in-app browser pages.
+   *
+   * Exact: each target is released from the session the shell said was holding it, so a task with
+   * two browser sessions releases each one's pages and no others. A message lost while the socket
+   * was down costs nothing — the reconnect's announcements say the same thing again.
+   */
+  /**
+   * Drops everything remembered about the in-app browser's targets.
+   *
+   * Called at the reconnect boundary, before the re-announcements rebuild it, and when the backend
+   * disconnects for good. Deliberately touches only the IAB side: the Chrome extension's claims and
+   * targets are a separate world and survive their own reconnects on their own terms.
+   */
+  const forgetIabBackendState = (): void => {
+    for (const [targetId, owner] of iabOwners) tabRegistry.release(targetId, owner.relaySessionId)
+    iabOwners.clear()
+    iabScopes.clear()
+    iabSessionScopes.clear()
+  }
+
+  const releaseIabClaimsForTask = (taskId: string): void => {
+    for (const [targetId, owner] of [...iabOwners]) {
+      if (owner.taskId !== taskId) continue
+      tabRegistry.release(targetId, owner.relaySessionId)
+      iabOwners.delete(targetId)
+    }
+  }
+
   // Lazy-load ExecutorManager to avoid circular imports and only when needed
   let executorManager: import('./executor.js').ExecutorManager | null = null
 
@@ -2261,9 +2919,40 @@ export async function startPenguinBrowserCDPRelayServer({
     return disconnectedSessionError(executor.getSessionInfo({ id: sessionId }), connectedExtensionKeys())
   }
 
+  /**
+   * Refuses a call from a task that does not own this in-app browser session.
+   *
+   * Returns the error body, or null when the call is allowed. Non-IAB sessions have no owner and
+   * are never refused: extension and direct sessions are shared machinery with no per-task tabs.
+   */
+  const iabOwnershipMismatch = (
+    sessionId: string,
+    executor: import('./executor.js').PlaywrightExecutor,
+    callerTaskId: string | undefined,
+  ) => {
+    const owner = executor.iabIdentity
+    if (!owner || owner.taskId === callerTaskId) return null
+    return {
+      text:
+        `Session ${sessionId} belongs to task ${owner.taskId}, and this call is not from that ` +
+        'task. In-app browser sessions are not shared between tasks: their tabs are owned by the ' +
+        "task that opened them, and a finished task's tabs belong to the user. Run " +
+        "'penguin-browser session new --iab' to get a session and tabs of your own.",
+      images: [],
+      screenshots: [],
+      isError: true,
+    }
+  }
+
   app.post('/cli/execute', async (c) => {
     try {
-      const body = (await c.req.json()) as { sessionId: string | number; code: string; timeout?: number }
+      const body = (await c.req.json()) as {
+        sessionId: string | number
+        code: string
+        timeout?: number
+        /** The caller's current task; checked against the session's owner for IAB sessions. */
+        taskId?: string
+      }
       const sessionId = normalizeSessionId(body.sessionId)
       const { code, timeout = DEFAULT_EXEC_TIMEOUT } = body
 
@@ -2287,6 +2976,18 @@ export async function startPenguinBrowserCDPRelayServer({
       const disconnected = disconnectedExtensionSession(sessionId, existingExecutor)
       if (disconnected) {
         return c.json(disconnected, 409)
+      }
+      // In-app browser sessions are owned by the task that created them.
+      //
+      // Relay session ids are small integers a caller passes as `-s 3`, and they outlive the turn
+      // that created them: nothing stops the *next* task in the same conversation from reusing one
+      // and driving tabs the previous task opened. The executor cannot tell — it was built with the
+      // first task's identity and would keep stamping it onto every command. So the check belongs
+      // here, where the caller's own current task is still visible, and a mismatch is refused
+      // rather than silently honoured.
+      const iabOwnershipError = iabOwnershipMismatch(sessionId, existingExecutor, body.taskId)
+      if (iabOwnershipError) {
+        return c.json(iabOwnershipError, 409)
       }
       // Touch cloud session activity tracking if this session is cloud-backed
       const cloudTracking = cloudSessionTracking.get(sessionId)
@@ -2321,7 +3022,11 @@ export async function startPenguinBrowserCDPRelayServer({
 
   app.post('/cli/reset', async (c) => {
     try {
-      const body = (await c.req.json()) as { sessionId: string | number }
+      const body = (await c.req.json()) as {
+        sessionId: string | number
+        /** The caller's current task; checked against the session's owner for IAB sessions. */
+        taskId?: string
+      }
       const sessionId = normalizeSessionId(body.sessionId)
 
       if (!sessionId) {
@@ -2337,6 +3042,10 @@ export async function startPenguinBrowserCDPRelayServer({
       if (disconnected) {
         return c.json(disconnected, 409)
       }
+      // Resetting rebuilds the browser connection underneath whoever is using it, so it is subject
+      // to the same ownership rule as executing: a task may only reset its own session.
+      const resetMismatch = iabOwnershipMismatch(sessionId, existingExecutor, body.taskId)
+      if (resetMismatch) return c.json(resetMismatch, 409)
       const { page, context } = await existingExecutor.reset()
 
       return c.json({
@@ -2374,6 +3083,16 @@ export async function startPenguinBrowserCDPRelayServer({
       headless?: boolean
       /** Drive the desktop shell's in-app WebContentsView (design/002 §4.2) */
       iab?: boolean
+      /**
+       * Who the tabs this session opens belong to (--iab only).
+       *
+       * `sessionId` is the harness conversation whose tab strip shows them; `taskId` is the turn
+       * allowed to write to them. Both are required in IAB mode and neither is defaulted — the
+       * relay has no way to know either, and a tab attributed to something invented can never be
+       * released by the thing that owns it (design/002 §6.4).
+       */
+      sessionId?: string
+      taskId?: string
       /** Browser name from discovery (e.g. "Chrome", "Brave") */
       browser?: string
       /** Profile info from discovery */
@@ -2477,6 +3196,31 @@ export async function startPenguinBrowserCDPRelayServer({
     // desktop shell registers itself under a reserved id, so selecting it is a lookup rather
     // than a new code path — everything downstream (targets, ownership, execute) is shared.
     if (body.iab) {
+      // Checked before the backend is even looked up: an unattributable session is refused rather
+      // than created, so the failure names the missing contract instead of surfacing later as a
+      // tab that belongs to nobody.
+      if (!isIdentityValue(body.sessionId) || !isIdentityValue(body.taskId)) {
+        return c.json(
+          {
+            error: {
+              code: 'IAB_IDENTITY_REQUIRED',
+              message:
+                'An in-app browser session needs both a sessionId (the conversation) and a taskId ' +
+                '(the turn) so its tabs can be shown in the right place and released by the right ' +
+                'task.',
+              recovery: [
+                'Let the harness run the command: it sets PENGUIN_SESSION_ID and PENGUIN_TASK_ID in',
+                'the environment of everything an agent starts.',
+                'There is deliberately no command-line override — the agent runs this command, so a',
+                'flag would let it name any owner it liked. A development harness sets those two',
+                'environment variables itself.',
+              ],
+            },
+          },
+          400,
+        )
+      }
+      const identity = { sessionId: body.sessionId, taskId: body.taskId }
       const iabConn = [...store.getState().extensions.values()].find(
         (candidate) => candidate.info.id === IAB_BACKEND_ID,
       )
@@ -2507,7 +3251,11 @@ export async function startPenguinBrowserCDPRelayServer({
         await sendToExtension({
           extensionId: iabConn.id,
           method: 'iab-open-tab',
-          params: {},
+          // The relay session id goes with it, even though the executor does not exist yet. The
+          // registry is keyed by session id, not by an object, so the shell can announce this first
+          // tab as held by the session that is about to be created — which is what stops a cold
+          // start's very first page from arriving unclaimed.
+          params: { ...identity, relaySessionId: sessionId },
         })
       } catch (error) {
         return c.json(
@@ -2528,7 +3276,7 @@ export async function startPenguinBrowserCDPRelayServer({
       const executor = manager.getExecutor({
         sessionId,
         cwd,
-        cdpConfig: { iab: true, extensionId: iabConn.stableKey },
+        cdpConfig: { iab: true, extensionId: iabConn.stableKey, iabIdentity: identity },
         sessionMetadata: {
           extensionId: iabConn.stableKey,
           browser: iabConn.info.browser || 'Travel Agent (in-app browser)',
@@ -2547,7 +3295,7 @@ export async function startPenguinBrowserCDPRelayServer({
 
     // Extension mode (existing behavior)
     const extensionId = body.extensionId || null
-    const allowDefault = !extensionId && store.getState().extensions.size === 1
+    const allowDefault = !extensionId && publicExtensions().size === 1
     const conn = getExtensionConnection(extensionId, { allowFallback: allowDefault })
     if (!conn) {
       const error = extensionId
@@ -2603,7 +3351,19 @@ export async function startPenguinBrowserCDPRelayServer({
 
   app.post('/cli/session/delete', async (c) => {
     try {
-      const body = (await c.req.json()) as { sessionId: string | number }
+      const body = (await c.req.json()) as {
+        sessionId: string | number
+        /** The caller's current task; checked against the session's owner for IAB sessions. */
+        taskId?: string
+        /**
+         * How the task ended, as far as its tabs are concerned (design/002 §6.4).
+         *
+         * The agent is the only party that knows whether it merely searched, left an order behind,
+         * or failed — so closing the browser session is where it says so, and the shell applies the
+         * retain/close rules from it. Absent means "unknown", which retains.
+         */
+        outcome?: string
+      }
       const sessionId = normalizeSessionId(body.sessionId)
 
       if (!sessionId) {
@@ -2612,6 +3372,32 @@ export async function startPenguinBrowserCDPRelayServer({
 
       const manager = await getExecutorManager()
       const executor = manager.getSession(sessionId)
+
+      // Deleting a session tears down the executor another task may still be using; the same
+      // ownership rule as /cli/execute applies.
+      if (executor) {
+        const mismatch = iabOwnershipMismatch(sessionId, executor, body.taskId)
+        if (mismatch) return c.json(mismatch, 409)
+      }
+
+      // The agent's own account of how the turn went, delivered *before* the executor goes, while
+      // the backend connection is still live. It does not end the turn — only the harness does
+      // that, and the shell's supervisor learns it from the server — so this records a claim the
+      // end-of-task rules will consult, and an abort can still override it. Best-effort: a shell
+      // that has gone away has already taken its tabs with it.
+      const iabIdentity = executor?.iabIdentity
+      if (iabIdentity) {
+        const iabConn = [...store.getState().extensions.values()].find(
+          (candidate) => candidate.info.id === IAB_BACKEND_ID,
+        )
+        if (iabConn) {
+          await sendToExtension({
+            extensionId: iabConn.id,
+            method: 'iab-end-task',
+            params: { taskId: iabIdentity.taskId, outcome: body.outcome ?? 'unknown' },
+          }).catch(() => {})
+        }
+      }
 
       // Close headless context before deleting to prevent context/page leaks
       // on the shared headless browser. Only affects headless sessions.

@@ -115,14 +115,17 @@ describe("sse-stream", () => {
 
   it("FD-1: subscribing while running receives task_state: running, then pending approvals are replayed", async () => {
     t.deps.manager.adopt(row, approvalFakeSession(SID));
-    await t.deps.manager.startTask(SID, [userText("go")]);
+    const { taskId } = await t.deps.manager.startTask(SID, [userText("go")]);
     await waitFor(() => t.deps.manager.pendingApprovalCount(SID) === 1);
 
     const frames = await readSseFrames(await getStream(), 2);
+    // The snapshot names the running Task as well as the state. A consumer holding per-task
+    // resources — the desktop shell holds browser tabs — cannot act on "something is running".
     expect(JSON.parse(frames[0]!.data)).toEqual({
       type: "task_state",
       state: "running",
       queued: 0,
+      taskId,
     });
     const approval = JSON.parse(frames[1]!.data) as {
       type: string;

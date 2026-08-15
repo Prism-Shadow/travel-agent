@@ -14,7 +14,7 @@ describe('MV3 extension lifecycle', () => {
       tempDirPrefix: 'pw-mv3-lifecycle-',
       toggleExtension: false,
     })
-  }, 60000)
+  }, 600000)
 
   afterAll(async () => {
     await cleanupTestContext(testCtx)

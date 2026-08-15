@@ -32,6 +32,7 @@ import type {
 import { createStreamModel } from "../../lib/omni/stream-model";
 import type { ChatItem, StreamModel } from "../../lib/omni/stream-model";
 import type { GoalBannerState } from "./goal-use";
+import { reportTasksChanged } from "./use-browser-pane";
 
 export type { OlderHistoryState, PendingApproval } from "../../lib/omni/stream-controller";
 
@@ -235,6 +236,15 @@ export function useSessionStream(
       onTaskState: setTaskState,
       onQueuedFollowUps: setQueuedFollowUps,
       onPendingSteering: setPendingSteering,
+      // A Task ending is what runs the in-app browser's tab rules (design/002 §6.4): its tabs are
+      // closed or handed to the user, and the agent loses the right to write to them. Relayed here
+      // because this is where the harness's own account of the turn arrives; it is a no-op outside
+      // the desktop shell, and outcome-blind — the shell treats an unexplained ending as one to
+      // keep pages for, never one to discard them on.
+      // A hint only: main asks the server which turns are running, because this stream is disposed
+      // the moment the user opens another conversation. Telling it to ask *now* saves a poll
+      // interval; not telling it costs nothing.
+      onTaskIdentity: () => reportTasksChanged(),
       onLoading: setLoading,
       onError: setError,
       onModelChange: bump,

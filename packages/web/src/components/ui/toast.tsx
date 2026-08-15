@@ -13,8 +13,9 @@
  * module-level subscriber list plus a single `<Toaster />` mounted at the app
  * root is all it takes.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 
 type ToastKind = "success" | "error" | "info";
 
@@ -75,25 +76,37 @@ const KIND_CLASS: Record<ToastKind, string> = {
 /** Toast container: mount once at the app root. */
 export function Toaster() {
   const [list, setList] = useState<ToastItem[]>(items);
+  const stackRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     listeners.add(setList);
     return () => {
       listeners.delete(setList);
     };
   }, []);
+  // Only while a toast is actually up. The Toaster is mounted for the life of the app, so occluding
+  // on mount would hide the in-app browser permanently; and toasts sit at the top centre, where they
+  // overlap the pane often enough to matter (design/002 §5.3).
+  //
+  // The measured element is the *stack*, not the full-width positioning layer above it. That layer
+  // spans the window by construction (`inset-x-0`), so measuring it would report an overlap for
+  // every toast no matter where it actually is — which is precisely the flicker the rectangle rule
+  // exists to avoid.
+  useOccludePane(list.length > 0, stackRef);
   if (list.length === 0) return null;
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex flex-col items-center gap-2 px-4">
-      {list.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          onClick={() => dismiss(t.id)}
-          className={`pointer-events-auto max-w-lg break-words rounded-md border px-3 py-2 text-left text-sm shadow-lg ${t.leaving ? "anim-toast-out" : "anim-toast-in"} ${KIND_CLASS[t.kind]}`}
-        >
-          {t.text}
-        </button>
-      ))}
+    <div className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex flex-col items-center px-4">
+      <div ref={stackRef} className="flex w-fit max-w-lg flex-col items-center gap-2">
+        {list.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => dismiss(t.id)}
+            className={`pointer-events-auto w-full break-words rounded-md border px-3 py-2 text-left text-sm shadow-lg ${t.leaving ? "anim-toast-out" : "anim-toast-in"} ${KIND_CLASS[t.kind]}`}
+          >
+            {t.text}
+          </button>
+        ))}
+      </div>
     </div>,
     document.body,
   );

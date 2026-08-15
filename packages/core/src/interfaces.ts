@@ -298,6 +298,15 @@ export interface EnvironmentConfig {
   workspaceDir: string;
   toolConfig: ToolConfig;
   /**
+   * The Session this Environment belongs to.
+   *
+   * Passed into the environment of every command subprocess as `PENGUIN_SESSION_ID`, alongside the
+   * current Task's id, so a tool the Agent runs can say which conversation and which turn it is
+   * acting for. The in-app browser is the first consumer: it scopes tabs to the conversation and
+   * ownership to the task. Absent for standalone embedders, which then supply neither.
+   */
+  sessionId?: string;
+  /**
    * This Session's private scratchpad directory (`scratchpad/<sessionId>`), the generic
    * Session-scoped storage root for Environment by-products. Currently it backs
    * truncated-tool-output recovery: output beyond an entry's `maxOutputLength` is saved under
@@ -386,6 +395,20 @@ export interface EnvironmentInterface {
   listBackgroundCommands?(): BackgroundCommandInfo[];
   /** Kills one background command process by id (whole process group); false when the id is unknown. Optional, like listBackgroundCommands. */
   killBackgroundCommand?(processId: string): boolean;
+  /**
+   * Brackets one Task's execution (see `RunOptions.taskId`).
+   *
+   * Called by Session around every run, in a `finally`, so the environment always knows which turn
+   * the tool call it is executing belongs to — and, just as importantly, knows when there is no
+   * turn at all. Tools that hand work to a separate process use it to say who that work is for:
+   * the in-app browser tags each tab with the task that opened it, and stops accepting writes when
+   * that task ends.
+   *
+   * Optional, because an embedder's own Environment may have no notion of a task. `exitTask` is
+   * given the id so a late call from an already-superseded run cannot clear a newer one.
+   */
+  enterTask?(context: { sessionId: string; taskId: string }): void;
+  exitTask?(taskId: string): void;
   /** Releases runtime resources held by the environment (e.g. managed long-running command sessions); called by the host when the Session ends. Optional, idempotent. */
   dispose?(): void;
 }

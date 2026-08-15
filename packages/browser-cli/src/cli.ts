@@ -16,7 +16,8 @@ Buffer.prototype[util.inspect.custom] = function () {
 import { killPortProcess } from './kill-port.js'
 import { canEmitKittyGraphics, emitKittyImage } from './kitty-graphics.js'
 import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './utils.js'
-import { resolveRelayEndpoint } from './relay-discovery.js'
+import { readBackendPreference, resolveRelayEndpoint } from './relay-discovery.js'
+import { MISSING_IDENTITY_MESSAGE, readAgentIdentity } from './agent-identity.js'
 import {
   ensureRelayServer,
   RELAY_PORT,
@@ -197,9 +198,28 @@ cli
     })
   })
 
+/**
+ * Which relay this command talks to.
+ *
+ * Resolved the same way for every command, and that is the point. The desktop shell prefers the
+ * conventional port but binds an ephemeral one when something else already owns it, and publishes
+ * where it landed. If `session new --iab` followed that and `execute` did not, a session created on
+ * the shell's relay would be executed against a different relay that has never heard of it — the
+ * session id is a small integer, so the failure is "session 3 not found" rather than anything that
+ * points at two relays.
+ *
+ * Precedence: an explicit host, then the environment, then the shell's published endpoint, then the
+ * conventional port. A machine with no desktop app publishes nothing and lands on the default,
+ * which is where a Chrome extension connects.
+ */
 async function getServerUrl(host?: string): Promise<string> {
-  const serverHost = host || process.env.PENGUIN_BROWSER_HOST || '127.0.0.1'
-  const { httpBaseUrl } = parseRelayHost(serverHost, RELAY_PORT)
+  const endpoint = await resolveRelayEndpoint({
+    defaultPort: RELAY_PORT,
+    host,
+    envHost: process.env.PENGUIN_BROWSER_HOST,
+    envPort: process.env.PENGUIN_BROWSER_PORT,
+  })
+  const { httpBaseUrl } = parseRelayHost(endpoint.host, endpoint.port)
   return httpBaseUrl
 }
 
@@ -314,7 +334,11 @@ async function executeCode(options: {
     const response = await fetch(executeUrl, {
       method: 'POST',
       headers: buildAuthHeaders({ token, json: true }),
-      body: JSON.stringify({ sessionId, code, timeout, cwd }),
+      // The caller's current task rides along on every execution, not just on session creation.
+      // Relay session ids are reusable integers, so a later task can name an earlier task's
+      // session; the relay compares this against the session's owner and refuses the mismatch
+      // rather than letting one task drive another's tabs.
+      body: JSON.stringify({ sessionId, code, timeout, cwd, taskId: readAgentIdentity()?.taskId }),
     })
 
     if (!response.ok) {
@@ -444,6 +468,28 @@ cli
     // --iab: the desktop shell's in-app WebContentsView. No browser to find or launch — the
     // shell is already connected to the relay, so this only picks which backend to bind.
     if (options.iab) {
+      // Resolved before anything is opened. A tab belongs to a conversation and to a task, and
+      // neither can be inferred here — refusing now produces one clear message instead of a
+      // session whose first `tabs.open()` fails for a reason nothing explains.
+      const identity = readAgentIdentity()
+      if (!identity) {
+        console.error(MISSING_IDENTITY_MESSAGE)
+        process.exit(1)
+      }
+      // The user's own choice of backend outranks the flag, and it is *per conversation*: two chats
+      // can legitimately use different browsers, so the preference is read for this session rather
+      // than as one global setting. Honouring it here, instead of silently opening the in-app
+      // browser anyway, is what makes it a decision rather than a preference nobody reads
+      // (design/002 §6.1, §7.3).
+      if (readBackendPreference(identity.sessionId) === 'extension') {
+        console.error(
+          'This conversation is set to use your own Chrome, so the in-app browser is not ' +
+            'available to it. Run this command without --iab to use the extension backend, or ' +
+            "change the choice in the browser panel's menu.",
+        )
+        process.exit(1)
+      }
+
       try {
         // The desktop shell prefers 19989 but moves to a dynamic port when something else already
         // owns it, so the port is discovered rather than assumed. A named host always wins, and on
@@ -459,7 +505,12 @@ cli
         const response = await fetch(`${serverUrl}/cli/session/new`, {
           method: 'POST',
           headers: buildAuthHeaders({ token: options.token, json: true }),
-          body: JSON.stringify({ iab: true, cwd: process.cwd() }),
+          body: JSON.stringify({
+            iab: true,
+            cwd: process.cwd(),
+            sessionId: identity.sessionId,
+            taskId: identity.taskId,
+          }),
         })
         const payload = (await response.json().catch(() => ({}))) as {
           id?: string
@@ -1316,6 +1367,10 @@ cli
 
 cli
   .command('session delete <sessionId>', 'Delete a session and clear its state')
+  .option(
+    '--outcome <outcome>',
+    "How the task went, for the in-app browser's tab rules: read_only (nothing to come back to, its tabs close), committed (an order or a payment page — its tabs are kept), or failed. Omitted means unknown, which keeps them.",
+  )
   .option('--host <host>', 'Remote relay server host')
   .option('--token <token>', 'Authentication token (or use PENGUIN_BROWSER_TOKEN env var)')
   .action(async (sessionId, options) => {
@@ -1326,10 +1381,27 @@ cli
     }
 
     try {
+      // Validated here rather than passed through: an arbitrary string would be read as "unknown"
+      // at the far end, so a typo would silently become the conservative rule and nobody would
+      // learn the declaration never landed.
+      const outcomes = ['read_only', 'committed', 'failed', 'unknown']
+      if (options.outcome !== undefined && !outcomes.includes(options.outcome)) {
+        console.error(`--outcome must be one of: ${outcomes.join(', ')}`)
+        process.exit(1)
+      }
+
       const response = await fetch(`${serverUrl}/cli/session/delete`, {
         method: 'POST',
         headers: buildAuthHeaders({ token: options.token, json: true }),
-        body: JSON.stringify({ sessionId }),
+        // The task's identity travels with the request: deleting a session tears down an executor
+        // another task may still be using. The outcome travels with it too — closing the browser
+        // session is where the agent says how the task went, and the in-app browser's retain/close
+        // rules have no other source for that.
+        body: JSON.stringify({
+          sessionId,
+          taskId: readAgentIdentity()?.taskId,
+          ...(options.outcome ? { outcome: options.outcome } : {}),
+        }),
       })
 
       if (!response.ok) {
@@ -1361,7 +1433,9 @@ cli
       const response = await fetch(`${serverUrl}/cli/reset`, {
         method: 'POST',
         headers: buildAuthHeaders({ token: options.token, json: true }),
-        body: JSON.stringify({ sessionId, cwd }),
+        // Same ownership rule as execute and delete: resetting rebuilds another task's browser
+        // connection underneath it if the session is not this task's.
+        body: JSON.stringify({ sessionId, cwd, taskId: readAgentIdentity()?.taskId }),
       })
 
       if (!response.ok) {

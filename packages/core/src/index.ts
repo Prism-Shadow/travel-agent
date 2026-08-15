@@ -41,6 +41,10 @@ export type {
 } from "./engine/context-engine.js";
 export { Session } from "./session.js";
 export type { GoalRunOptions, SessionConfig, SessionRunOptions } from "./session.js";
+// Task identity: a Session is a conversation, a Task is one turn of it. Hosts that accept a task
+// before it runs (the Web server queues them) mint the id themselves so they can publish it, which
+// is why the generator is public rather than an internal of Session.
+export { formatTaskId, isTaskId } from "./task-id.js";
 // Session-title generation lives in internal/ (an assembly detail of Session.generateTitle);
 // only its narrow public surface is re-exported: the result type (part of
 // Session.generateTitle's signature) and sanitizeTitle. The prompt/request internals

@@ -32,6 +32,7 @@ import type { ControlSize } from "./input";
 import { Field, controlBase, menuRowClass } from "./field";
 import { CheckIcon, ChevronDown } from "./icons";
 import { usePortalPanel } from "./use-portal-panel";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 
 export interface OptionMenuChoice<T extends string> {
   value: T;
@@ -91,6 +92,11 @@ export function OptionMenu<T extends string>({
     estimatedHeight: options.length * 48 + 16,
     panelWidth: PANEL_WIDTH,
   });
+  // Same reason as Dropdown: a portaled panel overlapping the in-app browser would be painted
+  // behind its native view and its clicks eaten. Narrowed to the panel's own rectangle, so a menu
+  // in the left column never blinks the pane (design/002 §5.3).
+  useOccludePane(open, panelRef);
+
   const current = value != null ? options.find((o) => o.value === value) : undefined;
   const errorId = useId();
 

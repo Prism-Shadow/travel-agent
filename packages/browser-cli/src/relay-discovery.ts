@@ -1,5 +1,13 @@
 /**
- * Where the desktop shell's relay is listening, published so other processes can find it.
+ * The small shared-state files under `~/.penguin-browser`, and the rules for reading them.
+ *
+ * Two of them, both written by the desktop shell and read by a `penguin-browser` the agent starts
+ * later: the relay's endpoint (below) and the user's choice of browser backend (at the end of this
+ * file). They live together because they are the same kind of thing — a fact one process needs to
+ * tell another that has no other channel to it — and because a reader outside the app has exactly
+ * one directory to look in.
+ *
+ * ## The relay endpoint
  *
  * The shell prefers the conventional port 19989 — the Chrome extension has it compiled in, so
  * moving off it by default would break the extension for every user who never turns the in-app
@@ -19,6 +27,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
+import { randomBytes } from 'node:crypto'
 
 /** Base directory, shared with the relay log so a user has one place to look. */
 export const DISCOVERY_BASE_DIR = process.env.PENGUIN_BROWSER_HOME || path.join(os.homedir(), '.penguin-browser')
@@ -184,4 +193,136 @@ export async function resolveRelayEndpoint(options: {
     }
   }
   return { host: '127.0.0.1', port: options.defaultPort, source: 'default' }
+}
+
+// —— The user's choice of browser backend ————————————————————————————————————————————————
+
+/**
+ * Which browser the user wants the agent to drive, **per conversation**.
+ *
+ * Design/002 §6.1 makes this a decision taken at the start of a task and never during one: the two
+ * backends have different logins, different cookies and different fingerprints, and switching
+ * halfway through discards the page state the task was built on. §7.3 goes further — the switch has
+ * to be a *visible* choice, because it changes whose browser an order is placed in.
+ *
+ * Keyed by Session, not global. Two conversations can legitimately want different browsers — one
+ * booking on a site the user is already signed into in their own Chrome, another running in the
+ * app's own profile — and a single global setting would make changing either one change both.
+ *
+ * The user makes the choice in the desktop shell, which owns the in-app browser. This is how it
+ * reaches the CLI, a separate process started later by the agent: the shell writes it, `session new
+ * --iab` reads it for the conversation named by `PENGUIN_SESSION_ID`, and a caller asking for the
+ * in-app browser in a conversation set to Chrome is told so instead of quietly getting the other
+ * one.
+ *
+ * Kept in its own file rather than in the discovery record above, because that one is rewritten
+ * every time the relay starts and a preference must survive that.
+ */
+export type BrowserBackend = 'iab' | 'extension'
+
+/** Bumped if the shape changes incompatibly; an unknown version reads as "no preference". */
+export const BACKEND_PREFERENCE_VERSION = 2
+
+/**
+ * How many conversations' choices are kept.
+ *
+ * Sessions accumulate forever and their preferences do not expire on their own, so the file is
+ * bounded and the oldest entries are dropped. Losing one means that conversation falls back to the
+ * default, which is the same thing that happens the first time it is used.
+ */
+export const MAX_BACKEND_PREFERENCES = 200
+
+export interface BackendPreferenceFile {
+  version: number
+  /** Session id → backend, in insertion order: the first entries are the oldest. */
+  backends: Record<string, BrowserBackend>
+}
+
+export function backendPreferencePath(baseDir: string = DISCOVERY_BASE_DIR): string {
+  return path.join(baseDir, 'desktop-backend.json')
+}
+
+function readBackendFile(baseDir: string): BackendPreferenceFile {
+  try {
+    const raw = fs.readFileSync(backendPreferencePath(baseDir), 'utf-8')
+    const parsed = JSON.parse(raw) as Partial<BackendPreferenceFile>
+    if (parsed?.version !== BACKEND_PREFERENCE_VERSION) return empty()
+    if (!parsed.backends || typeof parsed.backends !== 'object') return empty()
+    const backends: Record<string, BrowserBackend> = {}
+    for (const [sessionId, backend] of Object.entries(parsed.backends)) {
+      if (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 128) continue
+      if (backend === 'iab' || backend === 'extension') backends[sessionId] = backend
+    }
+    return { version: BACKEND_PREFERENCE_VERSION, backends }
+  } catch {
+    // Missing, unreadable, or written by a different version: no preferences, which is a state the
+    // caller already handles. This file must never be able to stop a session starting.
+    return empty()
+  }
+}
+
+function empty(): BackendPreferenceFile {
+  return { version: BACKEND_PREFERENCE_VERSION, backends: {} }
+}
+
+/**
+ * One conversation's choice, or null when it has not made one.
+ *
+ * Null is not the same as `'iab'`: "no preference" means the default applies, and the default is
+ * the caller's to decide — the in-app browser on the desktop, and nothing at all in a plain web
+ * deployment, where there is no in-app browser to prefer.
+ */
+export function readBackendPreference(
+  sessionId: string,
+  baseDir: string = DISCOVERY_BASE_DIR,
+): BrowserBackend | null {
+  return readBackendFile(baseDir).backends[sessionId] ?? null
+}
+
+/** Every recorded choice, for the shell to show the right state per conversation. */
+export function readAllBackendPreferences(
+  baseDir: string = DISCOVERY_BASE_DIR,
+): Record<string, BrowserBackend> {
+  return readBackendFile(baseDir).backends
+}
+
+/**
+ * Records one conversation's choice.
+ *
+ * Written through a temporary file and renamed, so a crash mid-write leaves the previous choices
+ * rather than a truncated file. One attempt at the rename: if it fails — on Windows another process
+ * can hold the destination open — the old file stays, which is a better outcome than none.
+ */
+export function writeBackendPreference(
+  sessionId: string,
+  backend: BrowserBackend,
+  baseDir: string = DISCOVERY_BASE_DIR,
+): void {
+  if (!sessionId) return
+  const current = readBackendFile(baseDir)
+  // Re-inserted rather than updated in place, so the most recently touched conversation is the last
+  // to be pruned.
+  delete current.backends[sessionId]
+  current.backends[sessionId] = backend
+
+  const entries = Object.entries(current.backends)
+  const kept = entries.slice(Math.max(0, entries.length - MAX_BACKEND_PREFERENCES))
+  const record: BackendPreferenceFile = {
+    version: BACKEND_PREFERENCE_VERSION,
+    backends: Object.fromEntries(kept),
+  }
+
+  const target = backendPreferencePath(baseDir)
+  const temporary = `${target}.${randomBytes(6).toString('hex')}.tmp`
+  try {
+    fs.mkdirSync(baseDir, { recursive: true })
+    fs.writeFileSync(temporary, JSON.stringify(record), { encoding: 'utf-8', mode: 0o600 })
+    fs.renameSync(temporary, target)
+  } catch {
+    try {
+      fs.unlinkSync(temporary)
+    } catch {
+      // Nothing to clean up.
+    }
+  }
 }

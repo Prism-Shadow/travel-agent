@@ -14,9 +14,12 @@
  * Measurement runs on a `ResizeObserver` plus window resize and scroll, coalesced to an animation
  * frame. Reporting per observer callback would send a message per pointer move during a drag.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { desktopBrowserBridge } from "../../lib/desktop-bridge";
-import type { DesktopPaneState } from "../../lib/desktop-bridge";
+import type { DesktopBackend, DesktopPaneState, DesktopTabState } from "../../lib/desktop-bridge";
+import { computeOcclusion, occludePane, subscribeToOcclusion } from "../../lib/pane-occlusion";
+import { occlusionEntries } from "../../lib/pane-occlusion";
+import { applySessionSwitch, isCurrentAnswer, isScopeSettled } from "./browser-pane-scope";
 import {
   DEFAULT_PANE_FRACTION,
   canSplit,
@@ -28,10 +31,15 @@ import {
 const EMPTY_STATE: DesktopPaneState = {
   present: false,
   visible: false,
-  url: "",
-  title: "",
-  loading: false,
   requested: false,
+  tabs: [],
+  activeTabId: null,
+  sessionScope: null,
+  backend: "iab",
+  backendLocked: false,
+  extensionBackendAvailable: true,
+  profileResetLocked: false,
+  restorable: 0,
 };
 
 const FRACTION_STORAGE_KEY = "penguin.iabPaneFraction";
@@ -52,11 +60,42 @@ function storedFraction(): number {
 export interface BrowserPaneState {
   /** True only in the desktop shell with the flag on. The pane is not rendered at all when false. */
   supported: boolean;
+  /** Everything the chrome draws: tabs, selection, backend, the crash prompt's count. */
+  tabs: DesktopPaneState["tabs"];
+  activeTabId: string | null;
+  activeTab: DesktopTabState | null;
+  restorable: number;
+  backend: DesktopBackend;
+  /** Whether the backend choice is held shut by a running task. */
+  backendLocked: boolean;
+  /** False when this run's relay is not one a Chrome extension can reach. */
+  extensionBackendAvailable: boolean;
+  /** Whether clearing the browser data is held shut by a running task. */
+  profileResetLocked: boolean;
+  /** Tab and navigation actions, each a thin pass-through to main. */
+  actions: BrowserPaneActions;
+  /** Ref for the address input, so Cmd+L can focus it. */
+  addressRef: React.RefObject<HTMLInputElement | null>;
+  /**
+   * Whether main has confirmed it is showing the conversation the renderer is on.
+   *
+   * False for the width of a conversation switch. The chrome renders, but with no tabs and with the
+   * native view hidden — the alternative is a frame of one conversation's pages inside another.
+   */
+  scopeSettled: boolean;
   /** Whether the pane is showing. Mirrors main's `requested`, never the renderer's own guess. */
   open: boolean;
   setOpen: (open: boolean) => void;
-  /** Whether the window is wide enough for both columns. Below this the pane cannot be shown. */
+  /** Whether the window is wide enough for both columns side by side. */
   splittable: boolean;
+  /**
+   * The pane is open but the window is too narrow to split, so the browser takes the whole area.
+   *
+   * Design/002 §6.2's third visibility state, and the reason it is not optional: without it a
+   * narrow window left the pane "open" with nowhere to draw it — main was told the hole was gone,
+   * the toggle disappeared, and the agent went on driving a browser nobody could see or close.
+   */
+  fullscreen: boolean;
   /** Fraction of the split area given to the browser. */
   fraction: number;
   /** Attach to the element that contains both columns; used to convert pointer x into a fraction. */
@@ -72,15 +111,54 @@ export interface BrowserPaneState {
   pane: DesktopPaneState;
 }
 
-export function useBrowserPane(): BrowserPaneState {
+/** What the chrome can ask main to do. Every one of them is refused for a tab outside the strip. */
+export interface BrowserPaneActions {
+  openTab: () => void;
+  closeTab: (tabId: string) => Promise<void>;
+  selectTab: (tabId: string) => Promise<void>;
+  setRetain: (tabId: string, retain: boolean) => void;
+  navigate: (tabId: string, url: string) => Promise<void>;
+  goBack: (tabId: string) => void;
+  goForward: (tabId: string) => void;
+  reload: (tabId: string) => void;
+  stop: (tabId: string) => void;
+  restore: (accept: boolean) => Promise<void>;
+  clearProfile: () => Promise<void>;
+  setBackend: (backend: DesktopBackend) => Promise<void>;
+  /**
+   * Opens the current page in whatever browser the operating system hands URLs to.
+   *
+   * Named for what it does. It is *not* the backend handoff: the browser that opens may not be the
+   * one the extension is connected to, and nothing of the in-app session travels with it. It is a
+   * convenience for a user who wants the page in their own browser; the real handoff is choosing
+   * the extension backend for the conversation, which is what makes the next agent session run
+   * there (design/002 §7.2).
+   */
+  openInDefaultBrowser: () => Promise<boolean>;
+}
+
+/**
+ * @param sessionId the conversation on screen. Main shows only this conversation's tabs; `null`
+ * (no conversation open) shows none, because every tab belongs to exactly one.
+ */
+export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   const bridge = desktopBrowserBridge();
   const supported = bridge !== null;
+  /**
+   * The conversation main has confirmed it is showing.
+   *
+   * Null until the round trip lands. Everything the strip exposes is gated on this agreeing with
+   * the conversation the renderer is on, so a frame painted for B can never carry A's tabs.
+   */
+  const [confirmedScope, setConfirmedScope] = useState<string | null>(null);
   const [pane, setPane] = useState<DesktopPaneState>(EMPTY_STATE);
   const [fraction, setFraction] = useState<number>(storedFraction);
   const [dragging, setDragging] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
 
   const containerNode = useRef<HTMLElement | null>(null);
+  /** Read by the measurement callback, which must not close over a stale render's verdict. */
+  const scopeSettledRef = useRef(false);
   const nodeRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const lastSent = useRef<string>("");
@@ -103,7 +181,9 @@ export function useBrowserPane(): BrowserPaneState {
     if (!bridge) return;
     frameRef.current = null;
     const node = nodeRef.current;
-    if (!node) {
+    // No hole while a switch is in flight: the view must not paint anywhere until main has
+    // confirmed which conversation it is showing.
+    if (!node || !scopeSettledRef.current) {
       clearBounds();
       return;
     }
@@ -178,8 +258,8 @@ export function useBrowserPane(): BrowserPaneState {
   // The pane closing, or the window becoming too narrow to split, both remove the hole without
   // unmounting anything React would tell us about.
   useEffect(() => {
-    if (!pane.requested || !canSplit(containerWidth)) clearBounds();
-  }, [pane.requested, containerWidth, clearBounds]);
+    if (!pane.requested) clearBounds();
+  }, [pane.requested, clearBounds]);
 
   useEffect(() => {
     if (!bridge) return;
@@ -233,13 +313,16 @@ export function useBrowserPane(): BrowserPaneState {
   // drag's window listeners attached forever, each still moving the splitter.
   const dragCleanup = useRef<(() => void) | null>(null);
 
+  /** Registration held for the duration of a splitter drag; see the note in onSplitterPointerDown. */
+  const dragOcclusion = useRef<(() => void) | null>(null);
+
   const endDrag = useCallback(() => {
     dragCleanup.current?.();
     dragCleanup.current = null;
     setDragging(false);
-    // The view is shown again only after the drag ends; see the occlusion note below.
-    if (bridge) void bridge.setOccluded(false).catch(() => {});
-  }, [bridge]);
+    dragOcclusion.current?.();
+    dragOcclusion.current = null;
+  }, []);
 
   const onSplitterPointerDown = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
@@ -259,8 +342,11 @@ export function useBrowserPane(): BrowserPaneState {
 
       // Hide the view for the duration. A WebContentsView is a native surface above the DOM, so it
       // swallows pointer events that cross it — without this a drag that moves past the divider
-      // stops dead the moment the cursor enters the browser half.
-      if (bridge) void bridge.setOccluded(true).catch(() => {});
+      // stops dead the moment the cursor enters the browser half. Registered through the same
+      // reference-counted store the overlays use, so a drag started while a modal is up does not
+      // un-hide the view when it ends.
+      dragOcclusion.current?.();
+      dragOcclusion.current = occludePane(() => null);
 
       const box = container.getBoundingClientRect();
       const move = (moveEvent: PointerEvent): void => {
@@ -291,7 +377,7 @@ export function useBrowserPane(): BrowserPaneState {
         }
       };
     },
-    [applyFraction, bridge, endDrag],
+    [applyFraction, endDrag],
   );
 
   // A drag in progress when the component goes away would leave window listeners behind.
@@ -307,14 +393,172 @@ export function useBrowserPane(): BrowserPaneState {
     [applyFraction, fraction, containerWidth],
   );
 
+  // Which conversation main should show tabs for. Sent on every change, including to null when the
+  // user is on the session list: a tab belongs to one conversation, and no other may display it.
+  //
+  // The bounds are cleared *first*. Main is told the hole is gone before it is told which
+  // conversation this is, so the native view is off screen for the whole switch rather than showing
+  // the previous conversation's page over the new one's chat while the round trip is in flight.
+  //
+  // Answers are matched to requests by a counter: two route changes in quick succession can settle
+  // out of order, and a late answer for the conversation the user has already left must not be
+  // taken as confirmation of the one they are in.
+  const switchRequest = useRef(0);
+  // A layout effect, not an effect: this runs in the commit that changed the route, before the
+  // browser paints it. An ordinary effect fires *after* the new conversation is on screen, which is
+  // one frame of the previous conversation's page sitting over it.
+  useLayoutEffect(() => {
+    if (!bridge) return;
+    const request = ++switchRequest.current;
+    setConfirmedScope(null);
+    void applySessionSwitch({
+      hide: () => bridge.hideNow(),
+      announce: (id) => bridge.setSession(id),
+      sessionId,
+      isCurrent: () => isCurrentAnswer(request, switchRequest.current),
+      onHidden: () => {
+        lastSent.current = "none";
+      },
+    }).then((scope) => {
+      if (!isCurrentAnswer(request, switchRequest.current)) return;
+      setConfirmedScope(scope);
+    });
+  }, [bridge, sessionId]);
+
+  // Overlay occlusion. Every portal and full-screen overlay registers with the shared store; this
+  // is the only subscriber, and it decides by intersecting each one against the pane's own
+  // rectangle — so a dropdown in the left column never blinks the browser, and a modal always does.
+  useEffect(() => {
+    if (!bridge) return;
+    let last: boolean | null = null;
+    const evaluate = (): void => {
+      const node = nodeRef.current;
+      const rect = node?.getBoundingClientRect();
+      const paneRect =
+        rect && pane.requested
+          ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+          : null;
+      const occluded = computeOcclusion(occlusionEntries(), paneRect);
+      if (occluded === last) return;
+      last = occluded;
+      void bridge.setOccluded(occluded).catch(() => {});
+    };
+    // Membership is not the only thing that changes the answer: the pane moves when the splitter is
+    // dragged or the window resizes, and a floating panel moves when the page scrolls under it. An
+    // overlay that stopped overlapping — or started — without either set changing would otherwise
+    // leave the view hidden, or leave it swallowing the clicks meant for a menu.
+    const schedule = (): void => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        evaluate();
+      });
+    };
+    let frame: number | null = null;
+    const observer = new ResizeObserver(schedule);
+    if (nodeRef.current) observer.observe(nodeRef.current);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+
+    evaluate();
+    const unsubscribe = subscribeToOcclusion(evaluate);
+    return () => {
+      unsubscribe();
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [bridge, pane.requested]);
+
+  // Cmd/Ctrl+L. The shortcut table lives in main because focus can be inside a page, where the
+  // renderer sees no keystrokes at all; focusing an input is the one part main cannot do.
+  const addressRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!bridge) return;
+    return bridge.onFocusAddress(() => {
+      const input = addressRef.current;
+      input?.focus();
+      input?.select();
+    });
+  }, [bridge]);
+
+  const actions = useMemo<BrowserPaneActions>(() => {
+    // Every one of these can legitimately reject — the tab may have closed, or the conversation
+    // changed, between the render that drew the control and the click on it. That is not worth
+    // surfacing: the state push that follows already tells the renderer what is really there.
+    const quiet = (work: Promise<unknown> | undefined): void => {
+      void work?.catch(() => {});
+    };
+    return {
+      openTab: () => quiet(bridge?.openTab()),
+      // Awaited too: closing from the keyboard has to move focus to whatever is selected next.
+      closeTab: async (tabId) => {
+        await bridge?.closeTab(tabId);
+      },
+      // Awaited by the tab strip, which moves focus only once main confirms the selection landed.
+      selectTab: async (tabId) => {
+        await bridge?.selectTab(tabId);
+      },
+      setRetain: (tabId, retain) => quiet(bridge?.setRetain(tabId, retain)),
+      navigate: async (tabId, url) => {
+        await bridge?.navigate(tabId, url);
+      },
+      goBack: (tabId) => quiet(bridge?.goBack(tabId)),
+      goForward: (tabId) => quiet(bridge?.goForward(tabId)),
+      reload: (tabId) => quiet(bridge?.reload(tabId)),
+      stop: (tabId) => quiet(bridge?.stop(tabId)),
+      // Not quiet: restoring can fail — a view that will not build — and the offer is deliberately
+      // kept when it does, so the user has something to retry. Swallowing the rejection would show
+      // a prompt that answers to nothing.
+      restore: async (accept) => {
+        await bridge?.restore(accept);
+      },
+      clearProfile: async () => {
+        await bridge?.clearProfile();
+      },
+      // Not quiet: main refuses this for reasons the user can act on, and a control that silently
+      // does nothing is worse than one that says why.
+      setBackend: async (backend) => {
+        await bridge?.setBackend(backend);
+      },
+      openInDefaultBrowser: async () => (await bridge?.handoffOpen()) ?? false,
+    };
+  }, [bridge]);
+
   const splittable = canSplit(containerWidth);
   const clamped = clampPaneFraction(fraction, containerWidth);
+  const fullscreen = supported && pane.requested && containerWidth > 0 && !splittable;
+  /**
+   * Whether what main is publishing is about the conversation on screen.
+   *
+   * Both halves have to agree: main's own `sessionScope`, and the confirmation of *our* switch.
+   * A state push can arrive between the route change and main hearing about it, and it would carry
+   * the previous conversation's tabs with the previous conversation's scope.
+   */
+  const scopeSettled = isScopeSettled({
+    requested: sessionId,
+    confirmed: confirmedScope,
+    published: pane.sessionScope,
+  });
+  // Kept in a ref for the measurement callback, which must not close over a stale render's verdict,
+  // and re-reported the moment it becomes true.
+  scopeSettledRef.current = scopeSettled;
+  const tabs = scopeSettled ? pane.tabs : [];
+  const activeTabId = scopeSettled ? pane.activeTabId : null;
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+
+  useEffect(() => {
+    if (scopeSettled) scheduleReport();
+    else clearBounds();
+  }, [scopeSettled, scheduleReport, clearBounds]);
 
   return {
     supported,
     open: pane.requested,
     setOpen,
     splittable,
+    fullscreen,
     fraction: clamped,
     containerRef,
     measureRef,
@@ -322,5 +566,34 @@ export function useBrowserPane(): BrowserPaneState {
     onSplitterKeyDown,
     dragging,
     pane,
+    tabs,
+    activeTabId,
+    activeTab,
+    scopeSettled,
+    restorable: pane.restorable,
+    backend: pane.backend,
+    backendLocked: pane.backendLocked,
+    extensionBackendAvailable: pane.extensionBackendAvailable,
+    profileResetLocked: pane.profileResetLocked,
+    actions,
+    addressRef,
   };
+}
+
+/**
+ * Tells main that the set of running turns may have changed.
+ *
+ * A free function rather than part of the hook: the signal arrives on the session stream, which the
+ * chat page owns. It is only ever a prompt — the authority is main's, precisely because this stream
+ * is not there when the user is looking at another conversation.
+ */
+export function reportTasksChanged(): void {
+  // A hint and nothing more. Main owns which turns are running — it asks the server, because this
+  // stream is disposed the moment the user opens another conversation — so all this does is bring
+  // that question forward by a poll interval.
+  const bridge = desktopBrowserBridge();
+  void bridge?.tasksChanged().catch(() => {
+    // The window may be closing. Main's loop asks again on its own schedule regardless, which is
+    // the whole reason a dropped hint costs nothing.
+  });
 }

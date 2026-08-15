@@ -103,10 +103,21 @@ export class Environment implements EnvironmentInterface {
   private readonly commandSessions: CommandSessionManager;
   /** Background subagent session registry: constructed within this Environment and shared between run_subagent / input_subagent. */
   private readonly subagentSessions: SubagentSessionManager;
+  /** This Session's id, if the host supplied one (see EnvironmentConfig.sessionId). */
+  private readonly sessionId: string | undefined;
+  /**
+   * Who the tools are currently working for: the Session, and the Task inside it.
+   *
+   * Null between Tasks, which is a meaningful state rather than a gap — a command started outside
+   * a turn (a background process still running from an earlier one) genuinely belongs to no task,
+   * and must not inherit the last one's authority.
+   */
+  private taskIdentity: { sessionId: string; taskId: string } | null = null;
 
   constructor(config: EnvironmentConfig) {
     this.workspaceDir = config.workspaceDir;
     this.toolConfig = config.toolConfig;
+    this.sessionId = config.sessionId;
     this.truncatedToolOutputArchive = config.sessionScratchpadDir
       ? new TruncatedToolOutputArchive({
           rootDir: path.join(config.sessionScratchpadDir, "truncated-tool-output"),
@@ -120,6 +131,10 @@ export class Environment implements EnvironmentInterface {
     this.commandSessions = new CommandSessionManager({
       ...(config.vault !== undefined ? { vault: config.vault } : {}),
       ...(config.proxyEnv !== undefined ? { proxyEnv: config.proxyEnv } : {}),
+      // A getter, not a snapshot: the Environment is built once per Session and outlives every
+      // Task, so the identity a command is spawned with has to be read at spawn time. Reading it
+      // here would pin the first Task's id onto every command the conversation ever runs.
+      identity: () => this.taskIdentity,
     });
     this.subagentSessions = new SubagentSessionManager();
     const services = {
@@ -143,6 +158,29 @@ export class Environment implements EnvironmentInterface {
             workspaceDir: config.workspaceDir,
           })
         : null;
+  }
+
+  /**
+   * A Task is starting; tools executed from here on act for it.
+   *
+   * Ignored when the host gave no `sessionId`: half an identity is worse than none, because a
+   * consumer that receives a task id with no session cannot tell which conversation it belongs to
+   * and would have to guess.
+   */
+  enterTask(context: { sessionId: string; taskId: string }): void {
+    if (this.sessionId === undefined) return;
+    this.taskIdentity = { sessionId: this.sessionId, taskId: context.taskId };
+  }
+
+  /**
+   * That Task has finished.
+   *
+   * Guarded by id: a Task that was aborted can run its `finally` after the next one has already
+   * started, and an unguarded clear there would strip the *new* Task's identity from every command
+   * it went on to run.
+   */
+  exitTask(taskId: string): void {
+    if (this.taskIdentity?.taskId === taskId) this.taskIdentity = null;
   }
 
   /** Releases runtime resources held by Environment: finalizes all managed background sessions (command and subagent) and closes MCP clients (stdio server processes included). Idempotent. */

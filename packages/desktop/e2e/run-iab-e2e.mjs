@@ -111,11 +111,10 @@ expect(
   (s) => s.requested === false && s.present === false,
   "the pane starts closed with no view, which is the shape a cold start actually has",
 );
-expect("backend", (s) => s.connected === 1, "the shell registers as a backend on /iab");
 expect(
   "backend",
-  (s) => s.targets === 0,
-  "and does so with no targets, so the bootstrap below is genuinely from zero",
+  (s) => s.publicExtensions === 0,
+  "the in-app browser does not appear as a Chrome extension, so choosing your own Chrome cannot select it",
 );
 expect(
   "session-new",
@@ -156,6 +155,47 @@ expect(
   "bridge-without-flag",
   (s) => s.available === false,
   "a window created without the switch gets no bridge, so the renderer offers nothing it cannot use",
+);
+expect(
+  "session-new-anonymous",
+  (s) => s.status === 400,
+  "an in-app browser session without a conversation and a task is refused",
+);
+expect(
+  "stale-task",
+  (s) => s.refused === true,
+  "a task the harness never reported running cannot open a tab, whatever id it carries",
+);
+expect(
+  "second-tab",
+  // Three: the bootstrap tab the relay opens with the session, plus the two the agent asked for.
+  // Phase 1 answered every tabs.open() with its single view, which made the call idempotent by
+  // accident; the count is the whole point of the assertion.
+  (s) => s.status === 200 && s.tabs === 3,
+  "each tabs.open() mints a new tab rather than handing back the same one",
+);
+expect(
+  "select-tab",
+  (s) => s.switched === true,
+  "selecting a tab brings it to the front of its own conversation's strip",
+);
+expect(
+  "foreign-task",
+  (s) => s.status === 409,
+  "a session created by one task cannot be driven by another",
+);
+expect(
+  "task-end",
+  (s) => s.tabs === 1 && s.retainedUnowned === true,
+  "a read-only task closes its tabs, and the one the user kept survives without an owner",
+);
+expect(
+  "write-after-end",
+  // Refused, which is the property. The *wording* an agent sees is asserted where it is produced —
+  // Playwright rewrites a CDP error into its own vocabulary on the way back, so the code would not
+  // survive this route intact (see the transport's own tests for IAB_TAB_RELEASED).
+  (s) => s.body.includes("Error executing code") || s.status === 409,
+  "and the agent's next write to that page is refused rather than silently succeeding",
 );
 expect("done", () => true, "the harness completed");
 

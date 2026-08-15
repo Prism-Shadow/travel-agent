@@ -28,7 +28,7 @@ import { getExtensionOutdatedWarning } from './relay-client.js'
 import { isExtensionTransportDisconnectedError } from './extension-errors.js'
 import { waitForPageLoad, WaitForPageLoadOptions, WaitForPageLoadResult } from './wait-for-page-load.js'
 import { requestHelp, type RequestHelpOptions } from './request-help.js'
-import { selectReusableBlankTargetId, SerializedOwnedTabOpener, tabRegistry } from './tab-ownership.js'
+import { ClaimResult, selectReusableBlankTargetId, SerializedOwnedTabOpener, tabRegistry } from './tab-ownership.js'
 import {
   classifyOutcome,
   clickThrough,
@@ -322,6 +322,12 @@ export interface CdpConfig {
    * shell has to build the view and hand back its target id.
    */
   iab?: boolean
+  /**
+   * Who the tabs this session opens belong to (IAB only): the conversation whose strip shows them
+   * and the task allowed to write to them. Set once when the session is created and carried on
+   * every `iab-open-tab`, so a tab opened on the tenth call is attributed exactly like the first.
+   */
+  iabIdentity?: { sessionId: string; taskId: string }
 }
 
 export interface SessionMetadata {
@@ -906,8 +912,16 @@ export class PlaywrightExecutor {
       return { browser, page, context }
     }
 
-    // Extension mode: check status first for better error messages
-    const extensionStatus = await this.checkExtensionStatus()
+    // Extension mode: check status first for better error messages.
+    //
+    // Skipped for the in-app browser, which is not a Chrome extension and deliberately does not
+    // appear in extension discovery — asking that endpoint about it would always answer "not
+    // connected" and turn a working session into a confusing error about installing an extension.
+    // Its own failure mode is covered: the relay refuses to create an IAB session at all when the
+    // shell is not connected.
+    const extensionStatus = this.cdpConfig.iab
+      ? { connected: true, penguinBrowserVersion: null as string | null }
+      : await this.checkExtensionStatus()
     if (!extensionStatus.connected) {
       if (this.cdpConfig.extensionId) {
         throw new BoundExtensionDisconnectedError(this.sessionId, this.cdpConfig.extensionId)
@@ -916,7 +930,18 @@ export class PlaywrightExecutor {
     }
     this.warnIfExtensionOutdated(extensionStatus.penguinBrowserVersion)
 
-    const cdpUrl = getCdpUrl(this.cdpConfig)
+    const cdpUrl = getCdpUrl({
+      ...this.cdpConfig,
+      // Every command on this socket belongs to the task the session was created for; the shell
+      // checks it against each tab's owner before touching a page.
+      ...(this.cdpConfig.iabIdentity
+        ? {
+            iabTaskId: this.cdpConfig.iabIdentity.taskId,
+            iabSessionId: this.cdpConfig.iabIdentity.sessionId,
+            iabRelaySessionId: this.sessionId,
+          }
+        : {}),
+    })
     const chromium = await getChromium()
     let browser: Browser
     try {
@@ -2118,10 +2143,66 @@ export class PlaywrightExecutor {
     return targetId
   }
 
-  private async claimTab(
-    target: Page,
-  ): Promise<{ ok: true; state: 'claimed' | 'already_yours' } | { ok: false; heldBy: string }> {
-    return tabRegistry.claim(await this.targetIdFor(target), this.sessionId)
+  /**
+   * Claims a tab for this session.
+   *
+   * Two registries have to agree, and they answer different questions. `tabRegistry` here is
+   * concurrency: it stops two agent sessions from typing into the same page. The desktop shell's
+   * `ownedByTask` is task lifetime: it stops a finished task from writing to a page that has since
+   * been handed back to the user. A claim that updated only this side would produce exactly the
+   * confusing failure it is meant to prevent — a session that believes it owns a tab and whose
+   * every write is refused by the shell.
+   *
+   * So in-app browser tabs are claimed *there first*, with the harness identity the session was
+   * created under, and the local registry is updated only if that succeeds. Other backends have no
+   * second authority and go straight to the registry, unchanged.
+   */
+  private async claimTab(target: Page): Promise<ClaimResult> {
+    const targetId = await this.targetIdFor(target)
+    if (this.cdpConfig.iab) {
+      const paneClaim = await this.claimIabTab(targetId)
+      if (!paneClaim.ok) return paneClaim
+    }
+    return tabRegistry.claim(targetId, this.sessionId)
+  }
+
+  /** Asks the desktop shell to make this task the tab's owner. */
+  private async claimIabTab(targetId: string): Promise<ClaimResult> {
+    const identity = this.cdpConfig.iabIdentity
+    if (!identity) {
+      return { ok: false, heldBy: 'an unidentified session', reason: 'gone' }
+    }
+    const context = this.context
+    const anchor = context?.pages().find((page) => !page.isClosed())
+    if (!anchor) {
+      return { ok: false, heldBy: 'a disconnected in-app browser', reason: 'gone' }
+    }
+    const cdp = await getCDPSessionForPage({ page: anchor })
+    const result = (await (cdp.send as (m: string, p?: unknown) => Promise<unknown>)(
+      'iab-claim-tab',
+      {
+        targetId,
+        sessionId: identity.sessionId,
+        taskId: identity.taskId,
+        relaySessionId: this.sessionId,
+      },
+    )) as { claimed?: boolean; reason?: string } | undefined
+
+    if (result?.claimed) return { ok: true, state: 'claimed' }
+    const reason = result?.reason
+    if (reason === 'owned') {
+      return { ok: false, heldBy: 'another task', reason: 'owned-by-other-task' }
+    }
+    if (reason === 'other-conversation') {
+      return { ok: false, heldBy: 'another conversation', reason: 'other-conversation' }
+    }
+    if (reason === 'task-ended') {
+      return { ok: false, heldBy: 'a finished task', reason: 'task-ended' }
+    }
+    if (reason === 'task-not-live') {
+      return { ok: false, heldBy: 'no running task', reason: 'task-not-live' }
+    }
+    return { ok: false, heldBy: 'no in-app browser tab', reason: 'gone' }
   }
 
   private async releaseTab(target: Page): Promise<boolean> {
@@ -2203,6 +2284,16 @@ export class PlaywrightExecutor {
    * arrives over the existing event stream; this waits for Playwright to surface the matching
    * page rather than assuming it is already there.
    */
+  /**
+   * Who this session's tabs belong to, for an in-app browser session; undefined for every other
+   * backend. Exposed so the relay can refuse a call from a different task than the one the session
+   * was created for — the executor itself cannot notice, because it was built with that task's
+   * identity and would keep stamping it onto every command it forwards.
+   */
+  get iabIdentity(): { sessionId: string; taskId: string } | undefined {
+    return this.cdpConfig.iabIdentity
+  }
+
   private async createIabPage(url?: string): Promise<Page> {
     const context = this.context
     if (!context) throw new Error('No browser context is connected')
@@ -2217,8 +2308,23 @@ export class PlaywrightExecutor {
       )
     }
     const cdp = await getCDPSessionForPage({ page: anchor })
+    const identity = this.cdpConfig.iabIdentity
+    if (!identity) {
+      // Unreachable through the relay, which refuses to create an IAB session without one. Checked
+      // anyway because this is the last point before a tab exists: an unattributed tab cannot be
+      // released by any task, and silently opening one would trade a clear error for a leak.
+      throw new Error(
+        'This in-app browser session has no conversation or task attached, so it cannot open a ' +
+          'tab. Create the session with penguin-browser session new --iab.',
+      )
+    }
     const result = (await (cdp.send as (m: string, p?: unknown) => Promise<unknown>)('iab-open-tab', {
       url,
+      sessionId: identity.sessionId,
+      taskId: identity.taskId,
+      // Which relay session holds the new tab, so the shell can announce it exactly rather than
+      // leaving the relay to guess between a task's several sessions.
+      relaySessionId: this.sessionId,
     })) as { targetId?: string } | undefined
     const targetId = result?.targetId
     if (!targetId) {

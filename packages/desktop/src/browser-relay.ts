@@ -82,9 +82,16 @@ export function browserRelayPort(): number | null {
 /**
  * True when the shell had to move off the conventional port.
  *
- * The Chrome extension cannot follow — its port is fixed at build time — so extension-mode sessions
- * keep talking to whatever owns 19989 while the in-app browser uses this relay. Phase 2 owns the
- * handoff; Phase 1 records the limitation and keeps the default path unbroken.
+ * The Chrome extension cannot follow: its port is fixed at build time, so it stays connected to
+ * whatever owns 19989 while this app runs its own relay elsewhere. Every command the agent runs
+ * resolves *this* relay (see the CLI's `getServerUrl`), so in that state the extension backend is
+ * not reachable from this app at all.
+ *
+ * The resolution is to say so rather than to route around it: `main.ts` passes this to the pane,
+ * which refuses `setBackend('extension')` and reports the option as unavailable with a reason the
+ * user can act on. Splitting a conversation across two relays — sessions on one, execution on the
+ * other — was the alternative, and it fails as "session 3 not found" with nothing pointing at the
+ * cause.
  */
 export function relayMovedOffConventionalPort(): boolean {
   return relayPort !== null && relayPort !== CONVENTIONAL_RELAY_PORT;
@@ -185,8 +192,9 @@ export type RelayPlan =
  *
  * Which is why the answer depends on the flag. With the pane off there is no key to honour, so a
  * healthy existing relay is reused exactly as before. With it on, a taken port forces this app onto
- * its own — accepting that extension-mode sessions keep talking to whoever owns 19989, a limitation
- * Phase 2's backend handoff has to resolve.
+ * its own — and the extension backend then becomes unavailable *to this app*, which the browser
+ * panel says out loud (see `relayMovedOffConventionalPort`) instead of offering a choice that
+ * cannot work.
  */
 export function planRelay(input: {
   iabEnabled: boolean;

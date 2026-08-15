@@ -22,6 +22,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { isTopEscLayer, popEscLayer, pushEscLayer } from "./modal";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 
 /** Gap between the trigger and the portaled panel, and the panel's minimum distance from the viewport edge (px). */
 const PANEL_GAP = 4;
@@ -172,6 +173,11 @@ export function Dropdown({
   const panelClass = `anim-pop ${portal ? "z-[60]" : "z-40"} overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900 ${
     portal ? "" : "max-h-[70vh]"
   } ${menuClass ?? "left-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] origin-top-left"}`;
+
+  // The in-app browser is a native surface above the DOM, so a panel that overlaps it would be
+  // painted behind it and its clicks eaten. Narrowed to the panel's own rectangle: a dropdown in
+  // the left column never touches the pane and must not blink it (design/002 §5.3).
+  useOccludePane(open, panelRef);
 
   return (
     <div className={`relative ${className ?? ""}`} ref={ref}>

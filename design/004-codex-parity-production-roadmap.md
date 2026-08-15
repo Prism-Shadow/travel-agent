@@ -2,9 +2,9 @@
 
 | | |
 | --- | --- |
-| 状态 | **规划定稿，尚未执行 Phase 0**（各 Phase 状态见 §2.1 总表；规划 checkpoint 见 §2.0） |
+| 状态 | **Phase 0–2 代码完成、人工验收待做**（`code_complete_manual_pending`；逐 Phase 状态以 §2.1 总表为准，本行只是摘要） |
 | 日期 | 2026-08-15 |
-| 基线 | travel-agent `8cead1d` · Electron 43.2.0 |
+| 基线 | 规划基线 travel-agent `8cead1d` · Electron 43.2.0 |
 | 终点 | **Codex App 同等级的单窗口浏览器体验 + 可生产上线（GA）**。MVP / vertical slice 只是内部里程碑，不是终点 |
 | 依据 | [`001-architecture.md`](./001-architecture.md)（产品定位与判断）· [`002-codex-style-single-window-iab.md`](./002-codex-style-single-window-iab.md)（浏览器工作区）· [`003-agent-first-private-profile-and-payment-confirmation.md`](./003-agent-first-private-profile-and-payment-confirmation.md)（隐私与交易） |
 | 纪律 | 本文引用 002/003 而不复述其细节；发现矛盾时按 §0.2 的优先级规则裁决，**不修改 001/002/003** |
@@ -35,19 +35,19 @@
 
 基准是 Codex App 的单窗口浏览器体验。**行为对齐，不复刻实现。**
 
-| # | 能力 | Codex 行为基准 | travel-agent 目标 | 现状 | Phase |
+| # | 能力 | Codex 行为基准 | travel-agent 目标 | 现状（截至 Phase 2 代码完成，人工验收待做） | Phase |
 | --- | --- | --- | --- | --- | --- |
-| M1 | 单一应用窗口 | 左对话右浏览器，可拖分隔线 | 同，002 §2 | 无（面板外壳 `use-panel-width.ts` 现成） | 1 |
-| M2 | 真实 IAB | Electron WebContents 渲染真实网页，可直接交互 | `WebContentsView` + `persist:travel-iab`，002 §5.2 | 无 | 1 |
-| M3 | 标签 / 地址栏 | 内嵌浏览器有自绘 tab 与地址栏、前进后退刷新 | 002 §2 自绘 chrome | 无 | 2 |
-| M4 | 对话绑定 | 浏览器会话与对话线程绑定，@Browser 引用 | tab 带 `ownedByTask`；切换会话切换活动 tab 集；agent 经既有 session 模型驱动 | `tabRegistry` 有并发归属，无任务归属 | 2 |
+| M1 | 单一应用窗口 | 左对话右浏览器，可拖分隔线 | 同，002 §2 | Phase 1 已交付：左右分栏 + 可拖分隔线 | 1 |
+| M2 | 真实 IAB | Electron WebContents 渲染真实网页，可直接交互 | `WebContentsView` + `persist:travel-iab`，002 §5.2 | Phase 1 已交付：`WebContentsView` + 独立 partition | 1 |
+| M3 | 标签 / 地址栏 | 内嵌浏览器有自绘 tab 与地址栏、前进后退刷新 | 002 §2 自绘 chrome | Phase 2 代码完成、人工验收待做 | 2 |
+| M4 | 对话绑定 | 浏览器会话与对话线程绑定，@Browser 引用 | tab 带 `ownedByTask`；切换会话切换活动 tab 集；agent 经既有 session 模型驱动 | Phase 2 代码完成：任务归属 + 会话作用域已落地（@Browser 引用未做，属后续 Phase） | 2 |
 | M5 | 用户与 Agent 同页操作 | 用户可随时点页面；agent 操作可见 | `ghostCursor` + `before-input-event` 软信号 + 控制权状态机（002 §6.5） | ghostCursor 已有 | 2–3 |
-| M6 | 浏览器 profile | 与用户日常浏览器分离的独立 profile，可登录、可清空 | `persist:travel-iab`，清空入口（002 §11.3-6） | 无 | 2 |
-| M7 | IAB / Chrome 双后端 | IAB 默认 + Chrome 扩展接真实登录态 | `mode:'iab'` 默认，extension 模式保留，任务级切换（002 §6.1、§7） | extension/direct/headless 三后端已有，缺 iab | 1（iab）/ 2（切换） |
-| M8 | 恢复 | 崩溃/重启后会话与页面可恢复 | 002 §6.4 四条策略：retain/close、URL 快照恢复、崩溃分级、手动保留 | 无 | 2 |
-| M9 | 快捷键 | 新标签/关闭/地址栏聚焦/切换等浏览器惯用键 | Cmd/Ctrl+T·W·L·R·[·]·1-9，主窗口与 IAB 焦点各自路由 | 无 | 2 |
+| M6 | 浏览器 profile | 与用户日常浏览器分离的独立 profile，可登录、可清空 | `persist:travel-iab`，清空入口（002 §11.3-6） | Phase 1 建 profile、Phase 2 加清空入口，代码完成 | 2 |
+| M7 | IAB / Chrome 双后端 | IAB 默认 + Chrome 扩展接真实登录态 | `mode:'iab'` 默认，extension 模式保留，任务级切换（002 §6.1、§7） | Phase 1 加 iab 后端、Phase 2 加每对话切换，代码完成 | 1（iab）/ 2（切换） |
+| M8 | 恢复 | 崩溃/重启后会话与页面可恢复 | 002 §6.4 四条策略：retain/close、URL 快照恢复、崩溃分级、手动保留 | Phase 2 代码完成、人工验收待做 | 2 |
+| M9 | 快捷键 | 新标签/关闭/地址栏聚焦/切换等浏览器惯用键 | Cmd/Ctrl+T·W·L·R·[·]·1-9，主窗口与 IAB 焦点各自路由 | Phase 2 代码完成、人工验收待做 | 2 |
 | M10 | 输入法 / 剪贴板 / 上传 | 原生可用 | WebContentsView 原生能力，重点在**验证**而非实现（中文 IME 三平台、文件对话框） | 理论可用，未验证 | 1 验证 / 6 全平台复验 |
-| M11 | 无障碍 | 页面对辅助技术可达 | 页面侧靠真实 Chromium；自绘 tab strip / 地址栏 / 卡片补 ARIA 与键盘导航 | 页面侧天然满足；自绘件无 | 2 实现 / 6 验证 |
+| M11 | 无障碍 | 页面对辅助技术可达 | 页面侧靠真实 Chromium；自绘 tab strip / 地址栏 / 卡片补 ARIA 与键盘导航 | 页面侧天然满足；自绘件 Phase 2 已补 ARIA 与键盘导航，验证在 6 | 2 实现 / 6 验证 |
 | M12 | 跨平台 | macOS / Windows / Linux | 同；Linux Wayland 单窗口方案无窗口编排问题，仅 keyring 缺失时 Vault 停用（003 §4.4） | CI 已跑 Ubuntu/Windows；macOS 签名公证链路已通（见下注） | 6 |
 | M13 | Agent-first 介入 | Codex 以审批/确认为主，接管为例外 | `requestUserInteraction` 六类，takeover 为 last resort（003 §7） | `requestHelp` 单形态 | 3 |
 | M14 | 付款确认 | —（Codex 无此场景，本产品的核心差异化） | 模型主动暂停 + 确认卡/明确对话；确定性兜底；Phase 4 后对抗性保证（003 §8） | `transaction` 库完成未接线 | 3 / 4 |
@@ -72,7 +72,7 @@
 | --- | --- | --- | --- | --- |
 | 0 | 规划与关键验证 | completed | 2–3 d | 规划 checkpoint 已 push（`8474f0c`）；结论见 [`docs/verification/phase-00.md`](../docs/verification/phase-00.md) |
 | 1 | Vertical slice：左聊右览 | code_complete_manual_pending | 5–8 d | 0；结论见 [`docs/verification/phase-01.md`](../docs/verification/phase-01.md) |
-| 2 | 浏览器功能完整 | planned | 8–12 d | 1 |
+| 2 | 浏览器功能完整 | code_complete_manual_pending | 8–12 d | 1；结论见 [`docs/verification/phase-02.md`](../docs/verification/phase-02.md) |
 | 3 | Agent-first 交互与付款确认（交互层） | planned | 8–12 d | 2 |
 | 4 | 隐私 Vault 与交易机器 | planned | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标** |
 | 5 | 生产加固 | planned | 6–10 d | 3（可与 4 并行开始） |
@@ -124,6 +124,11 @@
 - **退出标准**：002 P1 验收 5 条 + P2 验收 3 条全绿；三平台 CI 构建绿；现有两面板测试无回归。
 - **人工测试**：`docs/manual-testing/phase-02-browser-shell.md`——多 tab 实操、快捷键手感、屏幕阅读器过自绘件、崩溃恢复实杀、双后端切换全流程。
 - **Checkpoint commit**：`feat(iab): a real browser shell — tabs, address bar, task-scoped lifecycle, and crash-scoped recovery`
+- **本 Phase 额外补完的契约（规划时未预见）**：仓库里**原本不存在任何 task 级标识**——core 只有 Session id，server 用状态位 + `AbortController` 追踪在跑的 turn，`taskIndex` 是事后重扫 Trace 得到的序号。因此本 Phase 先补完了 `formatTaskId` → `RunOptions.taskId` → `Environment.enterTask/exitTask` → 子进程环境变量 → CLI → relay → BrowserPane 的完整链路，并在 relay/shell 两层**强制**归属（`ownedByTask` 不再只是 tab strip 上的一个字段）。详见 verification §1–§2。
+- **本 Phase 顺带关闭的 Phase 1 遗留**：19989 端口被占用时「扩展模式仍连 19989、IAB 走临时端口」的分裂——现在所有命令解析同一个 relay，且该情形下扩展后端**明确不可用并给出可操作原因**，而不是把一个会话劈成两个 relay（verification §6）。
+- **§5.2 下载策略已实现**（按会话 scratchpad 落盘 + 文件名净化），不再是「取消下载」的临时形态。目录归属由 server 的 session→project/agent 映射给出（新增 `GET /api/sessions/browser-tasks`），落盘前再做一次 realpath 包含校验（TOCTOU），文件名以内存预留避免并发同名互相覆盖。
+- **任务权威改由 main 进程 reconcile**：renderer 只发不带参数的提示，`TaskSupervisor` 轮询上述 server 路由并应用结果。这条在第二轮 review 中替换了原先 renderer 侧的 watcher（重载即丢、投递失败即丢），也是 tab 归属唯一的授权来源。
+- **状态**：代码完成、人工验收待做。`docs/manual-testing/phase-02-browser-shell.md` 全部 `PENDING`，因此本 Phase **尚未验收通过**；自动化门禁结果逐项记录在 verification §8。
 
 ### Phase 3 · Agent-first 交互与付款确认（交互层）
 

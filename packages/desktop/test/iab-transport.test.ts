@@ -124,6 +124,9 @@ function makeTransport() {
     installId: "install-1",
     openTab,
     liveTargets: () => [contents],
+    // The pane's ownership check. Allowing everything here keeps these tests about the wire
+    // protocol; the refusals have their own tests below and in browser-pane-behaviour.
+    mayDrive: () => ({ allowed: true }),
   });
   return { transport, contents, openTab };
 }
@@ -180,17 +183,19 @@ describe("commands", () => {
     const socket = FakeSocket.instances[0]!;
     socket.open();
 
+    // No session id: a browser-scoped command, which goes to the view without one of ours attached
+    // (our session ids are routing labels Electron would reject).
     socket.deliver({
       id: 7,
       method: "forwardCDPCommand",
-      params: { method: "DOM.getDocument", params: { depth: 1 }, sessionId: "s1" },
+      params: { method: "DOM.getDocument", params: { depth: 1 } },
     });
     await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 7)).toBe(true));
 
     expect(contents.debugger.sendCommand).toHaveBeenCalledWith(
       "DOM.getDocument",
       { depth: 1 },
-      "s1",
+      undefined,
     );
     expect(socket.messages().find((m) => m.id === 7)).toEqual({
       id: 7,
@@ -207,10 +212,18 @@ describe("commands", () => {
     const socket = FakeSocket.instances[0]!;
     socket.open();
 
-    socket.deliver({ id: 3, method: "iab-open-tab", params: { url: "https://example.com/" } });
+    socket.deliver({
+      id: 3,
+      method: "iab-open-tab",
+      params: { url: "https://example.com/", sessionId: "session-1", taskId: "task-a" },
+    });
     await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 3)).toBe(true));
 
-    expect(openTab).toHaveBeenCalledWith("https://example.com/");
+    expect(openTab).toHaveBeenCalledWith({
+      url: "https://example.com/",
+      sessionId: "session-1",
+      taskId: "task-a",
+    });
     expect(socket.messages().find((m) => m.id === 3)).toEqual({
       id: 3,
       result: { targetId: "target-1" },
@@ -223,9 +236,88 @@ describe("commands", () => {
     transport.start();
     const socket = FakeSocket.instances[0]!;
     socket.open();
-    socket.deliver({ id: 4, method: "iab-open-tab", params: { url: { evil: true } } });
+    socket.deliver({
+      id: 4,
+      method: "iab-open-tab",
+      params: { url: { evil: true }, sessionId: "session-1", taskId: "task-a" },
+    });
     await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 4)).toBe(true));
-    expect(openTab).toHaveBeenCalledWith(undefined);
+    expect(openTab).toHaveBeenCalledWith({
+      url: undefined,
+      sessionId: "session-1",
+      taskId: "task-a",
+    });
+    transport.stop();
+  });
+
+  it.each([
+    ["no session id", { url: "https://example.com/", taskId: "task-a" }],
+    ["no task id", { url: "https://example.com/", sessionId: "session-1" }],
+  ])("refuses to open a tab with %s", async (_label, params) => {
+    // A tab with no conversation appears in no strip; one with no task is never subject to the
+    // end-of-task rules. Neither is defaulted, here or anywhere else on the path.
+    const { transport, openTab } = makeTransport();
+    transport.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+    socket.deliver({ id: 5, method: "iab-open-tab", params });
+    await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 5)).toBe(true));
+    expect(openTab).not.toHaveBeenCalled();
+    expect(String(socket.messages().find((m) => m.id === 5)?.error)).toMatch(/sessionId/);
+    transport.stop();
+  });
+});
+
+describe("ownership", () => {
+  it("refuses a command for a page the calling task no longer owns", async () => {
+    // The retained tab: still alive, still loaded, no longer the agent's. Nothing else would refuse
+    // this — the socket is up, the CDP session is valid, the page is there — so the refusal has to
+    // come from the pane's own ownership check, and it has to say which case it is.
+    const contents = fakeContents();
+    const transport = new IabTransport({
+      port: 19989,
+      key: "k",
+      installId: "i",
+      openTab: async () => "t",
+      liveTargets: () => [contents],
+      mayDrive: () => ({ allowed: false, reason: "released", tabId: "tab-7" }),
+    });
+    transport.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+
+    socket.deliver({ id: 21, method: "forwardCDPCommand", params: { method: "Runtime.evaluate" } });
+    await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 21)).toBe(true));
+    expect(String(socket.messages().find((m) => m.id === 21)?.error)).toMatch(
+      /IAB_TAB_RELEASED.*tab-7/,
+    );
+    expect(contents.debugger.sendCommand).not.toHaveBeenCalledWith(
+      "Runtime.evaluate",
+      expect.anything(),
+      expect.anything(),
+    );
+    transport.stop();
+  });
+
+  it("names the owning task when another one is driving", async () => {
+    const contents = fakeContents();
+    const transport = new IabTransport({
+      port: 19989,
+      key: "k",
+      installId: "i",
+      openTab: async () => "t",
+      liveTargets: () => [contents],
+      mayDrive: () => ({ allowed: false, reason: "foreign", tabId: "tab-3", owner: "task-other" }),
+    });
+    transport.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+
+    socket.deliver({ id: 22, method: "forwardCDPCommand", params: { method: "Runtime.evaluate" } });
+    await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 22)).toBe(true));
+    expect(String(socket.messages().find((m) => m.id === 22)?.error)).toMatch(
+      /IAB_TAB_FOREIGN.*task-other/,
+    );
     transport.stop();
   });
 });

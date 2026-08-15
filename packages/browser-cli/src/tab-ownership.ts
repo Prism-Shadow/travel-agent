@@ -27,7 +27,25 @@
 /** Outcome of a claim attempt. */
 export type ClaimResult =
   | { ok: true; state: 'claimed' | 'already_yours' }
-  | { ok: false; heldBy: string }
+  | {
+      ok: false
+      /** The relay session holding it, or a description of who does when it is not one of ours. */
+      heldBy: string
+      /**
+       * Why the claim was refused, when the reason is not simply "another session has it".
+       *
+       * Present for in-app browser tabs, where a second authority has a say: the desktop shell
+       * decides whether the *task* may write to a tab at all, and it can refuse a tab that no
+       * relay session holds — one that outlived its task and belongs to the user now.
+       */
+      reason?:
+        | 'released'
+        | 'owned-by-other-task'
+        | 'other-conversation'
+        | 'gone'
+        | 'task-ended'
+        | 'task-not-live'
+    }
 
 export class TabRegistry {
   private readonly owners = new Map<string, string>();

@@ -84,6 +84,13 @@ const STRIPPED_ENV_KEYS = new Set([
   "PENGUIN_PORT_FILE",
   // Pinned seed password (tests/e2e): a credential, not a data-selection setting.
   "PENGUIN_SEED_ADMIN_PASSWORD",
+  // Session and Task identity. Stripped from the *inherited* environment and re-injected below
+  // from what the harness actually knows (see the spawn comment): these two decide which
+  // conversation's tab strip a page appears in and which turn may write to it, so a value that
+  // merely happened to be in the host environment — inherited from an outer harness, or set by a
+  // command the Agent itself ran — must never be able to stand in for the real one.
+  "PENGUIN_SESSION_ID",
+  "PENGUIN_TASK_ID",
 ]);
 
 /**
@@ -130,6 +137,39 @@ function hostEnvForChild(policy: ProxyEnvPolicy | null): NodeJS.ProcessEnv {
   return env;
 }
 
+/**
+ * The Session/Task identity variables, or nothing at all.
+ *
+ * Both or neither. A task id without its session cannot be resolved to a conversation by anything
+ * downstream, so emitting one alone would produce an identity that reads as complete and is not.
+ */
+function identityEnv(
+  identity: { sessionId: string; taskId: string } | null,
+): Record<string, string> {
+  if (!identity || !identity.sessionId || !identity.taskId) return {};
+  return { PENGUIN_SESSION_ID: identity.sessionId, PENGUIN_TASK_ID: identity.taskId };
+}
+
+/**
+ * The environment a command subprocess is spawned with.
+ *
+ * Extracted so the ordering can be asserted directly: it is the ordering, not the values, that
+ * carries the security properties, and reading it back out of a spawned process would mean
+ * spawning one.
+ */
+export function commandChildEnv(input: {
+  proxy: ProxyEnvPolicy | null;
+  vault: Record<string, string>;
+  identity: { sessionId: string; taskId: string } | null;
+}): NodeJS.ProcessEnv {
+  return {
+    ...hostEnvForChild(input.proxy),
+    ...input.vault,
+    ...HARDENED_ENV,
+    ...identityEnv(input.identity),
+  };
+}
+
 export class CommandSessionManager {
   private readonly registry = new BackgroundRegistry<ManagedSession>({
     idPrefix: "proc",
@@ -146,10 +186,24 @@ export class CommandSessionManager {
    * are already running. Absent = pass through (SDK/CLI standalone use).
    */
   private readonly proxyEnv: (() => ProxyEnvPolicy | null) | undefined;
+  /**
+   * Who this command is being run for: the Session, and the Task within it.
+   *
+   * A getter for the same reason `proxyEnv` is one — the manager is built once per Session and
+   * spawns commands across many Tasks, so the answer has to be read at spawn time. Null between
+   * Tasks, and then neither variable is set at all: a command that belongs to no turn must not
+   * carry a turn's authority.
+   */
+  private readonly identity: (() => { sessionId: string; taskId: string } | null) | undefined;
 
-  constructor(opts?: { vault?: Record<string, string>; proxyEnv?: () => ProxyEnvPolicy | null }) {
+  constructor(opts?: {
+    vault?: Record<string, string>;
+    proxyEnv?: () => ProxyEnvPolicy | null;
+    identity?: () => { sessionId: string; taskId: string } | null;
+  }) {
     this.vault = opts?.vault ?? {};
     this.proxyEnv = opts?.proxyEnv;
+    this.identity = opts?.identity;
   }
 
   /** Starts a command, returning an **unregistered** session (no process_id yet). */
@@ -167,7 +221,17 @@ export class CommandSessionManager {
       // policy applied (strip or inject); the vault still wins — over an injected proxy
       // too — so a user who genuinely wants PORT, or their own proxy, in commands can set
       // it there.
-      env: { ...hostEnvForChild(this.proxyEnv?.() ?? null), ...this.vault, ...HARDENED_ENV },
+      //
+      // Identity comes last, after the vault, and that ordering is the point: these two variables
+      // are the harness's own statement of which conversation and which turn this command belongs
+      // to, and a user-editable vault entry that could overwrite them would let a command claim
+      // authority over another conversation's browser tabs. They are also absent between Tasks
+      // rather than blank, so a consumer sees "no task" instead of a task named "".
+      env: commandChildEnv({
+        proxy: this.proxyEnv?.() ?? null,
+        vault: this.vault,
+        identity: this.identity?.() ?? null,
+      }),
     });
   }
 

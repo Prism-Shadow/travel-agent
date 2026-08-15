@@ -981,6 +981,32 @@ export interface TaskCreateResponse {
   sessionId: string;
   /** True when `queueIfBusy` enqueued the input as a follow-up instead of starting it (absent/false: the task started). */
   queued?: boolean;
+  /**
+   * This Task's id, allocated at acceptance.
+   *
+   * Allocated for queued work too, and it does not change when the follow-up later starts — a
+   * caller that posted a task can name it before anything has run, which is the point of minting
+   * at acceptance rather than at launch. A goal run reports one id for the whole loop.
+   *
+   * **Required, deliberately.** Every accepted turn has an id, and a consumer that owns resources
+   * for a turn — the desktop shell owns browser tabs — must be able to name it the moment the post
+   * returns. An optional field here would compile everywhere and lose ownership silently at
+   * exactly the call sites that forgot it.
+   */
+  taskId: string;
+}
+
+/**
+ * `POST /api/sessions/:id/compact`.
+ *
+ * Separate from {@link TaskCreateResponse} because compaction is not a Task: it rewrites the
+ * Session's own context and no turn is taken on, so there is no id to report. It shared the task
+ * shape while that shape was only a session id; keeping it there now would have meant making
+ * `taskId` optional for every real task as well.
+ */
+export interface CompactionResponse {
+  /** Current actual session_id (self-heal can change it, as on the task route). */
+  sessionId: string;
 }
 
 /**
@@ -1076,6 +1102,25 @@ export type ServerEvent =
       queued?: number;
       /** Steering messages queued but not yet delivered (absent = none): lets the composer's hint and its content survive reloads. */
       pendingSteering?: PendingSteeringInfo[];
+      /**
+       * The Task this state is about (see core's `formatTaskId`).
+       *
+       * Present on `running`, and on the flip back to `idle` that ends it — so a subscriber sees
+       * both the start and the end of a specific turn rather than having to infer the boundary.
+       * Absent when the state change belongs to no task (an idle session reporting a queue change).
+       * The desktop shell's in-app browser is the first consumer: a tab is owned by a task, and
+       * the end of that task is when the ownership rules run.
+       */
+      taskId?: string;
+      /**
+       * The Task ended abnormally — aborted by the user, or the run threw.
+       *
+       * Only ever present on the flip to `idle`. It is the one thing about *how* a turn ended that
+       * the server knows on its own; anything finer (did the agent merely search? did it leave an
+       * order behind?) is the agent's to declare. The desktop shell's in-app browser uses it to
+       * pick the tab-retention rule when the agent never said.
+       */
+      taskFailed?: boolean;
     }
   /** The model-generated title after the first turn has been persisted (for in-place list updates). */
   | { type: "session_title"; sessionId: string; title: string }

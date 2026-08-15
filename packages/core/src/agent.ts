@@ -775,6 +775,10 @@ export class Agent {
     const environment = new Environment({
       workspaceDir,
       toolConfig,
+      // Identity for the commands this Session's tools spawn: the conversation here, the turn from
+      // Session's own task bracket. Together they let a tool that hands work to another process
+      // (the desktop shell's in-app browser) say who the work belongs to.
+      sessionId,
       // The Session's generic scratchpad root; Environment derives its truncated-tool-output
       // recovery directory from it.
       sessionScratchpadDir: sessionScratchpadDir(

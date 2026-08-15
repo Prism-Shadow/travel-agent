@@ -3,7 +3,7 @@ name: penguin-browser
 description: Control explicitly authorized tabs in the user's local Chrome through the Penguin Browser CLI, a local CDP relay, and persistent Playwright sessions. Use for interactive or authenticated browser tasks that require the rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
 short_description: Automate authorized Chrome tabs through the local CLI.
 short_description_zh: 通过本地 CLI 自动化已授权的 Chrome 标签页。
-version: 5
+version: 6
 updated: 2026-08-15T00:00:00Z
 ---
 
@@ -78,12 +78,25 @@ Two backends exist, and the choice is made once when the session is created.
 of its own window: the user watches the work happen and can click the page themselves. Prefer it
 whenever it is available, because a task the user cannot see is worse than one they can.
 
-It is available only inside the desktop app, and only when the pane is enabled. Check before
-choosing, and fall back rather than failing:
+It is available only inside the desktop app, and only when the pane is enabled. **Do not fall back
+silently.** `--iab` refuses for reasons that mean different things, and each has its own next step:
 
 ```bash
-penguin-browser session new --iab || penguin-browser session new
+penguin-browser session new --iab
 ```
+
+- **`IAB_NOT_CONNECTED`** — the desktop app is not running, or its browser pane is off. Extension
+  mode is a reasonable alternative; say that you switched and why.
+- **"This conversation is set to use your own Chrome"** — the user chose that backend for this
+  conversation. Honour it: run `penguin-browser session new` without `--iab`. Do not switch back.
+- **`IAB_IDENTITY_REQUIRED`** — the command was not started by a task. It carries no conversation
+  and no task, so its tabs would belong to nobody; there is no flag for this on purpose.
+- **`IAB_SESSION_NOT_VISIBLE`** — the conversation you are working in is not the one on screen. Ask
+  the user to open it rather than working in a browser they cannot see.
+
+Which backend a conversation uses is the user's choice, made in the browser panel's menu, and it
+changes whose logins an order is placed under. Never switch backends mid-task, and never treat a
+refusal as an invitation to try the other one.
 
 The in-app browser has **its own profile**, separate from the user's Chrome. It keeps whatever it
 is signed into across restarts, but it does not inherit an existing Chrome login — the first visit
@@ -98,7 +111,7 @@ their real logins. Requires the steps in the previous sections.
 Create one CLI session per task and preserve its ID for every call:
 
 ```bash
-penguin-browser session new --iab || penguin-browser session new
+penguin-browser session new --iab   # or without --iab for extension mode; see above
 # Keep the returned ID, for example: 1
 export PENGUIN_BROWSER_SESSION=1
 ```
@@ -316,17 +329,40 @@ For transient page loading, prefer `waitForURL`, `waitForLoadState("domcontentlo
 At the end of the task:
 
 1. Remove listeners created by this session.
-2. Close only pages the agent created, and only when closing them will not discard user work.
-3. Delete the CLI session to release its persistent state.
-4. Tell the user which files were downloaded or created.
-5. Ask the user to click the extension icon again if they want the tab detached; do not broaden or revoke browser authorization through an unverified shortcut.
+2. Delete the CLI session, **declaring how the task went** — see below.
+3. Tell the user which files were downloaded or created.
+4. Ask the user to click the extension icon again if they want the tab detached; do not broaden or revoke browser authorization through an unverified shortcut.
 
-Example cleanup:
+**In-app browser: do not close the tabs yourself.** The desktop app owns their lifetime and applies
+one rule per outcome, so closing them here would pre-empt a decision that is not yours — and would
+destroy a payment page the user needs before anyone could keep it. Declare the outcome instead:
 
 ```bash
-penguin-browser -s "$PENGUIN_BROWSER_SESSION" -e 'if (state.page) state.page.removeAllListeners(); if (state.popup) state.popup.removeAllListeners(); if (state.ownsPage && state.page && !state.page.isClosed()) await state.page.close(); console.log("browser task cleanup complete")'
-penguin-browser session delete "$PENGUIN_BROWSER_SESSION"
+penguin-browser -s "$PENGUIN_BROWSER_SESSION" -e 'if (state.page) state.page.removeAllListeners(); if (state.popup) state.popup.removeAllListeners(); console.log("browser task cleanup complete")'
+penguin-browser session delete "$PENGUIN_BROWSER_SESSION" --outcome read_only
 unset PENGUIN_BROWSER_SESSION
+```
+
+Exactly one of:
+
+| `--outcome` | Use it when | What happens to the tabs |
+| --- | --- | --- |
+| `read_only` | You only searched, compared or read. Nothing irreversible happened. | Closed |
+| `committed` | An order exists, or you stopped on a payment page. | Kept, and handed to the user |
+| `failed` | The task failed or was interrupted. | Kept — the scene is the evidence |
+| omitted | You genuinely cannot say. | Kept |
+
+The declaration is recorded, not acted on immediately: the rules run when the *turn* ends, and an
+abort or an error after this point overrides a `read_only` you declared. A tab the user marked
+"keep" is never closed regardless. Once the turn is over its tabs are the user's — a later write to
+one is refused with `IAB_TAB_RELEASED`, and `tabs.claim()` is the way to take one back.
+
+**Extension mode** is unchanged: close only pages the agent created, and only when closing them will
+not discard user work.
+
+```bash
+penguin-browser -s "$PENGUIN_BROWSER_SESSION" -e 'if (state.ownsPage && state.page && !state.page.isClosed()) await state.page.close()'
+penguin-browser session delete "$PENGUIN_BROWSER_SESSION"
 ```
 
 Never close the browser context or the user's Chrome. If cleanup fails because the connection is already gone, report what may remain rather than resetting solely to perform teardown.

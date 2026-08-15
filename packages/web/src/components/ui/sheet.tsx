@@ -30,6 +30,7 @@ import { CloseButton } from "./icons";
 import { SPRING_DEFAULT, SPRING_MOMENTUM, createSpringDriver } from "../../lib/spring";
 import type { SpringDriver } from "../../lib/spring";
 import { nearestSnap, project, rubberband } from "../../lib/sheet-physics";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 
 export type SheetSnap = "half" | "full";
 
@@ -63,6 +64,10 @@ function usePrefersReducedMotion(): boolean {
 }
 
 export function Sheet({ open, snap, onSnapChange, onClose, title, children }: SheetProps) {
+  // See Modal: a full-screen overlay needs the in-app browser hidden, since nothing in the DOM can
+  // paint over a native view (design/002 §5.3).
+  useOccludePane(open);
+
   // Don't unmount immediately when open=false: unmount only after the exit animation finishes (onSettle).
   const [mounted, setMounted] = useState(open);
   const panelRef = useRef<HTMLDivElement | null>(null);

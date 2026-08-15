@@ -14,6 +14,7 @@ import type { ControlSize } from "./input";
 import { Field, controlBase, menuRowClass } from "./field";
 import { CheckIcon, ChevronDown } from "./icons";
 import { usePortalPanel } from "./use-portal-panel";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 
 export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
   label?: string;
@@ -74,6 +75,10 @@ export function Select({
     // Row height is roughly 36px (px-3 py-1.5 + text) — only used to decide up vs down.
     estimatedHeight: options.length * 36 + 8,
   });
+  // Same reason as Dropdown: a portaled panel overlapping the in-app browser would be painted
+  // behind its native view and its clicks eaten. Narrowed to the panel's own rectangle, so a menu
+  // in the left column never blinks the pane (design/002 §5.3).
+  useOccludePane(open, panelRef);
 
   const pick = (v: string) => {
     setOpen(false);

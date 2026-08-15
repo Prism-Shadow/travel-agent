@@ -121,6 +121,14 @@ export interface StreamControllerDeps {
   onQueuedFollowUps?: (count: number) => void;
   /** Undelivered steering messages carried on task_state events (absent = none): keeps the composer's "steering queued" hint alive across reloads. */
   onPendingSteering?: (items: PendingSteeringInfo[]) => void;
+  /**
+   * The Task a `task_state` event is about, when the server names one.
+   *
+   * Absent on older servers and on state changes that belong to no task. The desktop shell's
+   * in-app browser is the consumer: a tab is owned by a task, and this is how the renderer learns
+   * that the owning task has ended so the tab lifecycle rules can run.
+   */
+  onTaskIdentity?: (state: SessionStatus, taskId: string | null, failed: boolean) => void;
   onLoading: (loading: boolean) => void;
   /** History load failure message (null = clear). */
   onError: (message: string | null) => void;
@@ -290,6 +298,7 @@ export function createStreamController(deps: StreamControllerDeps): StreamContro
         deps.onTaskState(ev.state);
         deps.onQueuedFollowUps?.(ev.queued ?? 0);
         deps.onPendingSteering?.(ev.pendingSteering ?? []);
+        deps.onTaskIdentity?.(ev.state, ev.taskId ?? null, ev.taskFailed === true);
         if (ev.state === "idle") {
           // Task ended (or the snapshot confirms idle): finalize the current Task's stats; pending approvals have already converged server-side.
           notifyTaskIdle(model);

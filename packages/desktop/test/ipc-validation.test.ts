@@ -7,7 +7,7 @@
  * becomes a view in the wrong place is exactly what this is meant to prevent (design/002 §5.1).
  */
 import { describe, expect, it } from "vitest";
-import { parseBoolean, parseMeasurement } from "../src/ipc.js";
+import { parseBackend, parseBoolean, parseId, parseMeasurement, parseOutcome } from "../src/ipc.js";
 
 describe("parseMeasurement", () => {
   it("accepts a well-formed rectangle", () => {
@@ -78,5 +78,47 @@ describe("parseBoolean", () => {
     ["undefined", undefined],
   ])("rejects %s instead of coercing it", (_label, value) => {
     expect(() => parseBoolean(value, "open")).toThrow(/open/);
+  });
+});
+
+describe("parseId", () => {
+  it("accepts an ordinary id", () => {
+    expect(parseId("session-2026-08-15-10-00-00-abcd1234", "sessionId")).toBe(
+      "session-2026-08-15-10-00-00-abcd1234",
+    );
+  });
+
+  it.each([
+    ["a number", 42],
+    ["null", null],
+    ["undefined", undefined],
+    ["an empty string", ""],
+    ["an object", {}],
+  ])("rejects %s", (_label, value) => {
+    expect(() => parseId(value, "sessionId")).toThrow(/sessionId/);
+  });
+
+  it("rejects something far longer than any id", () => {
+    expect(() => parseId("x".repeat(200), "sessionId")).toThrow(/too long/);
+  });
+});
+
+describe("parseOutcome", () => {
+  it.each(["read_only", "committed", "failed", "unknown"])("accepts %s", (outcome) => {
+    expect(parseOutcome(outcome)).toBe(outcome);
+  });
+
+  it.each(["", "READ_ONLY", "done", 1, null])("rejects %s", (value) => {
+    expect(() => parseOutcome(value)).toThrow(/outcome/);
+  });
+});
+
+describe("parseBackend", () => {
+  it.each(["iab", "extension"])("accepts %s", (backend) => {
+    expect(parseBackend(backend)).toBe(backend);
+  });
+
+  it.each(["firefox", "", null, 2])("rejects %s", (value) => {
+    expect(() => parseBackend(value)).toThrow(/backend/);
   });
 });

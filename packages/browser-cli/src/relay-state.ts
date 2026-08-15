@@ -59,6 +59,17 @@ export type PlaywrightClient = {
   ws: WSContext
   /** Targets already announced to this client, keyed by targetId. */
   attachedTargets: Map<string, string>
+  /**
+   * The conversation this client is working in, for in-app browser sessions.
+   *
+   * One desktop shell serves every conversation through a single backend connection, so without
+   * this a client would be shown every conversation's targets — their URLs and titles included,
+   * before any ownership check has a chance to refuse a command. Absent for extension and direct
+   * backends, where there is no such thing as a conversation.
+   */
+  iabSession?: string
+  /** The task this client is driving, for in-app browser sessions. */
+  iabTask?: string
 }
 
 export type RelayState = {
@@ -201,10 +212,31 @@ export function removeExtension(
 /** Add a playwright client (state + ws handle co-located). */
 export function addPlaywrightClient(
   state: RelayState,
-  { id, extensionId, ws }: { id: string; extensionId: string | null; ws: WSContext },
+  {
+    id,
+    extensionId,
+    ws,
+    iabSession,
+    iabTask,
+  }: {
+    id: string
+    extensionId: string | null
+    ws: WSContext
+    /** The conversation this client works in; absent for extension and direct backends. */
+    iabSession?: string
+    /** The task it drives; absent for extension and direct backends. */
+    iabTask?: string
+  },
 ): RelayState {
   const newClients = new Map(state.playwrightClients)
-  newClients.set(id, { id, extensionId, ws, attachedTargets: new Map() })
+  newClients.set(id, {
+    id,
+    extensionId,
+    ws,
+    attachedTargets: new Map(),
+    ...(iabSession ? { iabSession } : {}),
+    ...(iabTask ? { iabTask } : {}),
+  })
   return { ...state, playwrightClients: newClients }
 }
 

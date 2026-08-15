@@ -13,6 +13,54 @@ import { killPortProcess } from './kill-port.js'
 const execAsync = promisify(exec)
 const extensionBuildQueues: Map<string, Promise<void>> = new Map()
 
+/**
+ * Serializes extension builds across *processes*, not just within one.
+ *
+ * The per-dist queue below keeps one worker's builds in order; it cannot see the other workers.
+ * Vitest runs each test file in its own process, and three of them start with a `pnpm build` in the
+ * same package — different output directories, but one `tsconfig.tsbuildinfo`, one `node_modules`
+ * and one pnpm lock to contend over. Concurrently, they fail, and the failure surfaces as three
+ * whole suites erroring at setup with their tests reported as *skipped* — which reads like a
+ * pinned-Chromium baseline and is not one.
+ *
+ * A directory is the lock, because `mkdir` is atomic on every filesystem this runs on. A stale one
+ * (a killed worker) is taken over after `LOCK_STALE_MS`, so a crash cannot wedge every later run.
+ */
+const BUILD_LOCK_DIR = path.join(os.tmpdir(), 'penguin-browser-extension-build.lock')
+const LOCK_STALE_MS = 5 * 60 * 1000
+const LOCK_POLL_MS = 100
+
+async function withExtensionBuildLock<T>(work: () => Promise<T>): Promise<T> {
+  const deadline = Date.now() + LOCK_STALE_MS
+  for (;;) {
+    try {
+      fs.mkdirSync(BUILD_LOCK_DIR)
+      break
+    } catch {
+      let age = 0
+      try {
+        age = Date.now() - fs.statSync(BUILD_LOCK_DIR).mtimeMs
+      } catch {
+        // It went away between the failed create and the stat: try again immediately.
+        continue
+      }
+      if (age > LOCK_STALE_MS) {
+        fs.rmSync(BUILD_LOCK_DIR, { recursive: true, force: true })
+        continue
+      }
+      if (Date.now() > deadline) {
+        throw new Error('Timed out waiting for the extension build lock')
+      }
+      await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS))
+    }
+  }
+  try {
+    return await work()
+  } finally {
+    fs.rmSync(BUILD_LOCK_DIR, { recursive: true, force: true })
+  }
+}
+
 async function buildExtension({ port, distDir }: { port: number; distDir: string }): Promise<void> {
   const previous = extensionBuildQueues.get(distDir) || Promise.resolve()
   const buildPromise = previous
@@ -20,9 +68,24 @@ async function buildExtension({ port, distDir }: { port: number; distDir: string
       console.error('Previous extension build failed:', error)
     })
     .then(async () => {
-      // Build into a per-port dist to avoid parallel test runs overwriting each other.
-      await execAsync(`TESTING=1 PENGUIN_BROWSER_PORT=${port} PENGUIN_BROWSER_EXTENSION_DIST=${distDir} pnpm build`, {
-        cwd: '../browser-extension',
+      // Build into a per-port dist to avoid parallel test runs overwriting each other, and hold the
+      // cross-process lock so the *builds themselves* do not overlap.
+      await withExtensionBuildLock(async () => {
+        try {
+          await execAsync(
+            `TESTING=1 PENGUIN_BROWSER_PORT=${port} PENGUIN_BROWSER_EXTENSION_DIST=${distDir} pnpm build`,
+            { cwd: '../browser-extension' },
+          )
+        } catch (error) {
+          // `exec` puts stderr in the message and drops stdout, which is where a pnpm lifecycle
+          // failure prints what actually went wrong. Both, or the next person debugging this gets
+          // two vite warnings and no cause.
+          const detail = error as { stdout?: string; stderr?: string; message?: string }
+          throw new Error(
+            `Extension build failed for ${distDir}: ${detail.message ?? ''}\n` +
+              `stdout:\n${detail.stdout ?? ''}\nstderr:\n${detail.stderr ?? ''}`,
+          )
+        }
       })
     })
 

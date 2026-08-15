@@ -13,6 +13,7 @@
  */
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useOccludePane } from "../../lib/use-occlude-pane";
 import type { ReactNode } from "react";
 import { CloseButton } from "./icons";
 
@@ -68,6 +69,10 @@ export function Modal({
   widthClass,
   headerless,
 }: ModalProps) {
+  // A native `WebContentsView` paints above the DOM, so the in-app browser would sit on top of this
+  // dialog and swallow the clicks meant for it (design/002 §5.3). Hidden for as long as this is up.
+  useOccludePane(open);
+
   useEffect(() => {
     if (!open) return;
     const id = pushEscLayer();

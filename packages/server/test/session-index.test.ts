@@ -628,7 +628,7 @@ describe("session-index", () => {
     const started: OmniMessage[][] = [];
     t.deps.manager.startGoal = async (sessionId, args) => {
       started.push(args.input);
-      return { sessionId };
+      return { sessionId, taskId: "task-1755000000000-abcdef01" };
     };
     const withText = await api.post(`/api/sessions/${session.sessionId}/tasks`, {
       input: [

@@ -122,21 +122,53 @@ function reservePort() {
   );
 
   let lastState = null;
+  let transport = null;
   const pane = new BrowserPane({
     window: win,
     onState: (state) => {
       lastState = state;
     },
+    onTabClosedByUser: (notice) => transport?.noteUserClosed(notice),
+    onNotifyRelay: (method, params) => transport?.notify(method, params),
   });
-  const transport = new IabTransport({
+  transport = new IabTransport({
     port: relayPort,
     key,
     installId: "e2e-install",
-    openTab: (url) => pane.openTabForAgent(url),
+    openTab: (options) => pane.openTabForAgent(options),
     liveTargets: () => pane.liveContents(),
+    activeTarget: () => pane.activeContents(),
+    taskTarget: (taskId) => pane.taskContents(taskId),
+    mayDrive: (contents, taskId) => pane.mayDrive(contents, taskId),
+    claimTab: (targetId, identity) => pane.claimTab(targetId, identity),
+    ownershipOf: (contents) => pane.ownershipOf(contents),
+    declareOutcome: (taskId, outcome) => pane.declareTaskOutcome(taskId, outcome),
   });
   pane.setViewCreatedHandler((contents) => transport.attach(contents));
   transport.start();
+
+  // The conversation on screen. Every tab belongs to one, and the pane shows only this one's — so
+  // an agent cannot start work in a conversation the user is not looking at.
+  const SESSION_ID = "session-2026-08-15-00-00-00-e2e00001";
+  const TASK_ID = "task-1755000000000-e2e00001";
+  pane.setActiveSession(SESSION_ID);
+  pane.setSessionDownloadDir(SESSION_ID, {
+    directory: path.join(REPO, "packages/desktop/dist-e2e/downloads"),
+    root: path.join(REPO, "packages/desktop/dist-e2e"),
+  });
+  // The harness stands in for the main-process supervisor applying what the *server* says is
+  // running. That is the only way a turn gains authority: the pane opens tabs for a turn the
+  // harness reports live, and an id alone is not authority, because a background command keeps a
+  // genuine one long after its turn is over.
+  pane.applyTaskState([
+    {
+      sessionId: SESSION_ID,
+      projectId: "e2e-project",
+      agentId: "default_agent",
+      running: TASK_ID,
+      lastFinished: null,
+    },
+  ]);
 
   // The renderer reports where the pane goes, exactly as the real hook does. Note it is *not*
   // opened here: nothing has asked for it yet.
@@ -145,33 +177,54 @@ function reservePort() {
 
   // Give the transport a moment to connect. No target exists yet — that is the point.
   await new Promise((resolve) => setTimeout(resolve, 1500));
+  // The in-app browser speaks the extension protocol but is not a Chrome extension, and public
+  // discovery must not see it: with the desktop app running and no extension installed, a caller
+  // asking about Chrome extensions has to be told there are none — otherwise choosing "my own
+  // Chrome" silently selects the in-app browser again.
   const status = await fetch(`http://127.0.0.1:${relayPort}/extensions/status`).then((r) =>
     r.json(),
   );
-  out({
-    step: "backend",
-    connected: status.extensions.length,
-    targets: status.extensions[0]?.activeTargets ?? 0,
-  });
+  out({ step: "backend", publicExtensions: status.extensions.length });
 
   const session = await fetch(`http://127.0.0.1:${relayPort}/cli/session/new`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ iab: true, cwd: REPO }),
+    body: JSON.stringify({ iab: true, cwd: REPO, sessionId: SESSION_ID, taskId: TASK_ID }),
   }).then((r) => r.json());
   out({ step: "session-new", mode: session.mode, id: session.id, error: session.error ?? null });
 
-  const exec = async (code) => {
+  // An in-app browser session without an identity is refused outright: a tab that belongs to no
+  // conversation appears in no strip, and one that belongs to no task is never subject to the
+  // end-of-task rules.
+  const anonymous = await fetch(`http://127.0.0.1:${relayPort}/cli/session/new`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ iab: true, cwd: REPO }),
+  });
+  out({ step: "session-new-anonymous", status: anonymous.status });
+
+  // A turn the harness never reported cannot open a tab, whatever id it carries.
+  let staleTaskRefused = false;
+  try {
+    await pane.openTabForAgent({ sessionId: SESSION_ID, taskId: "task-1755000000000-e2e00099" });
+  } catch (error) {
+    staleTaskRefused = String(error?.message ?? error).includes("IAB_TASK_NOT_LIVE");
+  }
+  out({ step: "stale-task", refused: staleTaskRefused });
+
+  const exec = async (code, taskId = TASK_ID) => {
     const response = await fetch(`http://127.0.0.1:${relayPort}/cli/execute`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId: session.id, code, timeout: 45000 }),
+      body: JSON.stringify({ sessionId: session.id, code, timeout: 45000, taskId }),
     });
     return { status: response.status, body: await response.text() };
   };
 
+  // Held on `state`, which persists across executions: each `tabs.open()` now mints a *new* tab, so
+  // "the session's page" is no longer the same thing as "the page the agent just opened".
   const opened = await exec(
-    `const p = await tabs.open(${JSON.stringify(fixtureUrl)}); return p.url()`,
+    `state.fixture = await tabs.open(${JSON.stringify(fixtureUrl)}); return state.fixture.url()`,
   );
   out({ step: "tabs-open", status: opened.status, body: opened.body.slice(0, 200) });
 
@@ -182,12 +235,14 @@ function reservePort() {
     visible: lastState?.visible ?? false,
   });
 
-  const snap = await exec(`const s = await snapshot({ page }); return String(s).slice(0, 200)`);
+  const snap = await exec(
+    `const s = await snapshot({ page: state.fixture }); return String(s).slice(0, 200)`,
+  );
   out({ step: "snapshot", status: snap.status, body: snap.body.slice(0, 300) });
 
   const clicked = await exec(`
-    await clickThrough(page.locator('#go'));
-    return await page.locator('#heading').innerText();
+    await clickThrough(state.fixture.locator('#go'));
+    return await state.fixture.locator('#heading').innerText();
   `);
   out({ step: "click", status: clicked.status, body: clicked.body.slice(0, 200) });
 
@@ -206,6 +261,53 @@ function reservePort() {
     hiddenDuringDrag: midDrag === false,
     visibleAfter: lastState?.visible ?? false,
   });
+
+  // --- a second tab, and switching between them --------------------------------------------
+  const second = await exec(
+    `state.second = await tabs.open(${JSON.stringify(`${fixtureUrl}?second=1`)});` +
+      ` return state.second.url()`,
+  );
+  out({
+    step: "second-tab",
+    status: second.status,
+    tabs: pane.state().tabs.length,
+    active: pane.state().activeTabId,
+  });
+
+  // The strip is [bootstrap, fixture, second]; the last is the page the agent most recently opened.
+  const strip = pane.state().tabs;
+  const firstTab = strip[0];
+  const lastTab = strip[strip.length - 1];
+  pane.selectTab(firstTab.id);
+  out({
+    step: "select-tab",
+    active: pane.state().activeTabId,
+    switched: pane.state().activeTabId === firstTab.id && lastTab.id !== firstTab.id,
+  });
+
+  // --- a session belonging to another task cannot be driven from this one ------------------
+  const foreign = await exec("return 1", "task-1755000000000-e2e00002");
+  out({ step: "foreign-task", status: foreign.status, body: foreign.body.slice(0, 200) });
+
+  // --- the end of a task, and what the agent may do afterwards ------------------------------
+  //
+  // A read-only turn closes its tabs; the one the user marked stays, unowned. Then the agent's
+  // next write to that page is refused with a code it can act on, rather than succeeding on a
+  // page that now belongs to the user.
+  pane.setRetain(lastTab.id, true);
+  pane.declareTaskOutcome(TASK_ID, "read_only");
+  pane.endTask(TASK_ID, { abnormal: false });
+  const remaining = pane.state().tabs;
+  out({
+    step: "task-end",
+    tabs: remaining.length,
+    retainedUnowned: remaining.length === 1 && remaining[0].ownedByTask === null,
+  });
+
+  // The *retained* page: still open, still loaded, and no longer the agent's. Nothing else would
+  // refuse this write — the executor is connected, the CDP session is valid, the page is there.
+  const afterEnd = await exec("return await state.second.title()");
+  out({ step: "write-after-end", status: afterEnd.status, body: afterEnd.body.slice(0, 300) });
 
   out({ step: "done" });
   transport.stop();
