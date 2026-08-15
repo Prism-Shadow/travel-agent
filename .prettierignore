@@ -15,3 +15,4 @@ playwright-report/
 # repo's Prettier would rewrite ~200 files on every CI run.
 packages/browser-cli/
 packages/browser-extension/
+packages/desktop/dist-e2e/

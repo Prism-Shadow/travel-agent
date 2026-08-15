@@ -14,7 +14,8 @@
     "pack": "node scripts/stage.mjs && electron-builder",
     "pack:linux": "node scripts/stage.mjs && electron-builder --linux",
     "pack:mac": "node scripts/stage.mjs && electron-builder --mac",
-    "pack:win": "node scripts/stage.mjs && electron-builder --win"
+    "pack:win": "node scripts/stage.mjs && electron-builder --win",
+    "test:e2e": "node e2e/run-iab-e2e.mjs"
   },
   "dependencies": {
     "@prismshadow/penguin-cli": "workspace:*",

@@ -71,7 +71,7 @@
 | Phase | 名称 | 状态 | 粗略工期 | 依赖 |
 | --- | --- | --- | --- | --- |
 | 0 | 规划与关键验证 | completed | 2–3 d | 规划 checkpoint 已 push（`8474f0c`）；结论见 [`docs/verification/phase-00.md`](../docs/verification/phase-00.md) |
-| 1 | Vertical slice：左聊右览 | planned | 5–8 d | 0 |
+| 1 | Vertical slice：左聊右览 | code_complete_manual_pending | 5–8 d | 0；结论见 [`docs/verification/phase-01.md`](../docs/verification/phase-01.md) |
 | 2 | 浏览器功能完整 | planned | 8–12 d | 1 |
 | 3 | Agent-first 交互与付款确认（交互层） | planned | 8–12 d | 2 |
 | 4 | 隐私 Vault 与交易机器 | planned | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标** |

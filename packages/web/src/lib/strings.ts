@@ -799,6 +799,16 @@ export const zh = {
   },
 
   chat: {
+    /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
+    browserPane: {
+      title: "浏览器",
+      show: "显示浏览器",
+      hide: "隐藏浏览器",
+      starting: "正在启动浏览器",
+      loading: "加载中",
+      ready: "就绪",
+      resize: "调整浏览器面板宽度",
+    },
     newSessionMenu: "新建对话",
     chooseAgent: "选择 Agent",
     chooseModel: "选择模型",

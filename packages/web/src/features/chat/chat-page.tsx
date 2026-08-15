@@ -75,6 +75,8 @@ import { providerInfo } from "@prismshadow/penguin-core/model-catalog";
 import { FilesPanel } from "./files-panel";
 import { useFilesPanel } from "./use-files-panel";
 import type { FilesPanelState } from "./use-files-panel";
+import { BrowserPanePanel, BrowserPaneSplitter } from "./browser-pane";
+import { useBrowserPane } from "./use-browser-pane";
 import { SubagentsPanel } from "./subagents-panel";
 import {
   advancePanelTaskScope,
@@ -301,6 +303,8 @@ export function ChatPage() {
   const [turnThinkingLevel, setTurnThinkingLevel] = useState("");
 
   const routeSessionId = params.sessionId ?? null;
+  // Desktop only: `supported` is false in a browser tab, and the column is not rendered at all.
+  const browserPane = useBrowserPane();
   const filesPanelRaw = useFilesPanel(routeSessionId);
   const subagentsPanelRaw = useSubagentsPanel(routeSessionId);
   // The two docked panels are MUTUALLY EXCLUSIVE — side by side they'd crush the chat column at
@@ -1314,6 +1318,39 @@ export function ChatPage() {
             )}
           </button>
 
+          {/* In-app browser toggle. Desktop only — a browser tab has no main process to host a
+              WebContentsView, so the control is absent rather than disabled (desktop-bridge.ts). */}
+          {browserPane.supported && browserPane.splittable && (
+            <button
+              type="button"
+              aria-expanded={browserPane.open}
+              onClick={() => browserPane.setOpen(!browserPane.open)}
+              title={browserPane.open ? S.chat.browserPane.hide : S.chat.browserPane.show}
+              aria-label={browserPane.open ? S.chat.browserPane.hide : S.chat.browserPane.show}
+              className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ${
+                browserPane.open
+                  ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              }`}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M3 9h18" />
+              </svg>
+              <span className="hidden sm:inline">{S.chat.browserPane.title}</span>
+            </button>
+          )}
+
           {/* Files panel toggle: docks on the right of the chat instead of replacing it full-screen (use-files-panel.ts); opening closes the subagents panel (wrapped setOpen). */}
           <button
             type="button"
@@ -1576,7 +1613,8 @@ export function ChatPage() {
       )}
 
       {/* Body: chat column + the docked panels on the right (message file cards jump to and locate a file in the tree via onOpenFile). */}
-      <div className="flex min-h-0 flex-1">
+      {/* The splitter converts a pointer x into a fraction of *this* row, so it needs the row's box. */}
+      <div className="flex min-h-0 flex-1" ref={browserPane.containerRef}>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {draft ? (
             // Draft state: DraftView's vertically centered input card + Agent / Workspace
@@ -1697,6 +1735,18 @@ export function ChatPage() {
           />
         )}
         {selected && <FilesPanel session={selected} panel={filesPanel} />}
+        {browserPane.supported && browserPane.open && browserPane.splittable && (
+          <>
+            <BrowserPaneSplitter state={browserPane} />
+            <div
+              className="shrink-0"
+              style={{ width: `${browserPane.fraction * 100}%` }}
+              data-testid="iab-column"
+            >
+              <BrowserPanePanel state={browserPane} />
+            </div>
+          </>
+        )}
       </div>
 
       <Modal

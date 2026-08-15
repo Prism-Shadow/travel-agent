@@ -27,8 +27,11 @@ export async function startServer({
   token,
 }: { port?: number; host?: string; token?: string } = {}) {
   let server
+  // Read out of the environment rather than from argv: the key would otherwise sit in every
+  // `ps` listing on the machine, which defeats the point of having one.
+  const iabKey = process.env.PENGUIN_IAB_KEY || undefined
   try {
-    server = await startPenguinBrowserCDPRelayServer({ port, host, token, logger })
+    server = await startPenguinBrowserCDPRelayServer({ port, host, token, iabKey, logger })
   } catch (err: unknown) {
     // When two relay processes race to start (issue #75), the loser gets
     // EADDRINUSE. Check if the winner is a valid relay and exit cleanly

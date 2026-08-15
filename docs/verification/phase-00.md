@@ -256,8 +256,8 @@ behaviour. **No product code was changed to make anything pass.**
 Running the suite also produced untracked artifacts — `packages/browser-cli/src/aria-snapshots/`,
 `src/snapshots/`, `tmp/`. These were **deleted, not committed**: they are regenerable test output, and
 because they came from the substituted chromium 1228 they would have baked a wrong baseline into the
-repository. They are also not covered by any `.gitignore`; whether they should be is a repo-convention
-question outside Phase 0's scope, noted in §8.
+repository. They were also not covered by any `.gitignore` at the time, which is noted in §8 as a Phase 1 input
+and was acted on there: the root `.gitignore` now names the three directories.
 
 Recommendation (not actioned in Phase 0, needs its own review): decide whether to add a browser
 provisioning step to CI, or mark these suites as requiring one. Filed as a Phase 1 input in §8.

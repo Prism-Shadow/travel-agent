@@ -16,6 +16,7 @@ Buffer.prototype[util.inspect.custom] = function () {
 import { killPortProcess } from './kill-port.js'
 import { canEmitKittyGraphics, emitKittyImage } from './kitty-graphics.js'
 import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './utils.js'
+import { resolveRelayEndpoint } from './relay-discovery.js'
 import {
   ensureRelayServer,
   RELAY_PORT,
@@ -423,6 +424,10 @@ cli
     '--proxy <region>',
     'Enable residential proxy for cloud browser (e.g. us, de, jp). Disabled by default. Use for anti-detection or geo-targeting.',
   )
+  .option(
+    '--iab',
+    "Drive the desktop app's in-app browser pane instead of Chrome. Requires the Travel Agent desktop app to be running; it owns the relay and the WebContentsView.",
+  )
   .option('--custom-proxy <url>', 'Custom proxy for cloud browser (host:port or user:pass@host:port)')
   .option('--timeout <minutes>', 'Cloud browser timeout in minutes (1-240, default 60)')
   .option(
@@ -435,6 +440,49 @@ cli
     }
 
     const isLocal = !options.host && !process.env.PENGUIN_BROWSER_HOST
+
+    // --iab: the desktop shell's in-app WebContentsView. No browser to find or launch — the
+    // shell is already connected to the relay, so this only picks which backend to bind.
+    if (options.iab) {
+      try {
+        // The desktop shell prefers 19989 but moves to a dynamic port when something else already
+        // owns it, so the port is discovered rather than assumed. A named host always wins, and on
+        // that path discovery is neither read nor cleaned — it describes this machine, not the one
+        // the caller pointed at.
+        const endpoint = await resolveRelayEndpoint({
+          defaultPort: 19989,
+          host: options.host,
+          envHost: process.env.PENGUIN_BROWSER_HOST,
+          envPort: process.env.PENGUIN_BROWSER_PORT,
+        })
+        const serverUrl = parseRelayHost(endpoint.host, endpoint.port).httpBaseUrl
+        const response = await fetch(`${serverUrl}/cli/session/new`, {
+          method: 'POST',
+          headers: buildAuthHeaders({ token: options.token, json: true }),
+          body: JSON.stringify({ iab: true, cwd: process.cwd() }),
+        })
+        const payload = (await response.json().catch(() => ({}))) as {
+          id?: string
+          browser?: string
+          error?: { message?: string; recovery?: string[] } | string
+        }
+        if (!response.ok) {
+          const error = payload.error
+          const message = typeof error === 'string' ? error : (error?.message ?? 'Unknown error')
+          console.error(message)
+          if (typeof error === 'object' && error?.recovery) {
+            console.error('')
+            for (const step of error.recovery) console.error(`  - ${step}`)
+          }
+          process.exit(1)
+        }
+        console.log(`Created session ${payload.id} (in-app browser)`)
+        return
+      } catch (error) {
+        console.error('Failed to create an in-app browser session:', (error as Error).message)
+        process.exit(1)
+      }
+    }
 
     // --browser headless: launch headless Chrome via chromium.launch(), no extension
     if (options.browser === 'headless') {

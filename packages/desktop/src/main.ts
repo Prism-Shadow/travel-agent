@@ -17,10 +17,21 @@
  */
 import path from "node:path";
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { resolveRoot } from "@prismshadow/penguin-core";
+import { resolveRoot, resolveFlagsFromEnv } from "@prismshadow/penguin-core";
 import { liveServerLock } from "@prismshadow/penguin-server/lock";
 import { resolveWindowIcon } from "./app-icon.js";
-import { startBrowserRelay, stopBrowserRelay, revealBrowserExtension } from "./browser-relay.js";
+import { BrowserPane } from "./browser-pane.js";
+import {
+  IAB_KEY,
+  browserRelayPort,
+  iabInstallId,
+  startBrowserRelay,
+  stopBrowserRelay,
+  revealBrowserExtension,
+} from "./browser-relay.js";
+import { IAB_ENABLED_SWITCH, isIabAvailable } from "./iab-switch.js";
+import { IabTransport } from "./iab-transport.js";
+import { installBrowserIpc } from "./ipc.js";
 import { installCliCommand, maybeOfferCliInstall, currentCliInstallKind } from "./cli-install.js";
 import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
@@ -44,6 +55,19 @@ if (process.platform === "win32") app.setAppUserModelId("com.prismshadow.penguin
 let win: BrowserWindow | null = null;
 let server: EmbeddedServer | null = null;
 let browserRelay: UtilityProcess | null = null;
+let browserPane: BrowserPane | null = null;
+let iabTransport: IabTransport | null = null;
+let disposeBrowserIpc: (() => void) | null = null;
+
+/**
+ * Whether the in-app browser pane is wired this run.
+ *
+ * Resolved once at startup from the feature flags (design/004 §5). Phase 1 ships it off by
+ * default; `PENGUIN_FLAGS=iab.enabled` turns it on for development and testing. Nothing about the
+ * pane — not the view, not the IPC handlers, not the relay transport — is constructed when it is
+ * off, so the capability is genuinely absent rather than merely hidden.
+ */
+const iabEnabled = resolveFlagsFromEnv(process.env).flags["iab.enabled"];
 /** App origin (embedded or attached); null until boot resolves. */
 let appOrigin: string | null = null;
 let quitting = false;
@@ -57,6 +81,18 @@ function fatal(context: string, err: unknown): void {
 }
 
 function createWindow(url: string): void {
+  // Resolved before the window exists, because the preload switch and the wiring below must agree:
+  // advertising the bridge from the flag alone would leave the renderer showing a control whose
+  // every call rejects when the relay did not come up.
+  const relayPort = browserRelayPort();
+  const iabAvailable = isIabAvailable({ flagEnabled: iabEnabled, relayPort });
+  if (iabEnabled && !iabAvailable) {
+    process.stdout.write(
+      "[iab] the pane is enabled but the relay is unavailable this run, so the in-app browser is " +
+        "switched off — the renderer will not offer it\n",
+    );
+  }
+
   // Linux window/taskbar icon (and Windows dev runs); packaged Windows uses the exe
   // resources and macOS its bundle icns, so those ignore it (see app-icon.ts).
   const iconPath = resolveWindowIcon(app.getAppPath(), process.platform);
@@ -67,16 +103,60 @@ function createWindow(url: string): void {
     autoHideMenuBar: true,
     ...(iconPath !== null ? { icon: iconPath } : {}),
     webPreferences: {
-      // The window is a plain browser: no Node, no preload — the minimal attack surface.
+      // Still a plain browser: no Node integration, sandboxed, context-isolated. The one addition
+      // is a preload that exposes a fixed, named set of in-app browser calls and nothing else — a
+      // WebContentsView is positioned by the main process, so the renderer has no other way to say
+      // where it goes. See preload-browser.ts and ipc.ts for why the break is this narrow.
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // .cjs deliberately: a sandboxed preload must be CommonJS, so tsup emits both formats and
+      // this picks the one Electron can load.
+      preload: path.join(import.meta.dirname, "preload-browser.cjs"),
+      // The preload is sandboxed and cannot read a flag itself, so main tells it whether it may
+      // advertise the bridge. Without this the preload would offer channels main never installed.
+      additionalArguments: iabAvailable ? [IAB_ENABLED_SWITCH] : [],
     },
   });
   win.once("ready-to-show", () => win?.show());
   win.on("closed", () => {
+    disposeBrowserIpc?.();
+    disposeBrowserIpc = null;
+    // Stop the transport with the window, not at quit. On macOS the app outlives its window, and a
+    // transport left running would keep reconnecting to the relay on behalf of a pane whose views
+    // no longer exist — forever, and again for every window the user reopens.
+    iabTransport?.stop();
+    iabTransport = null;
+    browserPane?.destroy();
+    browserPane = null;
     win = null;
   });
+
+  // The pane and its transport are wired here rather than at boot because both need the window.
+  // The view itself is created lazily: nothing renders until the renderer opens the pane or an
+  // agent asks for a tab, so a user who never opens it pays nothing.
+  if (iabAvailable && relayPort !== null) {
+    const pane = new BrowserPane({
+      window: win,
+      onState: (state) => win?.webContents.send("iab:state", state),
+      log: (message) => process.stdout.write(message),
+    });
+    browserPane = pane;
+    disposeBrowserIpc = installBrowserIpc({ window: win, pane });
+
+    const transport = new IabTransport({
+      port: relayPort,
+      key: IAB_KEY,
+      installId: iabInstallId(),
+      openTab: (url) => pane.openTabForAgent(url),
+      liveTargets: () => pane.liveContents(),
+      log: (message) => process.stdout.write(message),
+    });
+    pane.setViewCreatedHandler((contents) => transport.attach(contents));
+    transport.start();
+    iabTransport = transport;
+  }
+
   // "Open in a new tab" (Workspace HTML previews) is an app-origin link that mints a
   // token and 302s to the preview origin — it needs the session cookie, so it must open
   // in a window of this app; handing it to the system browser would land on a 401.
@@ -217,10 +297,14 @@ if (!app.requestSingleInstanceLock()) {
     const relay = browserRelay;
     server = null;
     browserRelay = null;
+    iabTransport?.stop();
+    iabTransport = null;
     stopPromise = Promise.all([
       running !== null ? stopEmbeddedServer(running) : Promise.resolve(),
       stopBrowserRelay(relay),
-    ]).then(() => undefined).finally(() => app.quit());
+    ])
+      .then(() => undefined)
+      .finally(() => app.quit());
   });
 
   void app.whenReady().then(() =>
@@ -232,7 +316,9 @@ if (!app.requestSingleInstanceLock()) {
         onLoadExtension: () => void revealBrowserExtension(win),
       });
       initUpdater(() => win);
-      browserRelay = await startBrowserRelay((chunk) => process.stdout.write(chunk));
+      browserRelay = await startBrowserRelay((chunk) => process.stdout.write(chunk), {
+        iabEnabled,
+      });
       await boot();
       // First launch only: offer the CLI commands once; the menu entry remains.
       // Skipped in smoke mode — a modal dialog would hang the automated run.

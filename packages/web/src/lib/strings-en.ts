@@ -843,6 +843,16 @@ export const en: Strings = {
   },
 
   chat: {
+    /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
+    browserPane: {
+      title: "Browser",
+      show: "Show browser",
+      hide: "Hide browser",
+      starting: "Starting the browser",
+      loading: "Loading",
+      ready: "Ready",
+      resize: "Resize the browser panel",
+    },
     newSessionMenu: "New chat",
     chooseAgent: "Choose agent",
     chooseModel: "Choose model",

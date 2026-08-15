@@ -69,6 +69,9 @@ const __dirname = path.dirname(__filename)
 
 const require = createRequire(import.meta.url)
 
+/** How long to wait for Playwright to surface a WebContentsView the shell just created. */
+const IAB_NEW_TAB_TIMEOUT_MS = 10_000
+
 export class CodeExecutionTimeoutError extends Error {
   constructor(timeout: number) {
     super(`Code execution timed out after ${timeout}ms`)
@@ -310,6 +313,15 @@ export interface CdpConfig {
   /** Launch a headless Chrome via chromium.launch() instead of connecting to an existing one.
    *  Uses direct Playwright browser management, no extension or relay CDP routing needed. */
   headless?: boolean
+  /**
+   * Drive the desktop shell's in-app WebContentsView (design/002 §4.2).
+   *
+   * The connection is identical to extension mode — the relay routes to whichever backend is
+   * registered — so this flag exists for the one place the two genuinely differ: creating a tab.
+   * Electron refuses `Target.createTarget` (Phase 0, docs/verification/phase-00.md §3), so the
+   * shell has to build the view and hand back its target id.
+   */
+  iab?: boolean
 }
 
 export interface SessionMetadata {
@@ -2159,6 +2171,16 @@ export class PlaywrightExecutor {
     // A freshly created about:blank is briefly visible to every executor before this
     // session resolves its target id and claims it. If another session wins that window,
     // never return the now-foreign page: retry and preserve no-stealing.
+    // The in-app browser has one view in Phase 1, and the shell owns its lifecycle. Asking it for
+    // a tab returns that view — already claimed by this session on a second call — so the
+    // no-stealing retry loop below would spin against a page it can never "newly" claim. Ask, then
+    // claim if it is free.
+    if (this.cdpConfig.iab) {
+      const page = await this.createIabPage(url)
+      await this.claimTab(page)
+      return page
+    }
+
     return this.tabOpener.open({
       findReusable: () => this.findUnclaimedBlankPage(),
       create: () => context.newPage(),
@@ -2170,6 +2192,54 @@ export class PlaywrightExecutor {
       navigate: url ? (candidate) => candidate.goto(url, { waitUntil: 'domcontentloaded' }) : undefined,
       discardCreated: async (candidate) => candidate.close().catch(() => {}),
     })
+  }
+
+  /**
+   * Creates a page by asking the desktop shell for a new WebContentsView.
+   *
+   * Never `context.newPage()`: Playwright implements that with `Target.createTarget`, which
+   * Electron answers "Not supported" — verified in Phase 0 through both the raw debugger and
+   * Playwright itself. The shell creates the view, attaches its debugger, and the new target
+   * arrives over the existing event stream; this waits for Playwright to surface the matching
+   * page rather than assuming it is already there.
+   */
+  private async createIabPage(url?: string): Promise<Page> {
+    const context = this.context
+    if (!context) throw new Error('No browser context is connected')
+
+    const anchor = context.pages().find((page) => !page.isClosed())
+    if (!anchor) {
+      // The relay bootstraps a view when the session is created, precisely so this cannot happen;
+      // reaching it means the view was closed underneath us or the backend dropped out.
+      throw new Error(
+        'The in-app browser has no live page to issue the request through. The pane may have been ' +
+          'closed or the desktop app disconnected; create a new session.',
+      )
+    }
+    const cdp = await getCDPSessionForPage({ page: anchor })
+    const result = (await (cdp.send as (m: string, p?: unknown) => Promise<unknown>)('iab-open-tab', {
+      url,
+    })) as { targetId?: string } | undefined
+    const targetId = result?.targetId
+    if (!targetId) {
+      throw new Error('The in-app browser did not return a target id for the new tab')
+    }
+
+    // Resolve by target id rather than by "which page is new". Phase 1 runs a single view, so the
+    // shell legitimately answers with the view that already exists, and a diff against the pages
+    // seen a moment ago would find nothing and time out. The id is the contract either way.
+    const deadline = Date.now() + IAB_NEW_TAB_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      for (const page of context.pages()) {
+        if (page.isClosed()) continue
+        if ((await this.targetIdFor(page).catch(() => null)) === targetId) return page
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    throw new Error(
+      `The in-app browser returned target ${targetId} but Playwright never surfaced it. ` +
+        'The view may have failed to attach its debugger.',
+    )
   }
 
   private async findUnclaimedBlankPage(): Promise<Page | null> {
@@ -2217,6 +2287,13 @@ export class ExecutorManager {
       const cdpConfig = (() => {
         // Per-session override takes priority (used for direct CDP sessions)
         if (options.cdpConfig) {
+          // `iab` is a routing flag, not a connection: the session still reaches the browser
+          // through this relay, so it keeps the manager's host/port/token. A direct or headless
+          // override replaces them on purpose, because it connects somewhere else entirely.
+          if (options.cdpConfig.iab) {
+            const baseConfig = typeof this.cdpConfig === 'function' ? this.cdpConfig(sessionId) : this.cdpConfig
+            return { ...baseConfig, ...options.cdpConfig }
+          }
           return options.cdpConfig
         }
         const baseConfig = typeof this.cdpConfig === 'function' ? this.cdpConfig(sessionId) : this.cdpConfig

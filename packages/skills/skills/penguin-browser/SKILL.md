@@ -3,8 +3,8 @@ name: penguin-browser
 description: Control explicitly authorized tabs in the user's local Chrome through the Penguin Browser CLI, a local CDP relay, and persistent Playwright sessions. Use for interactive or authenticated browser tasks that require the rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
 short_description: Automate authorized Chrome tabs through the local CLI.
 short_description_zh: 通过本地 CLI 自动化已授权的 Chrome 标签页。
-version: 4
-updated: 2026-08-13T00:00:00Z
+version: 5
+updated: 2026-08-15T00:00:00Z
 ---
 
 # Penguin Browser
@@ -70,12 +70,35 @@ Authorization rules:
 - Do not automate passwords, payments, permission prompts, or CAPTCHAs without the user's direct participation.
 - If several authorized tabs match, inspect their URLs and ask which one to use before a destructive or externally visible action.
 
+## Choosing a backend
+
+Two backends exist, and the choice is made once when the session is created.
+
+**In-app browser (`--iab`).** The Travel Agent desktop app renders a real browser in the right half
+of its own window: the user watches the work happen and can click the page themselves. Prefer it
+whenever it is available, because a task the user cannot see is worse than one they can.
+
+It is available only inside the desktop app, and only when the pane is enabled. Check before
+choosing, and fall back rather than failing:
+
+```bash
+penguin-browser session new --iab || penguin-browser session new
+```
+
+The in-app browser has **its own profile**, separate from the user's Chrome. It keeps whatever it
+is signed into across restarts, but it does not inherit an existing Chrome login — the first visit
+to a site the user is signed into elsewhere will be signed out. When a task needs a login the user
+already has in their own Chrome, use extension mode instead and say why.
+
+**Extension mode (default).** Drives an explicitly authorized tab in the user's real Chrome, with
+their real logins. Requires the steps in the previous sections.
+
 ## Persistent session workflow
 
 Create one CLI session per task and preserve its ID for every call:
 
 ```bash
-penguin-browser session new
+penguin-browser session new --iab || penguin-browser session new
 # Keep the returned ID, for example: 1
 export PENGUIN_BROWSER_SESSION=1
 ```

@@ -45,6 +45,17 @@ jobs:
       - name: Unit tests (vitest)
         run: pnpm test
 
+      # The in-app browser is the one thing unit tests cannot reach: it needs a real Electron main
+      # process, a real preload, a real WebContentsView and a real relay. The runner discovers
+      # xvfb-run itself and wraps the launch; it also refuses to skip when CI=true, so this step
+      # cannot go green by quietly deciding it could not run. Ubuntu only — the GitHub Windows
+      # runner has no display server and the Electron pieces under test are not platform-specific.
+      - name: In-app browser end-to-end (Electron, Xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb
+          pnpm --filter @prismshadow/penguin-desktop test:e2e
+
       - name: Installer bundle and POSIX installer tests
         run: sh scripts/test-installer.sh
 

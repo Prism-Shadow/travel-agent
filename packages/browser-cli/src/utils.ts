@@ -8,6 +8,40 @@ import { fileURLToPath } from 'node:url'
 export const EXTENSION_IDS = ['fbiciihmfbflenjjaphaljgfnlepnjdf']
 
 /**
+ * Reserved backend id for the desktop shell's in-app browser.
+ *
+ * The relay stores every backend — Chrome extensions and the in-app browser alike — in one
+ * registry, because they present the same transport contract. This id is how a session asks for
+ * the in-app one specifically, and it is deliberately not a Chrome extension id: nothing loaded
+ * into a browser can claim it.
+ */
+export const IAB_BACKEND_ID = 'travel-agent-iab'
+
+/**
+ * Whether a socket peer address is the local machine.
+ *
+ * Spelled out rather than compared against two literals because the same loopback shows up in
+ * several shapes depending on how the client connected and how the stack is configured: plain IPv4,
+ * IPv6, and the IPv4-mapped IPv6 form a dual-stack listener reports. Treating `::ffff:127.0.0.1` as
+ * remote would break dual-stack hosts; treating `127.0.0.1.evil.com` as local would be a hole. A
+ * missing address is refused — an unknown peer is not a local one.
+ */
+export function isLoopbackAddress(address: string | undefined | null): boolean {
+  if (!address) return false
+  const value = address.trim().toLowerCase()
+  if (value === '127.0.0.1' || value === '::1' || value === '[::1]') return true
+  // IPv4-mapped IPv6, as a dual-stack listener reports a v4 client.
+  const mapped = /^(?:::ffff:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(value)
+  const ipv4 = mapped ? mapped[1] : value
+  // The whole 127.0.0.0/8 block is loopback, not just .1.
+  const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ipv4)
+  if (!octets) return false
+  const parts = octets.slice(1).map(Number)
+  if (parts.some((part) => Number.isNaN(part) || part > 255)) return false
+  return parts[0] === 127
+}
+
+/**
  * Parse a relay host string into HTTP and WebSocket base URLs.
  * Supports both plain hostnames (appends port) and full URLs (uses as-is).
  *

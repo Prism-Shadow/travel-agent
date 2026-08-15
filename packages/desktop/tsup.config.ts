@@ -3,8 +3,10 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   // launcher.ts is a second entry on purpose: scripts/stage.mjs imports dist/launcher.js
   // at stage time (plain node, no Electron) to generate the CLI launcher scripts.
-  entry: ["src/main.ts", "src/launcher.ts"],
-  format: ["esm"],
+  // preload-browser.ts is a third: Electron loads it by path into the app window, so it has to
+  // exist as its own file rather than be inlined into main.
+  entry: ["src/main.ts", "src/launcher.ts", "src/preload-browser.ts"],
+  format: ["cjs", "esm"],
   target: "node22",
   platform: "node",
   clean: true,

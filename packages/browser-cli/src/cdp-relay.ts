@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { Context, Next } from 'hono'
 import { cors } from 'hono/cors'
 import { createAdaptorServer } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
@@ -26,11 +27,12 @@ Buffer.prototype[util.inspect.custom] = function () {
   return `<Buffer ${this.length} bytes>`
 }
 
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { EventEmitter } from 'node:events'
-import { VERSION, EXTENSION_IDS, shouldAutoEnablePenguinBrowser } from './utils.js'
+import { VERSION, EXTENSION_IDS, IAB_BACKEND_ID, isLoopbackAddress, shouldAutoEnablePenguinBrowser } from './utils.js'
 import { createCdpLogger, type CdpLogEntry, type CdpLogger } from './cdp-log.js'
 import { RecordingRelay } from './recording-relay.js'
 import { StreamRelay } from './stream-relay.js'
@@ -51,6 +53,23 @@ import {
   ROOT_STORAGE_COOKIE_METHODS,
   selectStorageCookieRoutingTarget,
 } from './storage-cookie-routing.js'
+
+/**
+ * Constant-time string comparison for the `/iab` key.
+ *
+ * `===` on secrets leaks their prefix length through timing. The comparison is cheap and runs
+ * once per connection, so there is no reason to take that risk.
+ */
+function timingSafeEqualString(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'utf8')
+  const right = Buffer.from(b, 'utf8')
+  if (left.length !== right.length) {
+    // Compare against itself so the length check itself is not the fast path an attacker times.
+    crypto.timingSafeEqual(left, left)
+    return false
+  }
+  return crypto.timingSafeEqual(left, right)
+}
 
 /**
  * Checks if a target should be filtered out (not exposed to Playwright).
@@ -115,12 +134,20 @@ export async function startPenguinBrowserCDPRelayServer({
   port = 19989,
   host = '127.0.0.1',
   token,
+  iabKey,
   logger,
   cdpLogger,
 }: {
   port?: number
   host?: string
   token?: string
+  /**
+   * Shared secret for the `/iab` transport. Handed to the desktop shell out of band (an env var
+   * set when the relay is forked) so that knowing the port is not enough to drive the in-app
+   * browser. Absent means the endpoint refuses every connection, which is the right default for a
+   * standalone `penguin-browser serve`.
+   */
+  iabKey?: string
   logger?: { log(...args: any[]): void; error(...args: any[]): void }
   cdpLogger?: CdpLogger
 } = {}): Promise<RelayServer> {
@@ -944,6 +971,23 @@ export async function startPenguinBrowserCDPRelayServer({
         })
       }
 
+      /**
+       * In-app browser tab creation.
+       *
+       * Phase 0 established that `Target.createTarget` answers "Not supported" on Electron, so a
+       * page cannot be minted by the browser the way Chrome mints one. The desktop shell owns the
+       * WebContentsView lifecycle instead, and this command asks it to build one. Routed through
+       * the same tunnel as every other command so the executor needs no second channel — the same
+       * shape the Ghost Browser bridge below already uses.
+       */
+      case 'iab-open-tab': {
+        return await sendToExtension({
+          extensionId: resolvedExtensionId,
+          method: 'iab-open-tab',
+          params,
+        })
+      }
+
       // Ghost Browser API - forward to extension for chrome.ghostPublicAPI/ghostProxies/projects
       case 'ghost-browser': {
         return await sendToExtension({
@@ -1549,41 +1593,12 @@ export async function startPenguinBrowserCDPRelayServer({
     }),
   )
 
-  app.get(
-    '/extension',
-    (c, next) => {
-      // 1. Host Validation: The extension endpoint must ONLY be accessed from localhost.
-      // This prevents attackers on the network from hijacking the browser session
-      // even if the server is exposed via 0.0.0.0.
-      const info = getConnInfo(c)
-      const remoteAddress = info.remote.address
-      const isLocalhost = remoteAddress === '127.0.0.1' || remoteAddress === '::1'
-
-      if (!isLocalhost) {
-        logger?.log(pc.red(`Rejecting /extension WebSocket from remote IP: ${remoteAddress}`))
-        return c.text('Forbidden - Extension must be local', 403)
-      }
-
-      // 2. Origin Validation: Prevent browser-based attacks (CSRF).
-      // Browsers cannot spoof the Origin header, so this ensures the connection
-      // is coming from our specific Chrome Extension, not a malicious website.
-      const origin = c.req.header('origin')
-      if (!origin || !origin.startsWith('chrome-extension://')) {
-        logger?.log(
-          pc.red(`Rejecting /extension WebSocket: origin must be chrome-extension://, got: ${origin || 'none'}`),
-        )
-        return c.text('Forbidden', 403)
-      }
-
-      const extensionId = origin.replace('chrome-extension://', '')
-      if (!EXTENSION_IDS.includes(extensionId)) {
-        logger?.log(pc.red(`Rejecting /extension WebSocket from unknown extension: ${extensionId}`))
-        return c.text('Forbidden', 403)
-      }
-
-      return next()
-    },
-    upgradeWebSocket((c) => {
+  // Both backend transports present the relay with the same shape: a set of independent
+  // per-target debugger sessions speaking forwardCDPCommand / forwardCDPEvent. A Chrome
+  // extension gets there through chrome.debugger; the desktop shell gets there through
+  // Electron's webContents.debugger. Only the authentication differs, so only the
+  // authentication is written twice — the socket implementation below is shared.
+  const backendSocket = upgradeWebSocket((c) => {
       const incomingExtensionInfo = getExtensionInfoFromRequest(c)
       const connectionId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
       return {
@@ -2060,8 +2075,85 @@ export async function startPenguinBrowserCDPRelayServer({
           logger?.error('Extension WebSocket error:', event)
         },
       }
-    }),
-  )
+  })
+
+  const extensionSocketAuth = (c: Context, next: Next) => {
+      // 1. Host Validation: The extension endpoint must ONLY be accessed from localhost.
+      // This prevents attackers on the network from hijacking the browser session
+      // even if the server is exposed via 0.0.0.0.
+      const info = getConnInfo(c)
+      const remoteAddress = info.remote.address
+      const isLocalhost = remoteAddress === '127.0.0.1' || remoteAddress === '::1'
+
+      if (!isLocalhost) {
+        logger?.log(pc.red(`Rejecting /extension WebSocket from remote IP: ${remoteAddress}`))
+        return c.text('Forbidden - Extension must be local', 403)
+      }
+
+      // 2. Origin Validation: Prevent browser-based attacks (CSRF).
+      // Browsers cannot spoof the Origin header, so this ensures the connection
+      // is coming from our specific Chrome Extension, not a malicious website.
+      const origin = c.req.header('origin')
+      if (!origin || !origin.startsWith('chrome-extension://')) {
+        logger?.log(
+          pc.red(`Rejecting /extension WebSocket: origin must be chrome-extension://, got: ${origin || 'none'}`),
+        )
+        return c.text('Forbidden', 403)
+      }
+
+      const extensionId = origin.replace('chrome-extension://', '')
+      if (!EXTENSION_IDS.includes(extensionId)) {
+        logger?.log(pc.red(`Rejecting /extension WebSocket from unknown extension: ${extensionId}`))
+        return c.text('Forbidden', 403)
+      }
+
+      return next()
+  }
+
+  /**
+   * In-app browser transport (design/002 §4.2 candidate C).
+   *
+   * The desktop shell connects here and bridges to `webContents.debugger`, so the agent drives a
+   * WebContentsView through exactly the machinery that already drives a Chrome tab. Deliberately
+   * a separate endpoint from `/extension` rather than a relaxation of it: that one requires a
+   * `chrome-extension://` origin, which a Node client cannot present, and loosening it would have
+   * widened the surface every real extension connects through.
+   *
+   * Three checks, each closing a different door:
+   *   - loopback only, so nothing off-box can reach it even when the relay binds 0.0.0.0;
+   *   - a per-run key the shell receives out of band (env at fork time) and never writes down,
+   *     so another local process cannot simply connect to a known port;
+   *   - no `Origin` header at all. A Node client never sends one, and a page always does, so
+   *     this rejects browser-driven CSRF outright instead of matching against an allowlist.
+   */
+  const iabSocketAuth = (c: Context, next: Next) => {
+    const remoteAddress = getConnInfo(c).remote.address
+    if (!isLoopbackAddress(remoteAddress)) {
+      logger?.log(pc.red(`Rejecting /iab WebSocket from remote IP: ${remoteAddress}`))
+      return c.text('Forbidden - the in-app browser transport is local only', 403)
+    }
+
+    const origin = c.req.header('origin')
+    if (origin) {
+      logger?.log(pc.red(`Rejecting /iab WebSocket carrying an Origin header: ${origin}`))
+      return c.text('Forbidden', 403)
+    }
+
+    if (!iabKey) {
+      logger?.log(pc.red('Rejecting /iab WebSocket: this relay was started without an IAB key'))
+      return c.text('Forbidden - no in-app browser key configured', 403)
+    }
+    const providedKey = c.req.query('key') ?? ''
+    if (!timingSafeEqualString(providedKey, iabKey)) {
+      logger?.log(pc.red('Rejecting /iab WebSocket: invalid key'))
+      return c.text('Unauthorized', 401)
+    }
+
+    return next()
+  }
+
+  app.get('/extension', extensionSocketAuth, backendSocket)
+  app.get('/iab', iabSocketAuth, backendSocket)
 
   // ============================================================================
   // CLI Execute Endpoints - For stateful code execution via CLI
@@ -2280,6 +2372,8 @@ export async function startPenguinBrowserCDPRelayServer({
       cdpEndpoint?: string
       /** Launch a headless Chrome via chromium.launch() — no extension or relay CDP routing */
       headless?: boolean
+      /** Drive the desktop shell's in-app WebContentsView (design/002 §4.2) */
+      iab?: boolean
       /** Browser name from discovery (e.g. "Chrome", "Brave") */
       browser?: string
       /** Profile info from discovery */
@@ -2373,6 +2467,78 @@ export async function startPenguinBrowserCDPRelayServer({
       return c.json({
         id: sessionId,
         mode: 'direct' as const,
+        extensionId: metadata.extensionId,
+        browser: metadata.browser,
+        profile: metadata.profile,
+      })
+    }
+
+    // In-app browser mode: same transport contract as an extension, different backend. The
+    // desktop shell registers itself under a reserved id, so selecting it is a lookup rather
+    // than a new code path — everything downstream (targets, ownership, execute) is shared.
+    if (body.iab) {
+      const iabConn = [...store.getState().extensions.values()].find(
+        (candidate) => candidate.info.id === IAB_BACKEND_ID,
+      )
+      if (!iabConn) {
+        return c.json(
+          {
+            error: {
+              code: 'IAB_NOT_CONNECTED',
+              message: 'The in-app browser is not connected to this relay.',
+              recovery: [
+                'Start the desktop app, which forks the relay with an IAB key and connects to /iab.',
+                'If the app is running, check that the browser pane is enabled (flag iab.enabled).',
+              ],
+            },
+          },
+          404,
+        )
+      }
+      // Bootstrap a view before the executor connects.
+      //
+      // Without this the session is circular on a fresh app: the executor asks the shell for a tab
+      // by sending `iab-open-tab` through an existing page's CDP session, and on a cold start there
+      // is no page to send it through. The agent could never be the one to create the first view.
+      // Creating it here — at the one point that already holds the backend connection — breaks the
+      // cycle with a single mechanism rather than a special case inside the executor, and it means
+      // `session new --iab` always hands back a session with somewhere to work.
+      try {
+        await sendToExtension({
+          extensionId: iabConn.id,
+          method: 'iab-open-tab',
+          params: {},
+        })
+      } catch (error) {
+        return c.json(
+          {
+            error: {
+              code: 'IAB_BOOTSTRAP_FAILED',
+              message: `The in-app browser could not open its first view: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              recovery: ['Check the desktop app is running with the browser pane enabled.'],
+            },
+          },
+          502,
+        )
+      }
+
+      const manager = await getExecutorManager()
+      const executor = manager.getExecutor({
+        sessionId,
+        cwd,
+        cdpConfig: { iab: true, extensionId: iabConn.stableKey },
+        sessionMetadata: {
+          extensionId: iabConn.stableKey,
+          browser: iabConn.info.browser || 'Travel Agent (in-app browser)',
+          profile: null,
+        },
+      })
+      const metadata = executor.getSessionMetadata()
+      return c.json({
+        id: sessionId,
+        mode: 'iab' as const,
         extensionId: metadata.extensionId,
         browser: metadata.browser,
         profile: metadata.profile,
