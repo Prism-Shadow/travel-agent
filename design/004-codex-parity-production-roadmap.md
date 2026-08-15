@@ -70,7 +70,7 @@
 
 | Phase | 名称 | 状态 | 粗略工期 | 依赖 |
 | --- | --- | --- | --- | --- |
-| 0 | 规划与关键验证 | planned | 2–3 d | 规划 checkpoint 已 push |
+| 0 | 规划与关键验证 | completed | 2–3 d | 规划 checkpoint 已 push（`8474f0c`）；结论见 [`docs/verification/phase-00.md`](../docs/verification/phase-00.md) |
 | 1 | Vertical slice：左聊右览 | planned | 5–8 d | 0 |
 | 2 | 浏览器功能完整 | planned | 8–12 d | 1 |
 | 3 | Agent-first 交互与付款确认（交互层） | planned | 8–12 d | 2 |
@@ -267,7 +267,7 @@ PENDING → IN_TEST → PASS
 | 日志/崩溃报告无值（003 §4.6 不变量） | **GA 必须** | — | Phase 5 |
 | L3 永不持久（CVV/OTP/密码/passkey） | **GA 必须** | 结构性，无开关 | Phase 3 起 |
 | Vault（L1 投影） | 强烈建议 | `vault.enabled` | Phase 4 |
-| `secret_entry.live`（main 代填真实一次性码） | 随 scoped secret_phase 全量验收（Phase 4） | flag，默认 off | Phase 4 |
+| `secret_entry.live`（main 代填真实一次性码） | 随 scoped secret_phase 全量验收（Phase 4）；**与真实 L2/L3 同门槛**——它处理真实 L3 材料，故依赖 `vault.l2l3`，运行期未隔离即强制 off | flag，默认 off | Phase 4 |
 | **真实 L2/L3 + 存储支付凭证** | **启用即要求 003 §0.3 隔离 + A1–A7 攻击测试通过；做不到则 fail closed（能力关闭，功能不发布）** | `vault.l2l3`、`payments.execute`（运行期探测强制） | Phase 4 门控 / Phase 5 达标 |
 | OS 级隔离（003 P0-A） | 含 L2/L3 的 GA **必须**；否则强烈建议 | 见上 | Phase 5 |
 | broker IPC 全量（003 §11） | 随 L2/L3 | 同上 | Phase 4 |
