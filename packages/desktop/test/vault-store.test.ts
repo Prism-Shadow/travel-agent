@@ -138,15 +138,33 @@ describe("opening a vault", () => {
     await expect(build().unlock()).rejects.toThrow(VaultCorruptError);
   });
 
-  it("refuses a file from a layout it does not know", async () => {
+  it("refuses a newer vault from a breaking layout it cannot read (004 Phase 6)", async () => {
+    // A future breaking change stamps `compat` to its own version, so an older app refuses rather
+    // than misreading — fail closed for a security file.
     await vault.unlock();
     await vault.lock();
     const file = JSON.parse(await readVaultFile()) as Record<string, unknown>;
     await fs.writeFile(
       path.join(dir, "profile-vault.json"),
-      JSON.stringify({ ...file, version: 99 }),
+      JSON.stringify({ ...file, version: 99, compat: 99 }),
     );
-    await expect(build().unlock()).rejects.toThrow(/v99 vault/);
+    await expect(build().unlock()).rejects.toThrow(/v99/);
+  });
+
+  it("reads a newer vault whose change was additive, after a rollback (004 Phase 6)", async () => {
+    // A newer app that only added fields stamps `compat` back at 1; an older app reads it, ignoring
+    // what it does not know, instead of losing the vault to a rollback.
+    await vault.unlock();
+    await vault.put("given_name", "小明");
+    await vault.lock();
+    const file = JSON.parse(await readVaultFile()) as Record<string, unknown>;
+    await fs.writeFile(
+      path.join(dir, "profile-vault.json"),
+      JSON.stringify({ ...file, version: 99, compat: 1, aFieldFromTheFuture: "ignored" }),
+    );
+    const reopened = build();
+    await reopened.unlock();
+    expect(await reopened.reveal("given_name", { reason: "test" })).toBe("小明");
   });
 });
 

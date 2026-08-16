@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| 状态 | **Phase 0–4 代码完成、Phase 5 工程轨代码完成、人工验收待做**（`code_complete_manual_pending`；安全轨隔离 D3 未决；逐 Phase 状态以 §2.1 总表为准） |
+| 状态 | **Phase 0–4 代码完成、Phase 5 工程轨 + Phase 6 数据迁移代码完成、人工验收待做**（安全轨隔离 D3 未决；发布/真机项待执行；逐 Phase 状态以 §2.1 总表为准） |
 | 日期 | 2026-08-16 |
 | 基线 | 规划基线 travel-agent `8cead1d` · Electron 43.2.0 |
 | 终点 | **Codex App 同等级的单窗口浏览器体验 + 可生产上线（GA）**。MVP / vertical slice 只是内部里程碑，不是终点 |
@@ -76,7 +76,7 @@
 | 3 | Agent-first 交互与付款确认（交互层） | code_complete_manual_pending | 8–12 d | 2；结论见 [`docs/verification/phase-03.md`](../docs/verification/phase-03.md) |
 | 4 | 隐私 Vault 与交易机器 | code_complete_manual_pending | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标**；结论见 [`docs/verification/phase-04.md`](../docs/verification/phase-04.md) |
 | 5 | 生产加固 | in_progress（工程轨代码完成；安全轨隔离 D3 未决） | 6–10 d | 3（可与 4 并行开始）；结论见 [`docs/verification/phase-05.md`](../docs/verification/phase-05.md) · [`isolation.md`](../docs/verification/isolation.md) |
-| 6 | 跨平台 Beta | planned | 6–10 d | 5 |
+| 6 | 跨平台 Beta | in_progress（数据迁移代码完成；签名/自动更新/三平台真机与验收待执行） | 6–10 d | 5；结论见 [`docs/verification/phase-06.md`](../docs/verification/phase-06.md) |
 | 7 | 灰度与集中人工验收 | planned | 5–8 d（日历更长） | 6 |
 | 8 | GA | planned | 2–3 d（发布执行） | 7；D5 go |
 
@@ -200,6 +200,10 @@
 - **退出标准**：三平台「安装→使用→自动更新→回滚」各一遍绿；迁移测试（含降级）自动化通过；Beta 构建分发给用户。
 - **人工测试**：`docs/manual-testing/phase-06-beta.md`——三平台安装体验、更新弹窗、中文 IME/剪贴板/上传逐平台、屏幕阅读器逐平台。
 - **Checkpoint commit**：`feat(release): signed cross-platform beta with migrating, rollback-safe auto-update`
+- **进度（如实记录）**：
+  - **数据迁移代码完成**：`desktop/src/data-migration.ts`——版本 + `compat` 双戳、老文件向前迁移、回滚时对加性新文件的向下兼容读、破坏性新文件 fail-closed 拒绝;已接入 vault 与 tab checkpoint 两处;纯逻辑用合成多版本 kind 全量测试。结论见 [`docs/verification/phase-06.md`](../docs/verification/phase-06.md)。
+  - **001 §3 遗留项复核**:`test-installer.sh` 对 `packages/landing` 的引用是**转发器 install.sh 的真实测试**(转发器隐藏 OSS URL),非死引用,保留并记录,不删。
+  - **未执行(发布/真机)**:Windows 签名证书接入、Linux AppImage/deb 复核、双通道自动更新升降实测、三平台构建矩阵、M10/M11/M12 逐平台 IME/剪贴板/上传/读屏验收、Beta 分发。均需证书与目标机器,不在本环境内。
 
 ### Phase 7 · 灰度与集中人工验收
 

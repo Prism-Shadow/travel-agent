@@ -43,6 +43,7 @@ import {
   type SealedBox,
 } from "./crypto.js";
 import { openVaultAudit, type VaultAudit } from "./audit.js";
+import { openDocument, stampDocument, VAULT_KIND } from "../data-migration.js";
 import type { SafeStoragePort, StorageAvailability } from "./safe-storage.js";
 import {
   isNeverPersisted,
@@ -83,6 +84,8 @@ interface VaultRecord {
 
 interface VaultFile {
   version: number;
+  /** Oldest app schema-version that can still read this vault (004 Phase 6; data-migration.ts). */
+  compat?: number;
   createdAt: string;
   updatedAt: string;
   /** Master key, wrapped by the OS keychain, base64. */
@@ -529,9 +532,9 @@ export class ProfileVault {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw error;
     }
-    let parsed: VaultFile;
+    let raw2: unknown;
     try {
-      parsed = JSON.parse(raw) as VaultFile;
+      raw2 = JSON.parse(raw);
     } catch (error) {
       throw new VaultCorruptError(
         `${this.options.filePath} is not readable JSON (${(error as Error).message}). Refusing to ` +
@@ -539,11 +542,18 @@ export class ProfileVault {
           `aside deliberately if it really is beyond repair.`,
       );
     }
-    if (parsed.version !== VAULT_FILE_VERSION) {
+    // Version handling goes through the migration framework (004 Phase 6): an older vault is
+    // migrated forward, a newer-but-compatible one (a rollback across an additive change) is read
+    // down-level, and anything else refuses. The refusal is deliberately fail-closed for a security
+    // file — the same stance this had before, now with a compat floor so a genuinely readable
+    // rollback is not thrown away with the rest.
+    let parsed: VaultFile;
+    try {
+      parsed = openDocument<VaultFile>(VAULT_KIND, raw2).doc;
+    } catch (error) {
       throw new VaultCorruptError(
-        `${this.options.filePath} is a v${parsed.version} vault and this build reads ` +
-          `v${VAULT_FILE_VERSION}. Refusing to guess at the layout — upgrade or downgrade the ` +
-          `application rather than letting it rewrite the file.`,
+        `${this.options.filePath}: ${(error as Error).message} Upgrade or downgrade the ` +
+          `application rather than letting it rewrite the file; nothing has been changed.`,
       );
     }
     if (!parsed.masterKey || !parsed.auditKey || typeof parsed.fields !== "object") {
@@ -561,7 +571,13 @@ export class ProfileVault {
     const file = this.file;
     if (!file) return;
     file.updatedAt = this.now().toISOString();
-    const snapshot = JSON.stringify(file, null, 2);
+    // Re-stamp version + compat on every write, so the file always advertises the floor a rollback
+    // may read it back to (004 Phase 6).
+    const snapshot = JSON.stringify(
+      stampDocument(VAULT_KIND, file as unknown as Record<string, unknown>),
+      null,
+      2,
+    );
     const run = this.writes.then(async () => {
       const dir = path.dirname(this.options.filePath);
       await fs.mkdir(dir, { recursive: true });

@@ -21,6 +21,8 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { openDocument, stampDocument, TAB_CHECKPOINT_KIND } from "./data-migration.js";
+
 /**
  * How a task ended, as far as its tabs are concerned.
  *
@@ -196,6 +198,8 @@ export interface TabCheckpointEntry {
 
 export interface TabCheckpoint {
   version: number;
+  /** Oldest app schema-version that can still read this file (004 Phase 6; see data-migration.ts). */
+  compat?: number;
   tabs: TabCheckpointEntry[];
 }
 
@@ -213,8 +217,9 @@ const MAX_CHECKPOINT_ID = 64;
  * nothing and nothing. Everything kept is a URL the user could have bookmarked.
  */
 export function buildCheckpoint(tabs: readonly TabCheckpointEntry[]): TabCheckpoint {
-  return {
-    version: TAB_CHECKPOINT_VERSION,
+  // Stamped with `version` + `compat` (004 Phase 6): a checkpoint written on beta must be readable
+  // after a rollback to stable when the change was additive.
+  return stampDocument(TAB_CHECKPOINT_KIND, {
     tabs: tabs
       .filter((tab) => isRestorableUrl(tab.url))
       .slice(0, MAX_CHECKPOINT_TABS)
@@ -225,7 +230,7 @@ export function buildCheckpoint(tabs: readonly TabCheckpointEntry[]): TabCheckpo
         retain: tab.retain,
         active: tab.active,
       })),
-  };
+  }) as TabCheckpoint;
 }
 
 /**
@@ -248,9 +253,16 @@ export function parseCheckpoint(raw: string): TabCheckpoint | null {
   } catch {
     return null;
   }
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  if (record.version !== TAB_CHECKPOINT_VERSION) return null;
+  // Version handling goes through the migration framework (004 Phase 6): an older checkpoint is
+  // migrated forward, a newer-but-compatible one (a rollback) is read down-level, and a genuinely
+  // unreadable one throws — which for a checkpoint means the same as before, a dropped restore
+  // prompt rather than a failed launch.
+  let record: Record<string, unknown>;
+  try {
+    record = openDocument<TabCheckpoint & Record<string, unknown>>(TAB_CHECKPOINT_KIND, value).doc;
+  } catch {
+    return null;
+  }
   if (!Array.isArray(record.tabs)) return null;
 
   const tabs: TabCheckpointEntry[] = [];
@@ -270,7 +282,7 @@ export function parseCheckpoint(raw: string): TabCheckpoint | null {
     }
     tabs.push(parsed);
   }
-  return { version: TAB_CHECKPOINT_VERSION, tabs };
+  return stampDocument(TAB_CHECKPOINT_KIND, { tabs }) as TabCheckpoint;
 }
 
 function parseCheckpointEntry(value: unknown): TabCheckpointEntry | null {
@@ -325,7 +337,7 @@ export function mergeCheckpoints(pending: TabCheckpoint, incoming: TabCheckpoint
     if (scopesWithActive.has(scope)) entry.active = false;
     else scopesWithActive.add(scope);
   }
-  return { version: TAB_CHECKPOINT_VERSION, tabs: merged };
+  return stampDocument(TAB_CHECKPOINT_KIND, { tabs: merged }) as TabCheckpoint;
 }
 
 /**
