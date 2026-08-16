@@ -14,7 +14,7 @@ import type { Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DatabaseSync } from "node:sqlite";
 import { resolveFlagsFromEnv, sessionScratchpadDir } from "@prismshadow/penguin-core";
-import type { ProxyEnvPolicy } from "@prismshadow/penguin-core";
+import type { HostTool, ProxyEnvPolicy } from "@prismshadow/penguin-core";
 import type { ServerConfig } from "./config.js";
 import { mergedNoProxy } from "./net/proxy.js";
 import { openDatabase } from "./db/database.js";
@@ -27,6 +27,7 @@ import { GoalsRepo } from "./db/repos/goals.js";
 import { SchedulesRepo } from "./db/repos/schedules.js";
 import { ServerSettingsRepo } from "./db/repos/server-settings.js";
 import { SessionsRepo } from "./db/repos/sessions.js";
+import type { SessionRow } from "./db/repos/sessions.js";
 import { TraceIndexRepo } from "./db/repos/trace-index.js";
 import { UiPrefsRepo } from "./db/repos/ui-prefs.js";
 import { UsageRepo } from "./db/repos/usage.js";
@@ -34,6 +35,9 @@ import { UsersRepo } from "./db/repos/users.js";
 import type { UserRow } from "./db/repos/users.js";
 import { authMiddleware, jsonOnlyWrites } from "./auth/middleware.js";
 import type { AppEnv } from "./auth/middleware.js";
+import { brokerFromEnv } from "./broker/client.js";
+import { capabilitiesRoutes } from "./http/routes/capabilities.js";
+import { vaultHostTools } from "./tools/vault-tools.js";
 import { InteractionService } from "./interaction/service.js";
 import { interactionCommandEnv } from "./interaction/tokens.js";
 import { agentInteractionRoutes } from "./http/routes/interaction.js";
@@ -264,13 +268,40 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
       ...(context.sessionId ? { sessionId: context.sessionId } : {}),
     });
 
+  /**
+   * The vault and payment tools, when there is a desktop shell holding a vault to talk to.
+   *
+   * Absent everywhere else — `penguin web`, the CLI, tests — and absent is the honest state: these
+   * three operations are meaningless without a main process that holds the keys, and offering a
+   * tool that always fails teaches a model to keep trying. The identity is read at call time from
+   * the manager, so a tool built once per Session still binds every call to the running turn.
+   */
+  const broker = brokerFromEnv();
+  const hostTools = broker
+    ? (row: SessionRow): HostTool[] =>
+        vaultHostTools({
+          broker,
+          identity: () => ({
+            sessionId: row.sessionId,
+            taskId: manager.browserTaskState(row.sessionId).running,
+          }),
+          // The server does not watch the browser; the shell does, and it re-derives the page for
+          // itself on every call. What the model says is carried as a claim for main to check.
+          currentDomain: () => null,
+        })
+    : undefined;
+
   const manager = new SessionManager({
     sessions: sessionsRepo,
     channels,
     interactions,
     loader:
       overrides.loader ??
-      createCoreSessionLoader(config.root, sessionSources, { proxyEnv, commandEnv }),
+      createCoreSessionLoader(config.root, sessionSources, {
+        proxyEnv,
+        commandEnv,
+        ...(hostTools ? { hostTools } : {}),
+      }),
     sources: sessionSources,
     recorder,
     errors,
@@ -475,6 +506,9 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.use("/api/*", auth);
   app.route("/api/me", meRoutes(deps));
   app.route("/api/version", versionRoutes(deps));
+  // What this build may do, and the reason for everything it may not (004 §5): read by the
+  // settings panel so a capability that failed its probe is visible rather than merely absent.
+  app.route("/api/capabilities", capabilitiesRoutes(deps));
   app.route("/api/admin/users", adminUsersRoutes(deps));
   app.route("/api/admin/settings", adminSettingsRoutes(deps));
   app.route("/api/events", eventsRoutes(deps));

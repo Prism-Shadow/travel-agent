@@ -118,6 +118,12 @@ export async function startEmbeddedServer(opts: {
   portFile: string;
   preferredPortFile: string;
   log: (chunk: string) => void;
+  /**
+   * Extra environment for the fork, used to hand the server the broker socket and token when the
+   * vault is on (design/003 §11.2: the token reaches the server *only* through the fork
+   * environment — never a file, never a log). Empty when there is no vault this run.
+   */
+  extraEnv?: Record<string, string>;
 }): Promise<EmbeddedServer> {
   const token = randomBytes(32).toString("base64url");
   fs.rmSync(opts.portFile, { force: true });
@@ -145,6 +151,8 @@ export async function startEmbeddedServer(opts: {
       // Every penguin-browser invocation under this server inherits it and reaches *this* relay
       // rather than whatever happens to be on the conventional 19989.
       ...(browserRelayPort() === null ? {} : { PENGUIN_BROWSER_PORT: String(browserRelayPort()) }),
+      // The broker socket + token, when the vault started. Last, so nothing above shadows them.
+      ...(opts.extraEnv ?? {}),
     },
   });
   child.stdout?.on("data", (chunk: Buffer) => opts.log(String(chunk)));

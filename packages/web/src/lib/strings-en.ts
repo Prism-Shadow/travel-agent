@@ -842,6 +842,13 @@ export const en: Strings = {
     },
   },
 
+  capabilities: {
+    title: "This machine's capabilities",
+    on: "on",
+    denied: "requirements not met",
+    off: "off",
+  },
+
   chat: {
     /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
     interaction: {

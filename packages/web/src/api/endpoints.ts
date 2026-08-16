@@ -464,6 +464,18 @@ export const postInteractionOutcome = (
     { method: "POST", body: outcome as unknown as Record<string, unknown> },
   );
 
+/**
+ * What this build may do, and why the rest is off (design/004 §5).
+ *
+ * Read-only and secret-free: the report carries flags, denial sentences and a shell-present
+ * boolean, so any logged-in user may see it — the point is precisely that a refused capability is
+ * visible.
+ */
+export const getCapabilities = () =>
+  apiFetch<import("../features/capabilities/capability-model").CapabilityReport>(
+    "/api/capabilities",
+  );
+
 export const postAbort = (sessionId: string) =>
   apiFetch<void>(`/api/sessions/${encodeURIComponent(sessionId)}/abort`, {
     method: "POST",

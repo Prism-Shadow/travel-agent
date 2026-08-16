@@ -1568,6 +1568,12 @@ export class BrowserPane {
   mayDrive(contents: WebContents, taskId: string | undefined): DriveDecision {
     const tab = this.tabForContents(contents);
     if (!tab) return { allowed: false, reason: "gone" };
+    // A secret phase revokes the agent's channel to one target while the person types a code into
+    // it (003 §7.3): the check is here so it covers every route the agent could drive by, not just
+    // the one the fill uses.
+    if (tab.targetId && this.secretPhaseTargets.has(tab.targetId)) {
+      return { allowed: false, reason: "released", tabId: tab.id };
+    }
     if (tab.ownedByTask === null) {
       return { allowed: false, reason: "released", tabId: tab.id };
     }
@@ -1575,6 +1581,47 @@ export class BrowserPane {
       return { allowed: false, reason: "foreign", tabId: tab.id, owner: tab.ownedByTask };
     }
     return { allowed: true };
+  }
+
+  /**
+   * Targets whose agent channel is currently revoked for a secret phase.
+   *
+   * Held by target id rather than by tab, because the vault side speaks in target ids and a tab's
+   * view can be rebuilt (crash recovery) under the same id. Cleared on exit; also cleared when the
+   * tab goes, since a gone target drives nothing.
+   */
+  private readonly secretPhaseTargets = new Set<string>();
+
+  /** The live contents for a CDP target id, for the vault's fill port (see pane-target-resolver). */
+  contentsForTarget(targetId: string): WebContents | null {
+    for (const tab of this.tabs.values()) {
+      if (tab.targetId !== targetId) continue;
+      return this.contentsOf(tab);
+    }
+    return null;
+  }
+
+  /** Closes the tab that owns a target (secret-phase exit c). No-op if it is already gone. */
+  async closeTarget(targetId: string): Promise<void> {
+    for (const tab of this.tabs.values()) {
+      if (tab.targetId !== targetId) continue;
+      this.secretPhaseTargets.delete(targetId);
+      this.destroyTab(tab);
+      return;
+    }
+  }
+
+  /**
+   * Turns the agent's ability to drive a target off (secret-phase enter) or on (exit).
+   *
+   * Returns whether the target is live: the vault's detach must fail closed on a target that has
+   * gone rather than believe it revoked a channel that no longer exists (003 §7.3).
+   */
+  setAgentDrivable(input: { targetId: string; drivable: boolean }): boolean {
+    if (this.contentsForTarget(input.targetId) === null) return false;
+    if (input.drivable) this.secretPhaseTargets.delete(input.targetId);
+    else this.secretPhaseTargets.add(input.targetId);
+    return true;
   }
 
   /**

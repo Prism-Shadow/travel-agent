@@ -89,6 +89,21 @@ export {
 } from "./handover.js";
 
 export {
+  capabilityIdempotencyKey,
+  checkPaymentCapability,
+  consumePaymentCapability,
+  isOpaqueMethodRef,
+  issuePaymentCapability,
+  type ApprovalChannel,
+  type CapabilityCheck,
+  type CapabilityRefusal,
+  type CheckCapabilityInput,
+  type IssueCapabilityInput,
+  type IssueCapabilityOptions,
+  type PaymentCapability,
+} from "./capability.js";
+
+export {
   classifyDrift,
   commitmentFromConfirmation,
   describePaymentSummary,

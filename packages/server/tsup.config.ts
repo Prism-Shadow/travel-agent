@@ -9,6 +9,8 @@ export default defineConfig({
     "api/types": "src/api/types.ts",
     lock: "src/lock.ts",
     "initial-password": "src/initial-password.ts",
+    // "./broker-protocol": the wire the desktop shell speaks; both ends import the same file.
+    "broker/protocol": "src/broker/protocol.ts",
   },
   format: ["esm"],
   target: "node22",

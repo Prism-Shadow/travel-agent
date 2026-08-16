@@ -22,6 +22,7 @@ import type {
   ToolDefinition,
 } from "./omnimessage/types.js";
 // Concrete classes, used only for EnvironmentServices type annotations (type-only import; no runtime dependency, no circular reference).
+import type { BuiltinTool } from "./environment/tools/types.js";
 import type { CommandSessionManager } from "./environment/tools/command/session-manager.js";
 import type { SubagentSessionManager } from "./environment/tools/subagent/session-manager.js";
 import type { ToolCallIdAllocator } from "./llm/tool-call-ids.js";
@@ -344,6 +345,25 @@ export interface EnvironmentConfig {
    * no host with anything to say.
    */
   commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
+  /**
+   * Tools the **host** contributes, beyond the built-in registry.
+   *
+   * Each entry brings its own definition *and* its factory, because the point is a capability core
+   * does not have and should not learn: the desktop shell's payment and vault operations are
+   * meaningless without a broker to a main process, and putting them in the registry would put a
+   * travel product's semantics into a product-neutral runtime.
+   *
+   * Assembled after the registry's tools and refused on a name collision — a host tool that
+   * shadowed `exec_command` would make the same name mean different things in different hosts.
+   * Absent for SDK and CLI use, where there is no host offering anything.
+   */
+  hostTools?: HostTool[];
+}
+
+/** A tool a host supplies: what the model is told about it, and what runs when it is called. */
+export interface HostTool {
+  definition: ToolDefinitionConfig;
+  create: (definition: ToolDefinitionConfig, services?: EnvironmentServices) => BuiltinTool;
 }
 
 /**

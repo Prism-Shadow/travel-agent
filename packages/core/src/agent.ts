@@ -60,6 +60,7 @@ import { INPUT_SUBAGENT_NAME } from "./environment/tools/input-subagent.js";
 import type { CompactionSettings } from "./engine/context-engine.js";
 import type {
   GenerativeModelConfig,
+  HostTool,
   ProxyEnvPolicy,
   SubagentRunner,
   ThinkingLevelName,
@@ -97,6 +98,13 @@ export interface CreateAgentOptions {
    * for the same turn.
    */
   commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
+  /**
+   * Tools this host contributes on top of the built-in registry (see
+   * `EnvironmentConfig.hostTools`). Forwarded into every Session and into a subagent's Agent, for
+   * the same reason `commandEnv` is: a child Session runs in this process, for this turn, and a
+   * capability the parent had should not vanish one hop down.
+   */
+  hostTools?: HostTool[];
 }
 
 export interface CreateSessionOptions {
@@ -160,7 +168,7 @@ export function metaMaxTokens(budget: number, modelCap: number | undefined): num
 export async function createAgent(opts: CreateAgentOptions = {}): Promise<Agent> {
   const state = await loadOrInitAgentState(opts);
   const projectConfig = await loadProjectConfig(state.root, state.projectId);
-  return new Agent(state, projectConfig, opts.proxyEnv, opts.commandEnv);
+  return new Agent(state, projectConfig, opts.proxyEnv, opts.commandEnv, opts.hostTools);
 }
 
 export class Agent {
@@ -174,6 +182,8 @@ export class Agent {
       sessionId?: string;
       taskId?: string;
     }) => Record<string, string>,
+    /** See {@link CreateAgentOptions.hostTools}; forwarded the same way. */
+    private readonly hostTools?: HostTool[],
   ) {}
 
   /**
@@ -649,6 +659,7 @@ export class Agent {
                 // the same serving process, so they follow the same settings as the parent's.
                 ...(parentAgent.proxyEnv ? { proxyEnv: parentAgent.proxyEnv } : {}),
                 ...(parentAgent.commandEnv ? { commandEnv: parentAgent.commandEnv } : {}),
+                ...(parentAgent.hostTools ? { hostTools: parentAgent.hostTools } : {}),
               })
             : parentAgent;
         // The child Session follows the PARENT Session, never the Project default: with the
@@ -804,6 +815,7 @@ export class Agent {
       ...(Object.keys(vault).length > 0 ? { vault } : {}),
       ...(this.proxyEnv ? { proxyEnv: this.proxyEnv } : {}),
       ...(this.commandEnv ? { commandEnv: this.commandEnv } : {}),
+      ...(this.hostTools ? { hostTools: this.hostTools } : {}),
     });
 
     // Configured output cap: the entry's per-model annotation wins over the Agent's

@@ -798,6 +798,14 @@ export const zh = {
     },
   },
 
+  /** The capability panel on the Vault tab (design/004 §5): what is on, and why the rest is off. */
+  capabilities: {
+    title: "本机能力",
+    on: "已启用",
+    denied: "条件未满足",
+    off: "未启用",
+  },
+
   chat: {
     /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
     /** Cards the agent raises when it needs the person (design/003 §7). */

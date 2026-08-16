@@ -2,8 +2,8 @@
 
 | | |
 | --- | --- |
-| 状态 | **Phase 0–3 代码完成、人工验收待做**（`code_complete_manual_pending`；逐 Phase 状态以 §2.1 总表为准，本行只是摘要） |
-| 日期 | 2026-08-15 |
+| 状态 | **Phase 0–4 代码完成、人工验收待做**（`code_complete_manual_pending`；逐 Phase 状态以 §2.1 总表为准，本行只是摘要） |
+| 日期 | 2026-08-16 |
 | 基线 | 规划基线 travel-agent `8cead1d` · Electron 43.2.0 |
 | 终点 | **Codex App 同等级的单窗口浏览器体验 + 可生产上线（GA）**。MVP / vertical slice 只是内部里程碑，不是终点 |
 | 依据 | [`001-architecture.md`](./001-architecture.md)（产品定位与判断）· [`002-codex-style-single-window-iab.md`](./002-codex-style-single-window-iab.md)（浏览器工作区）· [`003-agent-first-private-profile-and-payment-confirmation.md`](./003-agent-first-private-profile-and-payment-confirmation.md)（隐私与交易） |
@@ -74,7 +74,7 @@
 | 1 | Vertical slice：左聊右览 | code_complete_manual_pending | 5–8 d | 0；结论见 [`docs/verification/phase-01.md`](../docs/verification/phase-01.md) |
 | 2 | 浏览器功能完整 | code_complete_manual_pending | 8–12 d | 1；结论见 [`docs/verification/phase-02.md`](../docs/verification/phase-02.md) |
 | 3 | Agent-first 交互与付款确认（交互层） | code_complete_manual_pending | 8–12 d | 2；结论见 [`docs/verification/phase-03.md`](../docs/verification/phase-03.md) |
-| 4 | 隐私 Vault 与交易机器 | planned | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标** |
+| 4 | 隐私 Vault 与交易机器 | code_complete_manual_pending | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标**；结论见 [`docs/verification/phase-04.md`](../docs/verification/phase-04.md) |
 | 5 | 生产加固 | planned | 6–10 d | 3（可与 4 并行开始） |
 | 6 | 跨平台 Beta | planned | 6–10 d | 5 |
 | 7 | 灰度与集中人工验收 | planned | 5–8 d（日历更长） | 6 |
@@ -166,6 +166,12 @@
 - **退出标准**：全矩阵绿（dummy vault 环境）；三个受控 flag 的门控逻辑有测试证明「探测失败→off→UI 明示」；`secret_entry.live` 仅在 scoped secret_phase 全量验收通过后才允许开启且有测试钉住该次序。
 - **人工测试**：`docs/manual-testing/phase-04-privacy-payment.md`——dummy 数据全流程、CVV 卡片输入→站点消费→agent 恢复（live flag 开启后的首次真实验证亦记于此，PENDING）、导出的 OS 重认证、审计查看器。
 - **Checkpoint commit**：`feat(vault): private profile vault, payment capabilities, and an execute path the agent cannot hold`
+- **实现与规划的差异（如实记录）**：
+  - **host-tool 钩子放在 core，工具实现放在 server**：`execute_payment` / `fill_saved_field` / `request_profile_grant` 不是 core 的 builtin，而是通过新的 `EnvironmentConfig.hostTools`（产品中立）由 server 贡献、仅在有 broker 时提供。规划说的是「builtin tool」，选它是因为把旅行支付语义写进 core 会污染中立运行时——与 Phase 3 把付款规则留在 skill 同一判断。
+  - **broker 无 peer-credential UID 校验**：Node 不暴露可移植的 `SO_PEERCRED`/`getpeereid`，故 socket 侧执行力是 0700 目录内的 0600 socket + fork 环境里的一次性 token；§11.2 的 UID 校验列为 Phase 5（在平台允许处）。已在 verification §10 与代码注释如实说明。
+  - **grant 询问是原生对话框、全量批准**：本 Phase 用 shell 自绘的模态对话框问「是否允许」，逐字段裁剪的卡片形态留给交互卡片层，记为已知限制。
+  - **`currentTarget` 未接每轮活动 tab**：broker handler 以 agent 传入的显式 `targetId` 解析目标；`"current"` 在 pane 汇报活动 tab 前一律以「无页面」失败关闭。指名 target 的填单/付款可用，隐式便利未接，记为已知限制。
+  - **脱敏靠指纹分工两进程**：main 只发「盐化截断 HMAC + 长度 + 字符形状」，relay 侧匹配替换、绝不拿到值；两包各自实现 shape/fingerprint，用共享 golden 值双向钉住防止静默漂移。OCR 兜底在 `redaction.ocr` 之后，本 Phase 不实现且不作保证。
 
 ### Phase 5 · 生产加固
 

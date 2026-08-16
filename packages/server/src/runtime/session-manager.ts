@@ -54,6 +54,7 @@ import type { PendingSteeringInfo, ServerEvent, SessionStatus } from "../api/typ
 import { HttpError, isMissingCredential, modelCredentialMissing } from "../http/errors.js";
 import type { GoalsRepo } from "../db/repos/goals.js";
 import type { SessionRow, SessionsRepo } from "../db/repos/sessions.js";
+import type { HostTool } from "@prismshadow/penguin-core";
 import { ApprovalRegistry, makeApprove } from "./approvals.js";
 import { InteractionTokens } from "../interaction/tokens.js";
 import type { PendingApproval } from "./approvals.js";
@@ -148,6 +149,14 @@ export function createCoreSessionLoader(
     proxyEnv?: () => ProxyEnvPolicy | null;
     /** Per-turn environment for the agent's commands; see `EnvironmentConfig.commandEnv`. */
     commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
+    /**
+     * Tools this host contributes for one conversation (see `EnvironmentConfig.hostTools`).
+     *
+     * Per Session because the tools close over which conversation they are running in: the vault
+     * tools bind every broker call to a turn, and a set shared between conversations would have
+     * to be told which one on every call instead.
+     */
+    hostTools?: (row: SessionRow) => HostTool[];
   } = {},
 ): SessionLoader {
   return {
@@ -158,6 +167,7 @@ export function createCoreSessionLoader(
         agentId: row.agentId,
         ...(opts.proxyEnv ? { proxyEnv: opts.proxyEnv } : {}),
         ...(opts.commandEnv ? { commandEnv: opts.commandEnv } : {}),
+        ...(opts.hostTools ? { hostTools: opts.hostTools(row) } : {}),
       });
       const located = await findLatestTraceFile(
         tracesDir(root, row.projectId, row.agentId),

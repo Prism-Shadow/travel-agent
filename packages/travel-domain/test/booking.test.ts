@@ -210,7 +210,7 @@ describe("submitBooking", () => {
     expect(submit).not.toHaveBeenCalled();
   });
 
-  it("checks authority before anything else, so a forbidden step is never even journalled", async () => {
+  it("checks authority before the journal, so a forbidden step is never even recorded", async () => {
     await submitBooking({
       journal,
       commitment: commitment({ ceiling: "read_only" }),

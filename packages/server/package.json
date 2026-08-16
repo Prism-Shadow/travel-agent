@@ -25,6 +25,10 @@
     "./initial-password": {
       "types": "./dist/initial-password.d.ts",
       "import": "./dist/initial-password.js"
+    },
+    "./broker-protocol": {
+      "types": "./dist/broker/protocol.d.ts",
+      "import": "./dist/broker/protocol.js"
     }
   },
   "main": "./dist/index.js",

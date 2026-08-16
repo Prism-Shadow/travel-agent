@@ -293,6 +293,12 @@ importers:
       '@prismshadow/penguin-server':
         specifier: workspace:*
         version: file:packages/server(bufferutil@4.1.0)(supports-color@10.2.2)
+      '@travel-agent/domain':
+        specifier: workspace:^
+        version: link:../travel-domain
+      '@travel-agent/transaction':
+        specifier: workspace:^
+        version: link:../transaction
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9(supports-color@10.2.2)

@@ -47,6 +47,8 @@ import { resolveSessionDownloadDir } from "./session-partition.js";
 import { installCliCommand, maybeOfferCliInstall, currentCliInstallKind } from "./cli-install.js";
 import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
+import { startVaultShell } from "./vault-shell.js";
+import { paneTargetResolver } from "./vault/pane-target-resolver.js";
 import type { EmbeddedServer } from "./server-process.js";
 import type { UtilityProcess } from "electron";
 import { initUpdater } from "./updater.js";
@@ -71,6 +73,12 @@ let browserPane: BrowserPane | null = null;
 let iabTransport: IabTransport | null = null;
 let disposeBrowserIpc: (() => void) | null = null;
 let taskSupervisor: TaskSupervisor | null = null;
+/**
+ * The vault side of the shell (design/004 Phase 4), when this build's flags and this machine's
+ * keychain allow it. Null everywhere it is off — the tools that depend on it are then simply not
+ * offered to the agent, which is the honest shape of a disabled capability.
+ */
+let vaultShell: Awaited<ReturnType<typeof startVaultShell>> = null;
 
 /**
  * Whether the in-app browser pane is wired this run.
@@ -360,11 +368,26 @@ function createWindow(url: string): void {
 /** Starts (or restarts) the embedded server and points the window at desktop-login. */
 async function startServerAndWindow(dataRoot: string): Promise<void> {
   appDataRoot = dataRoot;
+  // The vault comes up before the server, because the server is forked with the broker's socket
+  // and token in its environment and there is no second channel to hand them over (003 §11.2).
+  // A failure here is not fatal: the vault stays off, its reason is on the settings page, and the
+  // rest of the app runs. Only started once — a server restart reuses the running broker.
+  if (vaultShell === null && browserPane !== null) {
+    try {
+      vaultShell = await startVaultShell({
+        dataRoot,
+        targets: paneTargetResolver(browserPane),
+      });
+    } catch (err) {
+      process.stdout.write(`[shell] vault did not start: ${String((err as Error).message)}\n`);
+    }
+  }
   const started = await startEmbeddedServer({
     dataRoot,
     portFile: path.join(app.getPath("userData"), "server-port"),
     preferredPortFile: path.join(app.getPath("userData"), "preferred-port"),
     log: (chunk) => process.stdout.write(`[server] ${chunk}`),
+    ...(vaultShell ? { extraEnv: vaultShell.env() } : {}),
   });
   server = started;
   appOrigin = started.origin;
@@ -451,13 +474,19 @@ if (!app.requestSingleInstanceLock()) {
     event.preventDefault();
     const running = server;
     const relay = browserRelay;
+    const vault = vaultShell;
     server = null;
     browserRelay = null;
+    vaultShell = null;
     iabTransport?.stop();
     iabTransport = null;
     stopPromise = Promise.all([
       running !== null ? stopEmbeddedServer(running) : Promise.resolve(),
       stopBrowserRelay(relay),
+      // Locks the vault (wiping keys) and closes the broker. After the server is asked to stop, so
+      // an in-flight fill or payment there is not cut off mid-write — its journal bracket is what
+      // makes even a hard kill safe, but a clean stop is cleaner.
+      vault ? vault.close().catch(() => undefined) : Promise.resolve(),
     ])
       .then(() => undefined)
       .finally(() => app.quit());

@@ -27,6 +27,7 @@ import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { SkeletonList } from "../../components/ui/skeleton";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { usePromptInjection } from "./prompt-injection-controls";
+import { CapabilityNotice } from "../capabilities/capability-notice";
 
 /** Vault key naming rule (consistent with core/server): shell environment variable name. */
 const VAULT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -164,6 +165,10 @@ export function VaultTab({
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{S.vault.readOnlyHint}</p>
         )}
       </div>
+
+      {/* What this build may do with stored data, and why the rest is off (design/004 §5): a
+          capability that failed its runtime probe must be visibly refused here, not just absent. */}
+      <CapabilityNotice />
 
       {toggleCard}
       {alertStrip}

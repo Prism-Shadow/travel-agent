@@ -116,7 +116,20 @@ export class Environment implements EnvironmentInterface {
 
   constructor(config: EnvironmentConfig) {
     this.workspaceDir = config.workspaceDir;
-    this.toolConfig = config.toolConfig;
+    // Host tools are folded into the tool config rather than kept beside it, so that `listTools`,
+    // `toolPermission` and the assembly loop below all see one list. A host that supplies none
+    // leaves the caller's object untouched.
+    const hostTools = config.hostTools ?? [];
+    this.toolConfig =
+      hostTools.length === 0
+        ? config.toolConfig
+        : {
+            ...config.toolConfig,
+            customTools: [
+              ...config.toolConfig.customTools,
+              ...hostTools.map((tool) => tool.definition),
+            ],
+          };
     this.sessionId = config.sessionId;
     this.truncatedToolOutputArchive = config.sessionScratchpadDir
       ? new TruncatedToolOutputArchive({
@@ -152,6 +165,18 @@ export class Environment implements EnvironmentInterface {
     for (const def of config.toolConfig.customTools) {
       const factory = BUILTIN_TOOL_FACTORIES[def.name];
       if (factory) this.tools.set(def.name, factory(def, services));
+    }
+    // Then the host's own, which bring their factory with them (see `EnvironmentConfig.hostTools`).
+    // Registered after the registry's so that a host tool cannot silently shadow a builtin: the
+    // name collision is refused here rather than resolved by ordering.
+    for (const tool of hostTools) {
+      if (BUILTIN_TOOL_FACTORIES[tool.definition.name]) {
+        throw new Error(
+          `The host offered a tool named "${tool.definition.name}", which is already a built-in. ` +
+            `Shadowing one would make the same name mean different things in different hosts.`,
+        );
+      }
+      this.tools.set(tool.definition.name, tool.create(tool.definition, services));
     }
     // MCP Servers bridge in lazily: construction only records the config; connecting and
     // tool discovery happen on the first listTools()/executeTool() (see McpToolProvider).
