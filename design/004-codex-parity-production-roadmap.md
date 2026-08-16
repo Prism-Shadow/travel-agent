@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| 状态 | **Phase 0–4 代码完成、人工验收待做**（`code_complete_manual_pending`；逐 Phase 状态以 §2.1 总表为准，本行只是摘要） |
+| 状态 | **Phase 0–4 代码完成、Phase 5 工程轨代码完成、人工验收待做**（`code_complete_manual_pending`；安全轨隔离 D3 未决；逐 Phase 状态以 §2.1 总表为准） |
 | 日期 | 2026-08-16 |
 | 基线 | 规划基线 travel-agent `8cead1d` · Electron 43.2.0 |
 | 终点 | **Codex App 同等级的单窗口浏览器体验 + 可生产上线（GA）**。MVP / vertical slice 只是内部里程碑，不是终点 |
@@ -75,7 +75,7 @@
 | 2 | 浏览器功能完整 | code_complete_manual_pending | 8–12 d | 1；结论见 [`docs/verification/phase-02.md`](../docs/verification/phase-02.md) |
 | 3 | Agent-first 交互与付款确认（交互层） | code_complete_manual_pending | 8–12 d | 2；结论见 [`docs/verification/phase-03.md`](../docs/verification/phase-03.md) |
 | 4 | 隐私 Vault 与交易机器 | code_complete_manual_pending | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标**；结论见 [`docs/verification/phase-04.md`](../docs/verification/phase-04.md) |
-| 5 | 生产加固 | planned | 6–10 d | 3（可与 4 并行开始） |
+| 5 | 生产加固 | in_progress（工程轨代码完成；安全轨隔离 D3 未决） | 6–10 d | 3（可与 4 并行开始）；结论见 [`docs/verification/phase-05.md`](../docs/verification/phase-05.md) · [`isolation.md`](../docs/verification/isolation.md) |
 | 6 | 跨平台 Beta | planned | 6–10 d | 5 |
 | 7 | 灰度与集中人工验收 | planned | 5–8 d（日历更长） | 6 |
 | 8 | GA | planned | 2–3 d（发布执行） | 7；D5 go |
@@ -184,6 +184,10 @@
 - **退出标准**：§5「GA 必须」全部 verified 或有 flag-off 豁免记录；崩溃报告三平台冒烟收到；003 §12 A1–A7 在隔离方案下通过，或明确记录「本版 GA 走 A 档，A1–A7 豁免」（§9 分档）。
 - **人工测试**：`docs/manual-testing/phase-05-hardening.md`——断网/杀 relay/杀扩展下的恢复体验、崩溃上报后台抽查（含无值抽验）。
 - **Checkpoint commit**：`chore(hardening): crash reporting with no values, CI guards, and the isolation verdict`
+- **进度（如实记录）**：
+  - **工程轨代码完成**（两个 commit）：CI 安全守卫（debug 开关源码扫描 + 打包期 Electron fuses 校验）；`core` 的秘密形状脱敏 `redactSecrets`/`redactDeep`（供日志与崩溃载荷共用，Luhn 判卡号以免误伤任务 id）；`desktop/src/crash-reporting.ts` 三层崩溃上报（本地、结构化、无值、记录不吞异常）；`server` 观测指标 `ObservabilityMetrics` + `GET /api/metrics`（takeover/secret_phase/卡片回退率，小样本 rate 为 null）；`desktop/src/recovery-status.ts` 统一恢复状态词表。结论见 [`docs/verification/phase-05.md`](../docs/verification/phase-05.md)。
+  - **安全轨（隔离，决策点 D3）未决**：隔离方案未选型未实施，A1–A7 未跑；`vault.l2l3`/`secret_entry.live`/`payments.execute` 仍 fail-closed。裁决与选项记于 [`docs/verification/isolation.md`](../docs/verification/isolation.md)。这是 Phase 5 收尾与「含 L2/L3 的 GA」的前置。
+  - **两处收尾项**（verification §8）：卡片回退率待自然语言确认路径接线后才有分母；统一恢复状态词表已交付，逐个 handler 渲染接线与 `browser.recovery.*` 文案待补。
 
 ### Phase 6 · 跨平台 Beta
 

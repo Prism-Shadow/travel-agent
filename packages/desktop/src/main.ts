@@ -16,6 +16,7 @@
  * set) and quit through the regular quit path, exercising the graceful server stop.
  */
 import path from "node:path";
+import nodeFs from "node:fs";
 import { app, BrowserWindow, dialog, shell } from "electron";
 import { resolveRoot, resolveFlagsFromEnv } from "@prismshadow/penguin-core";
 import { liveServerLock } from "@prismshadow/penguin-server/lock";
@@ -49,6 +50,7 @@ import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
 import { startVaultShell } from "./vault-shell.js";
 import { paneTargetResolver } from "./vault/pane-target-resolver.js";
+import { fileCrashSink, installCrashReporting } from "./crash-reporting.js";
 import type { EmbeddedServer } from "./server-process.js";
 import type { UtilityProcess } from "electron";
 import { initUpdater } from "./updater.js";
@@ -500,6 +502,25 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() =>
     (async () => {
+      // Record crashes in all three processes to a local, value-free log before anything else can
+      // crash (design/004 Phase 5, 003 §4.6). The payload is scrubbed through the shared secret
+      // redaction; nothing user-identifying or secret is written. Best-effort and non-fatal.
+      installCrashReporting({
+        // Electron's `App` and Node's `Process` carry these methods; the port names just the
+        // subset the reporter uses, so a structural cast is the honest bridge.
+        app: app as unknown as Parameters<typeof installCrashReporting>[0]["app"],
+        process: process as unknown as Parameters<typeof installCrashReporting>[0]["process"],
+        sink: fileCrashSink({
+          dir: path.join(app.getPath("userData"), "crash-reports"),
+          mkdirSync: (dir) => nodeFs.mkdirSync(dir, { recursive: true }),
+          appendFileSync: (file, data) => nodeFs.appendFileSync(file, data),
+          join: path.join,
+          log: (line) => process.stdout.write(`[crash] ${line}`),
+        }),
+        surfaceOf: (contents) =>
+          browserPane?.ownershipOf(contents as never) ? "in-app browser view" : "app window",
+      });
+
       // Standard menu plus native desktop-only actions; the window gets no IPC channel.
       installAppMenu({
         includeCliInstall: currentCliInstallKind() !== null,

@@ -37,6 +37,8 @@ import { authMiddleware, jsonOnlyWrites } from "./auth/middleware.js";
 import type { AppEnv } from "./auth/middleware.js";
 import { brokerFromEnv } from "./broker/client.js";
 import { capabilitiesRoutes } from "./http/routes/capabilities.js";
+import { metricsRoutes } from "./http/routes/metrics.js";
+import { ObservabilityMetrics } from "./metrics/observability.js";
 import { vaultHostTools } from "./tools/vault-tools.js";
 import { InteractionService } from "./interaction/service.js";
 import { interactionCommandEnv } from "./interaction/tokens.js";
@@ -146,6 +148,8 @@ export interface AppDeps {
    * the confirmation card.
    */
   interactions: InteractionService;
+  /** Live observability rates for the admin surface (003 §13). */
+  metrics: ObservabilityMetrics;
   /** Request log output (minimal one-liner); tests inject a noop. */
   log: (line: string) => void;
 }
@@ -242,10 +246,14 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
   // Interaction cards, the payment guard, and this Session's journal/checkpoint files. Built
   // before the manager because the manager tells it when a turn ends; it needs only the channel
   // hub, which already exists.
+  // Live observability gauge (003 §13): the interaction service feeds it the kind of every card
+  // raised, so the takeover / secret-phase / card-fallback rates have a denominator.
+  const metrics = new ObservabilityMetrics(overrides.now ? { now: overrides.now } : {});
   const interactions = new InteractionService({
     root: config.root,
     flags: resolveFlagsFromEnv().flags,
     publish: (sessionId, event) => channels.get(sessionId).publish(event, "server_event"),
+    onInteractionRaised: (kind) => metrics.recordInteraction(kind),
     scratchpadDir: (locator) =>
       sessionScratchpadDir(config.root, locator.projectId, locator.agentId, locator.sessionId),
     ...(overrides.now ? { now: overrides.now } : {}),
@@ -410,6 +418,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     sessionSources,
     errors,
     interactions,
+    metrics,
     desktop: config.desktopToken !== null ? new DesktopService(config.desktopToken) : null,
     log,
   };
@@ -509,6 +518,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   // What this build may do, and the reason for everything it may not (004 §5): read by the
   // settings panel so a capability that failed its probe is visible rather than merely absent.
   app.route("/api/capabilities", capabilitiesRoutes(deps));
+  app.route("/api/metrics", metricsRoutes(deps));
   app.route("/api/admin/users", adminUsersRoutes(deps));
   app.route("/api/admin/settings", adminSettingsRoutes(deps));
   app.route("/api/events", eventsRoutes(deps));

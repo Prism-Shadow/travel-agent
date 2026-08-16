@@ -61,6 +61,11 @@ export interface InteractionServiceDeps {
   publish: (sessionId: string, event: InteractionServerEvent) => void;
   /** Resolves a Session's scratchpad directory (injected so tests need no app data root). */
   scratchpadDir: (locator: SessionLocator) => string;
+  /**
+   * Observability hook (003 §13): told the kind of every card raised, so the takeover and
+   * secret-phase rates have a denominator. Optional — absent in tests that do not care.
+   */
+  onInteractionRaised?: (kind: string) => void;
   now?: () => Date;
   log?: (line: string) => void;
 }
@@ -175,6 +180,7 @@ export class InteractionService {
       computeDigest: paymentSummaryDigest,
     });
     state.registry.create(interaction);
+    this.deps.onInteractionRaised?.(interaction.kind);
     this.deps.publish(locator.sessionId, { type: "interaction_request", interaction });
 
     const stage = stageFor(interaction);
