@@ -208,6 +208,31 @@ jobs:
       - name: Build packages
         run: pnpm --dir packages/desktop exec electron-builder ${{ matrix.args }} --publish never ${{ runner.os == 'macOS' && inputs.require_macos_signing && '-c.mac.forceCodeSigning=true' || '' }}
 
+      # design/002 §11.2's second guard: the packaged binary must carry the security fuses that
+      # apply-fuses.mjs flips at pack time (RunAsNode / inspector off), so a shipped app cannot be
+      # relaunched as a bare Node process. A hard fail here — finding no binary counts as a failure,
+      # not a skip, so the guard cannot go green by quietly checking nothing.
+      - name: Security guard (Electron fuses in the packaged binary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          targets=(
+            packages/desktop/stage/out/mac*/PenguinHarness.app
+            packages/desktop/stage/out/*-unpacked/PenguinHarness.exe
+            packages/desktop/stage/out/*-unpacked/penguinharness
+            packages/desktop/stage/out/*-unpacked/PenguinHarness
+          )
+          if ((${#targets[@]} == 0)); then
+            echo "::error title=No packaged binary::fuse guard found nothing under stage/out to check"
+            exit 1
+          fi
+          for t in "${targets[@]}"; do
+            echo "::group::fuse guard $t"
+            node packages/desktop/scripts/check-fuses.mjs "$t"
+            echo "::endgroup::"
+          done
+
       - name: Notarize and staple macOS DMGs
         if: runner.os == 'macOS' && inputs.require_macos_signing
         shell: bash

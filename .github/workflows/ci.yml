@@ -33,6 +33,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # A hard fail if a debug/inspector switch (--remote-debugging-port and friends) is used in
+      # shipped source — design/002 §11.2 calls a leaked port a severe defect, since it exposes
+      # every target in the process, including the user's authenticated window, to any local
+      # caller. Runs before the build so it fails fast. Fuses are checked at package time
+      # (desktop-build.yml), against the built binary.
+      - name: Security guard (no debug switches in source)
+        run: node packages/desktop/scripts/check-debug-switches.mjs
+
       - name: Build (tsup)
         run: pnpm build
 
@@ -92,6 +100,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Security guard (no debug switches in source)
+        run: node packages/desktop/scripts/check-debug-switches.mjs
 
       - name: Build (tsup)
         run: pnpm build

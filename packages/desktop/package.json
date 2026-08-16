@@ -15,7 +15,9 @@
     "pack:linux": "node scripts/stage.mjs && electron-builder --linux",
     "pack:mac": "node scripts/stage.mjs && electron-builder --mac",
     "pack:win": "node scripts/stage.mjs && electron-builder --win",
-    "test:e2e": "node e2e/run-iab-e2e.mjs"
+    "test:e2e": "node e2e/run-iab-e2e.mjs",
+    "check:debug-switches": "node scripts/check-debug-switches.mjs",
+    "check:fuses": "node scripts/check-fuses.mjs"
   },
   "dependencies": {
     "@prismshadow/penguin-cli": "workspace:*",
@@ -27,11 +29,12 @@
     "penguin-browser": "workspace:*"
   },
   "devDependencies": {
+    "@electron/fuses": "^1.8.0",
     "@types/node": "^24.0.0",
     "electron": "^43.2.0",
+    "electron-builder": "^26.0.12",
     "tsup": "^8.3.0",
     "typescript": "^5.6.0",
-    "vitest": "^3.2.6",
-    "electron-builder": "^26.0.12"
+    "vitest": "^3.2.6"
   }
 }

@@ -29,6 +29,10 @@ asar: false
 # against the pruned package.json.
 npmRebuild: false
 nodeGypRebuild: false
+# After each arch is laid out, flip the Electron security fuses into the binary (design/002
+# §11.2): RunAsNode and the inspector fuses off, so a shipped app cannot be relaunched as a bare
+# Node process or reopened with --inspect. check-fuses.mjs verifies the result in the workflow.
+afterPack: scripts/apply-fuses.mjs
 
 mac:
   category: public.app-category.developer-tools
