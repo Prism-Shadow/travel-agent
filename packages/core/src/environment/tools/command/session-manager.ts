@@ -91,6 +91,13 @@ const STRIPPED_ENV_KEYS = new Set([
   // command the Agent itself ran — must never be able to stand in for the real one.
   "PENGUIN_SESSION_ID",
   "PENGUIN_TASK_ID",
+  // The host's per-turn channel for the commands this Agent runs (see
+  // `EnvironmentConfig.commandEnv`): where to reach the conversation, and the credential that
+  // proves the caller is this turn's agent. Stripped from the *inherited* environment for the
+  // same reason as the identity pair — an outer harness's token must never stand in for this
+  // turn's, and a turn that has ended must leave nothing behind that still authenticates.
+  "PENGUIN_INTERACTION_URL",
+  "PENGUIN_INTERACTION_TOKEN",
 ]);
 
 /**
@@ -161,12 +168,15 @@ export function commandChildEnv(input: {
   proxy: ProxyEnvPolicy | null;
   vault: Record<string, string>;
   identity: { sessionId: string; taskId: string } | null;
+  /** Host-supplied, per-turn. Last, so nothing the user can edit shadows it. */
+  hostEnv?: Record<string, string>;
 }): NodeJS.ProcessEnv {
   return {
     ...hostEnvForChild(input.proxy),
     ...input.vault,
     ...HARDENED_ENV,
     ...identityEnv(input.identity),
+    ...(input.hostEnv ?? {}),
   };
 }
 
@@ -195,15 +205,25 @@ export class CommandSessionManager {
    * carry a turn's authority.
    */
   private readonly identity: (() => { sessionId: string; taskId: string } | null) | undefined;
+  /**
+   * Extra variables the host wants every command to carry (see `EnvironmentConfig.commandEnv`).
+   *
+   * A getter, read at spawn, for the same reason as the two above: its values are usually scoped
+   * to the turn, and a snapshot taken when the Session loaded would hand a finished turn's
+   * credential to a command started an hour later.
+   */
+  private readonly commandEnv: (() => Record<string, string>) | undefined;
 
   constructor(opts?: {
     vault?: Record<string, string>;
     proxyEnv?: () => ProxyEnvPolicy | null;
     identity?: () => { sessionId: string; taskId: string } | null;
+    commandEnv?: () => Record<string, string>;
   }) {
     this.vault = opts?.vault ?? {};
     this.proxyEnv = opts?.proxyEnv;
     this.identity = opts?.identity;
+    this.commandEnv = opts?.commandEnv;
   }
 
   /** Starts a command, returning an **unregistered** session (no process_id yet). */
@@ -231,6 +251,7 @@ export class CommandSessionManager {
         proxy: this.proxyEnv?.() ?? null,
         vault: this.vault,
         identity: this.identity?.() ?? null,
+        ...(this.commandEnv ? { hostEnv: this.commandEnv() } : {}),
       }),
     });
   }

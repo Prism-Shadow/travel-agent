@@ -3,7 +3,7 @@ name: penguin-browser
 description: Control explicitly authorized tabs in the user's local Chrome through the Penguin Browser CLI, a local CDP relay, and persistent Playwright sessions. Use for interactive or authenticated browser tasks that require the rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
 short_description: Automate authorized Chrome tabs through the local CLI.
 short_description_zh: 通过本地 CLI 自动化已授权的 Chrome 标签页。
-version: 6
+version: 7
 updated: 2026-08-15T00:00:00Z
 ---
 
@@ -67,7 +67,8 @@ Authorization rules:
 - Treat extension attachment as consent for that tab only.
 - Do not enable another tab, direct CDP, remote debugging, or broad browser flags as a shortcut around consent.
 - Never use profile-wide cookie/cache clearing commands.
-- Do not automate passwords, payments, permission prompts, or CAPTCHAs without the user's direct participation.
+- Do not automate passwords, payments, permission prompts, or CAPTCHAs. Payments have their own
+  protocol — a card, then a stop — see "Payment: stop, ask, and do not press the button".
 - If several authorized tabs match, inspect their URLs and ask which one to use before a destructive or externally visible action.
 
 ## Choosing a backend
@@ -246,53 +247,116 @@ penguin-browser -s "$PENGUIN_BROWSER_SESSION" -e 'state.dialogHandler = async (d
 
 For an irreversible confirmation, stop after printing the message and ask the user before rerunning with an accepting handler. Do not confuse JavaScript dialogs with browser or OS permission prompts; leave native permission UI to the user.
 
-## Handing control to the human
+## Asking the person for something
 
-Verification codes, slider captchas, SMS one-time passwords and payment confirmations are not
-yours to solve. Hand the step to the person instead, and wait:
+Six kinds, and the choice between them is not about politeness — it decides **whether you keep
+working**. Four of them are cards in the conversation and leave you driving the browser; two hand
+the page over and are the ones to avoid.
+
+| kind | Use it for | While it is open |
+| --- | --- | --- |
+| `info_request` | a fact only they have: how many passengers, which airport | you keep working |
+| `selection` | two to four real options, each with a reason to be on the list | you keep working |
+| `commitment_confirmation` | **any payment or final order** — see below | you keep working |
+| `secret_entry` | a CVV, an SMS code, a 3DS prompt | you pause; they type it into the site's own field |
+| `human_challenge` | a slider, a captcha, a bank page that needs a real click | they hold the page briefly |
+| `browser_takeover` | nothing the other five cover — **last resort**, needs a `--reason` | they hold the page |
 
 ```bash
-penguin-browser request-help -s "$PENGUIN_BROWSER_SESSION" \
-  --prompt "请在页面上输入收到的短信验证码，完成后点「我处理好了」" \
-  --target "#captcha-input" \
-  --timeout 120000
+penguin-browser interaction request --kind info_request --ask "这趟一共几位乘客？"
+
+penguin-browser interaction request --kind selection --ask "选一个航班，我接着订" \
+  --options-json '[{"id":"mu5137","label":"MU5137 14:20 ¥1280","rationale":"唯一直飞"},
+                   {"id":"ca1234","label":"CA1234 09:05 ¥880","rationale":"便宜 400，中转 1 次"}]'
+
+penguin-browser interaction request --kind human_challenge -s "$PENGUIN_BROWSER_SESSION" \
+  --ask "请完成这个滑块验证，完成后点「我处理好了，交还」" --target ".slider" --timeout 120000
 ```
 
-This draws a small non-modal card on the tab the human is already looking at, highlights
-`--target` if given, and blocks until they answer. It prints one JSON line:
+Each prints one JSON line:
 
 ```json
-{ "resolved": true, "message": "验证码输好了，顺便看看更早的班次", "reason": "done", "waitedMs": 18402 }
+{ "resolved": true, "status": "answered", "value": "两位成人", "waitedMs": 18402 }
 ```
 
-Read all three fields:
+Read `status`, not just `resolved`:
 
-- **`resolved`** — `true` only when the human confirmed. `false` covers cancel, timeout, an
-  aborted run and a closed tab; `reason` says which.
-- **`message`** — free text the human left. Treat it as steering: fold it into the task you are
-  already doing, do not start a new one. It routinely changes the plan ("code entered, and also
-  check for an earlier flight"), so read it before continuing.
-- **`reason`** — `done` · `cancelled` · `timeout` · `aborted` · `page_closed`.
+- **`answered`** — they answered. `value` / `optionId` / `approved` carry what they said, and
+  `message` is free text to fold into the task you are already doing (never a new one).
+- **`declined`** — they said no. Do not do it, and do not ask the same thing again in another form.
+- **`timeout`** — nobody answered. The page may have moved on: re-read it before deciding whether to
+  ask again, resume, or stop and report.
+- **`unavailable`** — this command is not running inside a Travel Agent turn, so there is no
+  conversation to raise a card in. Ask in your reply instead; never draw a payment summary on the
+  booking page.
 
-A `timeout` is not a failure to retry blindly. The human walked away; the page state may have
-moved on. Re-read the page before deciding whether to ask again, resume, or stop and report.
+`browser_takeover` is refused without `--reason`, and the reason is shown to the person. Needing one
+often means an earlier step could have been a card: check before reaching for it.
 
-Inside a longer script, the same primitive is in scope as `requestHelp` — use it when the handoff
-sits in the middle of a flow rather than between two CLI calls:
+**Never work around a card.** Do not type a password on somebody's behalf, do not attempt a captcha,
+and do not click a final payment button because a question timed out.
+
+## Payment: stop, ask, and do not press the button
+
+**Before any payment or final order, raise a `commitment_confirmation` card and wait.** This is not
+a style rule; the browser refuses the click, and the harness refuses the payment.
+
+The card carries seven fields, all required. A card missing any of them is refused, because a
+purchase shown without (say) its cancellation terms is one the person was not really shown:
 
 ```bash
-penguin-browser -s "$PENGUIN_BROWSER_SESSION" --timeout 180000 -e 'const r = await requestHelp({ prompt: "请完成滑块验证", targetSelector: ".slider", timeoutMs: 120000 }); if (!r.resolved) throw new Error("handoff " + r.reason); console.log(r.message ?? "")'
+penguin-browser interaction request --kind commitment_confirmation \
+  --ask "确认这笔付款" \
+  --payment-json '{
+    "merchant": { "name": "携程", "domain": "ctrip.com" },
+    "item": "MU5137 2026-09-02 经济舱 1 成人",
+    "amount": { "value": 1280, "currency": "CNY" },
+    "cancellation": { "summary": "起飞前 24 小时可退，收 200 元手续费", "url": "https://…" },
+    "paymentMethod": { "alias": "常用信用卡", "brand": "Visa", "last4": "4242" }
+  }'
 ```
 
-Note the outer `--timeout`: it has to outlast the handoff, or the command dies while the human is
-still typing.
+`merchant.domain` is the eTLD+1 of the page you are actually on — it is the field the checks judge
+by, and a display name is not a substitute. The payment method is an alias, a brand and four digits;
+never a card number and never a token.
 
-Solving a captcha usually navigates. That is handled — the overlay is re-created on the new page
-under the same request, and the wait continues. You do not need to re-issue `request-help` after
-a navigation.
+Then **stop at the payment page**. This build does not press the site's pay button: a click on one
+comes back as
 
-Ask for a handoff, never around it: do not type a password on the user's behalf, do not attempt a
-captcha, and do not click a final payment button because a handoff timed out.
+```
+IAB_PAYMENT_CLICK_BLOCKED: "立即支付" looks like the control that takes the money…
+```
+
+That is the intended end of your turn. Tell the person the page is ready and that they can complete
+the payment (or the wallet / OTP step) themselves, declare the task `committed` when you delete the
+session so the tab is kept, and stop. Do not hunt for another element that does the same thing.
+
+If a build does allow it (`payments.agent_click_pay`, off by default), ask first and report after:
+
+```bash
+penguin-browser payment authorize --action ctrip.payFlightOrder \
+  --plan-json '{"merchantDomain":"ctrip.com","item":"MU5137 2026-09-02 经济舱 1 成人",
+                "amount":1280,"currency":"CNY","cancellation":"起飞前 24 小时可退，收 200 元手续费"}'
+# → {"status":"refused","reason":"agent_pay_disabled","detail":[…]}   ← the default
+# → {"status":"authorized","authorization":{"authorizationId":"pay-…"}}
+penguin-browser payment report --authorization pay-… --outcome-json '{"orderId":"E123456"}'
+```
+
+`plan-json` is what the page says **now**. Anything that moved since the card — the price, the
+dates, the cancellation terms, a new fee, a different merchant domain — is refused, and a different
+domain is refused outright with no way to re-confirm. Report the refusal to the person; do not
+retry it, and never ask them to confirm a domain they did not choose.
+
+If an authorised payment is interrupted before you report its outcome, the next attempt is refused
+with `dangling_intent`: the payment may already have gone through. Check the order with the merchant
+and tell the person what you find. Do not pay again.
+
+## When the person is holding the page
+
+While a `human_challenge` or `browser_takeover` is open, your writes are refused with
+`IAB_USER_CONTROL` (reads still work — watching the page is how you know they finished), and during
+a secret step everything is refused with `IAB_SECRET_PHASE`. These are states, not errors: wait for
+the interaction to return rather than retrying in a loop.
 
 ## Downloads
 
@@ -375,5 +439,7 @@ Never close the browser context or the user's Chrome. If cleanup fails because t
 - [ ] DOM/ARIA inspection preceded visual fallback.
 - [ ] Every consequential action was verified.
 - [ ] Dialogs, downloads, and new pages were handled with waits registered before triggers.
+- [ ] Any payment or final order was preceded by a `commitment_confirmation` card that the person answered.
+- [ ] No payment button was pressed, and no workaround for one was attempted.
 - [ ] No profile-wide destructive operation, secret disclosure, or invented PenguinHarness tool was used.
 - [ ] Agent-created listeners/pages and the CLI session were cleaned up.

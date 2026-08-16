@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| 状态 | **Phase 0–2 代码完成、人工验收待做**（`code_complete_manual_pending`；逐 Phase 状态以 §2.1 总表为准，本行只是摘要） |
+| 状态 | **Phase 0–3 代码完成、人工验收待做**（`code_complete_manual_pending`；逐 Phase 状态以 §2.1 总表为准，本行只是摘要） |
 | 日期 | 2026-08-15 |
 | 基线 | 规划基线 travel-agent `8cead1d` · Electron 43.2.0 |
 | 终点 | **Codex App 同等级的单窗口浏览器体验 + 可生产上线（GA）**。MVP / vertical slice 只是内部里程碑，不是终点 |
@@ -49,8 +49,8 @@
 | M10 | 输入法 / 剪贴板 / 上传 | 原生可用 | WebContentsView 原生能力，重点在**验证**而非实现（中文 IME 三平台、文件对话框） | 理论可用，未验证 | 1 验证 / 6 全平台复验 |
 | M11 | 无障碍 | 页面对辅助技术可达 | 页面侧靠真实 Chromium；自绘 tab strip / 地址栏 / 卡片补 ARIA 与键盘导航 | 页面侧天然满足；自绘件 Phase 2 已补 ARIA 与键盘导航，验证在 6 | 2 实现 / 6 验证 |
 | M12 | 跨平台 | macOS / Windows / Linux | 同；Linux Wayland 单窗口方案无窗口编排问题，仅 keyring 缺失时 Vault 停用（003 §4.4） | CI 已跑 Ubuntu/Windows；macOS 签名公证链路已通（见下注） | 6 |
-| M13 | Agent-first 介入 | Codex 以审批/确认为主，接管为例外 | `requestUserInteraction` 六类，takeover 为 last resort（003 §7） | `requestHelp` 单形态 | 3 |
-| M14 | 付款确认 | —（Codex 无此场景，本产品的核心差异化） | 模型主动暂停 + 确认卡/明确对话；确定性兜底；Phase 4 后对抗性保证（003 §8） | `transaction` 库完成未接线 | 3 / 4 |
+| M13 | Agent-first 介入 | Codex 以审批/确认为主，接管为例外 | `requestUserInteraction` 六类，takeover 为 last resort（003 §7） | Phase 3 代码完成：六类齐备，四类为对话卡片、两类才碰浏览器；takeover 强制 reason | 3 |
+| M14 | 付款确认 | —（Codex 无此场景，本产品的核心差异化） | 模型主动暂停 + 确认卡/明确对话；确定性兜底；Phase 4 后对抗性保证（003 §8） | Phase 3 代码完成：七字段卡片 + Commitment + submitBooking 兜底 + 写闸门拒点付款；capability/digest 全量机器在 4 | 3 / 4 |
 
 注：M12 现状中 macOS 签名公证链路指上游快照提交 `d14be6f`（001 基线）随仓带入的 `desktop-build.yml`/`release.yml` 与 entitlements 配置。
 
@@ -73,7 +73,7 @@
 | 0 | 规划与关键验证 | completed | 2–3 d | 规划 checkpoint 已 push（`8474f0c`）；结论见 [`docs/verification/phase-00.md`](../docs/verification/phase-00.md) |
 | 1 | Vertical slice：左聊右览 | code_complete_manual_pending | 5–8 d | 0；结论见 [`docs/verification/phase-01.md`](../docs/verification/phase-01.md) |
 | 2 | 浏览器功能完整 | code_complete_manual_pending | 8–12 d | 1；结论见 [`docs/verification/phase-02.md`](../docs/verification/phase-02.md) |
-| 3 | Agent-first 交互与付款确认（交互层） | planned | 8–12 d | 2 |
+| 3 | Agent-first 交互与付款确认（交互层） | code_complete_manual_pending | 8–12 d | 2；结论见 [`docs/verification/phase-03.md`](../docs/verification/phase-03.md) |
 | 4 | 隐私 Vault 与交易机器 | planned | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标** |
 | 5 | 生产加固 | planned | 6–10 d | 3（可与 4 并行开始） |
 | 6 | 跨平台 Beta | planned | 6–10 d | 5 |
@@ -147,7 +147,13 @@
 - **自动测试**：六类分派与卡片载荷（敏感位只允许掩码/handle 形状）；写闸门逐方法断言；takeover 无 reason 拒绝；**`secret_entry` 契约测试全部用 dummy 值**（通道形状、状态机全转换、`secret_entry.live` 默认 off、off 时真实类调用被拒并转 human-only 提示）；`submitBooking` 兜底路径（漂移即拒、无确认通道即拒）；journal 接线后的 SIGKILL 复验（001 §7.3 手法在真实 session 路径重跑）；逃逸用例 `await import('child_process')` 被拒。
 - **退出标准**：上列自动测试全绿；一次完整演示：搜索→选择卡→确认卡→停在支付页，全程用户未碰浏览器（遇 OTP 类节点时 Agent 停顿、用户在页面自行完成——这正是本 Phase 的合规形态）；`secret_entry.live` 默认 off 有测试钉住。
 - **人工测试**：`docs/manual-testing/phase-03-agent-interaction.md`——六类各走一遍（`secret_entry` 用 dummy 演示）；真实 OTP 场景验证 **Agent 停顿且绝不代填**；模糊确认话术抽查（「可以」「付吧」必须回退卡片）；takeover 兜底体验。
-- **Checkpoint commit**：`feat(interaction): agent-first — six interaction kinds, a payment pause that cannot be skipped, and drift-checked commitments`
+- **Checkpoint commit**：`feat(interaction): agent-first payment confirmation and handover state machine`
+- **实现与规划的差异（如实记录）**：
+  - **卡片走 harness，不走 relay**：四类卡片由 agent 的命令经 `POST /api/agent/interactions` 送到会话（凭本轮 task token 鉴权），SSE 推卡片，用户在对话里回答。规划文本只说了「EscalationChannel app 内实现」，没有指定 agent→server 这一跳；选它是因为卡片属于对话，而 relay 只有浏览器。
+  - **付款闸门是两层**：浏览器侧按控件文案拒绝点击（`IAB_PAYMENT_CLICK_BLOCKED`，护栏不是边界），harness 侧五道检查（未确认/过期/换商户/漂移/本档不许点）。`payments.agent_click_pay` 在本 Phase **不可能被打开**（依赖链要 vault + 隔离），已有测试钉住。
+  - **journal 括的是「授权」而非「点击」**：`submitBooking` 的 `submit` 在 agent 回报结果时才 resolve，因此 intent 在放行前落盘、result 在回报后写入；中途崩溃留下 dangling intent，下一次同一笔被拒并要求对账。SIGKILL 复验以此形态实现（`server/test/payment-guard.test.ts`）。
+  - **付款条款写在 skill，不写进 core 的 `[goal]` 块**：core 的 goal prompt 是产品中立的；把旅行付款规则塞进去会让 harness 带上产品语义。真正不依赖 prompt 的强制在写闸门与付款守卫。
+  - **`secret_entry` 契约态**：卡片只解释「需要什么、做什么用」，**没有输入框**——本 Phase 应用不代填，`secret_entry.live` 不可开启。状态机（含 secret_phase 三出口）已完整实现并测试，detach 与「证明清空」属 Phase 4。
 
 ### Phase 4 · 隐私 Vault 与交易机器
 

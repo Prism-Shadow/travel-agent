@@ -28,6 +28,10 @@ import { getExtensionOutdatedWarning } from './relay-client.js'
 import { isExtensionTransportDisconnectedError } from './extension-errors.js'
 import { waitForPageLoad, WaitForPageLoadOptions, WaitForPageLoadResult } from './wait-for-page-load.js'
 import { requestHelp, type RequestHelpOptions } from './request-help.js'
+import { requestUserInteraction, type RequestInteractionOptions } from './user-interaction.js'
+import { sandboxedProcess } from './sandboxed-process.js'
+import { guardHelper, guardPage, unguard } from './write-gate.js'
+import { forgetControl } from './handover-state.js'
 import { ClaimResult, selectReusableBlankTargetId, SerializedOwnedTabOpener, tabRegistry } from './tab-ownership.js'
 import {
   classifyOutcome,
@@ -642,7 +646,10 @@ export class PlaywrightExecutor {
     page.on('close', () => {
       const stateKeysForClosedPage = Object.entries(this.userState)
         .filter(([, value]) => {
-          return value === page
+          // Unwrapped: what a snippet stored in `state.page` is the *gated* view of this page (see
+          // write-gate.ts), and a raw identity comparison would silently stop noticing that the
+          // agent's own tab had closed.
+          return unguard(value) === page
         })
         .map(([key]) => key)
 
@@ -1429,7 +1436,7 @@ export class PlaywrightExecutor {
           showDiffSinceLastCall = !search,
           interactiveOnly = false,
         } = options
-        const resolvedPage = targetPage || page
+        const resolvedPage = unguard(targetPage) || page
         if (!resolvedPage) {
           throw new Error('snapshot requires a page')
         }
@@ -1525,7 +1532,8 @@ export class PlaywrightExecutor {
       }
 
       const refToLocator = (options: { ref: string; page?: Page }): string | null => {
-        const targetPage = options.page || page
+        // The ref map is keyed by the real page object.
+        const targetPage = unguard(options.page) || page
         const map = this.lastRefToLocator.get(targetPage)
         if (!map) {
           return null
@@ -1533,7 +1541,8 @@ export class PlaywrightExecutor {
         return map.get(options.ref) ?? null
       }
 
-      const getLocatorStringForElement = async (element: any) => {
+      const getLocatorStringForElement = async (rawElement: any) => {
+        const element = unguard(rawElement)
         if (!element || typeof element.evaluate !== 'function') {
           throw new Error('getLocatorStringForElement: argument must be a Playwright Locator or ElementHandle')
         }
@@ -1637,23 +1646,29 @@ export class PlaywrightExecutor {
       }
 
       const getCDPSession = async (options: { page: Page }) => {
-        if (options.page.isClosed()) {
+        // Unwrapped before it reaches Playwright: a snippet holds the gated view of the page, and
+        // handing a Proxy to `newCDPSession` would ask Playwright to recognise an object it did not
+        // create. The gate is for the agent's calls, never for Playwright's.
+        const target = unguard(options.page)
+        if (target.isClosed()) {
           throw new Error('Cannot create CDP session for closed page')
         }
-        return await getCDPSessionForPage({ page: options.page })
+        return await getCDPSessionForPage({ page: target })
       }
 
       const createDebugger = (options: { cdp: ICDPSession }) => new Debugger(options)
       const createEditor = (options: { cdp: ICDPSession }) => new Editor(options)
 
       const getStylesForLocatorFn = async (options: { locator: any }) => {
-        const cdp = await getCDPSession({ page: options.locator.page() })
-        return getStylesForLocator({ locator: options.locator, cdp })
+        const locator = unguard(options.locator)
+        const cdp = await getCDPSession({ page: locator.page() })
+        return getStylesForLocator({ locator, cdp })
       }
 
       const getReactSourceFn = async (options: { locator: any }) => {
-        const cdp = await getCDPSession({ page: options.locator.page() })
-        return getReactSource({ locator: options.locator, cdp })
+        const locator = unguard(options.locator)
+        const cdp = await getCDPSession({ page: locator.page() })
+        return getReactSource({ locator, cdp })
       }
 
       const getReactComponentInfoFn = async (options: { locator: Locator | ElementHandle }) => {
@@ -1713,6 +1728,7 @@ export class PlaywrightExecutor {
       const screenshotWithAccessibilityLabelsFn = async (options: { page: Page; interactiveOnly?: boolean }) => {
         return screenshotWithAccessibilityLabels({
           ...options,
+          page: unguard(options.page),
           collector: screenshotCollector,
           logger: {
             info: (...args) => {
@@ -1733,7 +1749,7 @@ export class PlaywrightExecutor {
       const ghostCursorController = this.ghostCursorController
 
       const showGhostCursor = async (options?: { page?: Page } & GhostCursorClientOptions) => {
-        const targetPage = options?.page || page
+        const targetPage = unguard(options?.page) || page
         const cursorOptions: GhostCursorClientOptions | undefined = (() => {
           if (!options) {
             return undefined
@@ -1747,7 +1763,7 @@ export class PlaywrightExecutor {
       }
 
       const hideGhostCursor = async (options?: { page?: Page }) => {
-        const targetPage = options?.page || page
+        const targetPage = unguard(options?.page) || page
         await ghostCursorController.hide({ page: targetPage })
       }
 
@@ -1792,8 +1808,14 @@ export class PlaywrightExecutor {
         return typed.result
       })
 
+      // Everything a snippet can write through goes through the gate: the page it is handed, the
+      // locators that page produces, and the four helpers that reach the page by their own route
+      // (002 §6.5 — enumerate, do not sample). `context` is deliberately *not* wrapped: it is the
+      // escape hatch the design already acknowledges (003 §1.2), and wrapping it would make the
+      // guardrail read like a boundary.
+      const gatedPage = guardPage(page, this.sessionId)
       let vmContextObj: any = {
-        page,
+        page: gatedPage,
         context,
         browser: this.browser,
         state: this.userState,
@@ -1811,36 +1833,87 @@ export class PlaywrightExecutor {
         // waits. Defaults to the session's page so `-e 'await requestHelp({ prompt: "…" })'`
         // reads as one thought. Never throws for cancel/timeout — see request-help.ts.
         requestHelp: (options: Omit<RequestHelpOptions, 'page'> & { page?: Page }) =>
-          requestHelp({ ...options, page: options.page ?? page }),
+          requestHelp({ ...options, page: unguard(options.page) ?? page }),
+        /**
+         * The six-kind interaction primitive (design/003 §7).
+         *
+         * Where `requestHelp` draws on the page, this one dispatches: a question, a choice or a
+         * payment confirmation becomes a card in the conversation and the agent keeps working; only
+         * a challenge or a takeover hands the page over. `caller` says where this is running — the
+         * relay holds no conversation's credential, so a card asked for here is told where to ask.
+         */
+        requestUserInteraction: (
+          options: Omit<RequestInteractionOptions, 'page' | 'sessionId' | 'caller'> & { page?: Page },
+        ) =>
+          requestUserInteraction({
+            ...options,
+            page: unguard(options.page) ?? page,
+            sessionId: self.sessionId,
+            caller: 'executor',
+          }),
         // General web-interaction primitives: the recurring ways a form fights back (an
         // autocomplete panel swallowing the submit click, a date field that is really a popup
         // calendar, a submit that lands on an auth wall). Site-agnostic by construction — what
         // varies between sites is which control, and that is read from the accessibility tree.
         // See interaction.ts.
-        clickThrough: (target: Parameters<typeof clickThrough>[1], opts?: Parameters<typeof clickThrough>[2]) =>
-          clickThrough(page, target, opts),
-        fillWithSuggestion: (opts: Parameters<typeof fillWithSuggestion>[1]) =>
-          fillWithSuggestion(page, opts),
-        pickDate: (opts: Parameters<typeof pickDate>[1]) => pickDate(page, opts),
-        submitAndClassify: (opts: Parameters<typeof submitAndClassify>[1]) =>
-          submitAndClassify(page, opts),
-        classifyOutcome: (target?: Page) => classifyOutcome(target ?? page),
+        clickThrough: guardHelper(
+          (target: Parameters<typeof clickThrough>[1], opts?: Parameters<typeof clickThrough>[2]) =>
+            clickThrough(page, target, opts),
+          {
+            sessionId: this.sessionId,
+            name: 'clickThrough',
+            clicks: true,
+            describe: (target) => (typeof target === 'string' ? target : JSON.stringify(target ?? null)),
+          },
+        ),
+        fillWithSuggestion: guardHelper(
+          (opts: Parameters<typeof fillWithSuggestion>[1]) => fillWithSuggestion(page, opts),
+          { sessionId: this.sessionId, name: 'fillWithSuggestion', clicks: false },
+        ),
+        pickDate: guardHelper((opts: Parameters<typeof pickDate>[1]) => pickDate(page, opts), {
+          sessionId: this.sessionId,
+          name: 'pickDate',
+          clicks: false,
+        }),
+        // A submit is a click that can commit an order, so it faces the payment gate too.
+        submitAndClassify: guardHelper(
+          (opts: Parameters<typeof submitAndClassify>[1]) => submitAndClassify(page, opts),
+          {
+            sessionId: this.sessionId,
+            name: 'submitAndClassify',
+            clicks: true,
+            describe: (opts) => {
+              const submit = (opts as { submit?: unknown } | undefined)?.submit
+              return typeof submit === 'string' ? submit : JSON.stringify(submit ?? null)
+            },
+          },
+        ),
+        // Unwrapped at every entry point that hands a page to Playwright or to code that compares
+        // identity: the snippet holds the gated view, and Playwright must not.
+        classifyOutcome: (target?: Page) => classifyOutcome(unguard(target) ?? page),
         dateCellLabels,
         // Tabs are shared across sessions; `state` is not. Use `tabs.available()` instead of
         // `context.pages()` whenever more than one session may be running, or two agents end up
         // typing into the same page. See tab-ownership.ts.
         tabs: {
-          claim: async (target?: Page) => this.claimTab(target ?? page),
-          release: async (target?: Page) => this.releaseTab(target ?? page),
+          claim: async (target?: Page) => this.claimTab(unguard(target) ?? page),
+          release: async (target?: Page) => this.releaseTab(unguard(target) ?? page),
           owned: async () => this.ownedPages(),
           available: async () => this.availablePages(),
-          ownerOf: async (target: Page) => tabRegistry.ownerOf(await this.targetIdFor(target)) ?? null,
+          ownerOf: async (target: Page) =>
+            tabRegistry.ownerOf(await this.targetIdFor(unguard(target))) ?? null,
           /**
            * A tab already claimed by this session. Reuses an unclaimed about:blank when
            * AUTO_ENABLE left one behind; otherwise creates a new tab. Safe replacement
            * for `context.pages().find(idle) ?? context.newPage()`, which is the racy idiom.
            */
-          open: async (url?: string) => this.openOwnedTab(url),
+          // Opening a tab is a write: it is on 002 §6.5's list because a new page appearing under
+          // somebody who is mid-form is as disruptive as clicking in the one they are using.
+          open: guardHelper((url?: string) => this.openOwnedTab(url), {
+            sessionId: this.sessionId,
+            name: 'tabs.open',
+            clicks: false,
+          }),
           snapshot: () => tabRegistry.snapshot(),
         },
         getCDPSession,
@@ -1878,13 +1951,36 @@ export class PlaywrightExecutor {
         createDemoVideo,
         resetPlaywright: async () => {
           const { page: newPage, context: newContext } = await self.reset()
-          vmContextObj.page = newPage
+          // Gated like the first one: a reset that handed back a raw page would be a way to shed
+          // the write gate by asking for a new session.
+          vmContextObj.page = guardPage(newPage, self.sessionId)
           vmContextObj.context = newContext
           vmContextObj.browser = self.browser
           return { page: newPage, context: newContext }
         },
         require: this.sandboxedRequire,
-        import: (specifier: string) => import(specifier),
+        /**
+         * Deliberately **not** `import: (s) => import(s)`.
+         *
+         * That one line made `ALLOWED_MODULES` decorative: `await import('child_process')` walked
+         * straight past the allowlist `require` enforces, which is how a page-authored snippet could
+         * reach the shell (003 §1.2, §12 A8). Removing it does not make this vm a security boundary
+         * — Node's own documentation says it is not one, and the agent has an unrestricted shell
+         * elsewhere — but it stops the *sanctioned* path from being a hole, and it makes the
+         * allowlist mean what it says.
+         *
+         * Kept as a named function rather than deleted so the failure is a sentence instead of
+         * `import is not defined`.
+         */
+        import: (specifier: string) => {
+          throw Object.assign(
+            new Error(
+              `Dynamic import is not available in this sandbox (asked for "${specifier}"). Use ` +
+                `require() with one of the allowed built-ins, or run the code as a normal command.`,
+            ),
+            { name: 'ModuleNotAllowedError' },
+          )
+        },
         // Ghost Browser API - only works in Ghost Browser, mirrors chrome.ghostPublicAPI etc
         chrome: chromeGhostBrowser,
         ...usefulGlobals,
@@ -1892,22 +1988,12 @@ export class PlaywrightExecutor {
         // - cwd() returns the session's cwd instead of the relay server's cwd
         // - exit() is blocked to prevent killing the relay server
         // - chdir() is blocked to prevent affecting other sessions
-        process: new Proxy(process, {
-          get(target, prop, receiver) {
-            if (prop === 'cwd') return () => self.sessionCwd || target.cwd()
-            if (prop === 'exit')
-              return () => {
-                throw new Error('process.exit() is not allowed in the sandbox')
-              }
-            if (prop === 'chdir')
-              return () => {
-                throw new Error(
-                  'process.chdir() is not allowed in the sandbox, use a new session with a different cwd instead',
-                )
-              }
-            return Reflect.get(target, prop, receiver)
-          },
-        }),
+        // An allowlist, not a blocklist. The previous version intercepted `cwd`, `exit` and
+        // `chdir` and passed everything else through, which meant `process.env` handed the whole
+        // environment to snippet code — including the credential the harness mints for this turn —
+        // and `process.binding`/`process.dlopen` were reachable besides. Listing what is allowed
+        // keeps the surface from growing every time Node adds a property (003 §1.2, §6.3).
+        process: sandboxedProcess({ cwd: () => self.sessionCwd || process.cwd() }),
       }
 
       const vmContext = vm.createContext(vmContextObj)
@@ -2425,6 +2511,10 @@ export class ExecutorManager {
     // Claims outlive nothing: a deleted session must not keep tabs reserved, or a crashed run
     // would strand pages that no one can ever release.
     tabRegistry.releaseAll(sessionId)
+    // Nor does control state. A session deleted mid-handover would otherwise leave a machine
+    // claiming the person still holds a page that no longer exists — and the next session to take
+    // that id would start refused.
+    forgetControl(sessionId)
     return this.executors.delete(sessionId)
   }
 

@@ -89,3 +89,48 @@ describe("the command environment", () => {
     expect(env.PENGUIN_TASK_ID).toBeUndefined();
   });
 });
+
+describe("the host's own variables", () => {
+  const identity = { sessionId: "session-1", taskId: "task-1755000000000-abcdef01" };
+
+  it("reach the command", () => {
+    // What a host uses this for: handing this turn's agent a way to reach its own conversation.
+    // The values are the host's to choose; core only guarantees they arrive and cannot be faked.
+    const env = commandChildEnv({
+      proxy: null,
+      vault: {},
+      identity,
+      hostEnv: { PENGUIN_INTERACTION_URL: "http://127.0.0.1:7364", PENGUIN_INTERACTION_TOKEN: "t" },
+    });
+    expect(env.PENGUIN_INTERACTION_URL).toBe("http://127.0.0.1:7364");
+    expect(env.PENGUIN_INTERACTION_TOKEN).toBe("t");
+  });
+
+  it("outrank the vault, which is user-editable", () => {
+    // The vault beats ordinary host variables by design. It must not beat a credential the host
+    // minted for this turn: that would let a config entry choose which conversation a command can
+    // put a card into.
+    const env = commandChildEnv({
+      proxy: null,
+      vault: { PENGUIN_INTERACTION_TOKEN: "forged" },
+      identity,
+      hostEnv: { PENGUIN_INTERACTION_TOKEN: "real" },
+    });
+    expect(env.PENGUIN_INTERACTION_TOKEN).toBe("real");
+  });
+
+  it("are absent, not inherited, when the host supplies none", () => {
+    // Between turns there is no token, and an ambient one — from an outer harness, or exported by
+    // a command the Agent itself ran — must not take its place.
+    const previous = process.env.PENGUIN_INTERACTION_TOKEN;
+    process.env.PENGUIN_INTERACTION_TOKEN = "ambient";
+    try {
+      const env = commandChildEnv({ proxy: null, vault: {}, identity: null });
+      expect(env.PENGUIN_INTERACTION_TOKEN).toBeUndefined();
+      expect(env.PENGUIN_INTERACTION_URL).toBeUndefined();
+    } finally {
+      if (previous === undefined) delete process.env.PENGUIN_INTERACTION_TOKEN;
+      else process.env.PENGUIN_INTERACTION_TOKEN = previous;
+    }
+  });
+});

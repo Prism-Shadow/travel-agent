@@ -48,6 +48,57 @@ export {
   type TimeoutPolicy,
 } from "./escalation.js";
 
+export {
+  assertCarriesNoValue,
+  assertCompleteSummary,
+  buildInteraction,
+  escalationKindFor,
+  isNeverFillable,
+  newInteractionId,
+  touchesBrowser,
+  DEFAULT_CONFIRMATION_TTL_MS,
+  DEFAULT_INTERACTION_TIMEOUT_MS,
+  type ApprovedTolerance,
+  type BrowserTakeoverInteraction,
+  type CommitmentConfirmationInteraction,
+  type HumanChallengeInteraction,
+  type InfoRequestInteraction,
+  type InteractionInput,
+  type InteractionKind,
+  type InteractionOutcome,
+  type PaymentSummary,
+  type SecretEntryInteraction,
+  type SecretField,
+  type SelectionInteraction,
+  type UserInteraction,
+} from "./interaction.js";
+
+export {
+  applyHandoverEvent,
+  mayRead,
+  mayWrite,
+  refuseIfNotPermitted,
+  HandoverTransitionError,
+  HANDOVER_DRAIN_MS,
+  INITIAL_HANDOVER,
+  type ControlRefusal,
+  type ControlState,
+  type HandoverEvent,
+  type HandoverSnapshot,
+  type SecretExit,
+} from "./handover.js";
+
+export {
+  classifyDrift,
+  commitmentFromConfirmation,
+  describePaymentSummary,
+  judgeConfirmationReply,
+  paymentSummaryDigest,
+  planFromSummary,
+  type ConfirmationJudgement,
+  type DriftVerdict,
+} from "./payment.js";
+
 export { buildEscalationCard, type CardActionValue, type CardPayload } from "./channel/card.js";
 
 export {

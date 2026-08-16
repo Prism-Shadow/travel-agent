@@ -69,6 +69,7 @@ import type { CostStatDisplay } from "./header-stats";
 import { buildInputHistory } from "./input-history";
 import { buildOutline } from "./outline-model";
 import { GoalStatusBanner } from "./goal-banner";
+import { InteractionCards } from "./interaction-cards";
 import { handoffMessage, modelSwitchMessage } from "./agent-handoff";
 import { sameModelRef } from "../models/model-grouping";
 import { providerInfo } from "@prismshadow/penguin-core/model-catalog";
@@ -1726,6 +1727,14 @@ export function ChatPage() {
                             during this page's lifetime. The stop button is the composer's
                             regular stop (one abort ends the whole goal loop). */}
                         {stream.goal && <GoalStatusBanner goal={stream.goal} />}
+                        {/* The agent's own questions, above the composer: a choice, a purchase to
+                            confirm, a code it will not type. Not a modal — the agent is still
+                            working in the browser beside this, and blocking the page would undo
+                            the point of asking here rather than there (design/003 §0.2). */}
+                        <InteractionCards
+                          interactions={stream.pendingInteractions}
+                          onResolve={stream.resolveInteraction}
+                        />
                         {input}
                       </div>
                     </div>

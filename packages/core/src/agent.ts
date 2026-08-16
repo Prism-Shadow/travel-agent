@@ -90,6 +90,13 @@ export interface CreateAgentOptions {
    * user's own shell environment).
    */
   proxyEnv?: () => ProxyEnvPolicy | null;
+  /**
+   * Extra environment for the commands this Agent's Sessions run (see
+   * `EnvironmentConfig.commandEnv`). Host policy, like `proxyEnv`: forwarded into every Session,
+   * and into a subagent's Agent, because a child Session's commands run in the same process and
+   * for the same turn.
+   */
+  commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
 }
 
 export interface CreateSessionOptions {
@@ -153,7 +160,7 @@ export function metaMaxTokens(budget: number, modelCap: number | undefined): num
 export async function createAgent(opts: CreateAgentOptions = {}): Promise<Agent> {
   const state = await loadOrInitAgentState(opts);
   const projectConfig = await loadProjectConfig(state.root, state.projectId);
-  return new Agent(state, projectConfig, opts.proxyEnv);
+  return new Agent(state, projectConfig, opts.proxyEnv, opts.commandEnv);
 }
 
 export class Agent {
@@ -162,6 +169,11 @@ export class Agent {
     readonly projectConfig: ProjectConfig,
     /** See {@link CreateAgentOptions.proxyEnv}; forwarded into every Session's Environment. */
     private readonly proxyEnv?: () => ProxyEnvPolicy | null,
+    /** See {@link CreateAgentOptions.commandEnv}; forwarded the same way. */
+    private readonly commandEnv?: (context: {
+      sessionId?: string;
+      taskId?: string;
+    }) => Record<string, string>,
   ) {}
 
   /**
@@ -636,6 +648,7 @@ export class Agent {
                 // getter is host policy, not Agent state: the subagent's commands run in
                 // the same serving process, so they follow the same settings as the parent's.
                 ...(parentAgent.proxyEnv ? { proxyEnv: parentAgent.proxyEnv } : {}),
+                ...(parentAgent.commandEnv ? { commandEnv: parentAgent.commandEnv } : {}),
               })
             : parentAgent;
         // The child Session follows the PARENT Session, never the Project default: with the
@@ -790,6 +803,7 @@ export class Agent {
       services: { subagentRunner, ...(visionDescriber ? { visionDescriber } : {}) },
       ...(Object.keys(vault).length > 0 ? { vault } : {}),
       ...(this.proxyEnv ? { proxyEnv: this.proxyEnv } : {}),
+      ...(this.commandEnv ? { commandEnv: this.commandEnv } : {}),
     });
 
     // Configured output cap: the entry's per-model annotation wins over the Agent's

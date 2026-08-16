@@ -51,6 +51,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.30.0(supports-color@10.2.2)(zod@4.4.3)
+      '@travel-agent/transaction':
+        specifier: workspace:^
+        version: link:../transaction
       '@xmorse/playwright-core':
         specifier: ^1.59.10
         version: 1.59.10(bufferutil@4.1.0)(supports-color@10.2.2)
@@ -327,6 +330,12 @@ importers:
       '@prismshadow/penguin-skills':
         specifier: workspace:*
         version: link:../skills
+      '@travel-agent/domain':
+        specifier: workspace:^
+        version: link:../travel-domain
+      '@travel-agent/transaction':
+        specifier: workspace:^
+        version: link:../transaction
       dotenv:
         specifier: ^17.0.0
         version: 17.4.2
@@ -413,6 +422,9 @@ importers:
       '@prismshadow/penguin-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)
+      '@travel-agent/transaction':
+        specifier: workspace:^
+        version: link:../transaction
       react:
         specifier: ^19.1.0
         version: 19.2.7
@@ -2002,6 +2014,14 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
+  '@travel-agent/domain@file:packages/travel-domain':
+    resolution: {directory: packages/travel-domain, type: directory}
+    engines: {node: '>=24'}
+
+  '@travel-agent/transaction@file:packages/transaction':
+    resolution: {directory: packages/transaction, type: directory}
+    engines: {node: '>=24'}
+
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
 
@@ -2173,6 +2193,7 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xmorse/playwright-core@1.59.10':
     resolution: {integrity: sha512-3elxXCCodJHm1slVBfiIxrqqFIZsNZhx4kVYIxe53u9+VlqguM4LozWgRfekPumrQEvAInLH0IdFZWSTiYHniQ==}
@@ -6600,6 +6621,8 @@ snapshots:
       '@hono/node-server': 2.0.12(hono@4.12.34)
       '@prismshadow/penguin-core': file:packages/core(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.4.3))(bufferutil@4.1.0)(supports-color@10.2.2)(ws@8.21.0(bufferutil@4.1.0))(zod@4.4.3)
       '@prismshadow/penguin-skills': file:packages/skills
+      '@travel-agent/domain': file:packages/travel-domain
+      '@travel-agent/transaction': file:packages/transaction
       dotenv: 17.4.2
       fflate: 0.8.3
       hono: 4.12.34
@@ -6620,6 +6643,8 @@ snapshots:
       '@hono/node-server': 2.0.12(hono@4.12.34)
       '@prismshadow/penguin-core': file:packages/core(bufferutil@4.1.0)(supports-color@10.2.2)
       '@prismshadow/penguin-skills': file:packages/skills
+      '@travel-agent/domain': file:packages/travel-domain
+      '@travel-agent/transaction': file:packages/transaction
       dotenv: 17.4.2
       fflate: 0.8.3
       hono: 4.12.34
@@ -6640,6 +6665,8 @@ snapshots:
       '@hono/node-server': 2.0.12(hono@4.12.34)
       '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)
       '@prismshadow/penguin-skills': file:packages/skills
+      '@travel-agent/domain': file:packages/travel-domain
+      '@travel-agent/transaction': file:packages/transaction
       dotenv: 17.4.2
       fflate: 0.8.3
       hono: 4.12.34
@@ -7167,6 +7194,12 @@ snapshots:
       '@tailwindcss/oxide': 4.3.2
       tailwindcss: 4.3.2
       vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+  '@travel-agent/domain@file:packages/travel-domain':
+    dependencies:
+      '@travel-agent/transaction': file:packages/transaction
+
+  '@travel-agent/transaction@file:packages/transaction': {}
 
   '@types/babel__core@7.20.5':
     dependencies:
@@ -9734,6 +9767,7 @@ snapshots:
       '@hono/node-server': 2.0.12(hono@4.12.34)
       '@hono/node-ws': 1.3.1(@hono/node-server@2.0.12(hono@4.12.34))(bufferutil@4.1.0)(hono@4.12.34)
       '@modelcontextprotocol/sdk': 1.30.0(supports-color@10.2.2)(zod@4.4.3)
+      '@travel-agent/transaction': file:packages/transaction
       '@xmorse/playwright-core': 1.59.10(bufferutil@4.1.0)(supports-color@10.2.2)
       acorn: 8.17.0
       ajv: 8.20.0
@@ -9789,6 +9823,7 @@ snapshots:
       '@hono/node-server': 2.0.12(hono@4.12.34)
       '@hono/node-ws': 1.3.1(@hono/node-server@2.0.12(hono@4.12.34))(bufferutil@4.1.0)(hono@4.12.34)
       '@modelcontextprotocol/sdk': 1.30.0(supports-color@10.2.2)(zod@4.4.3)
+      '@travel-agent/transaction': file:packages/transaction
       '@xmorse/playwright-core': 1.59.10(bufferutil@4.1.0)(supports-color@10.2.2)
       acorn: 8.17.0
       ajv: 8.20.0

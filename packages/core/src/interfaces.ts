@@ -330,6 +330,20 @@ export interface EnvironmentConfig {
    * for SDK/CLI standalone use).
    */
   proxyEnv?: () => ProxyEnvPolicy | null;
+  /**
+   * Extra environment variables the **host** puts into every command subprocess.
+   *
+   * Read at spawn time and given the identity the command is being spawned for, because the
+   * interesting values are per-turn: the web server uses it to hand this turn's agent a
+   * short-lived credential for asking its own conversation a question, and that credential must
+   * stop working when the turn ends. A getter rather than a snapshot for the same reason
+   * `proxyEnv` is one.
+   *
+   * Applied *after* the vault and after the identity variables, so a host-controlled value can
+   * never be shadowed by a user-editable vault entry. Absent for SDK and CLI use, where there is
+   * no host with anything to say.
+   */
+  commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
 }
 
 /**

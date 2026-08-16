@@ -135,6 +135,11 @@ export class Environment implements EnvironmentInterface {
       // Task, so the identity a command is spawned with has to be read at spawn time. Reading it
       // here would pin the first Task's id onto every command the conversation ever runs.
       identity: () => this.taskIdentity,
+      // Told who the spawn is for rather than working it out itself: the host's values are usually
+      // per-turn, and this is the only place that knows which turn a command belongs to.
+      ...(config.commandEnv !== undefined
+        ? { commandEnv: () => config.commandEnv!(this.commandEnvContext()) }
+        : {}),
     });
     this.subagentSessions = new SubagentSessionManager();
     const services = {
@@ -158,6 +163,20 @@ export class Environment implements EnvironmentInterface {
             workspaceDir: config.workspaceDir,
           })
         : null;
+  }
+
+  /**
+   * Who a command is being spawned for, for the host's `commandEnv` hook.
+   *
+   * The running Task's identity when there is one; the Session alone between Tasks, because a host
+   * may legitimately have something to say about the conversation even when no turn owns the
+   * command. Whether it does is the host's decision — the web server returns nothing, since what it
+   * hands out is a turn's credential.
+   */
+  private commandEnvContext(): { sessionId?: string; taskId?: string } {
+    const identity = this.taskIdentity;
+    if (identity) return { sessionId: identity.sessionId, taskId: identity.taskId };
+    return this.sessionId !== undefined ? { sessionId: this.sessionId } : {};
   }
 
   /**

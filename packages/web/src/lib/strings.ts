@@ -800,6 +800,13 @@ export const zh = {
 
   chat: {
     /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
+    /** Cards the agent raises when it needs the person (design/003 §7). */
+    interaction: {
+      answerPlaceholder: "回答一句就行",
+      /** Shown next to the checkbox that grants slack on a payment card. */
+      toleranceLabel: (amount: string) => `如果到付款时涨价，${amount} 以内我不用再问`,
+      failed: "没能把你的回答发出去，请再试一次",
+    },
     browserPane: {
       title: "浏览器",
       show: "显示浏览器",

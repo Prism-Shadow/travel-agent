@@ -844,6 +844,12 @@ export const en: Strings = {
 
   chat: {
     /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
+    interaction: {
+      answerPlaceholder: "A sentence is enough",
+      toleranceLabel: (amount: string) =>
+        `If the price has gone up by the time it pays, absorb up to ${amount} without asking again`,
+      failed: "Your answer did not reach the agent — try again",
+    },
     browserPane: {
       title: "Browser",
       show: "Show browser",

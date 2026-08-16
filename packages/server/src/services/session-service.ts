@@ -58,6 +58,15 @@ export interface SessionServiceDeps {
    * runs the Session's first Task, so it needs the command-subprocess proxy policy too.
    */
   proxyEnv?: () => ProxyEnvPolicy | null;
+  /**
+   * Per-turn environment for the agent's commands (see core's `EnvironmentConfig.commandEnv`).
+   *
+   * Threaded through both core entry paths — this one and the loader — for the same reason
+   * `proxyEnv` is: a Session created here is adopted by the manager for its first Task, and a
+   * capability that only reached resumed Sessions would be missing exactly when a conversation is
+   * new.
+   */
+  commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
 }
 
 export class SessionService {
@@ -327,6 +336,7 @@ export class SessionService {
       projectId: args.projectId,
       agentId: args.agentId,
       ...(this.deps.proxyEnv ? { proxyEnv: this.deps.proxyEnv } : {}),
+      ...(this.deps.commandEnv ? { commandEnv: this.deps.commandEnv } : {}),
     });
     let session;
     try {

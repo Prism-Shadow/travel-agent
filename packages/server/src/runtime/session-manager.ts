@@ -55,6 +55,7 @@ import { HttpError, isMissingCredential, modelCredentialMissing } from "../http/
 import type { GoalsRepo } from "../db/repos/goals.js";
 import type { SessionRow, SessionsRepo } from "../db/repos/sessions.js";
 import { ApprovalRegistry, makeApprove } from "./approvals.js";
+import { InteractionTokens } from "../interaction/tokens.js";
 import type { PendingApproval } from "./approvals.js";
 import type { ChannelHub } from "./channel.js";
 import type { ErrorSink } from "./error-recorder.js";
@@ -143,7 +144,11 @@ export interface SessionLoader {
 export function createCoreSessionLoader(
   root: string,
   sources?: SessionSources,
-  opts: { proxyEnv?: () => ProxyEnvPolicy | null } = {},
+  opts: {
+    proxyEnv?: () => ProxyEnvPolicy | null;
+    /** Per-turn environment for the agent's commands; see `EnvironmentConfig.commandEnv`. */
+    commandEnv?: (context: { sessionId?: string; taskId?: string }) => Record<string, string>;
+  } = {},
 ): SessionLoader {
   return {
     async load(row: SessionRow): Promise<RuntimeSession> {
@@ -152,6 +157,7 @@ export function createCoreSessionLoader(
         projectId: row.projectId,
         agentId: row.agentId,
         ...(opts.proxyEnv ? { proxyEnv: opts.proxyEnv } : {}),
+        ...(opts.commandEnv ? { commandEnv: opts.commandEnv } : {}),
       });
       const located = await findLatestTraceFile(
         tracesDir(root, row.projectId, row.agentId),
@@ -229,6 +235,18 @@ export interface SessionManagerDeps {
   log?: (line: string) => void;
   /** Goal run-state persistence (optional like `titles`: without it, goals run but leave no restorable record). */
   goals?: GoalsRepo;
+  /**
+   * User-interaction cards raised by this Session's agent (optional; absent in tests that do not
+   * exercise them).
+   *
+   * Structural rather than a class import: what the manager needs is "tell whoever owns the cards
+   * that this turn is over", and stating that as a one-method shape keeps the runtime free of the
+   * travel product's interaction layer.
+   */
+  interactions?: {
+    endTask(sessionId: string, taskId: string | null): void;
+    forgetSession(sessionId: string): void;
+  };
 }
 
 /** One queued follow-up task (`queueIfBusy`): the task input plus the per-turn thinking level it was posted with. */
@@ -423,6 +441,14 @@ export class SessionManager {
    * task starts, dropped with the Session.
    */
   private readonly finishedTasks = new Map<string, { taskId: string; failed: boolean }>();
+  /**
+   * Per-turn credentials for the agent's own commands (see `interaction/tokens.ts`).
+   *
+   * Lives here because this is the one place that knows when a turn starts and ends: the token is
+   * minted with the turn and revoked with it, so a command that outlives its turn holds something
+   * that no longer authenticates — the same rule the in-app browser applies to tab ownership.
+   */
+  readonly interactionTokens = new InteractionTokens();
   /** Per-Session mutex (serializes get-or-load and status flips); auto-cleaned once the chain drains. */
   private readonly locks = new Map<string, Promise<unknown>>();
   private readonly log: (line: string) => void;
@@ -665,6 +691,7 @@ export class SessionManager {
       // able to keep them for the length of the goal and release them once, at the end.
       const taskId = formatTaskId();
       entry.currentTaskId = taskId;
+      this.interactionTokens.mint(entry.sessionId, taskId);
       this.finishedTasks.delete(entry.sessionId);
       entry.lastActivityMs = Date.now();
       // Round-1 objective input: same pendingInputs hold as launchTask (core yields round
@@ -822,6 +849,9 @@ export class SessionManager {
     entry.status = "running";
     entry.abort = ac;
     entry.currentTaskId = taskId;
+    // Minted with the turn: from here until the run ends, this Session's commands can raise a card
+    // in this conversation. Revoked below, so a command still running afterwards cannot.
+    this.interactionTokens.mint(entry.sessionId, taskId);
     this.finishedTasks.delete(entry.sessionId);
     entry.lastActivityMs = Date.now();
     // Publish the input messages first (visible to other subscribers; the Trace is
@@ -1075,6 +1105,10 @@ export class SessionManager {
   beginSessionDeletion(sessionId: string): Promise<void>[] {
     // The Session is going; so is what we remember about its last turn.
     this.finishedTasks.delete(sessionId);
+    // …and its cards, and its turn credential. A conversation being deleted must not leave a
+    // question on screen that resolves into a Session that no longer exists.
+    this.interactionTokens.revoke(sessionId);
+    this.deps.interactions?.forgetSession(sessionId);
     this.deletingSessions.add(sessionId);
     const entry = this.entries.get(sessionId);
     if (!entry) return [];
@@ -1461,6 +1495,11 @@ export class SessionManager {
       // this event, and "some task ended" is not something it can act on.
       const endedTaskId = entry.currentTaskId;
       entry.currentTaskId = null;
+      // The turn's own credential dies with it, and so do its cards: a question left on screen with
+      // no turn behind it would be answered into a void, and a confirmation that outlived its turn
+      // would be consent given to something else.
+      this.interactionTokens.revoke(entry.sessionId);
+      this.deps.interactions?.endTask(entry.sessionId, endedTaskId);
       // Held so a client that connects after this point still learns which turn ended, and how.
       // Outside the entry, because the entry is evicted after 30 idle minutes and a renderer that
       // reconnects past that point would otherwise see a bare "idle" — leaving a consumer holding
@@ -1606,6 +1645,20 @@ export class SessionManager {
       // clean one is what lets a declared "just a search" close the evidence of what went wrong.
       ...(finished?.failed === true ? { taskFailed: true } : {}),
     };
+  }
+
+  /**
+   * Where a Session lives, for anything that needs its directories.
+   *
+   * From the index rather than from a caller: the project and agent a conversation belongs to
+   * decide which scratchpad its journal and checkpoints are written into, and a caller-supplied
+   * triple is a relationship nobody has checked (the same rule the in-app browser's download
+   * directory follows).
+   */
+  locate(sessionId: string): { sessionId: string; projectId: string; agentId: string } | null {
+    const row = this.deps.sessions.findById(sessionId);
+    if (!row) return null;
+    return { sessionId: row.sessionId, projectId: row.projectId, agentId: row.agentId };
   }
 
   /**

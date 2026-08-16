@@ -38,6 +38,7 @@ import type {
   PendingSteeringInfo,
   ServerEvent,
   SessionStatus,
+  UserInteraction,
 } from "@prismshadow/penguin-server/api";
 import {
   approvalKey,
@@ -136,6 +137,8 @@ export interface StreamControllerDeps {
   onModelChange: () => void;
   /** Pending-approvals table changed. */
   onPendingChange: () => void;
+  /** Pending user-interaction cards changed (design/003 §7). */
+  onInteractionsChange?: () => void;
   /** Auto-generated title pushed by the server (for updating the Session list in place). */
   onSessionTitle?: (sessionId: string, title: string) => void;
   /** A new session has been registered (sub-sessions are pushed along the parent session's channel; used to refresh the Session list). */
@@ -171,6 +174,8 @@ export interface StreamController {
   readonly outlineOffset: number;
   readonly older: OlderHistoryState;
   readonly pendingApprovals: ReadonlyMap<string, PendingApproval>;
+  /** Cards the agent is waiting behind, in the order they were raised. */
+  readonly pendingInteractions: readonly UserInteraction[];
   /** Load history for the first time (called once after connect-first): fetches the TAIL window. */
   load: () => Promise<void>;
   /** Retry entry point after a history load failure (keeps the buffer, refetches history). */
@@ -256,6 +261,21 @@ export function createStreamController(deps: StreamControllerDeps): StreamContro
     deps.onPendingChange();
   };
 
+  /**
+   * Cards this conversation is waiting on, keyed by id.
+   *
+   * Cleared with the turn, like approvals: the server settles every pending interaction when a run
+   * ends, but the client drops them itself too so a missed event cannot leave a dead card on
+   * screen with nothing behind it.
+   */
+  const interactions = new Map<string, UserInteraction>();
+
+  const clearInteractions = (): void => {
+    if (interactions.size === 0) return;
+    interactions.clear();
+    deps.onInteractionsChange?.();
+  };
+
   const feedOmni = (msg: OmniMessage, dedup: Set<string> | null): void => {
     // The SDK has already produced an approval_decision: sync the pending-approvals table (keyed by the origin composite key).
     if (isEventMessage(msg) && msg.payload.type === "approval_decision") {
@@ -291,6 +311,18 @@ export function createStreamController(deps: StreamControllerDeps): StreamContro
         deps.onPendingChange();
         return;
       }
+      case "interaction_request": {
+        // The same shape as a pending approval, and for the same reason: the agent is suspended
+        // behind it, so a reload must find the card again rather than an empty conversation with a
+        // turn that never continues.
+        interactions.set(ev.interaction.id, ev.interaction);
+        deps.onInteractionsChange?.();
+        return;
+      }
+      case "interaction_resolved": {
+        if (interactions.delete(ev.interactionId)) deps.onInteractionsChange?.();
+        return;
+      }
       case "task_state": {
         // The in-stream task_state is the authoritative running state (the
         // server sends the current snapshot as soon as it subscribes; the list's snapshot is only a first-frame placeholder).
@@ -303,6 +335,7 @@ export function createStreamController(deps: StreamControllerDeps): StreamContro
           // Task ended (or the snapshot confirms idle): finalize the current Task's stats; pending approvals have already converged server-side.
           notifyTaskIdle(model);
           clearPending();
+          clearInteractions();
           deps.onModelChange();
         }
         return;
@@ -555,6 +588,9 @@ export function createStreamController(deps: StreamControllerDeps): StreamContro
     },
     get pendingApprovals(): ReadonlyMap<string, PendingApproval> {
       return pending;
+    },
+    get pendingInteractions(): readonly UserInteraction[] {
+      return [...interactions.values()];
     },
     load: () => {
       epoch += 1;

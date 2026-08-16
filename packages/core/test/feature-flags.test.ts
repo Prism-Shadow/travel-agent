@@ -247,6 +247,41 @@ describe("repeated entries are last-entry-wins, and an invalid value still means
   });
 });
 
+describe("what Phase 3 ships with", () => {
+  // Pinned rather than assumed. Both of these decide whether an application types a one-time code
+  // or presses a button that moves money, and both are off in every configuration this phase can
+  // produce: their prerequisites need a vault and an isolated agent runtime, which are Phase 4/5.
+  it("never types a real one-time code", () => {
+    expect(resolveFlags().flags["secret_entry.live"]).toBe(false);
+    // Even asked for directly, and even with the contract on.
+    expect(
+      resolveFlags({ "secret_entry.contract": true, "secret_entry.live": true }).flags[
+        "secret_entry.live"
+      ],
+    ).toBe(false);
+  });
+
+  it("never presses the site's pay button", () => {
+    expect(resolveFlags().flags["payments.agent_click_pay"]).toBe(false);
+    expect(
+      resolveFlags({ "payments.agent_click_pay": true }).flags["payments.agent_click_pay"],
+    ).toBe(false);
+    // It takes the whole Phase 4 chain — a vault, real L2/L3, an execute path — *and* both runtime
+    // facts before this can be on at all.
+    expect(
+      resolveFlags(
+        {
+          "vault.enabled": true,
+          "vault.l2l3": true,
+          "payments.execute": true,
+          "payments.agent_click_pay": true,
+        },
+        { encryptedStorageAvailable: true, agentRuntimeIsolated: true },
+      ).flags["payments.agent_click_pay"],
+    ).toBe(true);
+  });
+});
+
 describe("resolveFlags applies the capability probe, so it cannot be skipped", () => {
   // The regression this guards: resolveFlags used to stop after the dependency closure, so a
   // production caller could ask for payments.execute and simply receive it — the module's

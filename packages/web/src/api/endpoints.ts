@@ -24,6 +24,7 @@ import type {
   AgentTracesResponse,
   ApprovalDecisionRequest,
   AuthLoginRequest,
+  InteractionOutcome,
   AuthResponse,
   BenchmarkCasesResponse,
   BenchmarksResponse,
@@ -444,6 +445,23 @@ export const postApproval = (
   apiFetch<void>(
     `/api/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(toolCallId)}`,
     { method: "POST", body },
+  );
+
+/**
+ * Answers a card the agent raised (design/003 §7).
+ *
+ * The same privilege as reading the conversation: the ordinary session cookie, the ordinary
+ * project check. There is no separate authority for saying yes to a purchase — if you can see the
+ * conversation, the confirmation in it is yours to answer.
+ */
+export const postInteractionOutcome = (
+  sessionId: string,
+  interactionId: string,
+  outcome: InteractionOutcome,
+) =>
+  apiFetch<void>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/interactions/${encodeURIComponent(interactionId)}`,
+    { method: "POST", body: outcome as unknown as Record<string, unknown> },
   );
 
 export const postAbort = (sessionId: string) =>

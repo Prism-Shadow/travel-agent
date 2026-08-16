@@ -36,6 +36,8 @@ import type { AppEnv } from "../../auth/middleware.js";
 import type { SessionRow } from "../../db/repos/sessions.js";
 import { assertWorkspaceAllowed } from "../../services/workspace-guard.js";
 import { HttpError } from "../errors.js";
+import { readInteractionOutcome } from "./interaction.js";
+import { InvalidOutcomeError } from "../../interaction/outcome.js";
 import { sseEndpoint } from "../sse.js";
 import {
   badRequest,
@@ -728,6 +730,12 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
         toolCall: p.toolCall,
         ...(p.origin !== undefined ? { origin: p.origin } : {}),
       })),
+      // Cards the agent is still waiting behind, for the same reason approvals are replayed: a
+      // reload must not make the question disappear while the turn is suspended on the answer.
+      ...deps.interactions.pending(row.sessionId).map((interaction) => ({
+        type: "interaction_request" as const,
+        interaction,
+      })),
     ];
     return sseEndpoint(c, channel, { initialEvents });
   });
@@ -873,6 +881,44 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
         404,
         "approval_not_found",
         "Approval does not exist or has already been decided.",
+      );
+    }
+    return c.body(null, 204);
+  });
+
+  /**
+   * The person answering a card.
+   *
+   * Ordinary cookie authentication and the ordinary project access check: answering a card is
+   * exactly as privileged as reading the conversation it appeared in. The outcome is validated
+   * into the shape the agent will receive — an unknown status is rejected rather than coerced,
+   * because "declined" and "answered with approved: false" mean different things downstream — and
+   * then checked against the card it answers, which is where an option that is not on the card or
+   * an approval on a question that was never a purchase is refused. That refusal is a 400 and the
+   * card stays pending: the person's next attempt has something to answer.
+   */
+  app.post("/:sessionId/interactions/:interactionId", async (c) => {
+    const row = resolveSession(c);
+    const outcome = readInteractionOutcome(await readJson(c));
+    let resolved: boolean;
+    try {
+      resolved = await deps.interactions.resolve(
+        { sessionId: row.sessionId, projectId: row.projectId, agentId: row.agentId },
+        pathParam(c, "interactionId"),
+        outcome,
+      );
+    } catch (error) {
+      if (error instanceof InvalidOutcomeError) {
+        throw new HttpError(400, "invalid_outcome", error.message);
+      }
+      throw error;
+    }
+    if (!resolved) {
+      throw new HttpError(
+        404,
+        "interaction_not_found",
+        "This request is no longer waiting for an answer — it was answered, it lapsed, or the " +
+          "turn ended.",
       );
     }
     return c.body(null, 204);

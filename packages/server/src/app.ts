@@ -13,6 +13,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DatabaseSync } from "node:sqlite";
+import { resolveFlagsFromEnv, sessionScratchpadDir } from "@prismshadow/penguin-core";
 import type { ProxyEnvPolicy } from "@prismshadow/penguin-core";
 import type { ServerConfig } from "./config.js";
 import { mergedNoProxy } from "./net/proxy.js";
@@ -33,6 +34,9 @@ import { UsersRepo } from "./db/repos/users.js";
 import type { UserRow } from "./db/repos/users.js";
 import { authMiddleware, jsonOnlyWrites } from "./auth/middleware.js";
 import type { AppEnv } from "./auth/middleware.js";
+import { InteractionService } from "./interaction/service.js";
+import { interactionCommandEnv } from "./interaction/tokens.js";
+import { agentInteractionRoutes } from "./http/routes/interaction.js";
 import { ADMIN_USER_ID, AuthService } from "./auth/service.js";
 import { clearInitialAdminPassword } from "./initial-password.js";
 import { handleError, HttpError, errorBody } from "./http/errors.js";
@@ -133,6 +137,11 @@ export interface AppDeps {
   errors: ErrorRecorder;
   /** Desktop mode (PENGUIN_DESKTOP_TOKEN): one-shot login + shutdown token holder; null outside desktop mode. */
   desktop: DesktopService | null;
+  /**
+   * Cards the agent raises and the person answers (design/003 §7), plus the payment guard behind
+   * the confirmation card.
+   */
+  interactions: InteractionService;
   /** Request log output (minimal one-liner); tests inject a noop. */
   log: (line: string) => void;
 }
@@ -226,10 +235,42 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
   const titles =
     overrides.titles ??
     new TitleGenerator({ sessions: sessionsRepo, channels, recorder, errors, log });
+  // Interaction cards, the payment guard, and this Session's journal/checkpoint files. Built
+  // before the manager because the manager tells it when a turn ends; it needs only the channel
+  // hub, which already exists.
+  const interactions = new InteractionService({
+    root: config.root,
+    flags: resolveFlagsFromEnv().flags,
+    publish: (sessionId, event) => channels.get(sessionId).publish(event, "server_event"),
+    scratchpadDir: (locator) =>
+      sessionScratchpadDir(config.root, locator.projectId, locator.agentId, locator.sessionId),
+    ...(overrides.now ? { now: overrides.now } : {}),
+    log,
+  });
+
+  /**
+   * What the agent's own commands are told about reaching this conversation.
+   *
+   * Read at every spawn, and empty between turns: the token is the running turn's, and a command
+   * that outlives its turn must find nothing usable in its environment. The URL is built from the
+   * server's *actual* bound port — `config.port` is rewritten at listen time when the shell asked
+   * for an ephemeral one — and is loopback because the agent runs on this machine, as a child of
+   * this process.
+   */
+  const commandEnv = (context: { sessionId?: string }): Record<string, string> =>
+    interactionCommandEnv({
+      tokens: manager.interactionTokens,
+      port: () => config.port,
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+    });
+
   const manager = new SessionManager({
     sessions: sessionsRepo,
     channels,
-    loader: overrides.loader ?? createCoreSessionLoader(config.root, sessionSources, { proxyEnv }),
+    interactions,
+    loader:
+      overrides.loader ??
+      createCoreSessionLoader(config.root, sessionSources, { proxyEnv, commandEnv }),
     sources: sessionSources,
     recorder,
     errors,
@@ -288,6 +329,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     sources: sessionSources,
     traceIndex,
     proxyEnv,
+    commandEnv,
   });
   // Schedule scheduler: active only while the server is running. Only
   // assembled here; start() is called in index.ts (tests drive it via tickOnce, no real timer).
@@ -336,6 +378,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     manager,
     sessionSources,
     errors,
+    interactions,
     desktop: config.desktopToken !== null ? new DesktopService(config.desktopToken) : null,
     log,
   };
@@ -421,6 +464,11 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   if (deps.desktop) {
     app.route("/api/desktop", desktopRoutes(deps));
   }
+  // The agent's own surface: raising a card in its conversation, and asking whether a payment may
+  // proceed. Mounted outside the cookie middleware for the same reason as the shutdown route — the
+  // caller is a subprocess with no browser — and authenticated instead by the token minted for the
+  // turn it is running (see interaction/tokens.ts).
+  app.route("/api/agent", agentInteractionRoutes(deps));
 
   // Protected routes: cookie -> auth_session -> user.
   const auth = authMiddleware(deps.authService);

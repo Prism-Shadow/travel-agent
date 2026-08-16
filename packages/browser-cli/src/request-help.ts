@@ -1,6 +1,19 @@
 /**
- * Human handoff: hand control back to the person for one step the agent must not or cannot do
- * itself — a verification code, a slider captcha, an OTP, a payment confirmation — then resume.
+ * Human handoff: the page, briefly, for the two things only a person can do *in it*.
+ *
+ * Narrowed deliberately (design/003 §0.2, 004 Phase 3). This used to be the way an agent asked for
+ * anything at all — a code, a choice, a payment confirmation — and that made "give the user the
+ * browser" the default path. It is now the browser half of `requestUserInteraction`, reached by
+ * exactly two kinds:
+ *
+ * - `human_challenge` — a slider, a captcha, a bank's own 3DS click: things that need a real
+ *   person's input in the page and should not be automated even if they could be.
+ * - `browser_takeover` — the last resort, which carries a stated reason so that falling back to
+ *   "you do it" is a decision somebody can review.
+ *
+ * Everything else — a question, a choice between flights, confirming a purchase, a one-time code —
+ * is a card in the conversation and never touches this file. A payment summary drawn on the
+ * booking page would be asking somebody to trust the page to describe itself.
  *
  * Why this exists as a primitive rather than "print a message and hope": a handoff has to carry
  * four things, and losing any one of them breaks the flow.
@@ -38,6 +51,13 @@ export interface RequestHelpOptions {
   page: Page
   /** What the human should do. Write it as an instruction, not a description of the problem. */
   prompt: string
+  /**
+   * Why the agent could not do this itself (`browser_takeover` only).
+   *
+   * Shown on the card. A takeover is the one kind that admits the design did not cover this case,
+   * and the person deserves to be told which case it was rather than just handed the wheel.
+   */
+  reason?: string
   /** CSS selector of the element to highlight and scroll into view. Best-effort. */
   targetSelector?: string
   /** Budget before the handoff lapses; defaults to {@link DEFAULT_HELP_TIMEOUT_MS}. */
@@ -58,7 +78,7 @@ export interface RequestHelpResult {
 
 /** Shape exposed by the injected bundle on the page's `globalThis`. */
 interface HelpBridge {
-  show: (request: { id: string; prompt: string; targetSelector?: string }) => void
+  show: (request: { id: string; prompt: string; targetSelector?: string; reason?: string }) => void
   result: (id: string) => { resolved: boolean; message?: string; reason: string } | undefined
   isShowing: (id: string) => boolean
   dismiss: () => void
@@ -104,13 +124,13 @@ function sleep(ms: number): Promise<void> {
  * reason other than teardown) propagates.
  */
 export async function requestHelp(options: RequestHelpOptions): Promise<RequestHelpResult> {
-  const { page, prompt, targetSelector, signal } = options
+  const { page, prompt, targetSelector, signal, reason } = options
   const timeoutMs = options.timeoutMs ?? DEFAULT_HELP_TIMEOUT_MS
   const id = nextRequestId()
   const startedAt = Date.now()
   const waited = () => Date.now() - startedAt
 
-  const request = { id, prompt, targetSelector }
+  const request = { id, prompt, targetSelector, ...(reason ? { reason } : {}) }
   await ensureOverlayInjected(page)
   await page.evaluate(
     (req) => (globalThis as unknown as { __penguinHelp: HelpBridge }).__penguinHelp.show(req),

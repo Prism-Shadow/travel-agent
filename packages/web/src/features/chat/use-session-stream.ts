@@ -18,10 +18,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GoalServerEvent,
+  InteractionOutcome,
   PendingSteeringInfo,
   SessionStatus,
+  UserInteraction,
 } from "@prismshadow/penguin-server/api";
-import { getGoal, getMe, getMessages } from "../../api/endpoints";
+import { getGoal, getMe, getMessages, postInteractionOutcome } from "../../api/endpoints";
 import { openSessionStream } from "../../api/sse";
 import { createStreamController } from "../../lib/omni/stream-controller";
 import type {
@@ -81,6 +83,15 @@ export interface SessionStreamState {
   dismissModelAuthDead: () => void;
   /** approvalKey(origin, toolCallId) → pending approval. */
   pendingApprovals: ReadonlyMap<string, PendingApproval>;
+  /**
+   * Cards the agent is waiting behind (design/003 §7), oldest first.
+   *
+   * Replayed by the server on every new subscription, so a reload finds the question again rather
+   * than a conversation that appears to have stopped for no reason.
+   */
+  pendingInteractions: readonly UserInteraction[];
+  /** Answers a card, and drops it from the list as soon as the server accepts the answer. */
+  resolveInteraction: (interactionId: string, outcome: InteractionOutcome) => Promise<void>;
   /** Recorded when this client clicks an approval decision (marks it as "manual"). */
   markLocalDecision: (toolCallId: string) => void;
   /** Removed from the pending table immediately after this client submits a decision (optimistic update; keyed by approvalKey). */
@@ -98,6 +109,7 @@ export interface SessionStreamState {
 }
 
 const EMPTY_PENDING: ReadonlyMap<string, PendingApproval> = new Map();
+const EMPTY_INTERACTIONS: readonly UserInteraction[] = [];
 const EMPTY_PREFIX: readonly ChatItem[] = [];
 const EMPTY_SUBAGENTS: ReadonlyMap<string, StreamModel> = new Map();
 const IDLE_OLDER: OlderHistoryState = { hasMore: false, loading: false, error: null };
@@ -249,6 +261,7 @@ export function useSessionStream(
       onError: setError,
       onModelChange: bump,
       onPendingChange: () => setPendingTick((t) => t + 1),
+      onInteractionsChange: () => setPendingTick((t) => t + 1),
       onSessionTitle: (sid, title) => onTitleRef.current?.(sid, title),
       onSessionCreated: () => onCreatedRef.current?.(),
       onGoalEvent,
@@ -297,6 +310,23 @@ export function useSessionStream(
     controllerRef.current?.resolveApproval(key);
   }, []);
 
+  /**
+   * Answers a card.
+   *
+   * The card is left on screen until the server accepts the answer, and only then removed — an
+   * optimistic removal would leave a person who lost their connection believing they had answered
+   * while the agent kept waiting. The `interaction_resolved` event removes it too, so the two
+   * paths agree.
+   */
+  const resolveInteraction = useCallback(
+    async (interactionId: string, outcome: InteractionOutcome) => {
+      if (!sessionId) return;
+      await postInteractionOutcome(sessionId, interactionId, outcome);
+      setPendingTick((tick) => tick + 1);
+    },
+    [sessionId],
+  );
+
   const retry = useCallback(() => {
     void controllerRef.current?.retry();
   }, []);
@@ -331,6 +361,8 @@ export function useSessionStream(
     lastAuthFailureMs: (controllerRef.current?.model ?? placeholderRef.current).lastAuthFailureMs,
     dismissModelAuthDead,
     pendingApprovals: controllerRef.current?.pendingApprovals ?? EMPTY_PENDING,
+    pendingInteractions: controllerRef.current?.pendingInteractions ?? EMPTY_INTERACTIONS,
+    resolveInteraction,
     markLocalDecision,
     resolveApproval,
     error,

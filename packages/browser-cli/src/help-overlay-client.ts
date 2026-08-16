@@ -30,6 +30,14 @@ export interface HelpRequest {
   prompt: string
   /** Optional CSS selector of the element to highlight and scroll into view. */
   targetSelector?: string
+  /**
+   * Why the agent handed the page over at all (`browser_takeover`).
+   *
+   * Rendered under the instruction, in a quieter line. It is the one thing a person cannot work out
+   * from the page itself, and showing it is what keeps a takeover from feeling like the assistant
+   * simply gave up on them.
+   */
+  reason?: string
 }
 
 /** The outcome the Node side polls for. */
@@ -134,6 +142,13 @@ function render(request: HelpRequest): void {
       letter-spacing: .02em;
     }
     .prompt { margin: 0 0 10px; white-space: pre-wrap; word-break: break-word; }
+    .reason {
+      margin: -4px 0 10px;
+      color: #94a3b8;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
     textarea {
       width: 100%;
       box-sizing: border-box;
@@ -178,6 +193,11 @@ function render(request: HelpRequest): void {
   // textContent, never innerHTML: `prompt` is agent-authored text and may contain page content.
   prompt.textContent = request.prompt
 
+  // Agent-authored text, and it may quote the page: textContent, never innerHTML.
+  const reason = document.createElement('p')
+  reason.className = 'reason'
+  if (request.reason) reason.textContent = `交给你的原因：${request.reason}`
+
   const note = document.createElement('textarea')
   note.placeholder = '想让 agent 知道什么？（可留空）'
 
@@ -185,7 +205,9 @@ function render(request: HelpRequest): void {
   row.className = 'row'
   const done = document.createElement('button')
   done.className = 'done'
-  done.textContent = '我处理好了'
+  // "Hand it back", not "OK": what the button does is return control, and the agent resumes from
+  // wherever the person left the page.
+  done.textContent = '我处理好了，交还'
   const cancel = document.createElement('button')
   cancel.className = 'cancel'
   cancel.textContent = '取消任务'
@@ -198,7 +220,9 @@ function render(request: HelpRequest): void {
   })
 
   row.append(done, cancel)
-  card.append(tag, prompt, note, row)
+  card.append(tag, prompt)
+  if (request.reason) card.append(reason)
+  card.append(note, row)
   root.append(style, card)
   document.documentElement.appendChild(host)
 

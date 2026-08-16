@@ -19,6 +19,11 @@ import type {
   ThinkingLevelName,
   ToolDefinitionConfig,
 } from "@prismshadow/penguin-core/interfaces";
+// The interaction vocabulary is shared with the transaction layer rather than restated here: the
+// card the person reads and the object the agent builds have to be the same seven fields, and two
+// declarations of that would only ever agree by luck. Type-only, so nothing from that package is
+// pulled into a browser bundle.
+import type { InteractionOutcome, UserInteraction } from "@travel-agent/transaction";
 
 // ---------------------------------------------------------------------------
 // General
@@ -1144,8 +1149,27 @@ export type ServerEvent =
       sessionId: string;
       source: SessionSource;
     }
+  /**
+   * The agent is asking the person something (design/003 §7): one of the six interaction kinds,
+   * rendered as a card in the conversation.
+   *
+   * Resent on reconnect, like a pending approval, because a card is worthless if a reload makes it
+   * disappear while the agent is still waiting behind it. The payload never carries a value the
+   * person is being asked to type — see `UserInteraction` and 003 §4.6: this event lands in a ring
+   * buffer that is replayed to whoever attaches next.
+   */
+  | { type: "interaction_request"; interaction: UserInteraction }
+  /**
+   * A card is finished — answered, declined, lapsed, or ended with its turn.
+   *
+   * Published for every ending, including the ones nobody clicked, so a client that is watching
+   * can take the card down instead of leaving a dead control on screen.
+   */
+  | { type: "interaction_resolved"; interactionId: string; outcome: InteractionOutcome }
   | ScheduleServerEvent
   | GoalServerEvent;
+
+export type { InteractionOutcome, UserInteraction };
 
 /** Goal-mode progress on the session channel (the chat page drives its goal banner from these). */
 export type GoalServerEvent =

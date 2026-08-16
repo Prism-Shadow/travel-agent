@@ -19,6 +19,11 @@ import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './uti
 import { readBackendPreference, resolveRelayEndpoint } from './relay-discovery.js'
 import { MISSING_IDENTITY_MESSAGE, readAgentIdentity } from './agent-identity.js'
 import {
+  harnessChannel,
+  requestUserInteraction,
+  type RequestInteractionOptions,
+} from './user-interaction.js'
+import {
   ensureRelayServer,
   RELAY_PORT,
   waitForConnectedExtensions,
@@ -1538,7 +1543,136 @@ cli
   })
 
 cli
-  .command('request-help', 'Hand control to the human for one step, then resume')
+  .command('interaction request', 'Ask the person for one thing, and wait (design/003 §7)')
+  .option('--host <host>', 'Remote relay server host')
+  .option('--token <token>', 'Authentication token (or use PENGUIN_BROWSER_TOKEN env var)')
+  .option('-s, --session <id>', 'Session ID')
+  .option(
+    '--kind <kind>',
+    'info_request | selection | commitment_confirmation | secret_entry | human_challenge | browser_takeover',
+  )
+  .option('--ask <text>', 'What the person should do, as an instruction')
+  .option('--summary <text>', 'One line of context (never a value)')
+  .option('--options-json <json>', 'selection: [{ id, label, rationale, plan? }]')
+  .option('--payment-json <json>', 'commitment_confirmation: the seven fields of the purchase')
+  .option('--tolerance <amount>', 'commitment_confirmation: slack to OFFER on the card, in the same currency')
+  .option('--field <field>', 'secret_entry: cvv | otp | three_d_secure | card_number | payment_password | passkey')
+  .option('--purpose <text>', 'secret_entry: why the code is needed')
+  .option('--target <selector>', 'human_challenge / browser_takeover: element to highlight')
+  .option('--reason <text>', 'browser_takeover: why the other five kinds were not enough (required)')
+  .option(
+    '--timeout [ms]',
+    z.number().default(120000).describe('How long to wait for the person, in milliseconds'),
+  )
+  .action(async (options) => {
+    const kind = String(options.kind ?? '')
+    const ask = String(options.ask ?? '')
+    if (!kind || !ask) {
+      console.error('Error: --kind and --ask are both required.')
+      process.exit(1)
+    }
+    const timeoutMs = Number(options.timeout ?? 120000)
+    const request: Record<string, unknown> = {
+      kind,
+      ask,
+      summary: options.summary ? String(options.summary) : undefined,
+      timeoutMs,
+    }
+    if (options.optionsJson) request.options = JSON.parse(String(options.optionsJson))
+    if (options.paymentJson) request.payment = JSON.parse(String(options.paymentJson))
+    if (options.tolerance) request.offeredTolerance = { amountIncrease: Number(options.tolerance) }
+    if (options.field) request.field = String(options.field)
+    if (options.purpose) request.purpose = String(options.purpose)
+    if (options.target) request.targetSelector = String(options.target)
+    if (options.reason) request.reason = String(options.reason)
+
+    // The two page kinds run *through the executor*, so the overlay lands on the session's own tab
+    // and the wait survives the navigation a solved captcha usually causes. The card kinds do not
+    // touch the browser at all, so they are sent straight from here — going through the relay
+    // would mean a browser session had to exist before the agent could ask a question.
+    if (kind === 'human_challenge' || kind === 'browser_takeover') {
+      const code = [
+        `const result = await requestUserInteraction(${JSON.stringify(request)})`,
+        `console.log(JSON.stringify(result))`,
+      ].join('\n')
+      await executeCode({
+        code,
+        timeout: timeoutMs + 30000,
+        sessionId: options.session,
+        host: options.host,
+        token: options.token,
+      })
+      return
+    }
+
+    const result = await requestUserInteraction(request as unknown as RequestInteractionOptions)
+    console.log(JSON.stringify(result))
+    // An unanswered or refused request is not a CLI failure: the agent has to read the outcome and
+    // decide. Only a request that could not be made at all exits non-zero.
+    if (result.status === 'unavailable') process.exitCode = 2
+  })
+
+cli
+  .command('payment authorize', 'Ask the harness whether this payment may proceed')
+  .option('--plan-json <json>', 'What the payment page says right now (the same fields as the card)')
+  .option('--action <name>', 'Stable action name for the journal, e.g. ctrip.payFlightOrder')
+  .action(async (options) => {
+    const channel = harnessChannel()
+    if (!channel) {
+      console.error(
+        'This command needs a Travel Agent turn: the payment guard lives with the conversation.',
+      )
+      process.exit(2)
+    }
+    const response = await fetch(new URL('/api/agent/payments/authorize', channel.baseUrl), {
+      method: 'POST',
+      headers: { authorization: `Bearer ${channel.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: channel.sessionId,
+        actualPlan: JSON.parse(String(options.planJson ?? '{}')),
+        action: String(options.action ?? 'payment'),
+      }),
+    })
+    const body = await response.text()
+    console.log(body)
+    // A refusal is an outcome, not an error: the agent reports it to the person and stops.
+    if (!response.ok) process.exitCode = 1
+  })
+
+cli
+  .command('payment report', 'Tell the harness what an authorised payment actually did')
+  .option('--authorization <id>', 'The authorizationId the guard returned')
+  .option('--outcome-json <json>', 'What happened: order id, status, whatever the page showed')
+  .action(async (options) => {
+    const channel = harnessChannel()
+    if (!channel) {
+      console.error('This command needs a Travel Agent turn.')
+      process.exit(2)
+    }
+    const response = await fetch(
+      new URL(`/api/agent/payments/${String(options.authorization)}/outcome`, channel.baseUrl),
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${channel.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: channel.sessionId,
+          outcome: JSON.parse(String(options.outcomeJson ?? '{}')),
+        }),
+      },
+    )
+    if (!response.ok) {
+      console.error(await response.text())
+      process.exitCode = 1
+      return
+    }
+    console.log(JSON.stringify({ recorded: true }))
+  })
+
+cli
+  // Kept as the shorthand for the commonest page handoff — a captcha, a code the site itself
+  // consumes — and now expressed in terms of the six kinds: this is `human_challenge`. Anything
+  // that does not need the person's hands *in the page* belongs in `interaction request` instead.
+  .command('request-help', 'Hand the page to the person for one step (a human_challenge), then resume')
   .option('--host <host>', 'Remote relay server host')
   .option('--token <token>', 'Authentication token (or use PENGUIN_BROWSER_TOKEN env var)')
   .option('-s, --session <id>', 'Session ID')
@@ -1562,7 +1696,12 @@ cli
     // Runs through the executor so the overlay lands on the session's current tab and the wait
     // survives the navigation a solved captcha usually triggers.
     const code = [
-      `const result = await requestHelp(${JSON.stringify(params)})`,
+      `const result = await requestUserInteraction(${JSON.stringify({
+        kind: 'human_challenge',
+        ask: params.prompt,
+        targetSelector: params.targetSelector,
+        timeoutMs: params.timeoutMs,
+      })})`,
       `console.log(JSON.stringify(result))`,
     ].join('\n')
 
