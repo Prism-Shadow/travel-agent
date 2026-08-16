@@ -165,6 +165,7 @@ pnpm format:check
 | `desktop/test/broker-handlers.test.ts` | A4 at the layer that answers it: the claimed domain compared to the page main reads, mismatch refused and audited; grant ask/approve/decline/narrow; fill and pay refusals passed back by reason |
 | `desktop/test/payment-authority.test.ts` | Issue hands back an id not a permission; the flag gate; credential resolved in main and wiped; every capability check; **the SIGKILL row** with a side-effect count |
 | `desktop/test/pane-target-resolver.test.ts` | The pane↔vault adapter's edges: gone tab → null; fail-closed detach of a missing target; drive-gate revoke/restore |
+| `desktop/test/browser-pane-behaviour.test.ts` (Phase 4 additions) | `taskTargetId` resolving a turn's `"current"` target and returning null (fail-closed) for a turn with no live tab or another turn's; the secret-phase drive gate revoke/restore and `closeTarget` |
 | `desktop/test/vault-shell-gating.test.ts` | The gating chain: usable storage + no isolation → L1 on, L2/L3/live/pay off with reasons; A9 → vault off entirely; the secret_entry.live ordering |
 | `desktop/test/vault-redaction-agreement.test.ts` | Golden shape/fingerprint values shared with the relay, so the two implementations cannot drift apart silently |
 | `browser-cli/src/redaction.unit.test.ts` | Text replacement wherever a value is echoed; digit-run boundary; same-shape non-match; screenshot allowed/refused by box coverage; the golden pair |
@@ -183,7 +184,7 @@ pnpm format:check
 | core | 877 passed, 5 skipped (882) |
 | server | 711 passed (711) |
 | web | 765 passed (765) |
-| desktop | 669 passed (669) |
+| desktop | 674 passed (674) |
 | desktop e2e (Electron + Xvfb) | iab-e2e: all assertions passed (exit 0) |
 | browser-cli (`pnpm test`, serial) | 542 passed, 6 failed (the pinned-Chromium baseline), 1 skipped (549); exit 1 — see below |
 | typecheck (`tsc --noEmit`, all packages) | clean, all packages |
@@ -223,11 +224,6 @@ Each is assigned elsewhere; none is a stub pretending to be a feature.
 
 ## 10. Known limitations
 
-- **`currentTarget` in the shell is not yet wired to per-turn tab tracking.** The broker handlers
-  resolve a target from the explicit `targetId` an agent passes; a call that says `"current"` is
-  refused with "no page open" until the pane reports the turn's active tab. Fills and payments that
-  name their target work; the convenience of an implicit target does not, yet. Recorded rather than
-  papered over.
 - **The grant dialog is modal and coarse.** It names the site, purpose and fields, and a person
   decides yes/no on the whole set. It cannot yet narrow the set — that is the per-field card above.
 - **Peer-credential UID checks on the broker socket are not claimed.** Node exposes no portable

@@ -374,9 +374,15 @@ async function startServerAndWindow(dataRoot: string): Promise<void> {
   // rest of the app runs. Only started once — a server restart reuses the running broker.
   if (vaultShell === null && browserPane !== null) {
     try {
+      const pane = browserPane;
       vaultShell = await startVaultShell({
         dataRoot,
-        targets: paneTargetResolver(browserPane),
+        targets: paneTargetResolver(pane),
+        // Resolves a vault call's `"current"` target to the tab the turn is working in, so a
+        // secure_fill or a payment need not name its target id. Null (no owned live tab, or one
+        // without a target id yet) is the pane's own fail-closed answer, which the broker handlers
+        // already turn into "no page open".
+        currentTarget: async ({ taskId }) => pane.taskTargetId(taskId),
       });
     } catch (err) {
       process.stdout.write(`[shell] vault did not start: ${String((err as Error).message)}\n`);

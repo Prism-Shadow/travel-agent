@@ -170,7 +170,7 @@
   - **host-tool 钩子放在 core，工具实现放在 server**：`execute_payment` / `fill_saved_field` / `request_profile_grant` 不是 core 的 builtin，而是通过新的 `EnvironmentConfig.hostTools`（产品中立）由 server 贡献、仅在有 broker 时提供。规划说的是「builtin tool」，选它是因为把旅行支付语义写进 core 会污染中立运行时——与 Phase 3 把付款规则留在 skill 同一判断。
   - **broker 无 peer-credential UID 校验**：Node 不暴露可移植的 `SO_PEERCRED`/`getpeereid`，故 socket 侧执行力是 0700 目录内的 0600 socket + fork 环境里的一次性 token；§11.2 的 UID 校验列为 Phase 5（在平台允许处）。已在 verification §10 与代码注释如实说明。
   - **grant 询问是原生对话框、全量批准**：本 Phase 用 shell 自绘的模态对话框问「是否允许」，逐字段裁剪的卡片形态留给交互卡片层，记为已知限制。
-  - **`currentTarget` 未接每轮活动 tab**：broker handler 以 agent 传入的显式 `targetId` 解析目标；`"current"` 在 pane 汇报活动 tab 前一律以「无页面」失败关闭。指名 target 的填单/付款可用，隐式便利未接，记为已知限制。
+  - **`currentTarget` 接 pane 的每轮活动 tab**：`"current"` 由 `BrowserPane.taskTargetId(taskId)` 解析到该轮正在看/最近拥有的 tab；无活动 tab 或尚无 target id 时返回 null，broker handler 按「无页面」fail-closed，绝不猜错目标。（Phase 4 首版曾把 `"current"` 一律拒绝，本收尾补齐。）
   - **脱敏靠指纹分工两进程**：main 只发「盐化截断 HMAC + 长度 + 字符形状」，relay 侧匹配替换、绝不拿到值；两包各自实现 shape/fingerprint，用共享 golden 值双向钉住防止静默漂移。OCR 兜底在 `redaction.ocr` 之后，本 Phase 不实现且不作保证。
 
 ### Phase 5 · 生产加固

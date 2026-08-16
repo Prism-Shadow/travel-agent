@@ -662,6 +662,56 @@ describe("task authority", () => {
   });
 });
 
+describe("resolving a turn's current target (for the vault)", () => {
+  it("returns the target id of the tab the turn owns", async () => {
+    // What lets a vault secure_fill/execute_payment say `"current"` instead of naming a target.
+    const { pane } = await paneWithSession("session-1", "task-a");
+    await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
+    expect(pane.taskTargetId("task-a")).toBe("T1");
+    // And the reverse lookup the fill port uses.
+    expect(pane.contentsForTarget("T1")).not.toBeNull();
+  });
+
+  it("returns null for a turn that owns no live tab — the fail-closed 'no page open'", async () => {
+    const { pane } = await paneWithSession("session-1", "task-a");
+    expect(pane.taskTargetId("task-a")).toBeNull();
+    expect(pane.taskTargetId(undefined)).toBeNull();
+    expect(pane.contentsForTarget("T-nope")).toBeNull();
+  });
+
+  it("does not hand one turn's target to another", async () => {
+    const { pane } = await paneWithSession("session-1", "task-a");
+    await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
+    expect(pane.taskTargetId("task-b")).toBeNull();
+  });
+});
+
+describe("the secret-phase drive gate", () => {
+  it("revokes and restores a target's agent drivability, and reports a gone target", async () => {
+    const { pane } = await paneWithSession("session-1", "task-a");
+    await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
+    const contents = pane.taskContents("task-a")!;
+
+    expect(pane.mayDrive(contents, "task-a")).toEqual({ allowed: true });
+    expect(pane.setAgentDrivable({ targetId: "T1", drivable: false })).toBe(true);
+    // While revoked, even the owning turn is refused — the point of the secret phase.
+    expect(pane.mayDrive(contents, "task-a").allowed).toBe(false);
+    expect(pane.setAgentDrivable({ targetId: "T1", drivable: true })).toBe(true);
+    expect(pane.mayDrive(contents, "task-a")).toEqual({ allowed: true });
+
+    // A target that does not exist cannot be revoked — the vault detach must fail closed on it.
+    expect(pane.setAgentDrivable({ targetId: "T-gone", drivable: false })).toBe(false);
+  });
+
+  it("closes the tab that owns a target", async () => {
+    const { pane } = await paneWithSession("session-1", "task-a");
+    await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
+    expect(pane.state().tabs).toHaveLength(1);
+    await pane.closeTarget("T1");
+    expect(pane.state().tabs).toHaveLength(0);
+  });
+});
+
 describe("downloads", () => {
   it("resolves a tab's downloads to its own conversation's directory", async () => {
     const { pane } = await paneWithSession("session-1", "task-a");

@@ -1687,6 +1687,23 @@ export class BrowserPane {
   }
 
   /**
+   * The CDP target id a task's untargeted vault call should land on.
+   *
+   * The same selection `taskContents` makes — the tab the task is looking at, else the most recent
+   * one it owns — expressed as a target id, so the vault's `secure_fill`/`execute_payment` can
+   * resolve `"current"` to a page rather than being refused (see `broker-handlers.ts`). Null when
+   * the task owns no live tab, or its live tab has not yet been assigned a target id: both are the
+   * fail-closed "no page open" the handlers already handle, never a wrong guess.
+   */
+  taskTargetId(taskId: string | undefined): string | null {
+    if (!taskId) return null;
+    const contents = this.taskContents(taskId);
+    if (!contents) return null;
+    const tab = this.tabForContents(contents);
+    return tab?.targetId ?? null;
+  }
+
+  /**
    * Who owns a view's tab, for the relay's registry.
    *
    * Announced alongside every target, on first attach and on every reconnect. That is what makes
