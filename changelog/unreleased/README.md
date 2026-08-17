@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-17] The in-app browser address bar now accepts a URL and opens the first tab when a conversation has no tabs yet. ([details](2026-08-17-empty-browser-address-bar.md))
 - [2026-08-17] The in-app browser is now enabled and open by default when Desktop starts; `PENGUIN_FLAGS` is no longer required. ([details](2026-08-17-iab-default-on.md))
 - [2026-08-15] Phase 2: the pane becomes a real browser — tabs, address bar, shortcuts — and a tab learns which conversation shows it and which task may write to it. ([details](2026-08-15-phase-2-browser-shell.md))
 - [2026-08-15] Phase 1 initially introduced the right half of the window as a real in-app browser the agent drives and the user can click, behind `iab.enabled`. ([details](2026-08-15-phase-1-iab-vertical-slice.md))

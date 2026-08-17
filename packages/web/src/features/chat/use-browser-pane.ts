@@ -113,7 +113,8 @@ export interface BrowserPaneState {
 
 /** What the chrome can ask main to do. Every one of them is refused for a tab outside the strip. */
 export interface BrowserPaneActions {
-  openTab: () => void;
+  /** Opens a blank tab, or opens the supplied address as the first tab in an empty strip. */
+  openTab: (url?: string) => Promise<void>;
   closeTab: (tabId: string) => Promise<void>;
   selectTab: (tabId: string) => Promise<void>;
   setRetain: (tabId: string, retain: boolean) => void;
@@ -491,7 +492,11 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       void work?.catch(() => {});
     };
     return {
-      openTab: () => quiet(bridge?.openTab()),
+      // Awaited by the address bar, which uses a submitted URL to create the first tab in an empty
+      // strip. The plus button may still deliberately ignore a stale-conversation rejection.
+      openTab: async (url) => {
+        await bridge?.openTab(url);
+      },
       // Awaited too: closing from the keyboard has to move focus to whatever is selected next.
       closeTab: async (tabId) => {
         await bridge?.closeTab(tabId);

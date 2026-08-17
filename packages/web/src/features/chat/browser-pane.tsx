@@ -258,7 +258,12 @@ function BrowserTabStrip({ state }: { state: BrowserPaneState }): React.ReactEle
         type="button"
         aria-label={S.chat.browserPane.newTab}
         data-testid="iab-new-tab"
-        onClick={() => actions.openTab()}
+        onClick={() => {
+          void actions.openTab().catch(() => {
+            // The conversation may have changed between the render and the click. The next state
+            // push already tells the user which strip is current, so there is nothing to surface.
+          });
+        }}
         className="mb-1 shrink-0 rounded px-2 py-0.5 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
       >
         ＋
@@ -418,7 +423,7 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
 
 /** Back, forward, reload/stop, and the address bar. */
 function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElement {
-  const { activeTab, actions, addressRef } = state;
+  const { activeTab, actions, addressRef, scopeSettled } = state;
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [rejected, setRejected] = useState<string | null>(null);
@@ -438,7 +443,7 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
       className="flex items-center gap-1 border-b border-gray-200 px-2 py-1 dark:border-gray-800"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!activeTab) return;
+        if (!scopeSettled) return;
         const normalized = normalizeUrlInput(draft);
         if (!normalized.ok) {
           if (normalized.reason !== "empty") setRejected(S.chat.browserPane.badUrl);
@@ -446,7 +451,16 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
         }
         setRejected(null);
         setEditing(false);
-        void actions.navigate(activeTab.id, normalized.url).catch(() => {
+        // An empty strip has no tab to navigate, but it is still a valid browser workspace. Treat
+        // the submitted address as the first tab instead of presenting an address field that looks
+        // editable but is disabled until the user discovers the separate plus button.
+        const work = activeTab
+          ? actions.navigate(activeTab.id, normalized.url)
+          : actions.openTab(normalized.url);
+        void work.catch(() => {
+          // Keep the submitted text available for correction or retry rather than replacing it with
+          // the old page (or an empty strip) after a rejected IPC call.
+          setEditing(true);
           setRejected(S.chat.browserPane.badUrl);
         });
       }}
@@ -490,7 +504,9 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
         aria-label={S.chat.browserPane.address}
         aria-invalid={rejected !== null}
         data-testid="iab-address"
-        disabled={!activeTab}
+        // Scope confirmation, rather than tab presence, is the safety gate. While a conversation
+        // switch is in flight, opening a first tab could otherwise attach it to the previous scope.
+        disabled={!scopeSettled}
         value={shown}
         placeholder={S.chat.browserPane.addressPlaceholder}
         onFocus={() => {
