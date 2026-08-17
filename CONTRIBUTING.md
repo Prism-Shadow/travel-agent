@@ -118,8 +118,16 @@ pnpm test:e2e                                        # core live-model e2e, need
   repo caught up).
 - travel-agent does not maintain the PenguinHarness landing or docs sites. Both
   packages were removed on 2026-08-17, together with the Pages workflow that
-  deployed penguin.ooo. The repo's own `install.sh` / `install.ps1` and
-  `release.yml` are unrelated to that site and stay.
+  deployed penguin.ooo, and — later the same day — upstream's `release.yml` and
+  `oss-staging.yml`, which published to the public npm `@prismshadow` scope and an
+  Alibaba OSS bucket that are not this fork's to publish to. Nothing in this repo
+  publishes anything today; `install.sh` / `install.ps1` are kept and still tested
+  by `pre-release.yml`, against the day a CLI build is cut.
+- CI is two workflows. `ci.yml` runs on every push to main and every pull request
+  (Ubuntu: security guard, build, style, typecheck, tests, in-app browser e2e).
+  `pre-release.yml` is manual and holds what is only worth paying for before a
+  build ships — Windows and the installer suites. This repo is private, so Actions
+  minutes are billed, and Windows bills at 2x, macOS at 10x.
 
 ## Pull requests
 

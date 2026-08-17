@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-17] CI rebuilt for this fork: upstream's publishing workflows removed, Windows and installer checks moved to a manual pre-release run, flaky `penguin-browser` relay tests isolated. ([details](2026-08-17-ci-for-travel-agent.md))
 - [2026-08-17] Removed `packages/landing` and `packages/docs` (PenguinHarness's public site), the Pages workflow, and the dead icon/site scripts. ([details](2026-08-17-remove-upstream-site.md))
 - [2026-08-17] `@travel-agent/domain` removed: representative selection and offer alignment deleted as model judgements, `submitBooking` moved into `@travel-agent/transaction`. ([details](2026-08-17-remove-travel-domain.md))
 - [2026-08-17] Imported history now completes in the address bar, and imported passwords fill sign-in forms on the user's own click. ([details](2026-08-17-saved-logins-and-address-completion.md))

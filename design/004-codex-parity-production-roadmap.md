@@ -192,7 +192,8 @@
 ### Phase 6 · 跨平台 Beta
 
 - **目标**：三平台可安装、可自动更新、可回滚的 Beta。
-- **范围**：打包与签名（沿用 `electron-builder.yml` publish:github、`desktop-build.yml`/`release.yml`、`scripts/package-release-bundles.sh`、macOS 签名公证既有链路）；自动更新升/降级实测 + beta/stable 双通道；**数据迁移**（`userData` schema 版本戳：vault 格式、tab checkpoint 格式；N→N+1 迁移与 N+1→N 兼容读）；支持矩阵定稿并写入 README 与安装器检查；M10/M11/M12 全平台复验；`test-installer.sh/ps1` 跑通（若仍引用 `packages/landing`，顺手拆掉那两处引用——001 §3 遗留项）。
+- **范围**：打包与签名（`electron-builder.yml` publish:github、`desktop-build.yml`、`scripts/package-release-bundles.sh`、macOS 签名公证既有链路）；自动更新升/降级实测 + beta/stable 双通道；**数据迁移**（`userData` schema 版本戳：vault 格式、tab checkpoint 格式；N→N+1 迁移与 N+1→N 兼容读）；支持矩阵定稿并写入 README 与安装器检查；M10/M11/M12 全平台复验；`test-installer.sh/ps1` 跑通（现由 `pre-release.yml` 承载）。
+- **前置缺口（2026-08-17 新增）**：`release.yml` 与 `oss-staging.yml` 已删除——它们发到公开 npm 的 `@prismshadow` scope 与上游阿里云 OSS，都不属于本仓（001 §仓库策略）。因此**本 Phase 开工前必须先决定本仓自己的分发方式**：私有 GitHub Release？内部分发？自动更新的 feed 放在哪里？`desktop-build.yml` 已保留 `workflow_call` 入口和三平台矩阵，缺的是调用它并投递产物的那一层。`packages/landing` 的遗留引用已于同日拆除并删除该包，此项不再是本 Phase 的负担。
 - **非目标**：不加新功能；发现的功能缺陷回流为 Phase 7 修复项，不在本 Phase 展开。
 - **依赖**：Phase 5。
 - **代码与文档模块**：`desktop/src/data-migration.ts`（暂名）+ schema 版本常量；electron-builder 双通道配置；README 支持矩阵段；安装器测试脚本修订；`changelog/` Beta 版本目录。
