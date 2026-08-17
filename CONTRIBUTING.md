@@ -18,8 +18,6 @@ pnpm build       # build first: core's exports point at dist/
 pnpm dev         # backend + web app together (prefixed logs, deps built once)
 pnpm dev:server  # backend at 127.0.0.1:7368 (not the installed server's 7364)
 pnpm dev:web     # web app (Vite) at 127.0.0.1:7365, /api proxied to 7368
-pnpm dev:docs    # docs site (Vite) at 127.0.0.1:7367
-pnpm dev:landing # landing page (Vite) at 127.0.0.1:7366
 pnpm penguin ... # CLI from source; `penguin web` serves at 127.0.0.1:7369
 ```
 
@@ -118,9 +116,10 @@ pnpm test:e2e                                        # core live-model e2e, need
   version does not match the repo's, so a forgotten bump fails before anything is published
   (v0.2.1 was tagged with a 0.2.0 repo, and every dev build nagged about an update until the
   repo caught up).
-- travel-agent does not maintain the PenguinHarness landing or docs sites. Those
-  packages remain in the tree only while installer tests and the desktop icon
-  script still reference them; they are excluded from the workspace.
+- travel-agent does not maintain the PenguinHarness landing or docs sites. Both
+  packages were removed on 2026-08-17, together with the Pages workflow that
+  deployed penguin.ooo. The repo's own `install.sh` / `install.ps1` and
+  `release.yml` are unrelated to that site and stay.
 
 ## Pull requests
 

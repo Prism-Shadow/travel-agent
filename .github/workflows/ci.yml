@@ -119,7 +119,7 @@ jobs:
         shell: pwsh
         run: |
           $failed = $false
-          foreach ($f in @("install.ps1", "packages/landing/public/install.ps1")) {
+          foreach ($f in @("install.ps1")) {
             $tokens = $null
             $errors = $null
             # .Path: hand ParseFile a plain string, not a PathInfo object.

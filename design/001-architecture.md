@@ -163,9 +163,9 @@ Escalation 的 payload 里带截图路径，但事务层只管传输，不管这
 
 1. **新能力走新 package**——旅行语义、浏览器层、事务层各过各的，不把旅行写进 `packages/core`。
 2. **事务层继续是 `packages/transaction`**——不进 core。将来若要回赠上游，搬一个目录。
-3. **landing / docs 不再为 merge 留着。** workspace 仍排除它们，因为我们不发布官网；目录暂时还在，是因为 `scripts/test-installer.sh` 和 desktop 图标脚本还引用 `packages/landing` 里的文件。拆掉那两处引用后再删目录。
+3. ~~**landing / docs 不再为 merge 留着。**~~ —— **已执行**（2026-08-17）：两处引用都已不成立并被拆除。`scripts/test-installer.sh` 里测的是 `packages/landing/public/install.sh`，那是 penguin.ooo 的薄转发器，而本仓不运营那个域名；desktop 的 `render-icon.mjs` 并不读 landing 的内容（SVG 来自 `packages/web/public/`），只是借 landing 的 `package.json` 解析 `@playwright/test`——而 landing 被 workspace 排除、`node_modules` 从未安装，那个脚本早已跑不动，产物 `build/icon*.png` 也已提交。两个目录、`pages.yml`、`scripts/build-site.mjs` 与 `render-icon.mjs` 一并删除，`pnpm-workspace.yaml` 的排除条目随之取消。
 
-`.github/workflows/pages.yml` 已改为仅 `workflow_dispatch`，不随 push 部署 penguin.ooo。
+根目录的 `install.sh` / `install.ps1` 与 `.github/workflows/release.yml` **保留**：那是本仓自己发 CLI 用的，与 penguin.ooo 的转发器是两个东西。
 
 ### penguin-browser 的并入方式
 

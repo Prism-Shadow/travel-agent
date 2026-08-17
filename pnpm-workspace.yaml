@@ -1,11 +1,5 @@
 packages:
   - "packages/*"
-  # travel-agent does not ship PenguinHarness's marketing site or docs site.
-  # They stay on disk only because installer tests and the desktop icon script
-  # still point at files under packages/landing. Excluded so they are not
-  # installed or built. See design/001-architecture.md §3.
-  - "!packages/landing"
-  - "!packages/docs"
 # Dependency pins. pnpm 11 reads overrides ONLY from here — the package.json
 # "pnpm.overrides" block it used to honour is silently ignored, which resolved a second
 # copy of each of these.
