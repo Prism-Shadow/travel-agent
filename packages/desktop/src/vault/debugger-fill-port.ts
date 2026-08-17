@@ -121,6 +121,23 @@ export class DebuggerFillPort implements FillPort, SecretPhasePort {
     }
   }
 
+  /**
+   * Runs one function declaration in a tab's isolated world.
+   *
+   * Exposed so the saved-login filler can reuse this file's world handling rather than opening a
+   * second debugger path to the same pages — the surface that can type secrets should stay one
+   * reviewable place. It is deliberately not a general "evaluate anything" channel reachable from
+   * outside the main process: `ipc.ts` exposes no route to it, and the only declarations passed are
+   * the constants in `login-forms.ts`.
+   */
+  async evaluate<T>(input: {
+    targetId: string;
+    declaration: string;
+    args: unknown[];
+  }): Promise<T | null> {
+    return this.inWorld<T>(input.targetId, input.declaration, input.args);
+  }
+
   async fillField(input: {
     targetId: string;
     selector: string;

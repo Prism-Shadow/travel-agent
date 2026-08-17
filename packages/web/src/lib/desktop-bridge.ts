@@ -143,6 +143,17 @@ export interface DesktopBrowserBridge {
     sourceId: string;
     kinds: DesktopImportKind[];
   }): Promise<DesktopImportOutcome>;
+  /** Address-bar completion. Answers an empty list when there is no history rather than failing. */
+  historySuggest(query: string): Promise<DesktopHistoryEntry[]>;
+  /**
+   * Saved logins that apply to the sign-in form on a tab.
+   *
+   * Takes a tab id only: main derives the origin from the tab, so the site a password is chosen
+   * for is never one the renderer named.
+   */
+  loginOffers(tabId: string): Promise<DesktopLoginOffers>;
+  /** Type one saved login into the tab's sign-in form. Does not submit it. */
+  loginFill(request: { tabId: string; credentialId: string }): Promise<DesktopLoginFillResult>;
   onState(listener: (state: DesktopPaneState) => void): () => void;
   onFocusAddress(listener: () => void): () => void;
 }
@@ -182,6 +193,32 @@ export interface DesktopImportOutcome {
   sourceId: string;
   results: DesktopImportKindOutcome[];
   anythingImported: boolean;
+}
+
+/** One saved login that applies to the page in a tab. Never carries a password. */
+export interface DesktopLoginOffer {
+  id: string;
+  username: string;
+  origin: string;
+}
+
+export interface DesktopLoginOffers {
+  /** Whether the page has a sign-in form at all. */
+  formPresent: boolean;
+  offers: DesktopLoginOffer[];
+  /** Set when nothing can be offered for a reason worth showing. */
+  unavailable: string | null;
+}
+
+export type DesktopLoginFillResult =
+  { ok: true; username: string; wroteUsername: boolean } | { ok: false; reason: string };
+
+/** One address-bar suggestion: a page visited here, or brought over from another browser. */
+export interface DesktopHistoryEntry {
+  url: string;
+  title: string;
+  visitCount: number;
+  lastVisitedAt: string | null;
 }
 
 declare global {

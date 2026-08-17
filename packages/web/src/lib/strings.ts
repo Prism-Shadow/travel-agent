@@ -861,6 +861,16 @@ export const zh = {
       clearProfileFailed: "清除浏览器数据失败",
       backendFailed: "切换浏览器失败",
       openInDefaultBrowserFailed: "无法在系统默认浏览器中打开此页",
+      suggestions: "网址建议",
+      /** The "sign in as youhai@example.com" bar. User-pressed only; the agent cannot use these. */
+      logins: {
+        prompt: "已保存的登录信息",
+        fillAs: (username: string) => `填入 ${username}`,
+        fillNoUsername: "填入已保存的密码",
+        filled: (username: string) => `已填入 ${username}，请自行点击登录`,
+        noSubmit: "只填写表单，不会替你点击登录",
+        dismiss: "关闭",
+      },
       /** Bringing cookies, saved logins and history over from the user's own Chrome. */
       import: {
         open: "从浏览器导入",

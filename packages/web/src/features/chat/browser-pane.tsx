@@ -17,11 +17,23 @@ import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { S } from "../../lib/strings";
+import {
+  chosenUrl,
+  close,
+  EMPTY_SUGGESTIONS,
+  move,
+  receive,
+  SUGGEST_DEBOUNCE_MS,
+  suggestionLabel,
+} from "./address-suggestions";
+import type { SuggestionState } from "./address-suggestions";
 import { BrowserImportDialog } from "./browser-import-dialog";
+import { LoginOfferBar } from "./login-offer-bar";
 import { ariaValueNow, MAX_PANE_FRACTION, MIN_PANE_FRACTION } from "./browser-pane-split";
 import { displayUrl, normalizeUrlInput, originOf } from "./browser-url";
 import { createRovingFocus, pointerTabAction } from "./tab-focus";
 import type { BrowserPaneState } from "./use-browser-pane";
+import { desktopBrowserBridge } from "../../lib/desktop-bridge";
 import type { DesktopTabState } from "../../lib/desktop-bridge";
 
 /**
@@ -445,6 +457,9 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [rejected, setRejected] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestionState>(EMPTY_SUGGESTIONS);
+  /** Bumped per request so a late answer for an earlier query can be recognised and dropped. */
+  const querySeq = useRef(0);
 
   // The address bar follows the page except while the user is typing in it — an address that
   // rewrote itself mid-edit because a redirect landed would be unusable.
@@ -453,34 +468,63 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
     if (!editing) setRejected(null);
   }, [editing, activeTab?.url]);
 
+  // Completion runs only while the box has focus, and is debounced: a request per keystroke would
+  // be a main-process round trip per keystroke for a list the user is still typing past.
+  useEffect(() => {
+    if (!editing || draft.trim() === "") {
+      setSuggestions((current) => close(current));
+      return;
+    }
+    const sequence = (querySeq.current += 1);
+    const timer = window.setTimeout(() => {
+      void desktopBrowserBridge()
+        ?.historySuggest(draft)
+        .then((entries) => setSuggestions((current) => receive(current, { entries, sequence })))
+        .catch(() => {
+          // A completion that cannot be produced is not worth reporting to somebody mid-type.
+        });
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [draft, editing]);
+
+  /** Navigates to one address, from the box or from the list. Shared by Enter and by a click. */
+  const go = (url: string): void => {
+    setRejected(null);
+    setEditing(false);
+    setSuggestions((current) => close(current));
+    const work = activeTab ? actions.navigate(activeTab.id, url) : actions.openTab(url);
+    void work.catch(() => {
+      setEditing(true);
+      setRejected(S.chat.browserPane.badUrl);
+    });
+  };
+
   const control =
     "rounded px-2 py-1 text-sm text-gray-600 disabled:opacity-30 enabled:hover:bg-gray-100 dark:text-gray-300 dark:enabled:hover:bg-gray-800";
 
   return (
     <form
-      className="flex items-center gap-1 border-b border-gray-200 px-2 py-1 dark:border-gray-800"
+      // `relative` so the completion list positions against the toolbar rather than the page.
+      className="relative flex items-center gap-1 border-b border-gray-200 px-2 py-1 dark:border-gray-800"
       onSubmit={(event) => {
         event.preventDefault();
         if (!scopeSettled) return;
+        // A highlighted suggestion wins over the text in the box, and is already a real URL, so it
+        // does not go through `normalizeUrlInput` — it came out of the history store, not a person.
+        const picked = chosenUrl(suggestions);
+        if (picked !== null) {
+          go(picked);
+          return;
+        }
         const normalized = normalizeUrlInput(draft);
         if (!normalized.ok) {
           if (normalized.reason !== "empty") setRejected(S.chat.browserPane.badUrl);
           return;
         }
-        setRejected(null);
-        setEditing(false);
         // An empty strip has no tab to navigate, but it is still a valid browser workspace. Treat
         // the submitted address as the first tab instead of presenting an address field that looks
         // editable but is disabled until the user discovers the separate plus button.
-        const work = activeTab
-          ? actions.navigate(activeTab.id, normalized.url)
-          : actions.openTab(normalized.url);
-        void work.catch(() => {
-          // Keep the submitted text available for correction or retry rather than replacing it with
-          // the old page (or an empty strip) after a rejected IPC call.
-          setEditing(true);
-          setRejected(S.chat.browserPane.badUrl);
-        });
+        go(normalized.url);
       }}
     >
       <button
@@ -527,14 +571,41 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
         disabled={!scopeSettled}
         value={shown}
         placeholder={S.chat.browserPane.addressPlaceholder}
+        role="combobox"
+        aria-expanded={suggestions.open}
+        aria-controls="iab-address-suggestions"
+        aria-autocomplete="list"
+        {...(suggestions.selected !== null
+          ? { "aria-activedescendant": `iab-suggestion-${suggestions.selected}` }
+          : {})}
         onFocus={() => {
           setDraft(displayUrl(activeTab?.url ?? ""));
           setEditing(true);
         }}
-        onBlur={() => setEditing(false)}
+        // Deferred: a click on a suggestion fires blur first, and closing the list synchronously
+        // would unmount the row before its own click handler ran.
+        onBlur={() => {
+          window.setTimeout(() => {
+            setEditing(false);
+            setSuggestions((current) => close(current));
+          }, 120);
+        }}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            if (!suggestions.open) return;
+            // Or the caret jumps to the end of the address while the highlight moves.
+            event.preventDefault();
+            setSuggestions((current) => move(current, event.key === "ArrowDown" ? 1 : -1));
+            return;
+          }
           if (event.key === "Escape") {
+            // First Escape closes the list; a second leaves the address bar. Blurring straight out
+            // of an open list would throw away two intentions for one keypress.
+            if (suggestions.open) {
+              setSuggestions((current) => close(current));
+              return;
+            }
             setEditing(false);
             event.currentTarget.blur();
           }
@@ -543,6 +614,47 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
           rejected ? "border-red-400 dark:border-red-500" : "border-gray-200 dark:border-gray-700"
         }`}
       />
+      {suggestions.open && (
+        // Absolutely positioned over the page, not in the flow: the pane below is a native view
+        // composited above the DOM, so the list is drawn in the toolbar's own stacking context.
+        <ul
+          id="iab-address-suggestions"
+          role="listbox"
+          aria-label={S.chat.browserPane.suggestions}
+          data-testid="iab-address-suggestions"
+          className="absolute left-2 right-2 top-full z-30 max-h-64 overflow-y-auto rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+        >
+          {suggestions.entries.map((entry, index) => {
+            const { primary, secondary } = suggestionLabel(entry);
+            return (
+              <li
+                key={entry.url}
+                id={`iab-suggestion-${index}`}
+                role="option"
+                aria-selected={suggestions.selected === index}
+                className={`cursor-pointer px-2 py-1 ${
+                  suggestions.selected === index
+                    ? "bg-blue-50 dark:bg-gray-800"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`}
+                // `mouseDown`, not `click`: the input's blur fires first and would otherwise have
+                // to be raced. Preventing the default keeps focus in the box until `go` runs.
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  go(entry.url);
+                }}
+              >
+                <div className="truncate text-xs text-gray-800 dark:text-gray-100">{primary}</div>
+                {secondary !== "" && (
+                  <div className="truncate font-mono text-[10px] text-gray-500 dark:text-gray-400">
+                    {secondary}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <BrowserMenu state={state} />
     </form>
   );
@@ -626,6 +738,8 @@ export function BrowserPanePanel({ state }: { state: BrowserPaneState }): React.
     <div className="flex h-full w-full flex-col bg-white dark:bg-gray-950">
       <BrowserTabStrip state={state} />
       <BrowserToolbar state={state} />
+      {/* Only ever drawn when the page has a sign-in form and something is stored for its origin. */}
+      <LoginOfferBar tab={state.activeTab} />
       <BrowserFailure state={state} />
       {showRestore ? <BrowserRestorePrompt state={state} /> : null}
 

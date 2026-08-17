@@ -50,6 +50,8 @@ import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
 import { startVaultShell } from "./vault-shell.js";
 import { paneTargetResolver } from "./vault/pane-target-resolver.js";
+import { DebuggerFillPort } from "./vault/debugger-fill-port.js";
+import { LoginService } from "./browser-import/login-service.js";
 import { BrowserImporter } from "./browser-import/importer.js";
 import { electronSafeStorage, judgeStorage, readStorageFacts } from "./vault/safe-storage.js";
 import { iabSession } from "./session-partition.js";
@@ -254,6 +256,9 @@ function createWindow(url: string): void {
       // offered at all (design/004 §5); the port is whether it could work in this run.
       extensionBackendAvailable: chromeFallbackEnabled && !relayMovedOffConventionalPort(),
       onBackendChange: (sessionId, backend) => writeBackendPreference(sessionId, backend),
+      // Feeds the address bar's completion. Goes through the importer because it owns the history
+      // store's lifetime — the import fills it, ordinary browsing keeps it current.
+      onVisit: (visit) => browserImporter?.historyStore()?.record(visit),
       onNotifyRelay: (method, params) => transport?.notify(method, params),
       // An agent's first command in a turn can outrun the poll; this makes the race a bounded wait.
       refreshTaskState: async () => {
@@ -300,11 +305,24 @@ function createWindow(url: string): void {
       log: (message) => process.stdout.write(`[import] ${message}\n`),
     });
 
+    // Offering an imported password on a sign-in page. Wired independently of the vault shell:
+    // those credentials come from the user's own browser, not from the vault, so gating them on
+    // `vault.enabled` would switch off a feature that has nothing to do with it. It gets its own
+    // fill port over the same pane resolver — the port is a thin wrapper, and sharing the vault's
+    // would tie this to whether the vault started.
+    const loginService = new LoginService({
+      credentials: () => browserImporter?.credentialStore() ?? Promise.resolve(null),
+      world: new DebuggerFillPort(paneTargetResolver(pane)),
+      tabs: { urlOf: (targetId) => paneTargetResolver(pane).urlOf(targetId) },
+      log: (message) => process.stdout.write(`[logins] ${message}\n`),
+    });
+
     disposeBrowserIpc = installBrowserIpc({
       window: win,
       pane,
       promptTaskRefresh: () => taskSupervisor?.prompt(),
       importer: browserImporter,
+      logins: loginService,
     });
 
     // Cmd+L has to reach a DOM element main cannot touch: the routing table decides, the renderer

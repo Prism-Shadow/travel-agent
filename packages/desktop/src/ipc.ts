@@ -22,6 +22,7 @@ import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { parseSourceId } from "./browser-import/chrome-profiles.js";
 import type { ImportKind } from "./browser-import/chrome-profiles.js";
 import type { BrowserImporter } from "./browser-import/importer.js";
+import type { LoginService } from "./browser-import/login-service.js";
 import type { BrowserPane, PaneBackend } from "./browser-pane.js";
 import type { PaneMeasurement } from "./browser-pane-layout.js";
 import type { TaskOutcome } from "./tab-lifecycle.js";
@@ -51,6 +52,9 @@ const CHANNELS = [
   "iab:handoff-open",
   "iab:import-sources",
   "iab:import-run",
+  "iab:history-suggest",
+  "iab:login-offers",
+  "iab:login-fill",
 ] as const;
 
 /** Upper bound on a reported rectangle. Larger than any real display; a bigger number is a bug. */
@@ -164,6 +168,20 @@ export function parseSourceIdArgument(value: unknown): string {
   return id;
 }
 
+/** Longest address-bar query answered. Past this the user is pasting, not searching. */
+const MAX_QUERY_LENGTH = 512;
+
+/**
+ * A completion query.
+ *
+ * Bounded rather than rejected on length: an over-long value is a paste, and truncating it gives
+ * the same (empty) answer as refusing while costing nobody an error in the address bar.
+ */
+export function parseQuery(value: unknown): string {
+  if (typeof value !== "string") throw new Error("query must be a string");
+  return value.slice(0, MAX_QUERY_LENGTH);
+}
+
 const OUTCOMES: readonly TaskOutcome[] = ["read_only", "committed", "failed", "unknown"];
 
 export function parseOutcome(value: unknown): TaskOutcome {
@@ -191,6 +209,11 @@ export interface BrowserIpcOptions {
    * channel that is not registered gets an unhelpful "no handler" error instead of an empty list.
    */
   importer?: BrowserImporter | null;
+  /**
+   * Offering and typing saved website logins. Absent when the shell did not wire one, in which case
+   * the channels answer "nothing to offer" rather than being missing.
+   */
+  logins?: LoginService | null;
 }
 
 /** Installs the handlers. Returns a disposer that removes them again. */
@@ -199,6 +222,7 @@ export function installBrowserIpc({
   pane,
   promptTaskRefresh,
   importer,
+  logins,
 }: BrowserIpcOptions): () => void {
   const fromAppWindow = (event: IpcMainInvokeEvent): boolean => event.sender === window.webContents;
 
@@ -316,6 +340,42 @@ export function installBrowserIpc({
     return importer.run({
       sourceId: parseSourceIdArgument(record.sourceId),
       kinds: parseImportKinds(record.kinds),
+    });
+  });
+
+  // Address-bar completion. Answers an empty list rather than throwing when there is no history
+  // store: a suggestion that cannot be produced is not an error the address bar should surface.
+  on("iab:history-suggest", (payload) => {
+    const history = importer?.historyStore();
+    if (!history) return [];
+    try {
+      return history.suggest(parseQuery(payload));
+    } catch {
+      // A corrupt or locked history database must not break typing an address.
+      return [];
+    }
+  });
+
+  // —— saved logins ——
+  //
+  // Both handlers take a **tab id**, and the service asks the pane what URL that tab is on. Neither
+  // accepts an origin: a renderer that named one could ask for one site's password while the user
+  // was on another. And there is deliberately no agent-facing route to either — see
+  // `login-service.ts` for why that is a feature and not an omission.
+  on("iab:login-offers", async (payload) => {
+    if (!logins) return { formPresent: false, offers: [], unavailable: null };
+    const targetId = pane.targetIdForTab(parseId(payload, "tabId"));
+    if (targetId === null) return { formPresent: false, offers: [], unavailable: null };
+    return logins.offersFor(targetId);
+  });
+  on("iab:login-fill", async (payload) => {
+    if (!logins) return { ok: false, reason: "Saved logins are not available." };
+    const record = asRecord(payload, "login");
+    const targetId = pane.targetIdForTab(parseId(record.tabId, "tabId"));
+    if (targetId === null) return { ok: false, reason: "That tab is no longer open." };
+    return logins.fill({
+      targetId,
+      credentialId: parseId(record.credentialId, "credentialId"),
     });
   });
 

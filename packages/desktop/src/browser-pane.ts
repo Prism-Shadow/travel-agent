@@ -219,6 +219,18 @@ export interface BrowserPaneOptions {
   /** Backends chosen previously, by conversation. Anything absent defaults to the in-app browser. */
   initialBackends?: Record<string, PaneBackend>;
   /**
+   * A page finished loading at a committed URL.
+   *
+   * Feeds the address bar's history. Deliberately a callback rather than a store this module holds:
+   * the pane should not know whether history is kept, in what, or whether the user has turned it
+   * off — it knows only that a navigation happened.
+   *
+   * Called on `did-navigate` (a real navigation) and not on `did-navigate-in-page`, because a
+   * single-page app that rewrites its own URL on every click would otherwise fill the history with
+   * dozens of entries for one visit.
+   */
+  onVisit?: (visit: { url: string; title: string }) => void;
+  /**
    * Whether the Chrome extension backend can be reached at all in this run.
    *
    * False when the shell had to bind an ephemeral relay port because something else already owned
@@ -712,7 +724,21 @@ export class BrowserPane {
         publish();
       });
       contents.on("did-stop-loading", publish);
-      contents.on("did-navigate", publish);
+      contents.on("did-navigate", () => {
+        publish();
+        // Recorded after `publish`, so `tab.lastUrl` and the title are the committed ones. A
+        // throwing history store must not take the navigation down with it: the page has already
+        // loaded, and losing an address-bar suggestion is not worth an unhandled rejection in the
+        // main process.
+        const url = contents.getURL();
+        if (isNavigableUrl(url)) {
+          try {
+            this.options.onVisit?.({ url, title: contents.getTitle() });
+          } catch {
+            // A history write is never a reason to disturb browsing.
+          }
+        }
+      });
       contents.on("did-navigate-in-page", publish);
       contents.on("page-title-updated", publish);
 
@@ -928,6 +954,20 @@ export class BrowserPane {
       throw new Error(`No such tab in the current conversation: ${tabId}`);
     }
     return tab;
+  }
+
+  /**
+   * The CDP target behind a tab the user can currently see, or null.
+   *
+   * For the saved-login filler, which addresses pages by target id but is driven by the renderer,
+   * so it must not be handed a tab from a conversation that is not on screen. Goes through the same
+   * scope gate as every other renderer-facing operation; null rather than a throw, because "there
+   * is nothing to offer here" is the ordinary answer on most pages and not an error to report.
+   */
+  targetIdForTab(tabId: string): string | null {
+    const tab = this.tabs.get(tabId);
+    if (!tab || !this.inScope(tab)) return null;
+    return tab.targetId;
   }
 
   private requireActiveSession(): string {

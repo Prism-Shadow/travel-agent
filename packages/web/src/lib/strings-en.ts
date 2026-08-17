@@ -902,6 +902,16 @@ export const en: Strings = {
       clearProfileFailed: "Could not clear the browser data",
       backendFailed: "Could not switch the browser",
       openInDefaultBrowserFailed: "Could not open this page in your default browser",
+      suggestions: "Address suggestions",
+      /** The "sign in as youhai@example.com" bar. User-pressed only; the agent cannot use these. */
+      logins: {
+        prompt: "Saved login",
+        fillAs: (username: string) => `Fill ${username}`,
+        fillNoUsername: "Fill saved password",
+        filled: (username: string) => `Filled ${username}; press sign in yourself`,
+        noSubmit: "Fills the form only; it does not press sign in for you",
+        dismiss: "Dismiss",
+      },
       /** Bringing cookies, saved logins and history over from the user's own Chrome. */
       import: {
         open: "Import from browser",

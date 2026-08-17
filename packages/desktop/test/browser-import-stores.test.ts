@@ -240,6 +240,42 @@ describe("the credential store", () => {
     expect(second.useForFill(credentialKey("https://a.example", "u"), (p) => p)).toBe("persisted");
   });
 
+  it("keeps the plaintext live until an async filler has finished with it", async () => {
+    // The reason `useForFillAsync` exists. The synchronous version's `finally` runs when the
+    // callback *returns the promise*, so an async filler would have its buffers wiped while the
+    // write was still in flight — and typing a password into a page is exactly such a filler.
+    const store = makeStore();
+    await store.unlock();
+    store.put({ origin: "https://a.example", username: "u", password: "hunter2", source: "x" });
+
+    let seenMidFlight: string | null = null;
+    const result = await store.useForFillAsync(
+      credentialKey("https://a.example", "u"),
+      async (password) => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        seenMidFlight = password;
+        return "done";
+      },
+    );
+    expect(seenMidFlight).toBe("hunter2");
+    expect(result).toBe("done");
+  });
+
+  it("wipes the data key when opening a password fails", async () => {
+    const store = makeStore();
+    await store.unlock();
+    store.put({ origin: "https://a.example", username: "u", password: "p", source: "x" });
+    // Corrupt the sealed value so `open` throws inside the helper that holds the unwrapped key.
+    const file = JSON.parse(fs.readFileSync(path.join(dir, "logins.json"), "utf8"));
+    const id = credentialKey("https://a.example", "u");
+    file.credentials[id].password.ct = Buffer.from("nonsense").toString("base64");
+    fs.writeFileSync(path.join(dir, "logins.json"), JSON.stringify(file));
+
+    const reopened = makeStore();
+    await reopened.unlock();
+    await expect(reopened.useForFillAsync(id, async (p) => p)).rejects.toThrow();
+  });
+
   it("refuses an id it does not hold, instead of returning an empty password", async () => {
     const store = makeStore();
     await store.unlock();

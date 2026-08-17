@@ -115,6 +115,32 @@ export interface BridgeImportOutcome {
   anythingImported: boolean;
 }
 
+/** Matches `LoginOffer` in `browser-import/login-service.ts`. Never carries a password. */
+export interface BridgeLoginOffer {
+  id: string;
+  username: string;
+  origin: string;
+}
+
+export interface BridgeLoginOffers {
+  /** Whether the page has a sign-in form at all. No form, no offers, whatever is stored. */
+  formPresent: boolean;
+  offers: BridgeLoginOffer[];
+  /** Set when nothing can be offered for a reason worth showing. */
+  unavailable: string | null;
+}
+
+export type BridgeLoginFillResult =
+  { ok: true; username: string; wroteUsername: boolean } | { ok: false; reason: string };
+
+/** Matches `HistoryEntry` in `browser-import/history-store.ts`. */
+export interface BridgeHistoryEntry {
+  url: string;
+  title: string;
+  visitCount: number;
+  lastVisitedAt: string | null;
+}
+
 /**
  * Whether the shell actually wired a pane this run.
  *
@@ -240,6 +266,29 @@ const api = {
     sourceId: string;
     kinds: BridgeImportKind[];
   }): Promise<BridgeImportOutcome> => ipcRenderer.invoke("iab:import-run", request),
+
+  /**
+   * Address-bar completion from what has been visited and imported.
+   *
+   * Answers an empty list rather than failing when there is no history: a completion that cannot be
+   * produced is not an error worth showing while somebody is typing.
+   */
+  historySuggest: (query: string): Promise<BridgeHistoryEntry[]> =>
+    ipcRenderer.invoke("iab:history-suggest", query),
+
+  // —— saved logins ——
+  //
+  // Both take a tab id and nothing else. Main asks the pane what URL that tab is on, so the origin
+  // a password is chosen for is never one this side named. There is deliberately no agent-facing
+  // equivalent of either — see `browser-import/login-service.ts`.
+
+  /** Which saved logins apply to the sign-in form on this tab, if it has one. Never a password. */
+  loginOffers: (tabId: string): Promise<BridgeLoginOffers> =>
+    ipcRenderer.invoke("iab:login-offers", tabId),
+
+  /** Type one saved login into this tab's sign-in form. Does not submit it. */
+  loginFill: (request: { tabId: string; credentialId: string }): Promise<BridgeLoginFillResult> =>
+    ipcRenderer.invoke("iab:login-fill", request),
 
   /** What would move to the user's own browser (002 §7.2). Null when there is no page to hand over. */
   handoff: (): Promise<BridgeHandoff | null> => ipcRenderer.invoke("iab:handoff"),
