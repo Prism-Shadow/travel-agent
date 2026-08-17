@@ -1,5 +1,6 @@
 import { startPenguinBrowserCDPRelayServer } from './cdp-relay.js'
 import { createFileLogger } from './create-logger.js'
+import { iabKeyFromEnv } from './iab-key.js'
 import { waitForRelayVersion } from './relay-client.js'
 import { LOG_CDP_FILE_PATH } from './utils.js'
 
@@ -29,7 +30,7 @@ export async function startServer({
   let server
   // Read out of the environment rather than from argv: the key would otherwise sit in every
   // `ps` listing on the machine, which defeats the point of having one.
-  const iabKey = process.env.PENGUIN_IAB_KEY || undefined
+  const iabKey = iabKeyFromEnv()
   try {
     server = await startPenguinBrowserCDPRelayServer({ port, host, token, iabKey, logger })
   } catch (err: unknown) {

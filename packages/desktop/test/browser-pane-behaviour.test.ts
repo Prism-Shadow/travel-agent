@@ -255,6 +255,12 @@ describe("isNavigableUrl", () => {
   });
 });
 
+describe("initial state", () => {
+  it("starts with the browser workspace open", () => {
+    expect(makePane().pane.state().requested).toBe(true);
+  });
+});
+
 describe("openTabForAgent", () => {
   it("returns the view's target id", async () => {
     const { pane } = await paneWithSession();
@@ -268,6 +274,7 @@ describe("openTabForAgent", () => {
     const { pane, states } = makePane();
     pane.setActiveSession("session-1");
     reportRunning(pane, "session-1", "a");
+    pane.setRequested(false);
     expect(pane.state().requested).toBe(false);
     await pane.openTabForAgent({ url: "https://ctrip.com/", sessionId: "session-1", taskId: "a" });
     expect(pane.state().requested).toBe(true);
@@ -1009,6 +1016,8 @@ describe("shortcut entitlement", () => {
     const { pane } = makePane();
     expect(pane.acceptsShortcuts()).toBe(false);
     pane.setActiveSession("session-1");
+    expect(pane.acceptsShortcuts()).toBe(true);
+    pane.setRequested(false);
     expect(pane.acceptsShortcuts()).toBe(false);
     pane.setRequested(true);
     expect(pane.acceptsShortcuts()).toBe(true);

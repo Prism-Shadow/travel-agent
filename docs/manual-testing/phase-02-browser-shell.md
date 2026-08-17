@@ -8,14 +8,14 @@ The automated suites cover the rules; what they cannot cover is whether a tab st
 browser, whether a screen reader can use one we drew ourselves, and whether killing a renderer for
 real behaves like the crash triage says it should.
 
-Run with the pane switched on. The Chrome-backend items additionally need `chrome.fallback`:
+The pane is on and opens by default. The Chrome-backend items additionally need `chrome.fallback`:
 
 ```bash
-PENGUIN_FLAGS=iab.enabled pnpm desktop
-PENGUIN_FLAGS=iab.enabled,chrome.fallback pnpm desktop   # for MT-02-014 … MT-02-016
+pnpm desktop
+PENGUIN_FLAGS=chrome.fallback pnpm desktop   # for MT-02-014 … MT-02-016
 ```
 
-Both flags stay **off by default** until this page is green.
+Only `chrome.fallback` stays **off by default**.
 
 | ID | Title | Severity | Status |
 | --- | --- | --- | --- |

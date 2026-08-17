@@ -38,15 +38,20 @@ const ALL_REQUESTED: Partial<Record<FeatureFlag, boolean>> = {
 };
 
 describe("feature flag defaults", () => {
-  it("ships every capability off", () => {
+  it("ships the in-app browser on and every optional capability off", () => {
     for (const flag of listFeatureFlags()) {
-      expect(FLAG_DEFAULTS[flag], `${flag} must default to false`).toBe(false);
+      expect(FLAG_DEFAULTS[flag], `${flag} has the wrong product default`).toBe(
+        flag === "iab.enabled",
+      );
     }
   });
 
-  it("resolves to all-off with no overrides and reports no denials", () => {
+  it("resolves to only the in-app browser with no overrides and reports no denials", () => {
     const { flags, denials } = resolveFlags();
-    expect(Object.values(flags).some(Boolean)).toBe(false);
+    expect(flags["iab.enabled"]).toBe(true);
+    expect(
+      Object.entries(flags).every(([flag, enabled]) => flag === "iab.enabled" || !enabled),
+    ).toBe(true);
     expect(denials).toEqual([]);
   });
 
@@ -82,15 +87,15 @@ describe("the defaults table cannot be mutated by an importer", () => {
     expect(() => {
       delete mutable["iab.enabled"];
     }).toThrow(TypeError);
-    expect(FLAG_DEFAULTS["iab.enabled"]).toBe(false);
+    expect(FLAG_DEFAULTS["iab.enabled"]).toBe(true);
   });
 
   it("still spreads into a fresh mutable object for resolution", () => {
-    const first = resolveFlags({ "iab.enabled": true });
-    expect(first.flags["iab.enabled"]).toBe(true);
+    const first = resolveFlags({ "iab.enabled": false });
+    expect(first.flags["iab.enabled"]).toBe(false);
     // The next resolution must not have inherited the previous one's value.
-    expect(resolveFlags().flags["iab.enabled"]).toBe(false);
-    expect(FLAG_DEFAULTS["iab.enabled"]).toBe(false);
+    expect(resolveFlags().flags["iab.enabled"]).toBe(true);
+    expect(FLAG_DEFAULTS["iab.enabled"]).toBe(true);
   });
 
   it("hands out a copy of the flag list, so a caller cannot shorten it", () => {
@@ -496,13 +501,13 @@ describe("capability probe", () => {
     expect(flags["payments.execute"]).toBe(false);
   });
 
-  it("never turns a flag on", () => {
-    const allOff = resolveFlags().flags;
-    const { flags } = applyCapabilityProbe(allOff, {
+  it("never turns an additional flag on", () => {
+    const defaults = resolveFlags().flags;
+    const { flags } = applyCapabilityProbe(defaults, {
       encryptedStorageAvailable: true,
       agentRuntimeIsolated: true,
     });
-    expect(Object.values(flags).some(Boolean)).toBe(false);
+    expect(flags).toEqual(defaults);
   });
 
   it("explains each denial in terms a log can carry", () => {
@@ -526,9 +531,12 @@ describe("resolveFlagsFromEnv", () => {
     expect(result.denials.map((d) => d.flag)).toContain("vault.enabled");
   });
 
-  it("is all-off for an empty environment", () => {
+  it("enables only the in-app browser for an empty environment", () => {
     const result = resolveFlagsFromEnv({}, {});
-    expect(Object.values(result.flags).some(Boolean)).toBe(false);
+    expect(result.flags["iab.enabled"]).toBe(true);
+    expect(
+      Object.entries(result.flags).every(([flag, enabled]) => flag === "iab.enabled" || !enabled),
+    ).toBe(true);
     expect(result.unknown).toEqual([]);
     expect(result.invalid).toEqual([]);
   });

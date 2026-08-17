@@ -8,13 +8,13 @@ arriving mid-conversation reads as help rather than as an interruption, whether 
 feels like care or like a dead end, and whether a real OTP flow leaves the person in a sensible
 place. That is what these cases are for.
 
-Run with the pane on. Payment cases need a site with a real checkout; use a booking you are willing
+The pane is on and opens by default. Payment cases need a site with a real checkout; use a booking you are willing
 to abandon at the payment page, and **do not complete a purchase for the sake of a test case**
 unless the case says to.
 
 ```bash
-PENGUIN_FLAGS=iab.enabled pnpm desktop
-PENGUIN_FLAGS=iab.enabled,secret_entry.contract pnpm desktop   # for MT-03-007
+pnpm desktop
+PENGUIN_FLAGS=secret_entry.contract pnpm desktop   # for MT-03-007
 ```
 
 `secret_entry.live` and `payments.agent_click_pay` are off and cannot be turned on in this phase —
@@ -119,7 +119,7 @@ that is itself MT-03-012.
 - 严重度: major
 - 关联: 003 §7.3 / flag:secret_entry.contract
 - 平台: macOS
-- 前置: `PENGUIN_FLAGS=iab.enabled,secret_entry.contract`，用 dummy 流程演示
+- 前置: `PENGUIN_FLAGS=secret_entry.contract pnpm desktop`，用 dummy 流程演示
 - 步骤:
   1. 触发一次 `secret_entry` 卡片（合成场景即可）。
   2. 读卡片。
@@ -183,7 +183,7 @@ that is itself MT-03-012.
 - 关联: 004 §5 / flag:secret_entry.live / flag:payments.agent_click_pay
 - 平台: macOS | Linux(X11)
 - 步骤:
-  1. `PENGUIN_FLAGS=iab.enabled,secret_entry.live,payments.agent_click_pay pnpm desktop`
+  1. `PENGUIN_FLAGS=secret_entry.live,payments.agent_click_pay pnpm desktop`
   2. 看启动日志里 flag 的解析结果（denials）。
   3. 再走一次 MT-03-004。
 - 预期: 两个 flag 都被拒绝并给出原因（依赖未满足：vault / 隔离）；行为与默认一致——不代填、不点付款。

@@ -5,8 +5,9 @@ we draw ourselves, an address bar, back and forward, the keyboard shortcuts a br
 underneath all of it, an answer to a question the previous phase could avoid with a single view.
 **Whose tab is this?**
 
-Still off by default. `PENGUIN_FLAGS=iab.enabled pnpm desktop` turns the pane on; `chrome.fallback`
-gates offering the user's own Chrome as an alternative.
+At this checkpoint the pane was still off by default. The startup default was later superseded:
+current Desktop builds enable and open the IAB automatically, while `chrome.fallback` still gates
+offering the user's own Chrome as an alternative.
 
 ## The question that had no answer
 

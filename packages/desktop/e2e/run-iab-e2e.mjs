@@ -108,8 +108,8 @@ expect(
 );
 expect(
   "cold-start",
-  (s) => s.requested === false && s.present === false,
-  "the pane starts closed with no view, which is the shape a cold start actually has",
+  (s) => s.requested === true && s.present === false,
+  "the workspace starts open without eagerly creating a browser target",
 );
 expect(
   "backend",

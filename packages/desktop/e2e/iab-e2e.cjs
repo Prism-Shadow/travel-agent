@@ -9,10 +9,10 @@
  *
  * Two conditions are deliberate and load-bearing:
  *
- *   - **The pane starts closed and there are no targets.** That is the cold-start shape the product
- *     actually has, and it once deadlocked: the executor asked the shell for a tab through an
- *     existing page's CDP session, and on a fresh app there was no page to ask through. Pre-opening
- *     the pane in the harness would hide exactly the bug this is here to catch.
+ *   - **The pane starts open but there are no targets.** Visibility and target creation are separate:
+ *     the product now shows the workspace immediately, while the executor must still bootstrap the
+ *     first tab without an existing page's CDP session. The harness then closes the pane before the
+ *     agent opens that tab, preserving the regression check that agent activity reopens it.
  *   - **The port is dynamic.** A fixed port collides with a developer's own relay and with a
  *     parallel run.
  *
@@ -170,10 +170,13 @@ function reservePort() {
     },
   ]);
 
-  // The renderer reports where the pane goes, exactly as the real hook does. Note it is *not*
-  // opened here: nothing has asked for it yet.
+  // The renderer reports where the pane goes, exactly as the real hook does. The workspace is open
+  // by product default, but no tab or WebContentsView exists until someone asks for one.
   pane.setMeasurement({ x: 700, y: 0, width: 700, height: 900 });
   out({ step: "cold-start", requested: pane.state().requested, present: pane.state().present });
+  // Keep the old visibility regression covered independently of the new launch default: an agent
+  // that starts after the user closes the workspace must bring it back into view.
+  pane.setRequested(false);
 
   // Give the transport a moment to connect. No target exists yet — that is the point.
   await new Promise((resolve) => setTimeout(resolve, 1500));

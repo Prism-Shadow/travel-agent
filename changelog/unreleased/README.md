@@ -1,7 +1,8 @@
 # Unreleased
 
+- [2026-08-17] The in-app browser is now enabled and open by default when Desktop starts; `PENGUIN_FLAGS` is no longer required. ([details](2026-08-17-iab-default-on.md))
 - [2026-08-15] Phase 2: the pane becomes a real browser — tabs, address bar, shortcuts — and a tab learns which conversation shows it and which task may write to it. ([details](2026-08-15-phase-2-browser-shell.md))
-- [2026-08-15] Phase 1: the right half of the window is a real in-app browser the agent drives and the user can click — off by default behind `iab.enabled`. ([details](2026-08-15-phase-1-iab-vertical-slice.md))
+- [2026-08-15] Phase 1 initially introduced the right half of the window as a real in-app browser the agent drives and the user can click, behind `iab.enabled`. ([details](2026-08-15-phase-1-iab-vertical-slice.md))
 - [2026-08-15] Phase 0: feature flags (all off), a manual-testing scaffold, and the three verdicts that shape Phase 1 — including `Target.createTarget` being unsupported on Electron. ([details](2026-08-15-phase-0-feature-flags-and-verdicts.md))
 - [2026-08-13] Hard fork: stop merging PenguinHarness; default_agent gains missing preinstalled skills on load. ([details](2026-08-13-hard-fork.md))
 - [2026-08-13] CI: ignore penguin-browser formatting; copy extension icons as a directory on Windows. ([details](2026-08-13-ci-browser-packages.md))

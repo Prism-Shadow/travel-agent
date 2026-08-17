@@ -16,7 +16,7 @@ test case** unless the case says to, and none does in this phase.
 ```bash
 # The vault is off by default. Turn it on for these cases; the gated capabilities below it stay off
 # on their own because nothing reports an isolated runtime this phase.
-PENGUIN_FLAGS=iab.enabled,vault.enabled,audit.chain,secret_entry.contract pnpm desktop
+PENGUIN_FLAGS=vault.enabled,audit.chain,secret_entry.contract pnpm desktop
 ```
 
 `vault.l2l3`, `secret_entry.live` and `payments.execute` cannot be turned on in this phase — their
@@ -69,7 +69,7 @@ real-material checks to run once that flag can be turned on, per design/004 §5'
 - 关联: 003 §4.4 / 攻击 A9
 - 平台: Linux(X11) | Linux(Wayland)
 - 前置: 在无 gnome-keyring / kwallet 的环境启动（或临时停用 keyring 服务）
-- 步骤: 1. `PENGUIN_FLAGS=iab.enabled,vault.enabled pnpm desktop`。2. 打开 Vault 设置页。
+- 步骤: 1. `PENGUIN_FLAGS=vault.enabled pnpm desktop`。2. 打开 Vault 设置页。
 - 预期: 保管库未启用；本机能力面板显示「私密资料保管库 · 条件未满足」并给出安装 keyring 或 `--password-store` 的提示；未创建 vault 文件。
 - 实测: —
 - 修复: —
@@ -179,7 +179,7 @@ real-material checks to run once that flag can be turned on, per design/004 §5'
 - 关联: 004 §5
 - 平台: macOS | Windows | Linux(X11)
 - 前置: 无
-- 步骤: 1. `PENGUIN_FLAGS=iab.enabled,vault.enabled,vault.l2l3,secret_entry.live,payments.execute pnpm desktop`。2. 打开本机能力面板。
+- 步骤: 1. `PENGUIN_FLAGS=vault.enabled,vault.l2l3,secret_entry.live,payments.execute pnpm desktop`。2. 打开本机能力面板。
 - 预期: `vault.l2l3` / `secret_entry.live` / `payments.execute` 全部显示「条件未满足」，理由指向隔离前提；`execute_payment` 实际调用返回 `payments_disabled`。
 - 实测: —
 - 修复: —

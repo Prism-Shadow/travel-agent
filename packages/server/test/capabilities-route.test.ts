@@ -41,7 +41,7 @@ async function report(): Promise<CapabilityReport> {
 }
 
 describe("the capability report", () => {
-  it("shows everything off by default, with no shell present", async () => {
+  it("shows every presented optional capability off by default, with no shell present", async () => {
     delete process.env.PENGUIN_FLAGS;
     const seen = await report();
     expect(Object.values(seen.flags).every((value) => value === false)).toBe(true);

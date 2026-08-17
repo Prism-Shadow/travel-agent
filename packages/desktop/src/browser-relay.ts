@@ -62,9 +62,9 @@ export const CONVENTIONAL_RELAY_PORT = 19989;
 /**
  * Port the shell's relay listens on this run, and the identity that owns the discovery record.
  *
- * 19989 when it is free — the extension's `PENGUIN_BROWSER_PORT` is baked in at build time, so
- * moving off it by default would break the extension for every user who never enables the in-app
- * browser. A dynamic port only when 19989 is already taken.
+ * 19989 when it is free — the extension's `PENGUIN_BROWSER_PORT` is baked in at build time, so the
+ * default IAB and the optional extension backend share the conventional relay whenever possible.
+ * A dynamic port is used only when 19989 is already taken.
  *
  * What the shell will *not* do is reuse a relay it did not start. The `/iab` key is minted per
  * launch and given only to the relay this process forks; attaching to a stranger's would 401 on
@@ -179,13 +179,35 @@ export type RelayPlan =
   | { action: "fail"; reason: string };
 
 /**
+ * Environment for the relay process this Desktop run owns.
+ *
+ * Explicitly removes inherited relay variables before writing canonical ones. The comparison is
+ * case-insensitive because Windows environment names are case-insensitive: leaving a mixed-case
+ * `Penguin_Iab_Key` behind could arm `/iab` even though the pane, IPC and transport were disabled.
+ */
+export function relayChildEnvironment(
+  base: NodeJS.ProcessEnv,
+  port: number,
+  iabEnabled: boolean,
+): NodeJS.ProcessEnv {
+  const managed = new Set(["PENGUIN_BROWSER_PORT", "PENGUIN_IAB_KEY"]);
+  const env: NodeJS.ProcessEnv = {};
+  for (const [name, value] of Object.entries(base)) {
+    if (!managed.has(name.toUpperCase())) env[name] = value;
+  }
+  env.PENGUIN_BROWSER_PORT = String(port);
+  if (iabEnabled) env.PENGUIN_IAB_KEY = IAB_KEY;
+  return env;
+}
+
+/**
  * Decides what to do about the relay before anything is started.
  *
  * Three forces meet here, and getting any one of them wrong is a real regression:
  *
  *   - **The Chrome extension has 19989 compiled in.** It cannot follow a dynamic port, so the app
- *     must not move off the conventional one gratuitously — most users never enable the in-app
- *     browser and would simply lose the extension.
+ *     must prefer the conventional one whenever it is free. Moving gratuitously would make the
+ *     optional extension backend unreachable from this Desktop run.
  *   - **The `/iab` key is minted per launch.** A relay this process did not fork has never seen it,
  *     so the in-app browser cannot use a borrowed relay: the transport would 401 forever, silently.
  *   - **Someone else's process is not ours to kill.**
@@ -289,10 +311,10 @@ export async function startBrowserRelay(
   const child = utilityProcess.fork(entry, ["serve", "--host", "127.0.0.1"], {
     serviceName: "penguin-browser-relay",
     stdio: "pipe",
-    // The relay reads both its port and its /iab key from the environment. The port also goes to
-    // the embedded server so the agent's CLI reaches *this* relay; the key does not, and never
-    // leaves processes this app forks.
-    env: { ...process.env, PENGUIN_BROWSER_PORT: String(port), PENGUIN_IAB_KEY: IAB_KEY },
+    // The relay reads its port and, only when IAB is enabled, its /iab key from the environment.
+    // The port also goes to the embedded server so the agent's CLI reaches *this* relay; the key
+    // does not, and never leaves processes this app forks.
+    env: relayChildEnvironment(process.env, port, options.iabEnabled),
   });
   child.stdout?.on("data", (chunk: Buffer) => log(String(chunk)));
   child.stderr?.on("data", (chunk: Buffer) => log(String(chunk)));

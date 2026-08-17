@@ -85,17 +85,17 @@ let vaultShell: Awaited<ReturnType<typeof startVaultShell>> = null;
 /**
  * Whether the in-app browser pane is wired this run.
  *
- * Resolved once at startup from the feature flags (design/004 §5). Phase 1 ships it off by
- * default; `PENGUIN_FLAGS=iab.enabled` turns it on for development and testing. Nothing about the
- * pane — not the view, not the IPC handlers, not the relay transport — is constructed when it is
- * off, so the capability is genuinely absent rather than merely hidden.
+ * Resolved once at startup from the feature flags (design/004 §5). The pane is a product default,
+ * so `pnpm desktop` wires it without an environment override; `PENGUIN_FLAGS=iab.enabled=false`
+ * remains an explicit diagnostic opt-out. When it is off, no view, IPC handlers or IAB transport
+ * are constructed, so the capability is genuinely absent rather than merely hidden.
  */
 const resolvedFlags = resolveFlagsFromEnv(process.env).flags;
 const iabEnabled = resolvedFlags["iab.enabled"];
 /**
  * Whether the Chrome extension backend may be offered as an alternative to the in-app browser.
  *
- * Its own flag, off by default like the pane's (design/004 §5): the choice changes whose browser an
+ * Its own flag remains off by default (design/004 §5): the choice changes whose browser an
  * order is placed in, and it is not something to ship enabled before the handoff has been tried by
  * hand. Read once here and passed to the pane, which refuses the backend when it is off — the
  * renderer's own control is disabled too, but a disabled control is a hint, not an enforcement.

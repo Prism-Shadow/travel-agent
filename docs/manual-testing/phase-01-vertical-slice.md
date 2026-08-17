@@ -8,13 +8,14 @@ a real window and a person. The automated and live-site criteria did pass there 
 snapshot, `clickThrough`, `fillWithSuggestion` and `pickDate` all ran against the real Ctrip hotel
 form (verification §2).
 
-**MT-01-001 is named in Phase 1's own exit criteria.** Until it passes, the phase stays
-`code_complete_manual_pending` and `iab.enabled` stays off by default.
+**MT-01-001 is named in Phase 1's own exit criteria.** Until it passes, the historical phase status
+stays `code_complete_manual_pending`. The current product default has since changed: the IAB is on
+and its workspace opens automatically.
 
-Run these with the pane switched on:
+Run the desktop app directly:
 
 ```bash
-PENGUIN_FLAGS=iab.enabled pnpm desktop
+pnpm desktop
 ```
 
 | ID | Title | Severity | Status |
@@ -35,9 +36,9 @@ PENGUIN_FLAGS=iab.enabled pnpm desktop
 - 严重度: critical
 - 关联: 004 Phase 1 exit criteria / 矩阵 M10 / verification §6
 - 平台: macOS | Windows | Linux(X11)
-- 前置: `PENGUIN_FLAGS=iab.enabled pnpm desktop`；系统已安装中文输入法
+- 前置: `pnpm desktop`；系统已安装中文输入法
 - 步骤:
-  1. 点工具栏「浏览器」打开右侧面板
+  1. 确认启动后右侧「浏览器」面板已自动打开
   2. 让 agent 打开 `https://hotels.ctrip.com/`，或在面板里等它自己导航
   3. 切到中文输入法，直接点页面上的「目的地」输入框
   4. 输入「东京」，观察候选词浮层与最终落字
@@ -66,7 +67,7 @@ PENGUIN_FLAGS=iab.enabled pnpm desktop
 - 关联: 002 §5.1 / src/browser-pane-layout.ts
 - 平台: macOS | Windows | Linux(X11)
 - 步骤:
-  1. 打开面板，拖动窗口边缘缓慢改变窗口大小
+  1. 确认面板已随启动打开，拖动窗口边缘缓慢改变窗口大小
   2. 最大化窗口，再还原
   3. 把窗口拖到很窄（小于约 1024px），观察面板行为
   4. 折叠/展开左侧侧栏
@@ -107,7 +108,7 @@ PENGUIN_FLAGS=iab.enabled pnpm desktop
 - 关联: 004 §5 / flag:iab.enabled
 - 平台: macOS | Windows | Linux(X11)
 - 步骤:
-  1. `pnpm desktop`（**不带** `PENGUIN_FLAGS`）
+  1. `PENGUIN_FLAGS=iab.enabled=false pnpm desktop`
   2. 进入对话页，检查工具栏
   3. 检查 relay 日志，确认没有 `/iab` 连接
 - 预期: 没有「浏览器」按钮；主进程未创建任何 WebContentsView；relay 上没有 IAB backend 注册。能力是真的没装配，不只是界面藏起来
@@ -119,7 +120,7 @@ PENGUIN_FLAGS=iab.enabled pnpm desktop
 - 严重度: major
 - 关联: browser-pane-split.ts / 矩阵 M1
 - 平台: macOS | Windows | Linux(X11)
-- 前置: `PENGUIN_FLAGS=iab.enabled pnpm desktop`，面板已打开
+- 前置: `pnpm desktop`，面板已自动打开
 - 步骤:
   1. 用鼠标拖动左右两栏之间的分隔线，来回若干次
   2. 拖到最左、最右，观察是否被限制住
@@ -136,7 +137,7 @@ PENGUIN_FLAGS=iab.enabled pnpm desktop
 - 平台: macOS | Windows | Linux(X11)
 - 前置: 已装 Penguin Browser 扩展；**先**在终端跑 `penguin-browser serve`，占住 19989
 - 步骤:
-  1. `pnpm desktop`（**不带** `PENGUIN_FLAGS`，即面板关闭）
+  1. `PENGUIN_FLAGS=iab.enabled=false pnpm desktop`（显式关闭面板能力）
   2. 看日志，确认写的是「复用已有 relay」而不是另起一个
   3. 在 Chrome 里点扩展图标授权一个标签页
   4. 让 agent 用扩展模式驱动那个标签页

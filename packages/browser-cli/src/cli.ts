@@ -18,6 +18,7 @@ import { canEmitKittyGraphics, emitKittyImage } from './kitty-graphics.js'
 import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './utils.js'
 import { readBackendPreference, resolveRelayEndpoint } from './relay-discovery.js'
 import { MISSING_IDENTITY_MESSAGE, readAgentIdentity } from './agent-identity.js'
+import { iabKeyFromEnv } from './iab-key.js'
 import {
   harnessChannel,
   requestUserInteraction,
@@ -1832,6 +1833,10 @@ cli
     const { startPenguinBrowserCDPRelayServer } = await import('./cdp-relay.js')
 
     const logger = createFileLogger()
+    // The desktop shell passes this per-launch secret through the environment, never argv. The
+    // background relay entry point reads it through the same helper; keeping the two paths unified
+    // prevents `serve` from silently starting an IAB endpoint that rejects its own shell.
+    const iabKey = iabKeyFromEnv()
 
     process.title = 'penguin-browser-serve'
 
@@ -1849,6 +1854,7 @@ cli
       port: RELAY_PORT,
       host: options.host,
       token,
+      iabKey,
       logger,
     })
 
@@ -1856,6 +1862,7 @@ cli
     console.log(`  Host: ${options.host}`)
     console.log(`  Port: ${RELAY_PORT}`)
     console.log(`  Token: ${token ? '(configured)' : '(none)'}`)
+    console.log(`  IAB: ${iabKey ? '(configured)' : '(disabled)'}`)
     console.log(`  Logs: ${logger.logFilePath}`)
     console.log(`  CDP Logs: ${LOG_CDP_FILE_PATH}`)
     console.log('')

@@ -8,9 +8,9 @@
  *
  * Three rules shape the design:
  *
- * 1. **Default off for anything not yet verified.** A flag is flipped on by the phase that
- *    delivers its exit criteria, not by the phase that writes the code. That is what keeps a
- *    checkpoint commit independently revertible (004 §3).
+ * 1. **Explicit, conservative product defaults.** The in-app browser is the desktop baseline and
+ *    defaults on. Security-sensitive or optional capabilities stay off until their own rollout
+ *    criteria are met, keeping those paths independently revertible (004 §3).
  *
  * 2. **Dependencies are declared, not remembered.** `secret_entry.live` must never be on
  *    while the vault is unavailable, and `payments.execute` must never be on while
@@ -28,10 +28,10 @@
  *    source. Callers must therefore derive these fields from a real measurement (see
  *    `packages/desktop/scripts/probe-safe-storage.mjs`), never from a default or a cached guess.
  *
- * Overrides come from the environment (`PENGUIN_FLAGS="iab.enabled,vault.enabled"`) so that a
- * developer can turn a capability on for one run without editing code, and so the desktop
- * shell can pass a decision down to the server it forks. Product defaults never live in an
- * env var; this module is the single source for them.
+ * Overrides come from the environment (`PENGUIN_FLAGS="iab.enabled=false,vault.enabled"`) so that
+ * a developer can change a capability for one run without editing code, and so the desktop shell
+ * can pass a decision down to the server it forks. Product defaults never live in an env var; this
+ * module is the single source for them.
  */
 
 /** Every gated capability. Keep in sync with design/004 §5. */
@@ -62,19 +62,19 @@ export type FeatureFlags = Record<FeatureFlag, boolean>;
 /**
  * Product defaults.
  *
- * Everything is off. Phase 0 ships no user-visible capability, and a flag that defaults on
- * before its phase has exit criteria would make the "revert one checkpoint" property in
- * 004 §3 untrue.
+ * The in-app browser is on so `pnpm desktop` provides the browser workspace without an environment
+ * override. Every optional or security-sensitive capability remains off and must be enabled
+ * explicitly after satisfying its own prerequisites.
  *
  * **Frozen, and typed read-only.** The `Readonly` type stops a compile-time write; `Object.freeze`
  * stops a runtime one. Both are needed: without the freeze, any importer could do
  * `(FLAG_DEFAULTS as FeatureFlags)["payments.execute"] = true` and move the product default for
  * every later `resolveFlags` call in the process — a single mutation, anywhere, silently
- * rewriting the "all off" invariant this module exists to hold. Reading is unaffected, and
+ * rewriting the product defaults this module exists to hold. Reading is unaffected, and
  * `resolveFlags` copies via spread before touching anything.
  */
 export const FLAG_DEFAULTS: Readonly<FeatureFlags> = Object.freeze({
-  "iab.enabled": false,
+  "iab.enabled": true,
   "chrome.fallback": false,
   "secret_entry.contract": false,
   "secret_entry.live": false,

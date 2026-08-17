@@ -4,9 +4,10 @@ The right half of the Travel Agent window is now a real browser. Not a screensho
 not a second Chrome: a `WebContentsView` renders the page a few hundred pixels from the
 conversation, the user can click and scroll it, and the agent drives those same pixels over CDP.
 
-Switched off by default. `PENGUIN_FLAGS=iab.enabled pnpm desktop` turns it on; with the flag off no
-view, no IPC handlers and no relay transport are constructed, and the web app hides the column
-exactly as it does in a browser tab.
+At this checkpoint it was switched off by default and `PENGUIN_FLAGS=iab.enabled pnpm desktop`
+turned it on. The startup default was later superseded: current Desktop builds enable and open the
+IAB automatically, while an explicit `iab.enabled=false` still removes the view, IPC handlers and
+IAB transport.
 
 **The shell speaks the protocol the relay already knows.** A Chrome extension bridges
 `chrome.debugger`; the desktop shell now bridges `webContents.debugger`. Both hand the relay the

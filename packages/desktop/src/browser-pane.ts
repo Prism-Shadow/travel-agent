@@ -292,7 +292,8 @@ export class BrowserPane {
   private readonly tabs = new Map<string, Tab>();
   private nextTabOrdinal = 1;
   private measurement: PaneMeasurement | null = null;
-  private requested = false;
+  /** The browser workspace is visible on desktop startup; the user can still close it explicitly. */
+  private requested = true;
   private occluded = false;
   /** The conversation the renderer is showing. Null means no conversation is open. */
   private activeSession: string | null = null;
