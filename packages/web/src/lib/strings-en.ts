@@ -902,6 +902,38 @@ export const en: Strings = {
       clearProfileFailed: "Could not clear the browser data",
       backendFailed: "Could not switch the browser",
       openInDefaultBrowserFailed: "Could not open this page in your default browser",
+      /** Bringing cookies, saved logins and history over from the user's own Chrome. */
+      import: {
+        open: "Import from browser",
+        title: "Import from your browser",
+        subtitle: "Choose data to bring over to the built-in browser",
+        from: "From",
+        /** The "Close Google Chrome completely before importing" line, per browser. */
+        closeFirst: (browsers: string) => `Close ${browsers} completely before importing`,
+        closeFirstWhy:
+          "A running browser locks these files, and the most recent sign-ins may not be read",
+        passwords: "Saved passwords",
+        cookies: "Cookies",
+        history: "Browsing history",
+        /** Shown when this machine has no encrypted storage, so passwords cannot be stored. */
+        passwordsUnavailable: "This machine has no encrypted storage, so passwords cannot be saved",
+        /** A data type the selected profile simply does not have. */
+        kindMissing: "This profile has none of this",
+        noSources: "No browser found to import from",
+        noSourcesHint: "Chrome, Edge, Brave, Chromium and Vivaldi are supported",
+        importing: "Importing…",
+        submit: "Import",
+        /** macOS shows a keychain prompt; say so before it appears rather than after. */
+        keychainNotice:
+          "Your system may ask for keychain access; it has to be allowed to read encrypted data",
+        done: (count: number) => `Imported ${count} items`,
+        doneNothing: "Nothing was imported",
+        partial: (imported: number, skipped: number) =>
+          `Imported ${imported}; ${skipped} could not be read`,
+        failed: "Import failed",
+        cookiesLandIn:
+          "Cookies go into the built-in browser's own profile and do not affect your Chrome",
+      },
     },
     newSessionMenu: "New chat",
     chooseAgent: "Choose agent",

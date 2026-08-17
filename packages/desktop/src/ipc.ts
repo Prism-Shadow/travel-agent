@@ -19,6 +19,9 @@
  */
 import { ipcMain, shell } from "electron";
 import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from "electron";
+import { parseSourceId } from "./browser-import/chrome-profiles.js";
+import type { ImportKind } from "./browser-import/chrome-profiles.js";
+import type { BrowserImporter } from "./browser-import/importer.js";
 import type { BrowserPane, PaneBackend } from "./browser-pane.js";
 import type { PaneMeasurement } from "./browser-pane-layout.js";
 import type { TaskOutcome } from "./tab-lifecycle.js";
@@ -46,6 +49,8 @@ const CHANNELS = [
   "iab:clear-profile",
   "iab:handoff",
   "iab:handoff-open",
+  "iab:import-sources",
+  "iab:import-run",
 ] as const;
 
 /** Upper bound on a reported rectangle. Larger than any real display; a bigger number is a bug. */
@@ -122,6 +127,43 @@ export function parseBackend(value: unknown): PaneBackend {
   return value as PaneBackend;
 }
 
+const IMPORT_KIND_NAMES: readonly ImportKind[] = ["passwords", "cookies", "history"];
+
+/**
+ * Validates the kinds the dialog ticked.
+ *
+ * Deduplicated because importing the same kind twice in one request would do the work twice and,
+ * for history, double a page's visit count — a bad list is rejected, but a merely repetitive one is
+ * normalised rather than refused.
+ */
+export function parseImportKinds(value: unknown): ImportKind[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error("kinds must be a non-empty array");
+  }
+  if (value.length > IMPORT_KIND_NAMES.length) throw new Error("kinds has too many entries");
+  const kinds = new Set<ImportKind>();
+  for (const entry of value) {
+    if (typeof entry !== "string" || !IMPORT_KIND_NAMES.includes(entry as ImportKind)) {
+      throw new Error(`each kind must be one of: ${IMPORT_KIND_NAMES.join(", ")}`);
+    }
+    kinds.add(entry as ImportKind);
+  }
+  return [...kinds];
+}
+
+/**
+ * Validates a source id.
+ *
+ * The grammar check lives in `chrome-profiles.ts` next to the ids it issues, and the *resolution*
+ * check happens again inside `runImport`. Both matter: this one rejects a shape that was never
+ * ours, and that one rejects a shape that is ours but names a profile that is no longer there.
+ */
+export function parseSourceIdArgument(value: unknown): string {
+  const id = parseId(value, "sourceId");
+  if (parseSourceId(id) === null) throw new Error("sourceId is not a profile this app listed");
+  return id;
+}
+
 const OUTCOMES: readonly TaskOutcome[] = ["read_only", "committed", "failed", "unknown"];
 
 export function parseOutcome(value: unknown): TaskOutcome {
@@ -143,6 +185,12 @@ export interface BrowserIpcOptions {
   pane: BrowserPane;
   /** Brings the supervisor's next reconcile forward. See the `iab:tasks-changed` handler. */
   promptTaskRefresh: () => void;
+  /**
+   * Importing from another browser. Absent when the shell did not wire one, in which case the two
+   * import channels answer "nothing to import" rather than being missing — a renderer calling a
+   * channel that is not registered gets an unhelpful "no handler" error instead of an empty list.
+   */
+  importer?: BrowserImporter | null;
 }
 
 /** Installs the handlers. Returns a disposer that removes them again. */
@@ -150,6 +198,7 @@ export function installBrowserIpc({
   window,
   pane,
   promptTaskRefresh,
+  importer,
 }: BrowserIpcOptions): () => void {
   const fromAppWindow = (event: IpcMainInvokeEvent): boolean => event.sender === window.webContents;
 
@@ -254,6 +303,20 @@ export function installBrowserIpc({
     if (!handoff) return false;
     await shell.openExternal(handoff.url);
     return true;
+  });
+
+  // —— importing from another browser ——
+  on("iab:import-sources", async () => {
+    if (!importer) return { sources: [], runningBrowsers: [], credentialsAvailable: false };
+    return importer.listSources();
+  });
+  on("iab:import-run", async (payload) => {
+    if (!importer) throw new Error("Importing from another browser is not available.");
+    const record = asRecord(payload, "import");
+    return importer.run({
+      sourceId: parseSourceIdArgument(record.sourceId),
+      kinds: parseImportKinds(record.kinds),
+    });
   });
 
   return () => {

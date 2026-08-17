@@ -7,7 +7,15 @@
  * becomes a view in the wrong place is exactly what this is meant to prevent (design/002 §5.1).
  */
 import { describe, expect, it } from "vitest";
-import { parseBackend, parseBoolean, parseId, parseMeasurement, parseOutcome } from "../src/ipc.js";
+import {
+  parseBackend,
+  parseBoolean,
+  parseId,
+  parseImportKinds,
+  parseMeasurement,
+  parseOutcome,
+  parseSourceIdArgument,
+} from "../src/ipc.js";
 
 describe("parseMeasurement", () => {
   it("accepts a well-formed rectangle", () => {
@@ -120,5 +128,69 @@ describe("parseBackend", () => {
 
   it.each(["firefox", "", null, 2])("rejects %s", (value) => {
     expect(() => parseBackend(value)).toThrow(/backend/);
+  });
+});
+
+describe("parseImportKinds", () => {
+  it("accepts the three kinds the dialog offers", () => {
+    expect(parseImportKinds(["passwords", "cookies", "history"])).toEqual([
+      "passwords",
+      "cookies",
+      "history",
+    ]);
+  });
+
+  it("deduplicates rather than refusing a repetitive list", () => {
+    // Importing one kind twice would do the work twice, and for history would double a page's
+    // visit count. A bad list is rejected; a merely repetitive one is normalised.
+    expect(parseImportKinds(["cookies", "cookies"])).toEqual(["cookies"]);
+  });
+
+  it("rejects an empty selection, which would be an import that does nothing", () => {
+    expect(() => parseImportKinds([])).toThrow(/non-empty/);
+  });
+
+  it.each([["bookmarks"], ["Cookies"], [""], [null], [42], [{}]])(
+    "rejects %s as a kind",
+    (value) => {
+      expect(() => parseImportKinds([value])).toThrow(/each kind/);
+    },
+  );
+
+  it.each([null, undefined, "cookies", {}])("rejects %s as the list itself", (value) => {
+    expect(() => parseImportKinds(value)).toThrow(/kinds/);
+  });
+
+  it("rejects a list longer than the number of kinds that exist", () => {
+    expect(() => parseImportKinds(["cookies", "cookies", "cookies", "cookies"])).toThrow(
+      /too many/,
+    );
+  });
+});
+
+describe("parseSourceIdArgument", () => {
+  it("accepts an id of the shape this app issues", () => {
+    expect(parseSourceIdArgument("chrome:Default")).toBe("chrome:Default");
+    expect(parseSourceIdArgument("edge:Profile 2")).toBe("edge:Profile 2");
+  });
+
+  it("refuses anything that could name a file instead of a profile", () => {
+    // This is the channel's whole security boundary: a source id is a name main issued, never a
+    // path. Without it, "import" would be "read any SQLite file on the disk and hand it back
+    // decrypted".
+    for (const id of [
+      "chrome:../../../../etc/passwd",
+      "chrome:/etc/passwd",
+      "chrome:Default/../Local State",
+      "chrome:..",
+      "firefox:Default",
+      "Default",
+    ]) {
+      expect(() => parseSourceIdArgument(id), id).toThrow(/sourceId/);
+    }
+  });
+
+  it.each([null, undefined, 42, "", {}])("rejects %s", (value) => {
+    expect(() => parseSourceIdArgument(value)).toThrow(/sourceId/);
   });
 });

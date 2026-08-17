@@ -861,6 +861,35 @@ export const zh = {
       clearProfileFailed: "清除浏览器数据失败",
       backendFailed: "切换浏览器失败",
       openInDefaultBrowserFailed: "无法在系统默认浏览器中打开此页",
+      /** Bringing cookies, saved logins and history over from the user's own Chrome. */
+      import: {
+        open: "从浏览器导入",
+        title: "从你的浏览器导入",
+        subtitle: "选择要带到内置浏览器的数据",
+        from: "来源",
+        /** The "Close Google Chrome completely before importing" line, per browser. */
+        closeFirst: (browsers: string) => `导入前请完全退出 ${browsers}`,
+        closeFirstWhy: "浏览器运行时会锁住这些文件，最近的登录状态可能读不到",
+        passwords: "已保存的密码",
+        cookies: "Cookie",
+        history: "浏览历史",
+        /** Shown when this machine has no encrypted storage, so passwords cannot be stored. */
+        passwordsUnavailable: "本机没有可用的加密存储，无法保存密码",
+        /** A data type the selected profile simply does not have. */
+        kindMissing: "该配置文件没有这项数据",
+        noSources: "没有找到可导入的浏览器",
+        noSourcesHint: "支持 Chrome、Edge、Brave、Chromium 和 Vivaldi",
+        importing: "正在导入…",
+        submit: "导入",
+        /** macOS shows a keychain prompt; say so before it appears rather than after. */
+        keychainNotice: "系统可能会弹出钥匙串授权，需要允许才能读取加密数据",
+        done: (count: number) => `已导入 ${count} 项`,
+        doneNothing: "没有导入任何内容",
+        partial: (imported: number, skipped: number) =>
+          `已导入 ${imported} 项，${skipped} 项无法读取`,
+        failed: "导入失败",
+        cookiesLandIn: "Cookie 会进入内置浏览器的独立配置，不会影响你自己的 Chrome",
+      },
     },
     newSessionMenu: "新建对话",
     chooseAgent: "选择 Agent",

@@ -82,6 +82,39 @@ export interface BridgeHandoff {
 /** Matches `TaskOutcome` in `tab-lifecycle.ts`. */
 export type BridgeTaskOutcome = "read_only" | "committed" | "failed" | "unknown";
 
+/** Matches `ImportKind` in `browser-import/chrome-profiles.ts`. */
+export type BridgeImportKind = "passwords" | "cookies" | "history";
+
+/** Matches `ImportSource`. Carries labels and counts — never a path. */
+export interface BridgeImportSource {
+  id: string;
+  browserLabel: string;
+  profileLabel: string | null;
+  counts: Partial<Record<BridgeImportKind, number | null>>;
+  available: BridgeImportKind[];
+}
+
+export interface BridgeImportSources {
+  sources: BridgeImportSource[];
+  /** Browsers that are running, so the dialog can ask for them to be closed first. */
+  runningBrowsers: string[];
+  /** False when this machine has no encrypted storage, so passwords cannot be offered. */
+  credentialsAvailable: boolean;
+}
+
+export interface BridgeImportKindOutcome {
+  kind: BridgeImportKind;
+  imported: number;
+  skipped: number;
+  failure: string | null;
+}
+
+export interface BridgeImportOutcome {
+  sourceId: string;
+  results: BridgeImportKindOutcome[];
+  anythingImported: boolean;
+}
+
 /**
  * Whether the shell actually wired a pane this run.
  *
@@ -186,6 +219,27 @@ const api = {
 
   /** Sign out of everything: clear the pane's cookies and storage, and close its tabs. */
   clearProfile: (): Promise<void> => ipcRenderer.invoke("iab:clear-profile"),
+
+  // —— importing from another browser ——
+
+  /**
+   * Which browser profiles this machine has, and whether one of them is running.
+   *
+   * Reads names and counts only. Nothing here decrypts anything, so opening the dialog never
+   * provokes the macOS keychain prompt — that happens on Import, for the kinds that were ticked.
+   */
+  importSources: (): Promise<BridgeImportSources> => ipcRenderer.invoke("iab:import-sources"),
+
+  /**
+   * Bring the selected data over from one profile.
+   *
+   * Takes the **id of a source main itself listed**, never a path. Answers with what each kind did,
+   * including what it could not read, so a partial import can be shown as partial.
+   */
+  importFromBrowser: (request: {
+    sourceId: string;
+    kinds: BridgeImportKind[];
+  }): Promise<BridgeImportOutcome> => ipcRenderer.invoke("iab:import-run", request),
 
   /** What would move to the user's own browser (002 §7.2). Null when there is no page to hand over. */
   handoff: (): Promise<BridgeHandoff | null> => ipcRenderer.invoke("iab:handoff"),

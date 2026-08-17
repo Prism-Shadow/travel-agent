@@ -17,7 +17,7 @@
  */
 import path from "node:path";
 import nodeFs from "node:fs";
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
 import { resolveRoot, resolveFlagsFromEnv } from "@prismshadow/penguin-core";
 import { liveServerLock } from "@prismshadow/penguin-server/lock";
 import { planBoot } from "./boot-plan.js";
@@ -50,6 +50,9 @@ import { installAppMenu } from "./menu.js";
 import { startEmbeddedServer, stopEmbeddedServer } from "./server-process.js";
 import { startVaultShell } from "./vault-shell.js";
 import { paneTargetResolver } from "./vault/pane-target-resolver.js";
+import { BrowserImporter } from "./browser-import/importer.js";
+import { electronSafeStorage, judgeStorage, readStorageFacts } from "./vault/safe-storage.js";
+import { iabSession } from "./session-partition.js";
 import { fileCrashSink, installCrashReporting } from "./crash-reporting.js";
 import type { EmbeddedServer } from "./server-process.js";
 import type { UtilityProcess } from "electron";
@@ -81,6 +84,14 @@ let taskSupervisor: TaskSupervisor | null = null;
  * offered to the agent, which is the honest shape of a disabled capability.
  */
 let vaultShell: Awaited<ReturnType<typeof startVaultShell>> = null;
+
+/**
+ * Importing from the user's own Chrome, and the two stores that import fills.
+ *
+ * Lives beside the pane rather than inside it: the history store it owns outlives any one tab, and
+ * the credential store must not be reachable from anything that renders a page.
+ */
+let browserImporter: BrowserImporter | null = null;
 
 /**
  * Whether the in-app browser pane is wired this run.
@@ -277,10 +288,23 @@ function createWindow(url: string): void {
     });
     taskSupervisor.start();
 
+    // Bringing cookies, saved logins and history over from the user's own Chrome. Constructed
+    // eagerly because it is cheap — it opens nothing and unlocks nothing until the dialog asks —
+    // and its two stores are built lazily inside it, so a user who never imports never gets a
+    // history database or a keychain prompt.
+    browserImporter = new BrowserImporter({
+      session: iabSession(),
+      userDataDir: app.getPath("userData"),
+      safeStorage: electronSafeStorage(safeStorage),
+      availability: judgeStorage(readStorageFacts(safeStorage)),
+      log: (message) => process.stdout.write(`[import] ${message}\n`),
+    });
+
     disposeBrowserIpc = installBrowserIpc({
       window: win,
       pane,
       promptTaskRefresh: () => taskSupervisor?.prompt(),
+      importer: browserImporter,
     });
 
     // Cmd+L has to reach a DOM element main cannot touch: the routing table decides, the renderer
@@ -488,6 +512,12 @@ if (!app.requestSingleInstanceLock()) {
     vaultShell = null;
     iabTransport?.stop();
     iabTransport = null;
+    // Closes the history database and wipes the credential store's master key. Synchronous and
+    // immediate rather than part of the promise below: neither has anything in flight worth
+    // waiting for, and a key that is still in the heap during a slow server shutdown is a key
+    // that did not need to be.
+    browserImporter?.dispose();
+    browserImporter = null;
     stopPromise = Promise.all([
       running !== null ? stopEmbeddedServer(running) : Promise.resolve(),
       stopBrowserRelay(relay),

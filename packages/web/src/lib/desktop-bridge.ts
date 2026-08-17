@@ -131,8 +131,57 @@ export interface DesktopBrowserBridge {
   clearProfile(): Promise<void>;
   handoff(): Promise<DesktopHandoff | null>;
   handoffOpen(): Promise<boolean>;
+  /**
+   * Which browser profiles this machine has.
+   *
+   * Reads names and row counts only — nothing is decrypted, so opening the dialog never provokes a
+   * keychain prompt. That happens on `importFromBrowser`, for the kinds that were ticked.
+   */
+  importSources(): Promise<DesktopImportSources>;
+  /** Bring the ticked kinds over from one profile. Takes an id main listed, never a path. */
+  importFromBrowser(request: {
+    sourceId: string;
+    kinds: DesktopImportKind[];
+  }): Promise<DesktopImportOutcome>;
   onState(listener: (state: DesktopPaneState) => void): () => void;
   onFocusAddress(listener: () => void): () => void;
+}
+
+/** The three things the import dialog can bring over. */
+export type DesktopImportKind = "passwords" | "cookies" | "history";
+
+export interface DesktopImportSource {
+  /** Opaque: `<family>:<profile directory>`. Meaningful only to main. */
+  id: string;
+  browserLabel: string;
+  /** The name the person gave the profile, when the browser recorded one. */
+  profileLabel: string | null;
+  /** Row counts for the number beside each checkbox. Null where it could not be counted. */
+  counts: Partial<Record<DesktopImportKind, number | null>>;
+  /** Kinds this profile actually has a file for. Anything else is offered as unavailable. */
+  available: DesktopImportKind[];
+}
+
+export interface DesktopImportSources {
+  sources: DesktopImportSource[];
+  /** Browsers running right now, so the dialog can ask for them to be closed first. */
+  runningBrowsers: string[];
+  /** False when this machine has no encrypted storage, so passwords cannot be offered. */
+  credentialsAvailable: boolean;
+}
+
+export interface DesktopImportKindOutcome {
+  kind: DesktopImportKind;
+  imported: number;
+  /** Rows present but unreadable. Reported so a partial import is not shown as a clean one. */
+  skipped: number;
+  failure: string | null;
+}
+
+export interface DesktopImportOutcome {
+  sourceId: string;
+  results: DesktopImportKindOutcome[];
+  anythingImported: boolean;
 }
 
 declare global {

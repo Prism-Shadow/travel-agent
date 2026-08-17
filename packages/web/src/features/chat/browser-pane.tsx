@@ -17,6 +17,7 @@ import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError, toastSuccess } from "../../components/ui/toast";
 import { S } from "../../lib/strings";
+import { BrowserImportDialog } from "./browser-import-dialog";
 import { ariaValueNow, MAX_PANE_FRACTION, MIN_PANE_FRACTION } from "./browser-pane-split";
 import { displayUrl, normalizeUrlInput, originOf } from "./browser-url";
 import { createRovingFocus, pointerTabAction } from "./tab-focus";
@@ -292,6 +293,7 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
   const [open, setOpen] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const row =
     "block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-200 dark:hover:bg-gray-800";
@@ -378,6 +380,20 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
           type="button"
           role="menuitem"
           className={row}
+          data-testid="iab-import"
+          // Not gated on a running task: importing adds cookies and history, it does not sign
+          // anything out, so it cannot pull the ground from under a task the way a reset can.
+          onClick={() => {
+            setOpen(false);
+            setImporting(true);
+          }}
+        >
+          {S.chat.browserPane.import.open}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={row}
           data-testid="iab-clear-profile"
           // Held shut while any conversation has a task running, and main refuses it too: the
           // profile is shared, so a reset signs out work the user cannot see from here.
@@ -417,6 +433,8 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
       >
         {S.chat.browserPane.clearProfileConfirm}
       </ConfirmModal>
+
+      <BrowserImportDialog open={importing} onClose={() => setImporting(false)} />
     </>
   );
 }
