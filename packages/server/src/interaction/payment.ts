@@ -9,7 +9,7 @@
  *   confirmed?     is there a confirmation for this turn at all?
  *   still valid?   has it expired, or was it already used?
  *   same merchant? a payment page on another domain has no re-confirmation path
- *   authority + drift + journal   ← travel-domain/booking.ts, unchanged
+ *   authority + drift + journal   ← transaction/booking.ts, unchanged
  *   allowed to press pay?         ← payments.agent_click_pay, off in this phase
  * ```
  *
@@ -39,7 +39,7 @@ import {
   type Journal,
   type PaymentSummary,
 } from "@travel-agent/transaction";
-import { submitBooking } from "@travel-agent/domain";
+import { submitBooking } from "@travel-agent/transaction";
 import type { FeatureFlagsShape } from "./transaction-imports.js";
 
 /** Why a payment was refused. Every one of these is an ordinary outcome the agent must report. */

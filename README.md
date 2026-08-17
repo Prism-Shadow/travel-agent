@@ -15,11 +15,20 @@ This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not me
 | M0 | Browser stack in-tree, Ctrip hotel page loads | done |
 | M1 | Human handoff (`requestHelp`) | done |
 | M2 | Transaction layer (WAL / commitment / checkpoint / escalation) | library done |
-| M3 | One sentence → stop on the payment page | **open** — form primitives work; listing extraction and the host glue do not |
-| M4 | Tab ownership + cross-site offer alignment | library done |
+| M3 | One sentence → stop on the payment page | **open** — an acceptance case, not a module: the agent extracts listings itself, so what is left is the manual run-through |
+| M4 | Tab ownership | done; cross-site offer alignment dropped (see below) |
 | M5 | Flights | not started |
 
-`@travel-agent/domain` and `@travel-agent/transaction` are not wired into the agent loop yet. The libraries are tested; the product path is not.
+`@travel-agent/transaction` is wired in: the payment paths in `packages/server` and
+`packages/desktop` go through its `submitBooking` gates.
+
+`@travel-agent/domain` has been **removed**. It held three things. Two of them — choosing which
+options to show, and deciding whether two listings are the same product — were judgements a model
+makes better than a hand-maintained rule table, and had sat with no caller through six phases; they
+were deleted rather than kept. The third, `submitBooking`, moved into `@travel-agent/transaction`,
+because it is not a judgement at all: it is the enforcement that has to hold *even when the agent is
+wrong*. That line — the model judges, code only enforces, and code is written only where the model
+is itself inside the threat model — is the rule we now apply before adding any "domain" logic.
 
 ## Layout
 
@@ -27,8 +36,7 @@ This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not me
 | --- | --- |
 | `packages/core`, `cli`, `server`, `web` | PenguinHarness engine and UI (frozen snapshot) |
 | `packages/browser-cli`, `browser-extension` | penguin-browser, vendored in |
-| `packages/transaction` | Irreversible-action semantics |
-| `packages/travel-domain` | Representatives, alignment, guarded booking |
+| `packages/transaction` | Irreversible-action semantics, incl. the `submitBooking` gates |
 | `packages/skills/skills/penguin-browser` | How the agent is supposed to drive Chrome |
 
 ## Development

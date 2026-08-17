@@ -1,7 +1,7 @@
 /**
  * Transactional semantics for agents that take irreversible actions.
  *
- * Four pieces, each answering one question that "run the loop until the model stops" cannot:
+ * Five pieces, each answering one question that "run the loop until the model stops" cannot:
  *
  * | Module | Question |
  * | --- | --- |
@@ -9,10 +9,20 @@
  * | {@link Commitment} | Is this still what they agreed to? (drift against an approved plan) |
  * | {@link CheckpointStore} | Where did the task get to? (resume after a handoff or a crash) |
  * | {@link Escalation} | How do I reach someone who is not watching? (typed, with a lapse policy) |
+ * | {@link submitBooking} | May this irreversible act happen *now*? (the five gates, in order) |
  *
- * Nothing here knows about browsers, travel, or any particular messaging app — those live in the
- * domain and browser layers. Keeping this package free of them is what would let it move into
- * PenguinHarness itself: any agent that spends money needs exactly this and nothing narrower.
+ * Everything here exists because **the model is inside the threat model**. These are not judgements
+ * an agent makes badly and could be taught to make well — they are the checks that must hold even
+ * when the agent is confused or has been talked into something by a page it read. Asking the agent
+ * whether it is allowed to spend the money is not a check; it is the same thing auditing itself.
+ * That line is what decides whether something belongs here: judgement stays with the model, and
+ * only enforcement is written down as code.
+ *
+ * Nothing here knows about browsers, travel, or any particular messaging app. `submitBooking` is
+ * named for the case that motivated it but is domain-neutral — it takes an action name and a
+ * callback, and would guard a refund or a file deletion identically. Keeping the package free of
+ * any one domain is what would let it move into PenguinHarness itself: any agent that spends money
+ * needs exactly this and nothing narrower.
  */
 export {
   Journal,
@@ -113,6 +123,13 @@ export {
   type ConfirmationJudgement,
   type DriftVerdict,
 } from "./payment.js";
+
+export {
+  submitBooking,
+  type BookingResult,
+  type RefusalReason,
+  type SubmitBookingOptions,
+} from "./booking.js";
 
 export { buildEscalationCard, type CardActionValue, type CardPayload } from "./channel/card.js";
 

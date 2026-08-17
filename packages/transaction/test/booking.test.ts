@@ -8,8 +8,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { openJournal, type Commitment, type Journal } from "@travel-agent/transaction";
-import { submitBooking } from "../src/index.js";
+import { openJournal, submitBooking, type Commitment, type Journal } from "../src/index.js";
 
 let root: string;
 let journal: Journal;

@@ -1,6 +1,14 @@
 /**
  * The guarded path to an irreversible action.
  *
+ * Named for booking because that is the case that motivated it, but nothing here is about travel:
+ * it takes an action name and a callback, and guards a refund or a file deletion identically. It
+ * lived in a travel-domain package until that package was removed — the two things beside it there,
+ * choosing which options to show and deciding whether two listings are the same product, were
+ * judgements a model makes better than a rule table, and were deleted rather than maintained. This
+ * one stayed because it is not a judgement at all: it is the enforcement that has to hold *even
+ * when the agent is wrong*, which is a different job and the only kind that earns code.
+ *
  * Everything the transaction layer provides is only worth having if it is impossible to bypass.
  * A journal that some code paths use and others do not is not a safety property — it is a habit,
  * and habits break under a deadline. So submitting an order goes through here or it does not
@@ -29,16 +37,15 @@
  * — the only caller that actually moves money — sets the flag, so the permission is mandatory
  * exactly where 003 §10.3 requires it.
  */
+import { checkPaymentCapability, type PaymentCapability } from "./capability.js";
 import {
   checkDrift,
-  checkPaymentCapability,
   describeDrift,
   permits,
   type AuthorityCeiling,
   type Commitment,
-  type Journal,
-  type PaymentCapability,
-} from "@travel-agent/transaction";
+} from "./commitment.js";
+import { type Journal } from "./journal.js";
 
 /**
  * Why a booking did not go through. Every one of these is a normal outcome, not an error.

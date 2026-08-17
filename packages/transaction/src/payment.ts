@@ -15,7 +15,7 @@
  *    card is a normal outcome rather than a failure (003 §8.4).
  *
  * Nothing here performs a payment or knows how one is performed. It produces the values the guarded
- * path in `travel-domain/booking.ts` consumes, and the card the person actually reads.
+ * path in `booking.ts` consumes, and the card the person actually reads.
  */
 
 import { createHash } from "node:crypto";

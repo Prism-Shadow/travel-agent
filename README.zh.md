@@ -15,11 +15,18 @@
 | M0 | 浏览器栈进仓，携程酒店页能开 | 完成 |
 | M1 | 人机移交（`requestHelp`） | 完成 |
 | M2 | 事务层（WAL / 承诺 / 检查点 / 升级） | 库完成 |
-| M3 | 一句话 → 停在支付页 | **未完成** — 表单原语能跑；列表提取和宿主编排没有 |
-| M4 | tab 归属 + 跨站方案对齐 | 库完成 |
+| M3 | 一句话 → 停在支付页 | **未完成** — 它是一条验收用例，不是一个模块：列表提取交给 agent 自己做，剩下的是人工跑通 |
+| M4 | tab 归属 | 完成；跨站方案对齐已废弃（见下） |
 | M5 | 机票 | 未开始 |
 
-`@travel-agent/domain` 和 `@travel-agent/transaction` 还没接到 agent 循环上。库测过，产品路径没有。
+`@travel-agent/transaction` 已接入：`packages/server` 与 `packages/desktop` 的付款路径都走它的
+`submitBooking` 闸门。
+
+`@travel-agent/domain` 已**删除**。它原本装三样东西。其中两样——挑哪几个选项给人看、判断两条列表是不是
+同一个商品——是模型比手工维护的规则表做得更好的**判断**，而且连着六个 Phase 没有任何调用方，所以直接删掉
+而不是继续维护。第三样 `submitBooking` 挪进了 `@travel-agent/transaction`，因为它根本不是判断，而是
+**即使 agent 出错也必须成立**的强制约束。这条界线——模型负责判断，代码只负责强制，而且只在模型本身就在
+威胁模型里的地方才写代码——是我们现在动手写任何「领域逻辑」之前先过的那把尺子。
 
 ## 目录
 
@@ -27,8 +34,7 @@
 | --- | --- |
 | `packages/core`、`cli`、`server`、`web` | PenguinHarness 引擎和界面（冻结快照） |
 | `packages/browser-cli`、`browser-extension` | 并入的 penguin-browser |
-| `packages/transaction` | 不可逆动作的语义 |
-| `packages/travel-domain` | 代表集、对齐、守卫下单 |
+| `packages/transaction` | 不可逆动作的语义，含 `submitBooking` 闸门 |
 | `packages/skills/skills/penguin-browser` | 教 agent 怎么开 Chrome |
 
 ## 开发

@@ -23,7 +23,7 @@
  *    first attempt's outcome instead of paying again.
  *
  * Nothing here performs a payment, reads a page, or touches a vault. It produces and judges a small
- * value object; `travel-domain/booking.ts` is where the judgement becomes a refusal, and the
+ * value object; `booking.ts` is where the judgement becomes a refusal, and the
  * desktop main process is where the object is stored and consumed.
  */
 

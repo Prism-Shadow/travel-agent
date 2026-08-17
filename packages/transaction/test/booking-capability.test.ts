@@ -19,9 +19,9 @@ import {
   planFromSummary,
   type Journal,
   type PaymentCapability,
+  submitBooking,
   type PaymentSummary,
-} from "@travel-agent/transaction";
-import { submitBooking } from "../src/index.js";
+} from "../src/index.js";
 
 const TASK = "task-1755000000000-aaaa1111";
 const ISSUED_AT = new Date("2026-08-16T10:00:00.000Z");

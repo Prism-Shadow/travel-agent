@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-17] `@travel-agent/domain` removed: representative selection and offer alignment deleted as model judgements, `submitBooking` moved into `@travel-agent/transaction`. ([details](2026-08-17-remove-travel-domain.md))
 - [2026-08-17] Imported history now completes in the address bar, and imported passwords fill sign-in forms on the user's own click. ([details](2026-08-17-saved-logins-and-address-completion.md))
 - [2026-08-17] Import cookies, saved logins and browsing history from your own Chrome into the in-app browser. ([details](2026-08-17-import-from-browser.md))
 - [2026-08-17] The in-app browser address bar now accepts a URL and opens the first tab when a conversation has no tabs yet. ([details](2026-08-17-empty-browser-address-bar.md))

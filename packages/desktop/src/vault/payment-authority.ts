@@ -32,8 +32,12 @@ import {
   type PaymentCapability,
   type PaymentSummary,
 } from "@travel-agent/transaction";
-import { submitBooking, type BookingResult, type RefusalReason } from "@travel-agent/domain";
-import type { Journal } from "@travel-agent/transaction";
+import {
+  submitBooking,
+  type BookingResult,
+  type Journal,
+  type RefusalReason,
+} from "@travel-agent/transaction";
 
 import type { VaultAudit } from "./audit.js";
 import { parseHandle } from "./grants.js";
