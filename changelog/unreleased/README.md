@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-18] The upstream terminal CLI (`packages/cli`) is retired along with the standalone installers and release scripts — no live consumer, and `penguin update` / `install.sh` fetched upstream's releases; desktop now bundles only `penguin-browser`. ([details](2026-08-18-retire-terminal-cli.md))
 - [2026-08-18] Documented the current project directory tree and package responsibilities under `docs/project-structure/`. ([details](2026-08-18-project-structure-doc.md))
 - [2026-08-18] Upstream baggage removed: the skill library trimmed to `penguin-browser` alone (17 irrelevant skills were reaching every agent's system prompt), upstream release history (`changelog/0.1.0`–`0.2.2`) and the README image assets dropped from the tree. ([details](2026-08-18-slim-upstream-baggage.md))
 - [2026-08-17] CI rebuilt for this fork: upstream's publishing workflows removed, Windows and installer checks moved to a manual pre-release run, flaky `penguin-browser` relay tests isolated. ([details](2026-08-17-ci-for-travel-agent.md))
