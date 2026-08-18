@@ -4,7 +4,14 @@
 `penguin` dev script (the server's dev entry declares its own); `vitest` is declared by every
 package that tests; the root dev-dependency on `@prismshadow/penguin-core` served the same
 deleted script (`dev-prebuild.mjs` only uses package *names* as pnpm filters). All three are
-gone from the root manifest. `.env.example` also stops claiming the Claude gateway "defaults
+gone from the root manifest.
+
+**Correction, same day:** "lost their last consumer" was wrong for `tsx` — the vendored
+`penguin-browser` and `penguin-browser-extension` build scripts ran it while declaring
+nothing, silently riding the root hoist. A stale local `node_modules` hid this; CI's fresh
+install failed with `tsx: not found` in all three jobs. The fix declares `tsx` in the two
+packages that actually run it, which is where it should have been declared all along — the
+root removal stands. `.env.example` also stops claiming the Claude gateway "defaults
 to AgentHub" — the model catalog gives the anthropic provider no gateway default, so an unset
 `ANTHROPIC_BASE_URL` means the official endpoint.
 
