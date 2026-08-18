@@ -1,22 +1,16 @@
 # The checks that are worth their cost before something ships, and not on every pull request.
 #
-# Two kinds of thing live here, and both were moved out of CI deliberately.
-#
 # **Windows.** A private repository bills Windows minutes at 2x, so the inherited arrangement — a
 # full duplicate of build/typecheck/test on windows-latest for every push and every PR — cost more
 # than the Ubuntu job it duplicated. The Windows-only risks in this codebase are real but they are
-# *release* risks, not per-commit ones: path handling, CRLF, PowerShell syntax in the installer, and
-# DPAPI (the browser import unwraps Chrome's key through `CryptUnprotectData`, and Chrome 127+
-# App-Bound Encryption is refused there — see packages/desktop/src/browser-import/chrome-key.ts).
-# None of those change from one pull request to the next; all of them must hold before a build goes
-# out.
+# *release* risks, not per-commit ones: path handling, CRLF, and DPAPI (the browser import unwraps
+# Chrome's key through `CryptUnprotectData`, and Chrome 127+ App-Bound Encryption is refused there
+# — see packages/desktop/src/browser-import/chrome-key.ts). None of those change from one pull
+# request to the next; all of them must hold before a build goes out.
 #
-# **The installer.** Nothing in this repository publishes any more — upstream's release.yml pushed
-# to the public npm `@prismshadow` scope and to an Alibaba OSS bucket, neither of which is this
-# fork's — so gating every pull request on installer tests was paying for a path with no publisher.
-# The tests are kept and still run here, because install.sh / install.ps1 are still the programs
-# that would install a CLI build if one is ever cut, and a broken installer is only discoverable by
-# running it.
+# (The installer jobs that also lived here were retired with the upstream terminal CLI: the
+# standalone CLI bundle install.sh / install.ps1 installed no longer exists in this fork, and the
+# desktop app has its own installers built by desktop-build.yml.)
 #
 # Run this by hand before tagging or packaging. It is deliberately not wired to a tag: it is the
 # check you run *before* deciding to ship, and a check that runs after the decision is a report, not
@@ -38,7 +32,7 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows build, typecheck, test, installer
+    name: Windows build, typecheck, test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -71,52 +65,3 @@ jobs:
       # across platforms and checksum-sensitive tests do not diverge here.
       - name: Unit tests (vitest)
         run: pnpm -r --filter='!penguin-browser' test
-
-      # Parse, never execute. Ubuntu cannot validate PowerShell syntax, so a broken install.ps1
-      # would otherwise only be discovered by a user running it.
-      - name: Parse installer script (PowerShell)
-        shell: pwsh
-        run: |
-          $failed = $false
-          foreach ($f in @("install.ps1")) {
-            $tokens = $null
-            $errors = $null
-            # .Path: hand ParseFile a plain string, not a PathInfo object.
-            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path, [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors.Count -gt 0) {
-              $failed = $true
-              Write-Host "${f}: $($errors.Count) parse error(s)"
-              $errors | ForEach-Object { Write-Host "  $($_.Extent.StartLineNumber): $($_.Message)" }
-            } else {
-              Write-Host "${f}: OK"
-            }
-          }
-          if ($failed) { exit 1 }
-
-      - name: Windows installer tests
-        shell: pwsh
-        run: ./scripts/test-installer.ps1
-
-  posix-installer:
-    name: POSIX installer bundle, offline, rollback, online
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build (tsup)
-        run: pnpm build
-
-      - name: Installer bundle and POSIX installer tests
-        run: sh scripts/test-installer.sh

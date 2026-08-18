@@ -165,7 +165,7 @@ Escalation 的 payload 里带截图路径，但事务层只管传输，不管这
 2. **事务层继续是 `packages/transaction`**——不进 core。将来若要回赠上游，搬一个目录。
 3. ~~**landing / docs 不再为 merge 留着。**~~ —— **已执行**（2026-08-17）：两处引用都已不成立并被拆除。`scripts/test-installer.sh` 里测的是 `packages/landing/public/install.sh`，那是 penguin.ooo 的薄转发器，而本仓不运营那个域名；desktop 的 `render-icon.mjs` 并不读 landing 的内容（SVG 来自 `packages/web/public/`），只是借 landing 的 `package.json` 解析 `@playwright/test`——而 landing 被 workspace 排除、`node_modules` 从未安装，那个脚本早已跑不动，产物 `build/icon*.png` 也已提交。两个目录、`pages.yml`、`scripts/build-site.mjs` 与 `render-icon.mjs` 一并删除，`pnpm-workspace.yaml` 的排除条目随之取消。
 
-根目录的 `install.sh` / `install.ps1` **保留**（仍由 `pre-release.yml` 测试），与 penguin.ooo 的转发器是两个东西。
+~~根目录的 `install.sh` / `install.ps1` **保留**（仍由 `pre-release.yml` 测试），与 penguin.ooo 的转发器是两个东西。~~ —— **已撤销**（2026-08-18）：`packages/cli` 整包退役后，安装器要装的"CLI build"不再存在，且两个脚本下载的都是上游的 GitHub releases / OSS bucket 产物，不是本仓的。`install.sh` / `install.ps1` / `install.cmd`、`scripts/` 下的整套发布脚本（`test-installer.*`、`package-release-bundles.sh`、`publish-release-to-oss.sh`、`install-ossutil.sh`、`test-oss-staging.sh`）随 CLI 一并删除；`pre-release.yml` 只保留 Windows 构建/测试轨。产品面是 desktop 安装包（`desktop-build.yml`）。
 
 `release.yml` 与 `oss-staging.yml` 已于同日删除：它们发布到公开 npm 的 `@prismshadow` scope 和上游的阿里云 OSS bucket，两者都不属于本仓。**本仓当前没有任何发布链路**——`desktop-build.yml` 保留了 `workflow_call` 入口，等本仓自己的发布方式定下来之后再接。这一条影响 004 Phase 6/7 的计划，见该文档 §2.1 的注记。
 
