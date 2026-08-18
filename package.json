@@ -1,9 +1,9 @@
 {
-  "name": "penguin-harness",
+  "name": "travel-agent",
   "version": "0.2.2",
   "private": true,
   "type": "module",
-  "description": "PenguinHarness \u2014 TypeScript AI Agent (SDK + CLI).",
+  "description": "travel-agent \u2014 PenguinHarness engine + penguin-browser, glued into a booking agent that stops on the payment page.",
   "engines": {
     "node": ">=24"
   },

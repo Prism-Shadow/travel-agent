@@ -554,7 +554,6 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 ├── pnpm-workspace.yaml # pnpm workspace membership and dependency overrides
 ├── README.md # Main English README
 ├── README.zh.md # Chinese README
-├── THIRD-PARTY-NOTICES.md # Third-party notices/licenses
 ├── tsconfig.base.json # Shared TypeScript compiler options
 └── tsconfig.json # Root TypeScript project references/configuration
 ```
