@@ -133,6 +133,19 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build (tsup)
         run: pnpm build
+
+      # This suite launches a real Chromium through the vendored Playwright fork, and a GitHub
+      # runner ships none — every browser-backed file failed at setup with "Executable doesn't
+      # exist at ~/.cache/ms-playwright/chromium-1209". `docs/verification/phase-00.md` recorded
+      # this gap when the fork was vendored and nothing closed it; nobody hit it because Actions had
+      # never been enabled on this repository until now.
+      #
+      # `playwright-core`, not `playwright`: the dependency is @xmorse/playwright-core, and its
+      # `install` resolves the browser build its own version pins. `--with-deps` brings the shared
+      # libraries a bare runner lacks.
+      - name: Install Chromium for Playwright
+        run: pnpm --filter penguin-browser exec playwright-core install --with-deps chromium
+
       - name: Unit tests (penguin-browser)
         run: pnpm --filter penguin-browser test
 
