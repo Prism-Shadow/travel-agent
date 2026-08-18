@@ -1356,7 +1356,7 @@ describe('Relay Core Tests', () => {
                     }
                     if (!testPage) throw new Error('Test page not found');
                     const content = await getPageMarkdown({ page: testPage });
-                    console.log(content);
+                    return content;
                 `,
         timeout: 15000,
       },
@@ -1365,8 +1365,35 @@ describe('Relay Core Tests', () => {
     expect(result.isError).toBeFalsy()
     const text = (result.content as any)[0]?.text || ''
 
-    // Snapshot the full output
-    await expect(text).toMatchFileSnapshot('./snapshots/page-markdown-output.txt')
+    // Asserted outright, where this used to call toMatchFileSnapshot.
+    //
+    // `src/snapshots/` is gitignored deliberately — those files come out of whatever Chromium is
+    // installed, so committing one would bake a wrong baseline into the repo. But a file snapshot
+    // whose baseline is never committed asserts nothing on a fresh checkout, and it does not fail
+    // quietly either: vitest refuses to write a missing snapshot when CI is set. That is exactly
+    // how this surfaced — red on the runner, green on every machine that had run the suite once
+    // before and so had the file lying around. The `-u` re-run that appeared to fix it was writing
+    // the very file it compared against, and `git diff` showed nothing because the file is ignored.
+    //
+    // The two things the snapshot actually protected are stated here instead: the sections come
+    // back in document order, and script/style content does not come back at all. Neither needs a
+    // baseline, and both survive a Chromium upgrade.
+    const inOrder = [
+      'Test Article Title',
+      'Home About',
+      'first paragraph',
+      'second paragraph',
+      'important information',
+      'Related Posts',
+      'Copyright 2024',
+    ]
+    let seenAt = -1
+    for (const fragment of inOrder) {
+      const at = text.indexOf(fragment)
+      expect(at, `"${fragment}" is missing from the extracted markdown:\n${text}`).toBeGreaterThan(-1)
+      expect(at, `"${fragment}" came back out of document order:\n${text}`).toBeGreaterThan(seenAt)
+      seenAt = at
+    }
 
     // Should contain article content
     expect(text).toContain('Test Article Title')
