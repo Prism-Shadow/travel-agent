@@ -50,6 +50,7 @@
     "kitty-graphics-agent": "^0.0.5",
     "marked": "^17.0.1",
     "penguin-browser-extension": "workspace:^",
+    "tsx": "^4.20.0",
     "vite-node": "^5.0.0",
     "vitest": "^4.0.8"
   },
