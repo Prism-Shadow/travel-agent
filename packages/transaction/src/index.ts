@@ -130,11 +130,3 @@ export {
   type RefusalReason,
   type SubmitBookingOptions,
 } from "./booking.js";
-
-export { buildEscalationCard, type CardActionValue, type CardPayload } from "./channel/card.js";
-
-export {
-  FeishuCardChannel,
-  outcomeFromAction,
-  type FeishuCardChannelOptions,
-} from "./channel/feishu.js";

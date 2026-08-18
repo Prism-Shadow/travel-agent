@@ -72,8 +72,9 @@ export type EscalationOutcome =
  * A way to reach the human and hear back.
  *
  * Deliberately transport-agnostic: an interactive card in a messaging app, a CLI prompt, an
- * in-browser overlay. Implementations live in `channel/`; nothing in this package knows which
- * one is in use.
+ * in-browser overlay. Nothing in this package knows which one is in use. (A Feishu card
+ * implementation lived in `channel/` until 2026-08-18 — removed with no caller ever wired;
+ * git history has it if an absent-user channel is ever needed again.)
  */
 export interface EscalationChannel {
   readonly name: string;
