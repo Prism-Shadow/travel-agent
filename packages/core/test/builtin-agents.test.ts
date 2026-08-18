@@ -65,11 +65,6 @@ describe("Skill installation policy", () => {
       (s) => s.name,
     );
     expect(names).toEqual(loadPreinstalledSkills().map((s) => s.name));
-    // `preinstall: false` library skills stay out of the preinstalled set (manual install only).
-    for (const name of ["remote-claude-code", "humanizer"]) {
-      expect(librarySkill(name)?.preinstall, name).toBe(false);
-      expect(names, name).not.toContain(name);
-    }
   });
 
   it("reloading an older default_agent installs preinstalled skills it never received", async () => {
@@ -140,8 +135,8 @@ describe("provisionProjectAgents", () => {
       loadPreinstalledSkills().map((s) => s.name),
     );
     // On-disk content matches the library's SKILL.md verbatim (install copies the full text).
-    const sdkMd = await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-sdk"), "utf8");
-    expect(sdkMd).toBe(librarySkill("penguin-sdk")!.content);
+    const browserMd = await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-browser"), "utf8");
+    expect(browserMd).toBe(librarySkill("penguin-browser")!.content);
   });
 
   it("provision is idempotent: running it again does not change the result", async () => {

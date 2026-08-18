@@ -60,12 +60,7 @@ describe("skills api", () => {
     const res = await member.get("/api/skills");
     expect(res.status).toBe(200);
     const body = (await res.json()) as SkillLibraryResponse;
-    expect(body.groups.map((g) => g.id)).toEqual([
-      "office-productivity",
-      "software-development",
-      "ai-app-development",
-      "agent-tuning",
-    ]);
+    expect(body.groups.map((g) => g.id)).toEqual(["browser"]);
     for (const group of body.groups) {
       expect(group.title.length).toBeGreaterThan(0);
       // The Chinese group title is passed through from the skills package (the UI
@@ -74,33 +69,7 @@ describe("skills api", () => {
       expect("description" in group).toBe(false);
     }
     // Members within a group follow the SKILL_GROUPS list order (as ungrouped by loadSkillGroups).
-    expect(body.groups[0]!.skills.map((s) => s.name)).toEqual([
-      "data-analysis",
-      "firecrawl",
-      "penguin-browser",
-      "bento-slides",
-      "humanizer",
-    ]);
-    expect(body.groups[1]!.skills.map((s) => s.name)).toEqual([
-      "web-design",
-      "software-engineering",
-      "remote-claude-code",
-    ]);
-    expect(body.groups[2]!.skills.map((s) => s.name)).toEqual([
-      "penguin-sdk",
-      "penguin-cli",
-      "agenthub-models",
-      "vllm",
-      "ollama",
-      "llamafactory",
-      "skill-porting",
-    ]);
-    expect(body.groups[3]!.skills.map((s) => s.name)).toEqual([
-      "agent-creation",
-      "benchmark-design",
-      "agent-evaluation",
-      "agent-optimization",
-    ]);
+    expect(body.groups[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
     const skills = body.groups.flatMap((g) => g.skills);
     for (const skill of skills) {
       expect(skill.name.length).toBeGreaterThan(0);
@@ -122,61 +91,65 @@ describe("skills api", () => {
     await createPlainAgent("bare_agent");
     const url = base("bare_agent");
 
-    // Member installs two Skills: 201 returns the updated list (sorted by name).
-    const res = await member.post(url, { names: ["penguin-sdk", "agent-creation"] });
+    // Member installs a Skill: 201 returns the updated list.
+    const res = await member.post(url, { names: ["penguin-browser"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
-    expect(body.skills.map((s) => s.name)).toEqual(["agent-creation", "penguin-sdk"]);
+    expect(body.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
     // The installed list likewise passes through the short description and icon
     // (icon.svg is copied on install, identical to the library's original).
-    const installed = body.skills.find((s) => s.name === "penguin-sdk")!;
+    const installed = body.skills.find((s) => s.name === "penguin-browser")!;
     expect(installed.shortDescription).toBeTruthy();
-    expect(installed.icon).toBe(librarySkill("penguin-sdk")!.icon);
+    expect(installed.icon).toBe(librarySkill("penguin-browser")!.icon);
 
     // The on-disk content matches the library's SKILL.md verbatim (including
     // frontmatter), and icon.svg is written alongside it.
     const skillFile = (name: string) =>
       path.join(skillsDir(t.root, projectId, "bare_agent"), name, "SKILL.md");
-    expect(await fs.readFile(skillFile("penguin-sdk"), "utf8")).toBe(
-      librarySkill("penguin-sdk")!.content,
+    expect(await fs.readFile(skillFile("penguin-browser"), "utf8")).toBe(
+      librarySkill("penguin-browser")!.content,
     );
     expect(
       await fs.readFile(
-        path.join(skillsDir(t.root, projectId, "bare_agent"), "penguin-sdk", "icon.svg"),
+        path.join(skillsDir(t.root, projectId, "bare_agent"), "penguin-browser", "icon.svg"),
         "utf8",
       ),
-    ).toBe(librarySkill("penguin-sdk")!.icon);
+    ).toBe(librarySkill("penguin-browser")!.icon);
 
     // Member uninstalls: 204, the whole skills/<name>/ directory disappears, and the list is updated.
-    expect((await member.delete(`${url}/penguin-sdk`)).status).toBe(204);
-    await expect(fs.access(path.dirname(skillFile("penguin-sdk")))).rejects.toThrow();
+    expect((await member.delete(`${url}/penguin-browser`)).status).toBe(204);
+    await expect(fs.access(path.dirname(skillFile("penguin-browser")))).rejects.toThrow();
     const after = (await (await member.get(url)).json()) as AgentSkillsResponse;
-    expect(after.skills.map((s) => s.name)).toEqual(["agent-creation"]);
+    expect(after.skills.map((s) => s.name)).toEqual([]);
 
     // Deleting a Skill that isn't installed (or was already uninstalled) → 404.
-    expect((await member.delete(`${url}/penguin-sdk`)).status).toBe(404);
+    expect((await member.delete(`${url}/penguin-browser`)).status).toBe(404);
   });
 
   it("reinstall is an idempotent update: hand-edited on-disk content is restored to the library content", async () => {
     await createPlainAgent("update_agent");
     const url = base("update_agent");
-    expect((await owner.post(url, { names: ["penguin-cli"] })).status).toBe(201);
+    expect((await owner.post(url, { names: ["penguin-browser"] })).status).toBe(201);
 
     // Simulate stale/tampered on-disk content.
-    const file = path.join(skillsDir(t.root, projectId, "update_agent"), "penguin-cli", "SKILL.md");
-    await fs.writeFile(file, "---\nname: penguin-cli\nversion: 0\n---\nstale\n", "utf8");
+    const file = path.join(
+      skillsDir(t.root, projectId, "update_agent"),
+      "penguin-browser",
+      "SKILL.md",
+    );
+    await fs.writeFile(file, "---\nname: penguin-browser\nversion: 0\n---\nstale\n", "utf8");
 
-    const res = await owner.post(url, { names: ["penguin-cli"] });
+    const res = await owner.post(url, { names: ["penguin-browser"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
-    expect(body.skills.map((s) => s.name)).toEqual(["penguin-cli"]);
-    expect(await fs.readFile(file, "utf8")).toBe(librarySkill("penguin-cli")!.content);
+    expect(body.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
+    expect(await fs.readFile(file, "utf8")).toBe(librarySkill("penguin-browser")!.content);
   });
 
   it("unknown skill 404 unknown_skill, with no half-installed state", async () => {
     await createPlainAgent("strict_agent");
     const url = base("strict_agent");
-    const res = await owner.post(url, { names: ["penguin-sdk", "no-such-skill"] });
+    const res = await owner.post(url, { names: ["penguin-browser", "no-such-skill"] });
     expect(res.status).toBe(404);
     const err = (await res.json()) as { error: { code: string; message: string } };
     expect(err.error.code).toBe("unknown_skill");
@@ -189,7 +162,7 @@ describe("skills api", () => {
   it("request body validation 400: names missing / empty array / non-string entries", async () => {
     await createPlainAgent("valid_agent");
     const url = base("valid_agent");
-    for (const body of [{}, { names: [] }, { names: ["penguin-sdk", 1] }, { names: [""] }]) {
+    for (const body of [{}, { names: [] }, { names: ["penguin-browser", 1] }, { names: [""] }]) {
       expect((await owner.post(url, body)).status, JSON.stringify(body)).toBe(400);
     }
   });
@@ -197,25 +170,22 @@ describe("skills api", () => {
   it("outsiders always get 404 (read, install, uninstall); a missing Agent is 404", async () => {
     const url = base("default_agent");
     expect((await outsider.get(url)).status).toBe(404);
-    expect((await outsider.post(url, { names: ["penguin-sdk"] })).status).toBe(404);
+    expect((await outsider.post(url, { names: ["penguin-browser"] })).status).toBe(404);
     expect((await outsider.post(`${url}/archive`, { dataBase64: "AAAA" })).status).toBe(404);
-    expect((await outsider.get(`${url}/penguin-sdk/archive`)).status).toBe(404);
-    expect((await outsider.delete(`${url}/penguin-sdk`)).status).toBe(404);
+    expect((await outsider.get(`${url}/penguin-browser/archive`)).status).toBe(404);
+    expect((await outsider.delete(`${url}/penguin-browser`)).status).toBe(404);
     // The library catalog isn't scoped under a Project prefix: any logged-in user can read it.
     expect((await outsider.get("/api/skills")).status).toBe(200);
     // Agent doesn't exist: even a member gets 404.
     expect((await member.get(base("no_such_agent"))).status).toBe(404);
   });
 
-  it("default_agent starts with the preinstalled library set; preinstall:false skills stay manual-install", async () => {
+  it("default_agent starts with the preinstalled library set; plain agents start empty and install manually", async () => {
     const res = await member.get(base("default_agent"));
     expect(res.status).toBe(200);
     const body = (await res.json()) as AgentSkillsResponse;
     // loadPreinstalledSkills keeps loadLibrarySkills' name sort, matching the installed-list ordering.
     expect(body.skills.map((s) => s.name)).toEqual(loadPreinstalledSkills().map((s) => s.name));
-    // remote-claude-code and humanizer ship in the library marked `preinstall: false`: not present here.
-    expect(body.skills.map((s) => s.name)).not.toContain("remote-claude-code");
-    expect(body.skills.map((s) => s.name)).not.toContain("humanizer");
     // The installed list likewise passes through the Chinese description and the
     // short description/icon (listInstalledSkills parses these from the on-disk
     // frontmatter and icon.svg).
@@ -225,27 +195,21 @@ describe("skills api", () => {
       expect(skill.icon, skill.name).toContain("<svg");
     }
 
-    // Manual install from the library still works for a preinstall:false skill.
-    const manual = await member.post(base("default_agent"), { names: ["remote-claude-code"] });
-    expect(manual.status).toBe(201);
-    const withManual = (await manual.json()) as AgentSkillsResponse;
-    expect(withManual.skills.map((s) => s.name)).toContain("remote-claude-code");
-    // A multi-file skill: the file its SKILL.md references is installed alongside SKILL.md,
-    // byte-identical to the library source (subdirectory preserved).
-    const aux = "reference/persistent-session.md";
-    const refPath = path.join(
-      skillsDir(t.root, projectId, "default_agent"),
-      "remote-claude-code",
-      "reference",
-      "persistent-session.md",
-    );
-    expect(await fs.readFile(refPath, "utf8")).toBe(
-      librarySkill("remote-claude-code")!.files![aux],
-    );
-
+    // A plain agent gets nothing preinstalled; manual install from the library works on it,
+    // writing the library SKILL.md verbatim into the agent's skills directory.
     await createPlainAgent("fresh_agent");
     const fresh = (await (await member.get(base("fresh_agent"))).json()) as AgentSkillsResponse;
     expect(fresh.skills).toEqual([]);
+    const manual = await member.post(base("fresh_agent"), { names: ["penguin-browser"] });
+    expect(manual.status).toBe(201);
+    const withManual = (await manual.json()) as AgentSkillsResponse;
+    expect(withManual.skills.map((s) => s.name)).toContain("penguin-browser");
+    const installedMd = path.join(
+      skillsDir(t.root, projectId, "fresh_agent"),
+      "penguin-browser",
+      "SKILL.md",
+    );
+    expect(await fs.readFile(installedMd, "utf8")).toBe(librarySkill("penguin-browser")!.content);
   });
 
   // ---- POST .../skills/archive: install one skill from an uploaded zip ----

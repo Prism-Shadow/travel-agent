@@ -6,9 +6,6 @@
  * effect immediately with no caching (files are small, calls are infrequent). Only the skill group
  * manifest (id, title, and member names) is hardcoded in code; install / uninstall / scan still live
  * in core's state layer.
- *
- * Docs: packages/docs/content/skills.{zh,en}.md (site path /docs/skills) documents the Skill
- * format and the built-in library.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -194,36 +191,10 @@ export function loadPreinstalledSkills(): LibrarySkill[] {
  */
 export const SKILL_GROUPS: SkillGroupInfo[] = [
   {
-    id: "office-productivity",
-    title: "Office Productivity",
-    titleZh: "办公效率",
-    skills: ["data-analysis", "firecrawl", "penguin-browser", "bento-slides", "humanizer"],
-  },
-  {
-    id: "software-development",
-    title: "Software Development",
-    titleZh: "软件开发",
-    skills: ["web-design", "software-engineering", "remote-claude-code"],
-  },
-  {
-    id: "ai-app-development",
-    title: "AI App Development",
-    titleZh: "AI 应用开发",
-    skills: [
-      "penguin-sdk",
-      "penguin-cli",
-      "agenthub-models",
-      "vllm",
-      "ollama",
-      "llamafactory",
-      "skill-porting",
-    ],
-  },
-  {
-    id: "agent-tuning",
-    title: "Agent Tuning",
-    titleZh: "Agent 调优",
-    skills: ["agent-creation", "benchmark-design", "agent-evaluation", "agent-optimization"],
+    id: "browser",
+    title: "Browser",
+    titleZh: "浏览器",
+    skills: ["penguin-browser"],
   },
 ];
 

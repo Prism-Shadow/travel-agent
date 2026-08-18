@@ -46,30 +46,30 @@ const skillIcon = (name: string) => skillFile(name, "icon.svg");
 
 describe("installSkill / removeSkill", () => {
   it("writes skills/<name>/SKILL.md verbatim with a trailing newline", async () => {
-    const skill = librarySkill("penguin-cli")!;
+    const skill = librarySkill("penguin-browser")!;
     await install(skill.name, skill.content);
-    expect(await fs.readFile(skillMd("penguin-cli"), "utf8")).toBe(skill.content);
+    expect(await fs.readFile(skillMd("penguin-browser"), "utf8")).toBe(skill.content);
 
     // Content without a trailing newline gets one appended; reinstalling overwrites.
-    await install("penguin-cli", "---\nname: penguin-cli\nversion: 2\n---\n\nNew body");
-    expect(await fs.readFile(skillMd("penguin-cli"), "utf8")).toBe(
-      "---\nname: penguin-cli\nversion: 2\n---\n\nNew body\n",
+    await install("penguin-browser", "---\nname: penguin-browser\nversion: 2\n---\n\nNew body");
+    expect(await fs.readFile(skillMd("penguin-browser"), "utf8")).toBe(
+      "---\nname: penguin-browser\nversion: 2\n---\n\nNew body\n",
     );
     expect((await list()).map((s) => s.version)).toEqual([2]);
   });
 
   it("writes icon.svg alongside SKILL.md, and reinstalling without icon removes it", async () => {
     // A library skill with an icon: installing writes it to disk alongside SKILL.md.
-    const skill = librarySkill("penguin-sdk")!;
+    const skill = librarySkill("penguin-browser")!;
     expect(skill.icon).toBeTruthy();
     await install(skill.name, skill.content, skill.icon);
-    expect(await fs.readFile(skillIcon("penguin-sdk"), "utf8")).toBe(skill.icon);
+    expect(await fs.readFile(skillIcon("penguin-browser"), "utf8")).toBe(skill.icon);
 
     // Overwrite semantics: this install has no icon -> the old icon.svg is removed, and the
     // directory matches this install's content exactly.
-    await install("penguin-sdk", "---\nname: penguin-sdk\nversion: 2\n---\n\nNew body\n");
-    await expect(fs.access(skillIcon("penguin-sdk"))).rejects.toThrow();
-    expect(await fs.readFile(skillMd("penguin-sdk"), "utf8")).toContain("New body");
+    await install("penguin-browser", "---\nname: penguin-browser\nversion: 2\n---\n\nNew body\n");
+    await expect(fs.access(skillIcon("penguin-browser"))).rejects.toThrow();
+    expect(await fs.readFile(skillMd("penguin-browser"), "utf8")).toContain("New body");
   });
 
   it("rejects invalid skill names (path traversal safety)", async () => {
@@ -116,12 +116,12 @@ describe("installSkill / removeSkill", () => {
   });
 
   it("removeSkill deletes the whole skill directory and is idempotent", async () => {
-    const skill = librarySkill("penguin-sdk")!;
+    const skill = librarySkill("penguin-browser")!;
     await install(skill.name, skill.content);
-    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "penguin-sdk");
-    await expect(fs.access(skillMd("penguin-sdk"))).rejects.toThrow();
+    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "penguin-browser");
+    await expect(fs.access(skillMd("penguin-browser"))).rejects.toThrow();
     // Idempotent when it no longer exists: does not throw.
-    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "penguin-sdk");
+    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "penguin-browser");
     expect(await list()).toEqual([]);
   });
 });

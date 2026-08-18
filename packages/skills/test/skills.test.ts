@@ -86,24 +86,10 @@ describe("loadLibrarySkills", () => {
     }
   });
 
-  it("collects auxiliary files a SKILL.md references (reference/*), excluding SKILL.md and icon.svg", async () => {
-    // remote-claude-code is a multi-file skill: its SKILL.md links to a reference/ document.
-    const skill = librarySkill("remote-claude-code")!;
-    const aux = "reference/persistent-session.md";
-    expect(skill.files, "remote-claude-code carries files").toBeDefined();
-    expect(Object.keys(skill.files!)).toContain(aux);
-    // Read verbatim from disk, and the SKILL.md really links to it.
-    expect(skill.files![aux]).toBe(
-      await fs.readFile(path.join(skillsRoot, skill.name, aux), "utf8"),
-    );
-    expect(skill.content).toContain(aux);
-    // SKILL.md and icon.svg are carried by their own fields, never duplicated into files.
-    for (const key of Object.keys(skill.files!)) {
-      expect(key).not.toBe("SKILL.md");
-      expect(key).not.toBe("icon.svg");
-    }
-    // A skill that ships only SKILL.md + icon.svg omits the field entirely.
-    expect("files" in librarySkill("firecrawl")!).toBe(false);
+  it("a skill that ships only SKILL.md + icon.svg omits the files field entirely", () => {
+    // The library currently has no multi-file skill (the auxiliary-file collection path in
+    // readSkillDir is exercised again the moment one adds a reference/ document).
+    expect("files" in librarySkill("penguin-browser")!).toBe(false);
   });
 });
 
@@ -112,63 +98,18 @@ describe("loadPreinstalledSkills", () => {
     const all = loadLibrarySkills();
     const preinstalled = loadPreinstalledSkills().map((s) => s.name);
     expect(preinstalled).toEqual(all.filter((s) => s.preinstall !== false).map((s) => s.name));
-    // remote-claude-code and humanizer are the library's manual-install skills: in the library, not preinstalled.
-    for (const name of ["remote-claude-code", "humanizer"]) {
-      expect(
-        all.map((s) => s.name),
-        name,
-      ).toContain(name);
-      expect(librarySkill(name)?.preinstall, name).toBe(false);
-      expect(preinstalled, name).not.toContain(name);
-    }
-    expect(preinstalled.length).toBeGreaterThan(0);
+    // The trimmed library ships exactly one skill and it is preinstalled.
+    expect(preinstalled).toEqual(["penguin-browser"]);
   });
 });
 
 describe("loadSkillGroups / groupSkills", () => {
   it("loads groups per SKILL_GROUPS, members complete with Chinese titles, no Other group", () => {
     const groups = loadSkillGroups();
-    expect(groups.map((g) => g.id)).toEqual([
-      "office-productivity",
-      "software-development",
-      "ai-app-development",
-      "agent-tuning",
-    ]);
-    expect(groups[0]!.skills.map((s) => s.name)).toEqual([
-      "data-analysis",
-      "firecrawl",
-      "penguin-browser",
-      "bento-slides",
-      "humanizer",
-    ]);
-    expect(groups[0]!.title).toBe("Office Productivity");
-    expect(groups[0]!.titleZh).toBe("办公效率");
-    expect(groups[1]!.skills.map((s) => s.name)).toEqual([
-      "web-design",
-      "software-engineering",
-      "remote-claude-code",
-    ]);
-    expect(groups[1]!.title).toBe("Software Development");
-    expect(groups[1]!.titleZh).toBe("软件开发");
-    expect(groups[2]!.skills.map((s) => s.name)).toEqual([
-      "penguin-sdk",
-      "penguin-cli",
-      "agenthub-models",
-      "vllm",
-      "ollama",
-      "llamafactory",
-      "skill-porting",
-    ]);
-    expect(groups[2]!.title).toBe("AI App Development");
-    expect(groups[2]!.titleZh).toBe("AI 应用开发");
-    expect(groups[3]!.skills.map((s) => s.name)).toEqual([
-      "agent-creation",
-      "benchmark-design",
-      "agent-evaluation",
-      "agent-optimization",
-    ]);
-    expect(groups[3]!.title).toBe("Agent Tuning");
-    expect(groups[3]!.titleZh).toBe("Agent 调优");
+    expect(groups.map((g) => g.id)).toEqual(["browser"]);
+    expect(groups[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
+    expect(groups[0]!.title).toBe("Browser");
+    expect(groups[0]!.titleZh).toBe("浏览器");
     for (const group of groups) {
       expect(group.title).toBeTruthy();
       expect(group.titleZh).toBeTruthy();
@@ -179,256 +120,36 @@ describe("loadSkillGroups / groupSkills", () => {
 
   it("groupSkills: appends an Other group for unlisted skills (Chinese and English titles)", () => {
     const stray = fakeSkill("stray-skill");
-    const groups = groupSkills([fakeSkill("agent-creation"), stray]);
-    expect(groups.map((g) => g.id)).toEqual([
-      "office-productivity",
-      "software-development",
-      "ai-app-development",
-      "agent-tuning",
-      "other",
-    ]);
-    const other = groups[4]!;
+    const groups = groupSkills([fakeSkill("penguin-browser"), stray]);
+    expect(groups.map((g) => g.id)).toEqual(["browser", "other"]);
+    const other = groups[1]!;
     expect(other.title).toBe("Other");
     expect(other.titleZh).toBe("其他");
     expect(other.skills).toEqual([stray]);
   });
 
   it("groupSkills: missing members are skipped; no Other group when all are grouped", () => {
-    const groups = groupSkills([fakeSkill("penguin-cli")]);
-    expect(groups.map((g) => g.id)).toEqual([
-      "office-productivity",
-      "software-development",
-      "ai-app-development",
-      "agent-tuning",
-    ]);
-    expect(groups[0]!.skills).toEqual([]);
-    expect(groups[1]!.skills).toEqual([]);
-    expect(groups[2]!.skills.map((s) => s.name)).toEqual(["penguin-cli"]);
-    expect(groups[3]!.skills).toEqual([]);
+    // Member listed in SKILL_GROUPS but absent from the input: skipped, group stays empty.
+    const empty = groupSkills([]);
+    expect(empty.map((g) => g.id)).toEqual(["browser"]);
+    expect(empty[0]!.skills).toEqual([]);
+    // Every input skill grouped: no Other group appended.
+    const grouped = groupSkills([fakeSkill("penguin-browser")]);
+    expect(grouped.map((g) => g.id)).toEqual(["browser"]);
+    expect(grouped[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
   });
 
   it("SKILL_GROUPS hardcodes member names (sole group info source outside library files)", () => {
     expect(SKILL_GROUPS.map((g) => ({ id: g.id, skills: g.skills }))).toEqual([
-      {
-        id: "office-productivity",
-        skills: ["data-analysis", "firecrawl", "penguin-browser", "bento-slides", "humanizer"],
-      },
-      {
-        id: "software-development",
-        skills: ["web-design", "software-engineering", "remote-claude-code"],
-      },
-      {
-        id: "ai-app-development",
-        skills: [
-          "penguin-sdk",
-          "penguin-cli",
-          "agenthub-models",
-          "vllm",
-          "ollama",
-          "llamafactory",
-          "skill-porting",
-        ],
-      },
-      {
-        id: "agent-tuning",
-        skills: ["agent-creation", "benchmark-design", "agent-evaluation", "agent-optimization"],
-      },
+      { id: "browser", skills: ["penguin-browser"] },
     ]);
   });
 });
 
 describe("librarySkill", () => {
   it("reads a single skill by name, returns undefined for unknown names", () => {
-    expect(librarySkill("penguin-sdk")?.name).toBe("penguin-sdk");
+    expect(librarySkill("penguin-browser")?.name).toBe("penguin-browser");
     expect(librarySkill("no-such-skill")).toBeUndefined();
-  });
-
-  it("benchmark-design records the selected one-Run Pilot as the Formal Baseline", () => {
-    const content = librarySkill("benchmark-design")?.content;
-    expect(content).toBeDefined();
-
-    const pilotIndex = content!.indexOf("## Refine the Benchmark");
-    const baselineIndex = content!.indexOf("## Freeze and record the Formal Baseline");
-    const normalizedContent = content!.replace(/\s+/g, " ");
-
-    expect(pilotIndex).toBeGreaterThan(-1);
-    expect(baselineIndex).toBeGreaterThan(pilotIndex);
-    expect(normalizedContent).toContain("Keep unselected Pilot results out of the Scoreboard");
-    expect(normalizedContent).toContain("requested valid-iteration limit");
-    expect(normalizedContent).toContain("lowest-scoring valid Pilot revision");
-    expect(normalizedContent).toContain("retain only one temporary restorable copy");
-    expect(normalizedContent).toContain("Store it outside `benchmarks/`");
-    expect(normalizedContent).toContain("delete the temporary lowest-revision copy");
-    expect(normalizedContent).toContain("A single iteration may refine multiple Cases");
-    expect(normalizedContent).toContain(
-      "do not require the public Statement to uniquely determine the Gold",
-    );
-    expect(normalizedContent).toContain("stable reusable policy, priority, inference boundary");
-    expect(normalizedContent).toContain(
-      "do not disclose every decisive premise or priority merely to make the public task complete",
-    );
-    expect(normalizedContent).toContain(
-      "Allocate most points within each Case to decisions or concise artifacts",
-    );
-    expect(normalizedContent).toContain(
-      "Keep generic format compliance, evidence enumeration, and analysis completeness from creating a high score floor",
-    );
-    expect(normalizedContent).toContain(
-      "Before the first dispatch of every new or changed Case revision",
-    );
-    expect(normalizedContent).toContain("current Statement is internally coherent");
-    expect(normalizedContent).toContain("current Rubric is consistent with the current Statement");
-    expect(normalizedContent).toContain("must not refer to an earlier revision or missing context");
-    expect(normalizedContent).toContain(
-      "every scoring item applies to the Case's actual requested output",
-    );
-    expect(normalizedContent).toContain(
-      "does not require the public Statement to contain enough information",
-    );
-    expect(normalizedContent).toContain(
-      "Prefer refinements that create one or more scored separating decisions",
-    );
-    expect(normalizedContent).toContain(
-      "Adding another explicit rule, exception, source, or checklist is not a difficulty increase",
-    );
-    expect(normalizedContent).toContain("Separating prediction");
-    expect(normalizedContent).toContain(
-      "If both behaviors are expected to reach the same scored result, choose another refinement",
-    );
-    expect(normalizedContent).toContain("A Rubric-only refinement is allowed but not preferred");
-    expect(normalizedContent).toContain(
-      "Do not add points merely because the previous Test Agent omitted a phrase",
-    );
-    expect(normalizedContent).toContain(
-      "Run a complete consistency review and final leak check across every Case",
-    );
-    expect(normalizedContent).toContain(
-      "Do not run another difficulty refinement merely to create more score margin",
-    );
-    expect(normalizedContent).toContain("missing the desired score alone is not a failure");
-    expect(normalizedContent).toContain("`runs = 1`");
-    expect(normalizedContent).toContain(
-      "Do not launch a fresh Formal matrix, rerun the selected Pilot, or backfill it",
-    );
-    expect(normalizedContent).toContain("Accept the selected Pilot result as the Formal Baseline");
-    expect(normalizedContent).toContain(
-      "Record the Formal Baseline even when its score does not meet the desired baseline score",
-    );
-  });
-
-  it("evaluation is the only subagent leaf and optimization has a bounded valid-round loop", () => {
-    const creation = librarySkill("agent-creation")!.content.replace(/\s+/g, " ");
-    const evaluation = librarySkill("agent-evaluation")!.content.replace(/\s+/g, " ");
-    const benchmarkDesignRaw = librarySkill("benchmark-design")!.content;
-    const benchmarkDesign = benchmarkDesignRaw.replace(/\s+/g, " ");
-    const optimizationRaw = librarySkill("agent-optimization")!.content;
-    const optimization = optimizationRaw.replace(/\s+/g, " ");
-
-    expect(creation).toContain("inherit the current Builder Session's `Provider` and `Model ID`");
-    expect(creation).toContain(
-      "read `model.thinking_level` from the Builder's own `agent_state/system_config.yaml`",
-    );
-    expect(creation).toContain("Write the resolved `thinking_level` into a brand-new target Agent");
-    expect(creation).toContain("never add either field to `system_config.yaml`");
-    expect(evaluation).toContain("request from a `run_subagent` caller");
-    expect(evaluation).toContain("Use the Penguin CLI only to launch the specified Test Agent");
-    expect(evaluation).toContain('PROJECT_ID="$(basename "$PROJECT_DIR")"');
-    expect(evaluation).toContain('PENGUIN_HOME="$(dirname "$PROJECT_DIR")"');
-    expect(evaluation).toContain("export PENGUIN_HOME");
-    expect(evaluation).toContain('--project-id "$PROJECT_ID"');
-    expect(evaluation).toContain("Perform these as separate shell statements in this order");
-    expect(evaluation).toContain("Never compress the assignments onto one command line");
-    expect(evaluation).toContain("Do not impose a numeric retry limit");
-    expect(evaluation).toContain("Never browse, query a pricing service");
-    expect(evaluation).toContain("resend only the clean protocol YAML");
-    expect(evaluation).toContain('--workspace "<absolute_unique_workspace_path>"');
-    expect(evaluation).toContain("resolve it to an absolute canonical path");
-    expect(evaluation).toContain("`provider` and `model_id` must both be non-empty");
-    expect(evaluation).toContain("Never omit either model flag");
-    expect(evaluation).toContain(
-      "Read and snapshot `model.thinking_level` from this Target Agent config",
-    );
-    expect(evaluation).toContain("not Trace metadata—for `thinking_level`");
-    expect(evaluation).toContain("outside `0..100`");
-    expect(evaluation).not.toContain('PENGUIN_HOME="$(dirname "$PROJECT_DIR")" penguin run');
-    expect(benchmarkDesign).toContain(
-      "otherwise inherit the current Builder Session's complete `Provider` and `Model ID`",
-    );
-    expect(benchmarkDesign).toContain(
-      "Read `thinking_level` from the Test Agent's `model.thinking_level`",
-    );
-    expect(benchmarkDesign).toContain(
-      "Pass the resolved `(provider, model_id)` explicitly in every Pilot Evaluator request",
-    );
-    expect(benchmarkDesign).toContain("Every Case Rubric has a fixed maximum of 100 points");
-    expect(benchmarkDesign).toContain("average of the Case scores");
-    expect(benchmarkDesign).toContain("ignore `null` values when averaging cost");
-    expect(benchmarkDesign).toContain("stored values are authoritative");
-    expect(benchmarkDesign).toContain("obtain the current UTC timestamp from the environment");
-    expect(benchmarkDesignRaw).toMatch(/summary_title:\s*>-\n\s+<public title>/);
-    expect(benchmarkDesignRaw).toMatch(/summary:\s*>-\n\s+<public summary>/);
-    expect(benchmarkDesign).toContain(
-      "parse the complete `scoreboard.yaml` and verify the appended Evaluation",
-    );
-    expect(benchmarkDesignRaw).not.toMatch(/\n\s+max_score:/);
-    expect(benchmarkDesign).toContain(
-      "Before reading `status`, `score`, or any other protocol field",
-    );
-    expect(benchmarkDesign).toContain("Ask the same Evaluator to resend only the clean YAML");
-    expect(optimization).toContain("Delegate every evaluation to an `agent-evaluation` subagent");
-    expect(optimization).toContain("a positive `runs` value");
-    expect(optimization).toContain(
-      "do not infer it from `benchmark_config.toml` or the Formal Baseline",
-    );
-    expect(optimization).toContain(
-      "The initial Formal Baseline has one Run per Case; do not rerun or backfill it",
-    );
-    expect(optimization).toContain(
-      "Compare each Candidate's stored top-level average directly with the current Reference score even when their Run counts differ",
-    );
-    expect(optimization).toContain("frozen Case set × requested `runs` matrix");
-    expect(optimization).toContain("Before reading `status`, `score`, or any other protocol field");
-    expect(optimization).toContain("Ask the same Evaluator to resend only the clean YAML");
-    expect(optimizationRaw).toMatch(/summary_title:\s*>-\n\s+<public title>/);
-    expect(optimizationRaw).toMatch(/summary:\s*>-\n\s+<public summary>/);
-    expect(optimization).toContain(
-      "parse the complete `scoreboard.yaml` and verify the appended Evaluation",
-    );
-    expect(optimization).toContain(
-      "A round counts only after one Candidate has a complete valid Evaluation",
-    );
-    expect(optimization).toContain("keep the same Candidate and incomplete matrix");
-    expect(optimization).toContain(
-      "Do not inspect private Evaluator State or abandon the Candidate",
-    );
-    expect(optimization).toContain(
-      "Immediately append and verify every accepted Candidate Evaluation",
-    );
-    expect(optimization).toContain(
-      "distinguish the acceptance decision from whether its stated hypothesis was supported",
-    );
-    expect(optimization).toContain(
-      "At the round limit, retain the highest-scoring accepted Reference",
-    );
-    expect(optimization).toContain("Read the evaluation `(provider, model_id, thinking_level)`");
-    expect(optimization).toContain(
-      "require its actual `provider`, `model_id`, and `thinking_level` to equal the Reference runtime",
-    );
-    expect(optimization).toContain("Do not edit `system_prompt` unless requested");
-    expect(optimization).toContain("change `model.thinking_level`");
-    expect(optimization).toContain(
-      "ensure `<target>/snapshots/v<Reference version>.tar.gz` exists",
-    );
-    expect(optimization).toContain("Reuse it when present");
-    expect(optimization).toContain("create it yourself before editing");
-    expect(optimization).toContain("excluding `.vault.toml`");
-    expect(optimization).toContain("never overwrite an existing same-version snapshot");
-    expect(optimization).not.toContain("stop and ask the user to export");
-    expect(optimization).toContain("fixed `0..100` scale");
-    expect(optimization).toContain("average of the Case scores");
-    expect(optimization).toContain("stored values are authoritative");
-    expect(optimization).toContain("Obtain the current UTC timestamp from the environment");
-    expect(optimizationRaw).not.toMatch(/\n\s+max_score:/);
   });
 
   it("rejects illegal-character names (path traversal guard) and never hits the filesystem", () => {
