@@ -28,7 +28,7 @@ const FIRST_CHECK_DELAY_MS = 20_000;
 /** Subsequent automatic checks. */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-const RELEASES_URL = "https://github.com/Prism-Shadow/penguin-harness/releases";
+const RELEASES_URL = "https://github.com/Youhai020616/travel-agent/releases";
 
 function log(line: string): void {
   process.stdout.write(`[updater] ${line}\n`);

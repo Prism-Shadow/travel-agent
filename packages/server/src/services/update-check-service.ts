@@ -19,8 +19,8 @@
 import { BUILD_DATE, VERSION, compareVersions, normalizeVersion } from "@prismshadow/penguin-core";
 import type { UpdateCheckResponse } from "../api/types.js";
 
-/** Repository the released artifacts come from (same slug as cli/update.ts's REPO_SLUG). */
-const REPO_SLUG = "Prism-Shadow/penguin-harness";
+/** Repository the released artifacts come from — this fork; it has no releases yet, so the check finds nothing (fail-soft) until one is cut. */
+const REPO_SLUG = "Youhai020616/travel-agent";
 /** Releases API endpoint for the newest published release. */
 export const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO_SLUG}/releases/latest`;
 
