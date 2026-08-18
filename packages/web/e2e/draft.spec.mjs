@@ -76,11 +76,11 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
 
   // `/agent` is a SESSION command: a draft has no conversation to hand over, and its Agent is
   // chosen by the draft page's own selector — so the slash menu must not offer it here (the
-  // staged-handoff flow itself is covered in the session section below). The menu does open on
-  // the same prefix, matching the installed `/agent-*` skills — which is what makes the absent
-  // command row a real assertion rather than a menu that simply never appeared.
-  await ta.fill("/agent");
-  await expect(page.getByRole("button", { name: /^\/agent-creation/ })).toBeVisible();
+  // staged-handoff flow itself is covered in the session section below). The bare "/" opens the
+  // menu with the installed `/penguin-browser` skill — which is what makes the absent command
+  // row a real assertion rather than a menu that simply never appeared.
+  await ta.fill("/");
+  await expect(page.getByRole("button", { name: /^\/penguin-browser/ })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "/agent 交给其他 Agent，发送时开启新会话" }),
   ).toHaveCount(0);

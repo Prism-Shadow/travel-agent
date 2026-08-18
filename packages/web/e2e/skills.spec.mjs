@@ -147,8 +147,10 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
       return res.skills.map((s) => s.name);
     })
     .toContain("penguin-browser");
-  // Clicking "已安装" ("Installed") uninstalls: flips back to "安装" ("Install").
+  // Clicking "已安装" ("Installed") asks for confirmation (uninstalling deletes the installed
+  // files, local edits included); confirming flips the row back to "安装" ("Install").
   await uninstallHelper.click();
+  await page.getByRole("button", { name: "卸载", exact: true }).click();
   await expect(page.getByRole("button", { name: "安装 agent_helper" })).toBeVisible();
   // Escape closes the Modal (built into the Modal).
   await page.keyboard.press("Escape");
