@@ -2,7 +2,7 @@
  * Tool call approval: ApproveFn factory + pending
  * approval registry.
  *
- * Approval mode semantics match the CLI (packages/cli/src/approval.ts):
+ * Approval mode semantics (shared with the since-retired upstream CLI):
  *   allow-all auto-approves; deny-all auto-denies; read-only allows read-only tools
  *   (permission==="r") and routes the rest to manual approval; always-ask routes
  *   everything to manual approval. Routing to manual approval registers a pending entry

@@ -4,8 +4,8 @@
  * PORT: both the default (missing) and empty string (the common `PORT=` empty value in
  * `.env`) fall back to 7364 — Number("") === 0 used to make the empty string pass range
  * validation and bind to a random port; explicit "0" is preserved (explicit semantics
- * for a random available port); invalid values throw. This matches the CLI's
- * resolvePort semantics (packages/cli serve).
+ * for a random available port); invalid values throw. (These semantics were shared
+ * with the since-retired upstream CLI's serve command.)
  * PENGUIN_SEED_ADMIN_PASSWORD: unset/empty/whitespace → null (random seed password).
  */
 import { describe, expect, it } from "vitest";

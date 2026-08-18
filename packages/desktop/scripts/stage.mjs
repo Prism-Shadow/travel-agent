@@ -2,15 +2,15 @@
  * Assemble the self-contained app directory electron-builder packs (stage/app).
  *
  * `pnpm deploy --prod` materializes this package plus its production dependency tree —
- * including the workspace packages (@prismshadow/penguin-cli among them, so the staged
- * node_modules carries cli + server + core + skills) — into a portable directory whose
+ * including the workspace packages — so the staged node_modules carries
+ * server + core + skills — into a portable directory whose
  * symlinks all stay inside it (verified: the server boots from the deploy dir as-is).
  * On top of that:
  * - prune dev files (sources, configs) so only dist/, node_modules/ and package.json ship;
  * - copy the web build to `node_modules/@prismshadow/penguin-server/web-dist`, the npm
  *   package layout the server's static-hosting lookup checks first;
  * - copy build/icon.png into the app dir (the runtime window icon, see src/app-icon.ts);
- * - generate the `penguin` and `penguin-browser` CLI launchers into `bin/`;
+ * - generate the `penguin-browser` CLI launcher into `bin/`;
  * - copy the unpacked Chrome extension into `resources/penguin-browser-extension`;
  * - ensure `stage/minigit` exists (may be empty): the Windows CI job downloads MinGit
  *   into it, and electron-builder's win extraResources entry must always have a source.
@@ -82,14 +82,10 @@ const serverPkg = path.join(appDir, "node_modules", "@prismshadow", "penguin-ser
 fs.cpSync(webDist, path.join(serverPkg, "web-dist"), { recursive: true, dereference: true });
 
 // The shell forks the server by this exact path, and the CLI launchers point at the
-// CLI entry: verify both landed in the deploy tree before packing.
+// CLI entry: verify everything landed in the deploy tree before packing.
 const launcherModule = path.join(pkgDir, "dist", "launcher.js");
 for (const [what, file] of [
   ["server entry", path.join(serverPkg, "dist", "index.js")],
-  [
-    "CLI entry",
-    path.join(appDir, "node_modules", "@prismshadow", "penguin-cli", "dist", "index.js"),
-  ],
   ["penguin-browser CLI", path.join(appDir, "node_modules", "penguin-browser", "dist", "cli.js")],
   ["launcher generator (dist/launcher.js)", launcherModule],
 ]) {
@@ -119,26 +115,14 @@ const extensionDest = path.join(appDir, "resources", "penguin-browser-extension"
 fs.cpSync(extensionSrc, extensionDest, { recursive: true, dereference: true });
 
 // CLI launchers: generated, not committed — the script text lives in src/launcher.ts.
-const { posixLauncherScript, windowsLauncherScript, BROWSER_CLI_ENTRY_RELPATH } = await import(
+const { posixLauncherScript, windowsLauncherScript } = await import(
   pathToFileURL(launcherModule).href
 );
 const binDir = path.join(appDir, "bin");
 fs.mkdirSync(binDir, { recursive: true });
-fs.writeFileSync(path.join(binDir, "penguin"), posixLauncherScript(), { mode: 0o755 });
-fs.chmodSync(path.join(binDir, "penguin"), 0o755);
-fs.writeFileSync(path.join(binDir, "penguin.cmd"), windowsLauncherScript());
-fs.writeFileSync(
-  path.join(binDir, "penguin-browser"),
-  posixLauncherScript("penguin-browser", BROWSER_CLI_ENTRY_RELPATH),
-  {
-    mode: 0o755,
-  },
-);
+fs.writeFileSync(path.join(binDir, "penguin-browser"), posixLauncherScript(), { mode: 0o755 });
 fs.chmodSync(path.join(binDir, "penguin-browser"), 0o755);
-fs.writeFileSync(
-  path.join(binDir, "penguin-browser.cmd"),
-  windowsLauncherScript("penguin-browser", BROWSER_CLI_ENTRY_RELPATH),
-);
+fs.writeFileSync(path.join(binDir, "penguin-browser.cmd"), windowsLauncherScript());
 
 fs.mkdirSync(path.join(stageDir, "minigit"), { recursive: true });
 

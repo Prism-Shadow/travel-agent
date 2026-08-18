@@ -13,17 +13,14 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @prismshadow/penguin-core test:e2e",
-    "build": "pnpm -r build && pnpm link:cli && pnpm link:browser-cli",
-    "link:cli": "cd packages/cli && pnpm link || echo '[link:cli] failed to link penguin globally'",
+    "build": "pnpm -r build && pnpm link:browser-cli",
     "link:browser-cli": "cd packages/browser-cli && pnpm link || echo '[link:browser-cli] failed to link penguin-browser globally'",
-    "penguin": "node scripts/run-with-env.mjs PENGUIN_HOME=~/.penguin/dev-data PORT=7369 -- tsx packages/cli/src/index.ts",
     "dev": "concurrently -n server,web -c cyan,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
     "dev:server": "pnpm --filter @prismshadow/penguin-server dev",
     "dev:web": "node scripts/dev-prebuild.mjs && pnpm --filter @prismshadow/penguin-web dev",
     "desktop": "pnpm -r build && node scripts/run-with-env.mjs PENGUIN_HOME=~/.penguin/dev-data -- pnpm --dir packages/desktop start"
   },
   "devDependencies": {
-    "@prismshadow/penguin-cli": "workspace:*",
     "@prismshadow/penguin-core": "workspace:*",
     "@types/node": "^24.0.0",
     "concurrently": "^10.0.4",

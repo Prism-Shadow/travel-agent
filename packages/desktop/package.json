@@ -20,7 +20,6 @@
     "check:fuses": "node scripts/check-fuses.mjs"
   },
   "dependencies": {
-    "@prismshadow/penguin-cli": "workspace:*",
     "@prismshadow/penguin-core": "workspace:*",
     "@prismshadow/penguin-server": "workspace:*",
     "@travel-agent/transaction": "workspace:^",

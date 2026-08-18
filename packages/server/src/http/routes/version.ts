@@ -7,11 +7,12 @@
  *                                      ?force=1 bypasses the cache for the manual check)
  *   POST /api/version/update        -> admin only: re-runs the CLI as `penguin update --yes`
  *
- * How the self-update works: `penguin server|web` exports PENGUIN_CLI_ENTRY (its own entry
- * script path) before importing this server, and this route re-runs that script as
- * `node <entry> update --yes` — the CLI's update command owns all install-kind detection,
- * download and replacement logic (packages/cli/src/commands/update.ts). A server started
- * any other way (tests, a custom embedding) has no CLI to run and reports "unsupported".
+ * How the self-update works: the upstream CLI's `penguin server|web` exported
+ * PENGUIN_CLI_ENTRY (its own entry script path) before importing this server, and this
+ * route re-runs that script as `node <entry> update --yes`. That CLI was retired with
+ * packages/cli, so in this fork nothing sets the variable and the route always reports
+ * "unsupported" — kept (with its tests) because it is inert and the fork's own release
+ * path is still undecided.
  * SECURITY: the spawned argv is a fixed literal list; nothing from the request flows into
  * the command, its arguments, or its environment.
  *

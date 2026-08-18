@@ -2,7 +2,7 @@
 # Deb post-install (electron-builder deb.afterInstall). Overriding the option REPLACES
 # electron-builder's default template, so this file is that default (app-builder-lib
 # templates/linux/after-install.tpl, v26.15.3) verbatim, plus the marked PenguinHarness
-# section exposing the bundled `penguin` CLI launcher on PATH. The dollar-brace forms
+# section exposing the bundled `penguin-browser` CLI launcher on PATH. The dollar-brace forms
 # are electron-builder template macros (executable, sanitizedProductName); any other
 # all-letter dollar-brace token fails the build, so shell variables stay brace-less.
 
@@ -16,11 +16,8 @@ else
     ln -sf '/opt/${sanitizedProductName}/${executable}' '/usr/bin/${executable}'
 fi
 
-# PenguinHarness: expose the bundled penguin CLI launcher on PATH. Never clobber a real
-# file of that name; replacing a (possibly stale) symlink keeps re-installs idempotent.
-if [ ! -e '/usr/bin/penguin' ] || [ -L '/usr/bin/penguin' ]; then
-    ln -sf '/opt/${sanitizedProductName}/resources/app/bin/penguin' '/usr/bin/penguin'
-fi
+# PenguinHarness: expose the bundled penguin-browser CLI launcher on PATH. Never clobber a
+# real file of that name; replacing a (possibly stale) symlink keeps re-installs idempotent.
 if [ ! -e '/usr/bin/penguin-browser' ] || [ -L '/usr/bin/penguin-browser' ]; then
     ln -sf '/opt/${sanitizedProductName}/resources/app/bin/penguin-browser' '/usr/bin/penguin-browser'
 fi

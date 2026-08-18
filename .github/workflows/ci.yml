@@ -19,8 +19,8 @@
 #   - the security guard runs FIRST because it is fast and its failure is severe (design/002 §11.2:
 #     a shipped debug switch exposes every target in the process, the user's authenticated window
 #     included, to any local caller);
-#   - build runs BEFORE typecheck because core's exports point at dist/, and cli's type resolution
-#     and runtime imports both need core's build output.
+#   - build runs BEFORE typecheck because core's exports point at dist/, and the downstream
+#     packages' type resolution and runtime imports both need core's build output.
 name: CI
 
 # push is limited to main so a merge does not re-run what its pull request already ran. Pull

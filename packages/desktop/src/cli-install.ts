@@ -1,15 +1,15 @@
 /**
- * "Install 'penguin' Command" — PATH exposure for the bundled CLI launcher
- * (<app>/bin/penguin, generated at stage time; see launcher.ts).
+ * "Install CLI Commands" — PATH exposure for the bundled penguin-browser launcher
+ * (<app>/bin/penguin-browser, generated at stage time; see launcher.ts).
  *
- * Per platform (deb is absent on purpose — its postinst ships /usr/bin/penguin, see
- * build/linux/after-install.tpl):
- * - macOS: symlink /usr/local/bin/penguin and penguin-browser → <app>/bin/…; on
- *   permission errors, escalate ONCE via osascript "with administrator privileges".
+ * Per platform (deb is absent on purpose — its postinst ships /usr/bin/penguin-browser,
+ * see build/linux/after-install.tpl):
+ * - macOS: symlink /usr/local/bin/penguin-browser → <app>/bin/…; on permission
+ *   errors, escalate ONCE via osascript "with administrator privileges".
  * - Windows: append <app>\bin to the user PATH (HKCU\Environment) via reg.exe,
  *   idempotently (read + compare first); new terminals pick it up.
- * - Linux AppImage: write an executable ~/.local/bin/penguin wrapper that runs the
- *   AppImage itself as Node (see launcher.ts appImageWrapperScript).
+ * - Linux AppImage: write an executable ~/.local/bin/penguin-browser wrapper that runs
+ *   the AppImage itself as Node (see launcher.ts appImageWrapperScript).
  *
  * Everything is native UI (menu item + dialogs) in English: the main process stays
  * outside the web app's i18n, and per the design the desktop shell talks to the page
@@ -51,16 +51,16 @@ function showResult(win: BrowserWindow | null, ok: boolean, detail: string): voi
     type: ok ? ("info" as const) : ("error" as const),
     title: "PenguinHarness",
     message: ok
-      ? "The 'penguin' and 'penguin-browser' commands are installed."
-      : "Could not install the CLI commands.",
+      ? "The 'penguin-browser' command is installed."
+      : "Could not install the CLI command.",
     detail,
   };
   void (win !== null ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts));
 }
 
-/** macOS: /usr/local/bin/penguin symlink, escalating once via osascript on EACCES/EPERM. */
+/** macOS: /usr/local/bin/penguin-browser symlink, escalating once via osascript on EACCES/EPERM. */
 async function installDarwin(win: BrowserWindow | null): Promise<void> {
-  const names = ["penguin", "penguin-browser"] as const;
+  const names = ["penguin-browser"] as const;
   try {
     fs.mkdirSync("/usr/local/bin", { recursive: true });
     for (const name of names) {
@@ -95,11 +95,7 @@ async function installDarwin(win: BrowserWindow | null): Promise<void> {
       return;
     }
   }
-  showResult(
-    win,
-    true,
-    `/usr/local/bin/penguin and penguin-browser now point at the app's bundled CLIs.`,
-  );
+  showResult(win, true, `/usr/local/bin/penguin-browser now points at the app's bundled CLI.`);
 }
 
 /** Windows: idempotent HKCU\Environment PATH append via reg.exe. */
@@ -119,7 +115,7 @@ async function installWindows(win: BrowserWindow | null): Promise<void> {
     showResult(
       win,
       true,
-      `${dir} is already on your PATH. Run 'penguin' or 'penguin-browser' from any terminal.`,
+      `${dir} is already on your PATH. Run 'penguin-browser' from any terminal.`,
     );
     return;
   }
@@ -143,11 +139,11 @@ async function installWindows(win: BrowserWindow | null): Promise<void> {
   showResult(
     win,
     true,
-    `${dir} was added to your user PATH. Open a NEW terminal (existing ones keep the old PATH) and run 'penguin' or 'penguin-browser'.`,
+    `${dir} was added to your user PATH. Open a NEW terminal (existing ones keep the old PATH) and run 'penguin-browser'.`,
   );
 }
 
-/** Linux AppImage: executable ~/.local/bin/penguin wrapper invoking the AppImage as Node. */
+/** Linux AppImage: executable ~/.local/bin/penguin-browser wrapper invoking the AppImage as Node. */
 function installAppImage(win: BrowserWindow | null): void {
   const appImage = process.env.APPIMAGE;
   if (!appImage) {
@@ -155,10 +151,7 @@ function installAppImage(win: BrowserWindow | null): void {
     return;
   }
   const dir = path.join(os.homedir(), ".local", "bin");
-  const jobs = [
-    { name: "penguin", segments: ["@prismshadow", "penguin-cli", "dist", "index.js"] as const },
-    { name: "penguin-browser", segments: BROWSER_CLI_APPIMAGE_SEGMENTS },
-  ];
+  const jobs = [{ name: "penguin-browser", segments: BROWSER_CLI_APPIMAGE_SEGMENTS }];
   try {
     fs.mkdirSync(dir, { recursive: true });
     for (const job of jobs) {
@@ -174,7 +167,7 @@ function installAppImage(win: BrowserWindow | null): void {
   showResult(
     win,
     true,
-    `${dir}/penguin and penguin-browser now run the CLIs bundled in this AppImage. Make sure ~/.local/bin is on your PATH, then open a new terminal. Re-run this menu item if you move the AppImage.`,
+    `${dir}/penguin-browser now runs the CLI bundled in this AppImage. Make sure ~/.local/bin is on your PATH, then open a new terminal. Re-run this menu item if you move the AppImage.`,
   );
 }
 
@@ -217,9 +210,9 @@ export async function maybeOfferCliInstall(win: BrowserWindow | null): Promise<v
   const opts = {
     type: "question" as const,
     title: "PenguinHarness",
-    message: "Install the 'penguin' and 'penguin-browser' commands?",
+    message: "Install the 'penguin-browser' command?",
     detail:
-      "Puts the CLIs bundled with this app on your PATH. You can do this later from the application menu: Install CLI Commands.",
+      "Puts the penguin-browser CLI bundled with this app on your PATH. You can do this later from the application menu: Install CLI Commands.",
     buttons: ["Install", "Not Now"],
     defaultId: 0,
     cancelId: 1,
