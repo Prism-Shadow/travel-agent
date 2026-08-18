@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "url": "git+https://github.com/Youhai020616/travel-agent.git",
     "directory": "packages/core"
   },
   "exports": {

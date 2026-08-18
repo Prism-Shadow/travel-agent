@@ -68,7 +68,7 @@ stagedPkg.private = true;
 // resolution, so the packaged name can differ from the workspace package name.
 stagedPkg.name = "penguin-harness-desktop";
 // fpm (deb) refuses to build without a homepage.
-stagedPkg.homepage = "https://github.com/Prism-Shadow/penguin-harness";
+stagedPkg.homepage = "https://github.com/Youhai020616/travel-agent";
 fs.writeFileSync(stagedPkgPath, JSON.stringify(stagedPkg, null, 2) + "\n");
 
 const webDist = path.join(repoRoot, "packages", "web", "dist");

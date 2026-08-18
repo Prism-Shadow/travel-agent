@@ -26,13 +26,8 @@ const SKILL_TILE_COLORS = [
   "bg-teal-50 text-teal-600 dark:bg-teal-950/60 dark:text-teal-400",
 ] as const;
 
-/** Semantic hue overrides (palette indices) — e.g. the firecrawl flame is amber, not whatever the hash lands on. */
-const SKILL_COLOR_OVERRIDES: Record<string, number> = {
-  firecrawl: 3,
-  "data-analysis": 1,
-  "web-design": 2,
-  "penguin-sdk": 0,
-};
+/** Semantic hue overrides (palette indices) for skills whose hashed color reads wrong; none today (the entries died with the library trim). */
+const SKILL_COLOR_OVERRIDES: Record<string, number> = {};
 
 export function skillTileColor(name: string): string {
   const override = SKILL_COLOR_OVERRIDES[name];
