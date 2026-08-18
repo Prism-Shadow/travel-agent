@@ -62,6 +62,8 @@ export function Select({
   value,
   onChange,
   disabled,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
 }: SelectProps) {
   const options = parseOptions(children);
   const current = String(value ?? "");
@@ -98,6 +100,8 @@ export function Select({
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
         onClick={() => setOpen((v) => !v)}
         className={`${CONTROL_CLASS} ${sizeClass[size]} ${error ? errorClass : ""} ${className ?? ""}`}
       >

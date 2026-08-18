@@ -13,6 +13,8 @@
     "test:e2e": "bash e2e/run.sh"
   },
   "dependencies": {
+    "@browser-logos/chrome": "2.0.0",
+    "@phosphor-icons/react": "2.1.10",
     "@prismshadow/penguin-core": "workspace:*",
     "@travel-agent/transaction": "workspace:^",
     "react": "^19.1.0",

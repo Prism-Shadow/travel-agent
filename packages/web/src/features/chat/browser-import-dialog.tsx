@@ -15,14 +15,20 @@
  *   - **Passwords are refused outright on a machine with no encrypted storage**, and the checkbox
  *     says so. The alternative — importing them into a file this app cannot protect — is the
  *     failure mode 003 §4.4 exists to prevent.
- *   - **The keychain prompt is announced before it appears.** On macOS the OS will ask for
- *     permission the moment Import is pressed; a prompt nobody predicted looks like something went
- *     wrong.
+ *   - **The keychain prompt stays associated with Import.** The compact design keeps the notice out
+ *     of the visual layout, while assistive technology and the button tooltip still explain the
+ *     macOS permission prompt before the sensitive action.
  *
  * The result is reported per kind, including partial reads. An import where 3,940 of 4,000 cookies
- * landed is a success with a footnote, and the footnote is shown.
+ * landed is a success with a follow-up toast.
  */
 import { useEffect, useState } from "react";
+import chromeLogo from "@browser-logos/chrome/chrome_24x24.png";
+import { BrowsersIcon } from "@phosphor-icons/react/dist/csr/Browsers";
+import { ClockCounterClockwiseIcon } from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
+import { CookieIcon } from "@phosphor-icons/react/dist/csr/Cookie";
+import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
+import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type {
   DesktopImportKind,
   DesktopImportSource,
@@ -45,15 +51,37 @@ const KIND_LABEL: Record<DesktopImportKind, string> = {
   history: S.chat.browserPane.import.history,
 };
 
+const KIND_ICON = {
+  passwords: KeyIcon,
+  cookies: CookieIcon,
+  history: ClockCounterClockwiseIcon,
+} satisfies Record<DesktopImportKind, typeof KeyIcon>;
+
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message !== "" ? error.message : fallback;
 }
 
-/** How a source is named in the "From" row: `Google Chrome — youhai`. */
-function sourceLabel(source: DesktopImportSource): string {
-  return source.profileLabel === null
-    ? source.browserLabel
-    : `${source.browserLabel} — ${source.profileLabel}`;
+/** Real Chrome brand mark in the selected source; other supported Chromium browsers stay generic. */
+function SourceIcon({ browserLabel }: { browserLabel: string }) {
+  if (browserLabel === "Google Chrome") {
+    return <img src={chromeLogo} alt="" aria-hidden className="size-4 shrink-0" />;
+  }
+  return <BrowsersIcon size={16} weight="regular" aria-hidden className="shrink-0 text-gray-500" />;
+}
+
+/** The compact two-tone source label used in both the control and its menu. */
+function SourceLabel({ source }: { source: DesktopImportSource }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <SourceIcon browserLabel={source.browserLabel} />
+      <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+        {source.browserLabel}
+      </span>
+      {source.profileLabel !== null && (
+        <span className="truncate text-gray-400 dark:text-gray-500">{source.profileLabel}</span>
+      )}
+    </span>
+  );
 }
 
 export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -100,6 +128,12 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
 
   const usable = KINDS.filter((kind) => blockedReason(kind) === null);
   const chosen = KINDS.filter((kind) => selected.has(kind) && blockedReason(kind) === null);
+  const importNotice = [
+    selected.has("cookies") ? S.chat.browserPane.import.cookiesLandIn : null,
+    chosen.some((kind) => kind !== "history") ? S.chat.browserPane.import.keychainNotice : null,
+  ]
+    .filter((notice): notice is string => notice !== null)
+    .join("\n");
 
   const submit = async (): Promise<void> => {
     if (source === null || chosen.length === 0) return;
@@ -145,84 +179,108 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
       open={open}
       title={S.chat.browserPane.import.title}
       onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose} disabled={busy}>
-            {S.common.cancel}
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!hydrated || busy || source === null || chosen.length === 0}
-            onClick={() => void submit()}
-          >
-            {busy ? S.chat.browserPane.import.importing : S.chat.browserPane.import.submit}
-          </Button>
-        </>
-      }
+      headerless
+      widthClass="max-w-[380px]"
+      overlayClassName="!items-center !p-4"
+      panelClassName="!rounded-[18px] !border-gray-200 !pb-0 shadow-2xl dark:!border-gray-800"
+      contentClassName="!max-h-[calc(100vh-2rem)] !px-5 !py-6"
     >
-      <div className="space-y-4">
-        <p className="text-sm text-[var(--fg-muted)]">{S.chat.browserPane.import.subtitle}</p>
+      <div className="relative">
+        <button
+          type="button"
+          aria-label={S.common.close}
+          onClick={onClose}
+          disabled={busy}
+          className="absolute -right-1.5 -top-2 rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+        >
+          <XIcon size={18} weight="regular" aria-hidden />
+        </button>
+
+        <h2 className="pr-8 text-xl leading-7 font-semibold tracking-[-0.02em] text-gray-950 dark:text-gray-50">
+          {S.chat.browserPane.import.title}
+        </h2>
+        <p className="mt-1 text-sm leading-5 text-gray-400 dark:text-gray-500">
+          {S.chat.browserPane.import.subtitle}
+        </p>
 
         {nothingToImport ? (
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{S.chat.browserPane.import.noSources}</p>
-            <p className="text-xs text-[var(--fg-muted)]">
+          <div className="mt-5 rounded-[14px] border border-gray-200 px-4 py-5 dark:border-gray-800">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {S.chat.browserPane.import.noSources}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
               {S.chat.browserPane.import.noSourcesHint}
             </p>
           </div>
         ) : (
           <>
-            <Select
-              label={S.chat.browserPane.import.from}
-              size="sm"
-              value={sourceId}
-              disabled={!hydrated || busy}
-              onChange={(event) => setSourceId(event.target.value)}
-            >
-              {(report?.sources ?? []).map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {sourceLabel(entry)}
-                </option>
-              ))}
-            </Select>
+            <div className="mt-3.5 flex items-center gap-3">
+              <span
+                id="browser-import-source-label"
+                className="shrink-0 text-sm leading-7 text-gray-400 dark:text-gray-500"
+              >
+                {S.chat.browserPane.import.from}
+              </span>
+              <Select
+                aria-labelledby="browser-import-source-label"
+                size="sm"
+                value={sourceId}
+                disabled={!hydrated || busy}
+                className="!min-h-7 !rounded-[10px] !border-gray-200 !px-3 !py-1 !text-sm !leading-5 shadow-sm hover:!border-gray-300 dark:!border-gray-700"
+                onChange={(event) => setSourceId(event.target.value)}
+              >
+                {(report?.sources ?? []).map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    <SourceLabel source={entry} />
+                  </option>
+                ))}
+              </Select>
+            </div>
 
             {/* The "close Chrome first" line. Shown only when one really is running, because a
                 standing warning is one nobody reads. */}
             {hydrated && report.runningBrowsers.length > 0 && (
-              <div className="rounded-md border border-[var(--warn-border,var(--border))] bg-[var(--warn-bg,transparent)] px-3 py-2">
-                <p className="text-sm font-medium">
+              <div className="mt-3.5">
+                <p className="text-sm leading-5 text-gray-400 dark:text-gray-500">
                   {S.chat.browserPane.import.closeFirst(report.runningBrowsers.join(" / "))}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
-                  {S.chat.browserPane.import.closeFirstWhy}
-                </p>
+                <p className="sr-only">{S.chat.browserPane.import.closeFirstWhy}</p>
               </div>
             )}
 
-            <div className="space-y-3">
+            <div
+              className={`${hydrated && report.runningBrowsers.length > 0 ? "mt-1" : "mt-3.5"} overflow-hidden rounded-[14px] border border-gray-200 px-4 dark:border-gray-800`}
+            >
               {KINDS.map((kind) => {
                 const blocked = blockedReason(kind);
-                const count = source?.counts[kind];
+                const KindIcon = KIND_ICON[kind];
                 return (
-                  <div key={kind} className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium">{KIND_LABEL[kind]}</span>
-                        {/* The `65` beside "Saved passwords". Absent rather than zero when it
-                            could not be counted — a wrong count is worse than none. */}
-                        {blocked === null && typeof count === "number" && (
-                          <span className="text-xs tabular-nums text-[var(--fg-muted)]">
-                            {count}
-                          </span>
-                        )}
-                      </div>
+                  <div
+                    key={kind}
+                    className="flex min-h-11 items-center gap-3 border-b border-gray-100 py-2 last:border-b-0 dark:border-gray-800"
+                  >
+                    <KindIcon
+                      size={20}
+                      weight="regular"
+                      aria-hidden
+                      className="shrink-0 text-gray-500 dark:text-gray-400"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-sm leading-5 font-medium text-gray-900 dark:text-gray-100">
+                        {KIND_LABEL[kind]}
+                      </span>
                       {blocked !== null && (
-                        <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{blocked}</p>
+                        <p className="truncate text-[10px] leading-3.5 text-gray-400 dark:text-gray-500">
+                          {blocked}
+                        </p>
                       )}
                     </div>
                     <Switch
+                      size="compact"
                       checked={blocked === null && selected.has(kind)}
                       disabled={!hydrated || busy || blocked !== null}
+                      aria-label={KIND_LABEL[kind]}
+                      className="aria-checked:!bg-[#3098f7]"
                       onChange={(next) =>
                         setSelected((current) => {
                           const updated = new Set(current);
@@ -237,19 +295,49 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
               })}
             </div>
 
-            <div className="space-y-1 border-t border-[var(--border)] pt-3">
-              <p className="text-xs text-[var(--fg-muted)]">
-                {S.chat.browserPane.import.cookiesLandIn}
+            {/* The compact visual target omits the explanatory footnotes. They remain explicitly
+                associated with Import for assistive technology and appear in its hover tooltip. */}
+            <p id="browser-import-cookie-notice" className="sr-only">
+              {S.chat.browserPane.import.cookiesLandIn}
+            </p>
+            {usable.some((kind) => kind !== "history") && (
+              <p id="browser-import-keychain-notice" className="sr-only">
+                {S.chat.browserPane.import.keychainNotice}
               </p>
-              {/* Announced before it appears: an unexplained system prompt reads as a fault. */}
-              {usable.some((kind) => kind !== "history") && (
-                <p className="text-xs text-[var(--fg-muted)]">
-                  {S.chat.browserPane.import.keychainNotice}
-                </p>
-              )}
-            </div>
+            )}
           </>
         )}
+
+        <div className="mt-3 flex justify-end gap-3">
+          <Button
+            onClick={onClose}
+            disabled={busy}
+            className="!min-w-20 !rounded-[10px] !border-transparent !bg-gray-100 !px-4 !py-1.5 !text-sm !leading-5 !font-normal text-gray-900 hover:!bg-gray-200 dark:!bg-gray-800 dark:text-gray-100 dark:hover:!bg-gray-700"
+          >
+            {S.common.cancel}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!hydrated || busy || source === null || chosen.length === 0}
+            onClick={() => void submit()}
+            aria-describedby={
+              importNotice === ""
+                ? undefined
+                : [
+                    selected.has("cookies") ? "browser-import-cookie-notice" : null,
+                    chosen.some((kind) => kind !== "history")
+                      ? "browser-import-keychain-notice"
+                      : null,
+                  ]
+                    .filter((id): id is string => id !== null)
+                    .join(" ")
+            }
+            title={importNotice === "" ? undefined : importNotice}
+            className="!min-w-[77px] !rounded-[10px] !border-gray-950 !bg-gray-950 !px-4 !py-1.5 !text-sm !leading-5 !font-normal text-white hover:!opacity-90 dark:!border-gray-100 dark:!bg-gray-100 dark:!text-gray-950"
+          >
+            {busy ? S.chat.browserPane.import.importing : S.chat.browserPane.import.submit}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

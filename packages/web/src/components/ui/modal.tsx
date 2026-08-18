@@ -26,6 +26,10 @@ export interface ModalProps {
   footer?: ReactNode;
   /** Panel width class (defaults to sm:max-w-md). */
   widthClass?: string;
+  /** Per-dialog visual overrides without duplicating the portal, focus/Escape and occlusion logic. */
+  overlayClassName?: string;
+  panelClassName?: string;
+  contentClassName?: string;
   /** No header bar (no visible title, no close button): compact dialogs like confirmations — the title still names the dialog for assistive tech. */
   headerless?: boolean;
 }
@@ -67,6 +71,9 @@ export function Modal({
   children,
   footer,
   widthClass,
+  overlayClassName,
+  panelClassName,
+  contentClassName,
   headerless,
 }: ModalProps) {
   // A native `WebContentsView` paints above the DOM, so the in-app browser would sit on top of this
@@ -89,14 +96,14 @@ export function Modal({
   if (!open) return null;
   return createPortal(
     <div
-      className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      className={`anim-fade fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4 ${overlayClassName ?? ""}`}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         {...(headerless ? { role: "dialog", "aria-label": title } : {})}
-        className={`anim-pop w-full ${widthClass ?? "sm:max-w-md"} rounded-t-lg border border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl sm:rounded-lg sm:pb-0 dark:border-gray-800 dark:bg-gray-900`}
+        className={`anim-pop w-full ${widthClass ?? "sm:max-w-md"} rounded-t-lg border border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl sm:rounded-lg sm:pb-0 dark:border-gray-800 dark:bg-gray-900 ${panelClassName ?? ""}`}
       >
         {!headerless && (
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
@@ -104,7 +111,9 @@ export function Modal({
             <CloseButton onClose={onClose} />
           </div>
         )}
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
+        <div className={`max-h-[70vh] overflow-y-auto px-4 py-4 ${contentClassName ?? ""}`}>
+          {children}
+        </div>
         {footer && (
           <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800">
             {footer}
