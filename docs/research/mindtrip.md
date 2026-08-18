@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | 日期 | 2026-08-17 |
-| 方法 | 三路并行网络调研(产品功能 / 公司与商业模式 / 市场反馈与竞品),来源以行业媒体(Skift、PhocusWire、TechCrunch)、官方 PR、第三方实测评测为主。mindtrip.ai 本站有 Cloudflare 反爬,一手页面未能直接抓取 |
+| 方法 | 三路并行网络调研(产品功能 / 公司与商业模式 / 市场反馈与竞品),来源以行业媒体(Skift、PhocusWire、TechCrunch)、官方 PR、第三方实测评测为主。初稿时 mindtrip.ai 本站有 Cloudflare 反爬,一手页面未能直接抓取;**2026-08-19 增补时经 Firecrawl 抓取成功**,官网一手信息见 §11 |
 | 用途 | 竞品与路线参照。§10 是与本仓库(travel-agent)的对照,其余章节为客观调研 |
 | 可信度 | 每条关键事实附来源链接;聚合站数据与公司自报口径单独标注 |
 
@@ -132,6 +132,40 @@ Mindtrip 是目前独立 AI 旅行规划产品中的头部玩家。从「聊天�
 3. **「仲裁力弱」是全赛道的空位**。多家评测独立指出 Mindtrip「整理强、决策弱」,用户在第一小时惊艳、预订阶段流失。本仓库 001 的「压缩选项空间到少数代表 + 每个附理由」的 representatives 设计打的正是这个点,值得在产品叙事里明确对标。
 4. **转化怀疑论要认真对待**。「会话漏斗不转化」的批评与 Trip.com/飞猪的反例并存,分野可能在于是否离交易足够近。这支持本仓库「一句话→停在支付页」的短闭环设计,反对往 inspiration/社区方向漂移。
 5. **别学的部分**:Mindtrip 的社区/创作者/信息流是它作为免费消费产品换增长的打法,和本仓库的工具定位无关;其无绝对用户数、无预订量披露、Reddit 声量稀薄,也提示这条消费路线本身尚未自证。
+
+## 11. 增补(2026-08-19):官网一手抓取 + UI 解剖
+
+初稿未能抓到的 mindtrip.ai 首页本次抓取成功,连同 [aitravel.tools 实测](https://aitravel.tools/mindtrip-review/)的截图描述,补三类此前缺失的信息。
+
+### 11.1 官网确认的功能矩阵与新功能
+
+首页「🎉 New at Mindtrip」栏(初稿未覆盖):
+
+- **Events**:按位置与偏好推荐附近的演出/市集/体育等活动,可直达购票。入口是预填 prompt 的 chat 链接(`/chat?q=What+are+some+upcoming+events+near+me...`)——**新功能以预填对话为入口,不另做垂直页面**,这个模式贯穿全站。
+- **Google Pins 导入**:把 Google Maps 收藏点一键导入为主题 Collection,直接吃 Google 生态的存量沉淀(`/saved?tab=collections&import=google`)。
+- **Collections + 协作**、**Start Anywhere®**(注册商标)在首页与 chat 入口并列为一级卖点。
+- **Folio 收据管理**:上传或转发订单确认/收据到 `receipts@mindtrip.ai`,旅途中集中访问——行中侧的低调但完整的一环。
+
+预订覆盖(首页「Organize it all in one place」栏,与 §4 互证):Hotels / Flights / Restaurants / Experiences 已上线;**Car Rental 与 Tours 标注 coming soon**——初稿写「没有租车」,现在是「租车在路线图上」。
+
+数据伙伴(首页 footer「adventure allies」):**Priceline、Tripadvisor、Google Places、Viator**——§5 防幻觉锚定层的一手确认:POI 事实与评价来自 Tripadvisor + Google Places,交易库存来自 Priceline + Viator。
+
+### 11.2 UI 解剖(对标重构参照)
+
+从实测截图与官网页面归纳的界面结构,按信息层级:
+
+1. **工作区 = chat + 交互地图双栏**:对话在左,右侧地图实时落点;酒店价格直接标在地图 pin 上;evaluations 一致认为这是与纯文本 chatbot 的决定性差异。
+2. **行程视图**:按天分组、天内按 Morning / Afternoon / Evening 三段;每项是 activity card(图片+一句话理由+车程/距离);day view 将 card、笔记、地图放在同一工作区。
+3. **Place card(地点详情)七个 tab**:Overview(简介+人口+实时天气+**建议追问**)/ Guides(社区攻略)/ Stays / Restaurants(带 $$ 价位档)/ Things to do / Reviews / Location(地图)。card 内嵌「继续对话」的建议问题按钮,把静态详情页拉回对话流。
+4. **预订弹层**:点酒店出 popup,并列多渠道实时价(实测:Expedia $80 / Hotels.com $80 / Agoda / 官网直订),用户选渠道——**比价在卡片内完成,跳转只发生在最后一步**。
+5. **预算表**:对话内生成分类汇总表(住宿/餐饮/门票/交通,含油耗、过路费明细),标注「估算」。
+6. **分享/输出**:分享链接、二维码、**行程音频播报**(路上听行程)。
+7. **入口设计**:首页所有功能演示的 CTA 都指向 `/chat`(常带预填 q 参数);chat 是唯一的功能中枢,其余页面(inspiration/saved/profile)都是喂给 chat 或从 chat 沉淀的。
+
+### 11.3 对 §10 对照表的修正
+
+- 「覆盖」行:Mindtrip 侧租车由「无」改为「coming soon」;门票/景点仍是外链+估算价,该缺口未变。
+- §10 启示 2(API 路线天花板)不受影响:租车即使上线也是聚合库存路线,无 API 的长尾场景(本仓库的 Ctrip 演示场景属于此类)仍在其覆盖外。
 
 ## 附:时间线速查
 

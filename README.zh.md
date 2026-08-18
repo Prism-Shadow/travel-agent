@@ -17,7 +17,9 @@
 | M2 | 事务层（WAL / 承诺 / 检查点 / 升级） | 库完成 |
 | M4 | tab 归属 | 完成；跨站方案对齐已废弃（见下） |
 
-原先排在后面的开放里程碑（M3 一句话验收闭环、M5 机票）已于 2026-08-18 撤出规划：产品接下来做什么，留待产品方向讨论定夺，刻意不预排。
+原先排在后面的开放里程碑（M3 一句话验收闭环、M5 机票）已于 2026-08-18 撤出规划。2026-08-19
+正式解冻产品 UI：引擎基线继续锁定，web 与 desktop 界面则作为 travel-agent 自己的消费级产品面持续演进。
+基于 Mindtrip 的方向与边界记录在 [设计 005](design/005-mindtrip-benchmark-ui-refactor.md)。
 
 `@travel-agent/transaction` 已接入：`packages/server` 与 `packages/desktop` 的付款路径都走它的
 `submitBooking` 闸门。
@@ -32,7 +34,8 @@
 
 | 包 | 职责 |
 | --- | --- |
-| `packages/core`、`cli`、`server`、`web` | PenguinHarness 引擎和界面（冻结快照） |
+| `packages/core`、`server` | PenguinHarness 引擎基线（锁定快照） |
+| `packages/web` | travel-agent 持续演进的消费级界面，web / desktop 共用 |
 | `packages/browser-cli`、`browser-extension` | 并入的 penguin-browser |
 | `packages/transaction` | 不可逆动作的语义，含 `submitBooking` 闸门 |
 | `packages/skills/skills/penguin-browser` | 教 agent 怎么开 Chrome |

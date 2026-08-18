@@ -18,8 +18,10 @@ This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not me
 | M4 | Tab ownership | done; cross-site offer alignment dropped (see below) |
 
 The open milestones that used to follow (M3, the one-sentence acceptance run; M5, flights)
-were withdrawn on 2026-08-18: what this product does next is deliberately unplanned until a
-product-direction discussion settles it.
+were withdrawn on 2026-08-18. On 2026-08-19 the product UI was formally unfrozen: the engine
+baseline remains pinned, while the web and desktop experience now evolves as travel-agent's own
+consumer product surface. [Design 005](design/005-mindtrip-benchmark-ui-refactor.md) records the
+Mindtrip-informed direction and its boundaries.
 
 `@travel-agent/transaction` is wired in: the payment paths in `packages/server` and
 `packages/desktop` go through its `submitBooking` gates.
@@ -36,7 +38,8 @@ is itself inside the threat model — is the rule we now apply before adding any
 
 | Package | Role |
 | --- | --- |
-| `packages/core`, `server`, `web` | PenguinHarness engine and UI (frozen snapshot) |
+| `packages/core`, `server` | PenguinHarness engine baseline (pinned snapshot) |
+| `packages/web` | travel-agent's active consumer UI, shared by web and desktop |
 | `packages/browser-cli`, `browser-extension` | penguin-browser, vendored in |
 | `packages/transaction` | Irreversible-action semantics, incl. the `submitBooking` gates |
 | `packages/skills/skills/penguin-browser` | How the agent is supposed to drive Chrome |
