@@ -16,7 +16,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkExitStatus } from "./exit-status.mjs";
+import { checkExitStatus, redactSecrets } from "./exit-status.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkgDir = path.resolve(here, "..");
@@ -83,7 +83,22 @@ const exit = checkExitStatus({
   signal: result.signal,
   stderr: result.stderr,
 });
-if (!exit.ok) fail(exit.message);
+if (!exit.ok) {
+  // Both streams, before the message. `checkExitStatus` attaches a stderr tail, which is enough
+  // when Electron said something — and useless when it did not. A launch that fails before
+  // Chromium initialises (a sandbox the kernel refuses, a missing shared library) can exit
+  // non-zero with *both* streams empty, and the first CI run of this gate did exactly that: the
+  // log carried one sentence and no evidence, and the cause had to be reproduced locally to be
+  // seen at all. Printing what was captured — including "nothing", said explicitly — is what
+  // makes the next failure diagnosable from the log.
+  const tail = (text) =>
+    redactSecrets(text ?? "")
+      .slice(-4000)
+      .trim();
+  console.error(`iab-e2e: --- electron stdout (tail) ---\n${tail(stdout) || "(empty)"}`);
+  console.error(`iab-e2e: --- electron stderr (tail) ---\n${tail(result.stderr) || "(empty)"}`);
+  fail(exit.message);
+}
 
 const steps = new Map();
 for (const line of stdout.split("\n")) {

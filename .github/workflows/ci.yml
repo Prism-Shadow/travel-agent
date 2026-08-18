@@ -78,6 +78,20 @@ jobs:
       - name: Unit tests (vitest)
         run: pnpm -r --filter='!penguin-browser' test
 
+      # Electron needs unprivileged user namespaces for its sandbox, and Ubuntu 23.10+ restricts
+      # them through AppArmor by default — on the 24.04 runner that makes Chromium die before it
+      # initialises, in under a second, with *both* output streams empty. (The first run of this
+      # gate failed exactly that way; it reproduced on the runner and not on a Debian dev box,
+      # which has no such restriction.)
+      #
+      # Relaxed here rather than passing `--no-sandbox` to Electron. The sandbox is a security
+      # boundary of the thing under test, and a gate that only passes with it switched off is
+      # testing a configuration the product never ships. Best-effort on purpose: `|| true` so a
+      # future runner image that drops the knob does not fail the build over a setting it no
+      # longer has.
+      - name: Allow Electron's sandbox (Ubuntu 24.04 userns restriction)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+
       # The one thing unit tests cannot reach: a real Electron main process, a real preload, a real
       # WebContentsView and a real relay. The runner discovers xvfb-run itself and refuses to skip
       # when CI=true, so this step cannot go green by quietly deciding it could not run. Ubuntu only
