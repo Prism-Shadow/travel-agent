@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-18] Dead root devDependencies removed, and the desktop update chain (electron-builder publish target, updater, server update check) now names this fork instead of upstream — no distributed build can update itself into an upstream PenguinHarness. ([details](2026-08-18-de-upstream-update-chain.md))
 - [2026-08-18] The open milestones (M3 one-sentence acceptance run, M5 flights) are withdrawn from the READMEs' plan; what comes next is deliberately unplanned until a product-direction discussion. ([details](2026-08-18-withdraw-open-milestones.md))
 - [2026-08-18] Upstream residue cleanup: two more e2e specs repointed at the one-skill library (plus a pre-existing uninstall-confirm spec bug fixed), `THIRD-PARTY-NOTICES.md` (describing the retired release archives) deleted, and the desktop GitHub link and root package identity now name this fork. ([details](2026-08-18-upstream-residue-cleanup.md))
 - [2026-08-18] Docs-only pushes (docs/, design/, changelog/, root markdown) no longer trigger CI; markdown under packages/ still does. ([details](2026-08-18-ci-skip-docs-only.md))
