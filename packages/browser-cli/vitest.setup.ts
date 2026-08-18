@@ -1,3 +1,6 @@
+import os from 'node:os'
+import path from 'node:path'
+
 /**
  * Vitest setup - handles Playwright CDP disconnect race condition.
  *
@@ -27,6 +30,29 @@
  *
  * See: https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/server/chromium/crConnection.ts
  */
+
+/**
+ * A CDP log file per worker, so suites cannot erase each other's.
+ *
+ * `createCdpLogger` opens its file with `fs.writeFileSync(path, '')` — it *truncates*. The default
+ * path is one shared `cdp.jsonl`, and vitest runs test files in parallel worker processes, each
+ * starting its own relay on its own port. So every suite that came up wiped the log another suite
+ * was in the middle of writing, and the tests that read it back (download events, dialog
+ * de-duplication) saw their earliest lines gone while later ones survived — a failure that moved
+ * between suites from run to run and never reproduced when a file was run alone.
+ *
+ * Set here rather than in the relay because `LOG_CDP_FILE_PATH` in utils.ts is a module-level
+ * constant read from this variable at import time, and setup files run before the test module
+ * graph is loaded. That ordering is what makes the relay and the test that reads its output agree
+ * on one path.
+ */
+if (!process.env.PENGUIN_BROWSER_CDP_LOG_FILE_PATH) {
+  const worker = process.env.VITEST_WORKER_ID ?? String(process.pid)
+  process.env.PENGUIN_BROWSER_CDP_LOG_FILE_PATH = path.join(
+    os.tmpdir(),
+    `penguin-browser-cdp-${process.pid}-${worker}.jsonl`,
+  )
+}
 
 process.on('unhandledRejection', (reason: any) => {
   // Check if this is Playwright's CDP disconnect assertion error

@@ -103,16 +103,21 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb
           pnpm --filter @prismshadow/penguin-desktop test:e2e
 
-  # penguin-browser, reported but not blocking.
+  # penguin-browser, reported but not blocking — for now.
   #
-  # 504 of its 551 tests pass reliably; the rest drive a real Chromium through the relay and fail on
-  # wall-clock — `page.click: Timeout 500ms exceeded`, an assertion that the machine prefers a dark
-  # colour scheme, a 60s editor timeout. Those are properties of the runner, not of the code, and a
-  # CI that is red for reasons nobody can act on is a CI everyone learns to ignore.
+  # This job was split out when the suite was red and the failures were written down here as
+  # "properties of the runner, not of the code". **That was wrong**, and the correction is worth
+  # keeping: every one of the seven had a definite cause in the tests themselves — a click budget
+  # too small to finish one actionability probe, a harness faking dark mode with a per-client
+  # emulation the process under test could not observe, an unguarded read of a log the healthy run
+  # never writes, a third party's page height pinned in an inline snapshot, and — the one that made
+  # the set of failures move between runs — every suite truncating a *shared* CDP log that vitest's
+  # parallel workers were all writing to. All are fixed; the suite now passes 550/550.
   #
-  # So it runs, and its result is visible, and it does not gate a merge. This is debt, recorded as
-  # debt: the fix is to make those tests deterministic (or skip them under CI explicitly, at the
-  # test, where the reason can be read), and then fold this job back into the one above.
+  # The job stays non-blocking for a short while only, because the last of those was a race and one
+  # green run is not proof. Fold it back into the job above once a few CI runs have come back clean;
+  # leaving it non-blocking indefinitely would recreate the thing it was meant to prevent — a result
+  # nobody reads.
   browser-cli:
     name: penguin-browser (non-blocking)
     runs-on: ubuntu-latest

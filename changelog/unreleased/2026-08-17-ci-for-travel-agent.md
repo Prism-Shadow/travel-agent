@@ -30,15 +30,25 @@ Roughly 18 billed minutes per run become about 6.
 
 ## Two decisions worth stating rather than burying
 
-**`penguin-browser` runs but does not block.** 504 of its 551 tests pass reliably; the rest drive a
-real Chromium through the relay and fail on wall-clock — `page.click: Timeout 500ms exceeded`, an
-assertion that the machine prefers a dark colour scheme, a 60-second editor timeout. Those are
-properties of the runner, not of the code, and on a shared runner they would have been red from the
-first run. A CI that is red for reasons nobody can act on is a CI everyone learns to ignore, and
-then the one real failure is ignored with it. So that package has its own `continue-on-error` job:
-visible, reported, not a gate. **This is debt, and it is recorded as debt** — the fix is to make
-those tests deterministic, or to skip them under CI explicitly at the test where the reason can be
-read, and then fold the job back in.
+**`penguin-browser` runs but does not block.** 504 of its 551 tests passed; the rest were written
+off here as "properties of the runner, not of the code" — wall-clock failures a shared runner would
+always produce.
+
+> **Corrected on 2026-08-18.** That was wrong, and diagnosing it instead of routing around it fixed
+> all seven. Every one had a definite cause in the tests: a click budget too small to complete a
+> single actionability probe, a harness faking dark mode with a per-client emulation the process
+> under test could not observe, an unguarded read of a log the healthy run never writes, a third
+> party's rendered page height pinned in an inline snapshot, and — the reason the failing *set*
+> changed between runs — every suite truncating one shared CDP log that vitest's parallel workers
+> were all writing to. The suite now passes 550/550, and no product code changed.
+>
+> The job stays `continue-on-error` briefly, because the last of those was a race and one green run
+> is not proof; it should be folded back into the main job once a few CI runs come back clean.
+> Leaving it non-blocking indefinitely would recreate exactly what it was meant to prevent.
+
+A CI that is red for reasons nobody can act on is a CI everyone learns to ignore, and then the one
+real failure is ignored with it. Splitting the job bought time to look properly; it was not meant to
+be the answer.
 
 **Windows moved to pre-release.** The Windows-specific risks here are real — path handling, CRLF,
 PowerShell syntax in the installer, and DPAPI, which the browser import uses to unwrap Chrome's key
