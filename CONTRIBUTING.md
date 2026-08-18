@@ -18,7 +18,6 @@ pnpm build       # build first: core's exports point at dist/
 pnpm dev         # backend + web app together (prefixed logs, deps built once)
 pnpm dev:server  # backend at 127.0.0.1:7368 (not the installed server's 7364)
 pnpm dev:web     # web app (Vite) at 127.0.0.1:7365, /api proxied to 7368
-pnpm penguin ... # CLI from source; `penguin web` serves at 127.0.0.1:7369
 ```
 
 Every dev command runs `scripts/dev-prebuild.mjs` first, which (behind a lock that
@@ -40,9 +39,9 @@ that only re-sync when the package's `build` script runs via pnpm
 cache — on the old build; if a running dev web app still serves stale core after a manual
 rebuild, delete `packages/web/node_modules/.vite` and restart.
 
-Dev entry points that touch data (`pnpm dev`, `pnpm dev:server`, `pnpm penguin`) default
-to a separate data root, `~/.penguin/dev-data`, kept apart from the installed CLI/server's
-`~/.penguin/data` — hacking on the repo never mixes state with your real agents. Export
+Dev entry points that touch data (`pnpm dev`, `pnpm dev:server`) default to a separate
+data root, `~/.penguin/dev-data`, kept apart from an installed app's `~/.penguin/data`
+— hacking on the repo never mixes state with your real agents. Export
 `PENGUIN_HOME` to point them anywhere else; an explicit value always wins.
 
 Copy `.env.example` to `.env` for model credentials in development.
@@ -55,7 +54,6 @@ single data directory (`~/.penguin/data`) and a single message protocol (OmniMes
 | Package                              | Name                          | Role                                                                                                    |
 | ------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
 | [`packages/core`](packages/core)     | `@prismshadow/penguin-core`   | SDK & engine: ReAct loop, OmniMessage protocol, LLM/Environment interface contracts, Agent State, Trace |
-| [`packages/cli`](packages/cli)       | `@prismshadow/penguin-cli`    | The `penguin` command: REPL, one-shot runs, model & vault config, service launcher                      |
 | [`packages/server`](packages/server) | `@prismshadow/penguin-server` | Web backend: HTTP API + SSE streaming, multi-user auth, Project authorization, usage stats              |
 | [`packages/web`](packages/web)       | `@prismshadow/penguin-web`    | Web App: multi-session chat, Agent/skill/model management, Trace observability, evaluation center       |
 | [`packages/skills`](packages/skills) | `@prismshadow/penguin-skills` | Built-in skill library (includes `penguin-browser`)                                                     |
@@ -121,13 +119,15 @@ pnpm test:e2e                                        # core live-model e2e, need
   deployed penguin.ooo, and — later the same day — upstream's `release.yml` and
   `oss-staging.yml`, which published to the public npm `@prismshadow` scope and an
   Alibaba OSS bucket that are not this fork's to publish to. Nothing in this repo
-  publishes anything today; `install.sh` / `install.ps1` are kept and still tested
-  by `pre-release.yml`, against the day a CLI build is cut.
+  publishes anything today. The upstream terminal CLI (`packages/cli`) and its
+  standalone installers (`install.sh` / `install.ps1` / `install.cmd`) were retired
+  on 2026-08-18: the product surface is the desktop app, and those installers only
+  fetched upstream's releases.
 - CI is two workflows. `ci.yml` runs on every push to main and every pull request
   (Ubuntu: security guard, build, style, typecheck, tests, in-app browser e2e).
   `pre-release.yml` is manual and holds what is only worth paying for before a
-  build ships — Windows and the installer suites. This repo is private, so Actions
-  minutes are billed, and Windows bills at 2x, macOS at 10x.
+  build ships — the Windows suite. This repo is private, so Actions minutes are
+  billed, and Windows bills at 2x, macOS at 10x.
 
 ## Pull requests
 

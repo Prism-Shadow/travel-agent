@@ -34,7 +34,7 @@ is itself inside the threat model — is the rule we now apply before adding any
 
 | Package | Role |
 | --- | --- |
-| `packages/core`, `cli`, `server`, `web` | PenguinHarness engine and UI (frozen snapshot) |
+| `packages/core`, `server`, `web` | PenguinHarness engine and UI (frozen snapshot) |
 | `packages/browser-cli`, `browser-extension` | penguin-browser, vendored in |
 | `packages/transaction` | Irreversible-action semantics, incl. the `submitBooking` gates |
 | `packages/skills/skills/penguin-browser` | How the agent is supposed to drive Chrome |
