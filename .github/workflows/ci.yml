@@ -141,10 +141,16 @@ jobs:
       # never been enabled on this repository until now.
       #
       # `playwright-core`, not `playwright`: the dependency is @xmorse/playwright-core, and its
-      # `install` resolves the browser build its own version pins. `--with-deps` brings the shared
-      # libraries a bare runner lacks.
+      # `install` resolves the browser build its own version pins (verified with --dry-run to be
+      # chromium-1209, the build the runner reported missing).
+      #
+      # Without `--with-deps`, which is broken in this fork: it completes the apt step and then dies
+      # in the download with `TypeError: onExit is not a function`, so the browser never lands. The
+      # ubuntu-latest image already carries Chromium's shared libraries — the apt run it did before
+      # crashing found nothing to restart — so the flag was buying nothing here anyway. A genuinely
+      # missing library would surface as a clear loader error rather than as this silence.
       - name: Install Chromium for Playwright
-        run: pnpm --filter penguin-browser exec playwright-core install --with-deps chromium
+        run: pnpm --filter penguin-browser exec playwright-core install chromium
 
       - name: Unit tests (penguin-browser)
         run: pnpm --filter penguin-browser test

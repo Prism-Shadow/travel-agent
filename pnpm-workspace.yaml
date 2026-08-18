@@ -4,6 +4,13 @@ packages:
 # "pnpm.overrides" block it used to honour is silently ignored, which resolved a second
 # copy of each of these.
 overrides:
+  # The vendored Playwright fork's browser installer is unusable without this. Its bundled
+  # `lib/third_party/lockfile.js` does `const onExit = require('signal-exit')` and calls it — the v3
+  # shape, where the module *is* the function. signal-exit 4 moved to named exports, so the require
+  # yields an object and `playwright-core install` dies with `TypeError: onExit is not a function`,
+  # having downloaded nothing. Scoped to that package so nothing else is pinned back: everything
+  # else resolving signal-exit keeps 4.x.
+  "@xmorse/playwright-core>signal-exit": "^3.0.7"
   "@anthropic-ai/sdk": "^0.91.1"
   esbuild: "^0.28.1"
   # GHSA-frvp-7c67-39w9: @hono/node-server < 2.0.5 path traversal (serve-static on

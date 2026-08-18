@@ -6,6 +6,7 @@ settings:
   injectWorkspacePackages: true
 
 overrides:
+  '@xmorse/playwright-core>signal-exit': ^3.0.7
   '@anthropic-ai/sdk': ^0.91.1
   esbuild: ^0.28.1
   '@hono/node-server': '>=2.0.5'
@@ -7278,7 +7279,7 @@ snapshots:
       progress: 2.0.3
       proxy-from-env: 1.1.0
       retry: 0.13.1
-      signal-exit: 4.1.0
+      signal-exit: 3.0.7
       socks-proxy-agent: 8.0.5(supports-color@10.2.2)
       ws: 8.17.1(bufferutil@4.1.0)
       yaml: 2.9.0
