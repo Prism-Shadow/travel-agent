@@ -215,8 +215,11 @@ describe('Relay Core Tests', () => {
     // flush interval before inspecting the file.
     await new Promise((resolve) => setTimeout(resolve, 750))
 
-    const logLinesAfter = fs
-      .readFileSync(logFilePath, 'utf-8')
+    // Guarded exactly like the read at the top of this test. The relay writes this file only when
+    // it has something to say, so the *healthy* run — no crash, no log — reached an unguarded
+    // readFileSync and threw ENOENT. The assertion below is "no unhandled rejections were logged";
+    // a missing file is the strongest possible form of that, and it was being reported as a failure.
+    const logLinesAfter = (fs.existsSync(logFilePath) ? fs.readFileSync(logFilePath, 'utf-8') : '')
       .split('\n')
       .filter((line) => {
         return line.trim().length > 0
@@ -380,8 +383,11 @@ describe('Relay Core Tests', () => {
       await server.close()
     }
 
-    const logLinesAfter = fs
-      .readFileSync(logFilePath, 'utf-8')
+    // Guarded exactly like the read at the top of this test. The relay writes this file only when
+    // it has something to say, so the *healthy* run — no crash, no log — reached an unguarded
+    // readFileSync and threw ENOENT. The assertion below is "no unhandled rejections were logged";
+    // a missing file is the strongest possible form of that, and it was being reported as a failure.
+    const logLinesAfter = (fs.existsSync(logFilePath) ? fs.readFileSync(logFilePath, 'utf-8') : '')
       .split('\n')
       .filter((line) => {
         return line.trim().length > 0
@@ -1502,7 +1508,15 @@ describe('Relay Core Tests', () => {
       name: 'execute',
       arguments: {
         code: js`
-          await state.errorTestPage.click('#hidden-btn', { timeout: 500 });
+          // 5000, not 500. These three tests wait a click *out* on purpose — the element never
+          // becomes actionable — and what they assert on is the reason, not the timeout. The
+          // vendored Playwright fork records that reason ("hidden by CSS", "intercepts pointer
+          // events") in lastActionError only after one actionability probe has completed and
+          // returned; a budget too small to finish a single probe times out with a call log that
+          // stops at "waiting for element to be visible" and no reason at all. At 500ms that is
+          // what happened on CI *and* on a developer machine, so the tests were failing
+          // deterministically rather than flakily. Keep this comfortably above one probe.
+          await state.errorTestPage.click('#hidden-btn', { timeout: 5000 });
         `,
       },
     })
@@ -1538,7 +1552,7 @@ describe('Relay Core Tests', () => {
       name: 'execute',
       arguments: {
         code: js`
-          await state.errorTestPage.click('#covered-btn', { timeout: 500 });
+          await state.errorTestPage.click('#covered-btn', { timeout: 5000 });
         `,
       },
     })
@@ -1568,7 +1582,7 @@ describe('Relay Core Tests', () => {
       name: 'execute',
       arguments: {
         code: js`
-          await state.errorTestPage.click('#invisible', { timeout: 500 });
+          await state.errorTestPage.click('#invisible', { timeout: 5000 });
         `,
       },
     })

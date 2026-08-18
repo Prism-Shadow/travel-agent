@@ -175,8 +175,18 @@ export async function setupTestContext({
   const browserContext = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
     headless: !process.env.HEADFUL,
-    colorScheme: 'dark',
-    args: [`--disable-extensions-except=${allExtensionPaths}`, `--load-extension=${allExtensionPaths}`],
+    // `--force-dark-mode`, not Playwright's `colorScheme: 'dark'`. The option emulates the scheme
+    // for *this* client by pushing Emulation.setEmulatedMedia; a second Playwright client attached
+    // over CDP — which is exactly what the relay under test is — neither sees that emulation nor
+    // inherits it, and pushes its own default instead. A test built on the option therefore asserts
+    // something its own harness cannot establish, and fails whatever the product does. The flag
+    // sets the scheme in the browser itself, where every CDP client observes the same value, so
+    // "the relay must not override the user's scheme" becomes a claim about the product again.
+    args: [
+      '--force-dark-mode',
+      `--disable-extensions-except=${allExtensionPaths}`,
+      `--load-extension=${allExtensionPaths}`,
+    ],
   })
   console.log('[PB-E2E-BOOTSTRAP] Chromium launched')
 
