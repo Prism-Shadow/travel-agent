@@ -73,6 +73,9 @@ import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
 import type { ExampleTask, ExampleTaskId } from "./example-tasks";
 import { JumpBackIn } from "./jump-back-in";
+import { TripConstraintChips } from "./trip-constraint-chips";
+import { EMPTY_TRIP_CONSTRAINTS, applyTripPrefix } from "./trip-constraints";
+import type { TripConstraints } from "./trip-constraints";
 import {
   clearDraft,
   createDraftBrowserScopeId,
@@ -696,6 +699,20 @@ export function DraftView({
   // handling live in onSend). keepDraft: an example never consumes the composer text, so a
   // typed-but-unsent draft must survive. The selected model / Workspace / approval mode apply as-is.
   const [exampleBusy, setExampleBusy] = useState<ExampleTaskId | null>(null);
+
+  // Trip-constraint chips (Where/When/Who/Budget): a visible draft of the constraint block
+  // the next composer send will prepend (trip-constraints.ts). Deliberately NOT in the
+  // draft cache (v1 boundary, design/005 P0); cleared only after a successful send — the
+  // example tasks are complete prompts and bypass the chips entirely.
+  const [trip, setTrip] = useState<TripConstraints>(EMPTY_TRIP_CONSTRAINTS);
+  const sendWithTrip = useCallback(
+    async (input: TaskInputPart[], goal: { budget: number } | null): Promise<boolean> => {
+      const ok = await onSend(applyTripPrefix(input, trip, S.chat.tripChips), false, goal);
+      if (ok) setTrip(EMPTY_TRIP_CONSTRAINTS);
+      return ok;
+    },
+    [onSend, trip],
+  );
   const runExample = useCallback(
     async (task: ExampleTask) => {
       if (exampleBusy !== null) return;
@@ -753,10 +770,11 @@ export function DraftView({
           </p>
 
           <div className="mt-6 w-full text-left">
+            <TripConstraintChips value={trip} onChange={setTrip} />
             <ChatInput
               appearance="travel"
               status="idle"
-              onSend={(input, goal) => onSend(input, false, goal)}
+              onSend={sendWithTrip}
               onStop={async () => undefined}
               onCompact={async () => undefined}
               modelRef={modelRef}
