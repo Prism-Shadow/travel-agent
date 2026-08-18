@@ -15,9 +15,11 @@ This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not me
 | M0 | Browser stack in-tree, Ctrip hotel page loads | done |
 | M1 | Human handoff (`requestHelp`) | done |
 | M2 | Transaction layer (WAL / commitment / checkpoint / escalation) | library done |
-| M3 | One sentence → stop on the payment page | **open** — an acceptance case, not a module: the agent extracts listings itself, so what is left is the manual run-through |
 | M4 | Tab ownership | done; cross-site offer alignment dropped (see below) |
-| M5 | Flights | not started |
+
+The open milestones that used to follow (M3, the one-sentence acceptance run; M5, flights)
+were withdrawn on 2026-08-18: what this product does next is deliberately unplanned until a
+product-direction discussion settles it.
 
 `@travel-agent/transaction` is wired in: the payment paths in `packages/server` and
 `packages/desktop` go through its `submitBooking` gates.
