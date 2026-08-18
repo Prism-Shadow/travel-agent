@@ -173,6 +173,24 @@ jobs:
       - name: Unit tests (penguin-browser)
         run: pnpm --filter penguin-browser test
 
+      # What a snapshot failure actually was, when it only happens here.
+      #
+      # Vitest prints an Expected/Received diff for `toMatchFileSnapshot`, but on this runner the
+      # failure block arrives interleaved with the summary writer and the diff is lost — a
+      # `getPageMarkdown` snapshot failed with the log carrying the code frame and nothing else,
+      # while the same command passed locally. Re-running the suite with `-u` rewrites the snapshot
+      # files with what *this machine* produced, so `git diff` is the difference, exactly.
+      #
+      # Diagnostic only: it runs after the job has already failed, changes nothing that is kept
+      # (the checkout is thrown away), and cannot turn a red job green — `if: failure()` and the
+      # trailing `|| true` keep it from affecting the outcome either way.
+      - name: Snapshot diff (diagnostic, on failure only)
+        if: failure()
+        run: |
+          pnpm --filter penguin-browser exec vitest run --no-file-parallelism -u || true
+          echo "--- snapshot files as this runner produced them ---"
+          git --no-pager diff -- 'packages/browser-cli/**/snapshots/**' 'packages/browser-cli/**/*.snap' || true
+
   # The live-model end-to-end, on main only.
   #
   # It spends real tokens, so it does not run per pull request. It is the only test that exercises
