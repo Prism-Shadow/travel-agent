@@ -971,6 +971,8 @@ export const en: Strings = {
     draftSubtitle:
       "Tell me where you want to go. I’ll search, compare, and make the trade-offs clear.",
     draftPrompt: "Start with an idea",
+    // Draft-screen "Jump back in" rail heading (recent resumable conversations, design/005 P0).
+    jumpBackIn: "Jump back in",
     /** Folder names for the draft page's collapsible examples (bookmark-style: exactly one open at a time). */
     exampleFolders: {
       plan: "Plan a new trip",

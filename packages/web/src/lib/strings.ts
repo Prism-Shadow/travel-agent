@@ -927,6 +927,8 @@ export const zh = {
     draftGreeting: (name: string) => `今天想去哪里${name ? `，${name}` : ""}？`,
     draftSubtitle: "告诉我想去哪里，我会替你搜索、比较，并把关键取舍讲清楚。",
     draftPrompt: "从一个想法开始",
+    // Draft-screen "Jump back in" rail heading (recent resumable conversations, design/005 P0).
+    jumpBackIn: "接着上次继续",
     /** Collapsed group names for the home-page examples (bookmark style; only one open at a time). */
     exampleFolders: {
       plan: "规划新旅程",

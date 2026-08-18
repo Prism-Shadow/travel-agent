@@ -1,6 +1,7 @@
 /**
  * Draft view (/chat/new): the pre-persistence form of a new
- * conversation, before any Session exists. The input card sits vertically centered;
+ * conversation, before any Session exists. The input card sits vertically centered (on xl
+ * screens a "Jump back in" rail of recent Sessions sits to its right — jump-back-in.tsx);
  * before sending, this is where Agent / Workspace / approval mode / Model are all
  * chosen in one place — two small dropdown pills sit right below the card (pill
  * buttons, styled after ChatGPT's project picker): Agent selection and Workspace
@@ -71,6 +72,7 @@ import { ChatInput } from "./chat-input";
 import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
 import type { ExampleTask, ExampleTaskId } from "./example-tasks";
+import { JumpBackIn } from "./jump-back-in";
 import {
   clearDraft,
   createDraftBrowserScopeId,
@@ -734,8 +736,8 @@ export function DraftView({
         <VersionLine />
       </header>
 
-      <div className="flex min-h-[36rem] flex-1 flex-col">
-        <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0">
+      <div className="flex min-h-[36rem] flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
+        <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
           <img
             src="/travel-collage.png"
             alt=""
@@ -823,6 +825,7 @@ export function DraftView({
             </div>
           </div>
         </section>
+        <JumpBackIn />
       </div>
     </div>
   );

@@ -53,3 +53,6 @@ packages/landing/.blog-assets/
 packages/browser-cli/src/aria-snapshots/
 packages/browser-cli/src/snapshots/
 packages/browser-cli/tmp/
+
+# Raw web-research scrapes (firecrawl CLI cache; findings live in docs/research/)
+.firecrawl/

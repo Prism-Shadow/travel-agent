@@ -57,6 +57,19 @@ packages/web 是 PenguinHarness 控制台的冻结快照。逐层看：
 2. 语言层：locale 字典把 session→行程、task→预订等旅行语言换掉；空态与登录页文案随之。
 3. `example-tasks.ts` 换旅行场景文件夹（订酒店/订机票/改期比价），每条是预填 prompt——照搬 Mindtrip 的 `?q=` 入口模式。
 
+#### P0 主屏参照（2026-08-19，用户提供的 Mindtrip 欢迎屏截图）
+
+截图解剖，作为欢迎屏的定捯基准（采/不采逐项对齐 §2 表）：
+
+| 截图区域 | 内容 | 采纳 |
+| --- | --- | --- |
+| 左栏（半屏） | 拼贴插画 + 个性化问候「Where to today, 名字?」+ 一句介绍 + 底部 composer | ✅ 已落地（`1362ea4`） |
+| 右栏「Jump back in」 | 最近对象的**图片优先卡片**（满幅封面 + 底部深色渐变压字 + 类型徽章 Trip/Chat/Guide） | ✅ 已落地（jump-back-in.tsx）：最近 3 个活跃 Session，卡片几何对齐 Mindtrip；封面是 **sessionId 哈希→确定性装饰渐变+图标水纹**，不是目的地照片——我们没有 POI 图库，错城市的库存照比装饰更糟；真封面的诚实升级路径见 P2.2 |
+| 顶栏 Where/When/Who/Budget 约束 chips | 结构化约束预填对话 | ⏳ 待做（与 composer 的 goal/budget 能力对接） |
+| 右栏 AI nudge 卡（接着上次话题的建议） | 可关闭的建议卡 + 动作 chips | ⏳ 候选（需要最近会话的摘要数据，后置） |
+| 「For you in Tokyo」POI 推荐流 / Map / Explore | 目的地 discovery | ❌ 不采（§2 不做清单：discovery 面） |
+| 「Create a trip」顶部 CTA / 「Set up my assistant」 | 行程容器与助手人格配置 | ⏳ 待议（我们的对应物是 Agent 配置，入口已在 draft 屏的 Agent pill） |
+
 ### P1 代表集卡片（核心主张的呈现层）
 
 1. 代表集从「模型写 markdown」升级为结构化交互：复用 requestUserInteraction 的 choose 通道（或在 OmniMessage 上加一个 travel 卡片消息类型——需要 core/server 最小配合，取舍见 §5）。
@@ -67,7 +80,7 @@ packages/web 是 PenguinHarness 控制台的冻结快照。逐层看：
 ### P2 预订进度时间线（把「停在支付页」变成界面承诺）
 
 1. `goal-banner`/`step-banner` 合并升级为阶段时间线：理解需求 → 搜索比价 → 代表集 → 你的选择 → 填表 → **支付页（人接管）**。最后一格永远显示为人的领地——把 003 的支付红线画在界面上，作为信任卖点而不是免责声明。
-2. 浏览器窗格定位为「证据层」：时间线每一步可展开对应的页面实况；填表阶段默认展开。
+2. 浏览器窗格定位为「证据层」：时间线每一步可展开对应的页面实况；填表阶段默认展开。证据层的副产品：每个 Session 留一张当前页面缩略图，作为欢迎屏 jump-back-in 卡片的**真封面**（替换装饰渐变）——agent 正在操作的真实页面截图比 Mindtrip 的库存照更诚实，也是本产品「所见即所得」身份的延伸。
 3. 六类交互卡在时间线内就地出现（验证码/接管/确认支付），不打断布局。
 
 ### P3 Start Anywhere 式输入（后置，独立成项）
