@@ -107,7 +107,7 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   // --- Draft page: must not overflow horizontally on desktop or mobile; no context ring in draft state ---
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat/new`);
-  await page.getByPlaceholder(/Type a message/).waitFor();
+  await page.getByPlaceholder(/Type a message|Tell me where/).waitFor();
   let d = await docWidths(page);
   expect(d.scrollWidth, "draft @1280 no horizontal overflow").toBeLessThanOrEqual(d.clientWidth);
   await expect(page.locator('[title*="Context usage"]')).toHaveCount(0);
@@ -153,17 +153,17 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   // silently dropping it — typing a budget and clicking straight onto Send must keep it.
   await committedBudget.click();
   await budget.fill("750k");
-  await page.getByPlaceholder(/Type a message/).click();
+  await page.getByPlaceholder(/Type a message|Tell me where/).click();
   const recommittedBudget = page.getByRole("button", { name: "Budget 750k" });
   await expect(recommittedBudget).toBeVisible();
 
   // An invalid draft refuses to close (outside clicks included) and disables Send — no click
   // sequence can fire a goal with the stale committed budget while the editor shows garbage.
-  await page.getByPlaceholder(/Type a message/).fill("goal objective");
+  await page.getByPlaceholder(/Type a message|Tell me where/).fill("goal objective");
   await recommittedBudget.click();
   await budget.fill("not-a-budget");
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
-  await page.getByPlaceholder(/Type a message/).click();
+  await page.getByPlaceholder(/Type a message|Tell me where/).click();
   await expect(budget).toBeVisible();
   // Escape is focus-independent: after the refused outside click, focus sits in the
   // objective textarea — Escape must still cancel the editor from there.
@@ -177,7 +177,7 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   await budget.press("Tab");
   await page.keyboard.press("Escape");
   await expect(recommittedBudget).toBeVisible();
-  await page.getByPlaceholder(/Type a message/).fill("");
+  await page.getByPlaceholder(/Type a message|Tell me where/).fill("");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(200);
@@ -400,7 +400,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
   });
   expect(put.ok(), "put models").toBeTruthy();
 
-  const panel = page.locator("div.anim-pop.z-40");
+  const panel = page.locator("body > div.anim-pop, div.anim-pop.z-40");
   /** Assert the one open menu panel and the page itself stay inside the viewport. */
   const checkPanel = async (name) => {
     await expect(panel, `${name}: menu open`).toHaveCount(1);
@@ -448,6 +448,37 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
     await expect(panel).toHaveCount(0);
   };
 
+  // Desktop regression: the Workspace menu is attached below its trigger (it must not auto-flip
+  // over the greeting/composer). The draft scroller reserves symmetric scrollbar gutters, so
+  // adding the menu's scrollable height must not re-center the screen a few pixels to the left.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(`${BASE}/chat/new`);
+  await page.getByPlaceholder(/Type a message|Tell me where/).waitFor();
+  const greeting = page.getByRole("heading", { name: /Where to today/ });
+  const beforeWorkspaceOpen = await greeting.boundingBox();
+  const beforeClientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  await open("Workspace", "workspace @desktop");
+  const workspaceTrigger = page.locator('button[aria-label="Workspace"]');
+  const [workspaceTriggerBox, workspacePanelBox] = await Promise.all([
+    workspaceTrigger.boundingBox(),
+    panel.boundingBox(),
+  ]);
+  const afterWorkspaceOpen = await greeting.boundingBox();
+  const afterClientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  expect(beforeWorkspaceOpen).not.toBeNull();
+  expect(afterWorkspaceOpen).not.toBeNull();
+  expect(workspaceTriggerBox).not.toBeNull();
+  expect(workspacePanelBox).not.toBeNull();
+  expect(workspacePanelBox.y, "workspace menu opens below its trigger").toBeGreaterThanOrEqual(
+    workspaceTriggerBox.y + workspaceTriggerBox.height,
+  );
+  expect(
+    Math.abs(afterWorkspaceOpen.x - beforeWorkspaceOpen.x),
+    "workspace menu does not shift the centered draft",
+  ).toBeLessThan(0.5);
+  expect(afterClientWidth, "workspace menu does not change viewport width").toBe(beforeClientWidth);
+  await close();
+
   // Draft page, both common phone widths. The two widths exercise different geometry for the
   // ownership pills below the card: at 375 they wrap onto two rows (workspace pill at the row
   // start), at 390 they share one row (workspace pill anchored mid-screen).
@@ -457,7 +488,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
   ]) {
     await page.setViewportSize(vp);
     await page.goto(`${BASE}/chat/new`);
-    await page.getByPlaceholder(/Type a message/).waitFor();
+    await page.getByPlaceholder(/Type a message|Tell me where/).waitFor();
     // Model / thinking-level buttons stay disabled until models and the agent config load.
     await expect(page.locator('button[aria-label="Choose model"]')).toBeEnabled();
     await expect(page.locator('button[aria-label="Thinking level"]')).toBeEnabled();

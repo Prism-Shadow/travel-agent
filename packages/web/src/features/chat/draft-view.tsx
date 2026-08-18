@@ -36,6 +36,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { AirplaneTiltIcon } from "@phosphor-icons/react/dist/csr/AirplaneTilt";
+import { ArrowsLeftRightIcon } from "@phosphor-icons/react/dist/csr/ArrowsLeftRight";
+import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
+import { CalendarCheckIcon } from "@phosphor-icons/react/dist/csr/CalendarCheck";
+import { CompassIcon } from "@phosphor-icons/react/dist/csr/Compass";
+import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
 import type {
   AgentModelConfigDto,
   AgentSummary,
@@ -63,8 +69,8 @@ import { toastError } from "../../components/ui/toast";
 import { useVersionInfo } from "../../lib/use-version-info";
 import { ChatInput } from "./chat-input";
 import { buildSkillsMessage } from "./skill-use";
-import { EXAMPLE_FOLDERS } from "./example-tasks";
-import type { ExampleFolderId, ExampleTask, ExampleTaskId } from "./example-tasks";
+import { EXAMPLE_TASKS } from "./example-tasks";
+import type { ExampleTask, ExampleTaskId } from "./example-tasks";
 import {
   clearDraft,
   createDraftBrowserScopeId,
@@ -118,23 +124,14 @@ function saveAppliedRouteKey(field: RouteStateField, key: string): void {
   }
 }
 
-/**
- * One glyph per example folder, 16×16. Icons live on the folder rather than on each example:
- * with the examples reduced to single-line titles, a column of per-row icons was noise
- * competing with the titles, while the folder row is exactly where a glyph earns its place —
- * it is what you scan to pick a category.
- *
- * webapps: a browser window (chrome bar + two dots). agents: the SAME robot head the sidebar's
- * Agents entry uses (NAV_ICONS.agents) — deliberately not a generic refresh loop, because the
- * app already has one glyph that means "agent" and a folder of agent examples should wear it.
- * Duplicated as a literal rather than imported: sidebar.tsx imports from chat-page.tsx, which
- * renders this file, so importing it back would close an import cycle.
- */
-const FOLDER_GLYPHS: Record<ExampleFolderId, string> = {
-  webapps:
-    "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6zM3 9h18M6 6.5h.01M9 6.5h.01",
-  agents: "M12 3v3m-6 4a6 6 0 0 1 12 0v5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-5zm3 3h.01M15 13h.01",
-};
+const TASK_ICONS = {
+  destinationPlan: MapPinIcon,
+  hotelCompare: BuildingsIcon,
+  flightCompare: AirplaneTiltIcon,
+  reviewBooking: CalendarCheckIcon,
+  adjustTrip: ArrowsLeftRightIcon,
+  browseDeals: CompassIcon,
+} as const;
 
 export function DraftView({
   projectId,
@@ -714,16 +711,8 @@ export function DraftView({
     [exampleBusy, agentSkills, onSend],
   );
 
-  /**
-   * The open example folder — bookmark-style, and ALWAYS exactly one: selecting another closes
-   * the previous, and clicking the open one is a no-op rather than collapsing it. Never
-   * nullable on purpose. With every folder the same length, "one open" is what makes the
-   * block's height a constant: the examples area can neither collapse to bare folder rows nor
-   * grow, so nothing below it shifts as folders are switched.
-   */
-  const [openFolder, setOpenFolder] = useState<ExampleFolderId>(EXAMPLE_FOLDERS[0].id);
-
   const selectedAgent = agents.find((a) => a.agentId === agentId) ?? null;
+  const travellerName = (userId ?? "").split("@")[0]?.trim() ?? "";
 
   // Capability info for the currently selected model (vision/context window) switches instantly with the selection (matched by paired reference).
   const modelInfo = models?.models.find((m) => sameModelRef(m, modelRef));
@@ -731,156 +720,110 @@ export function DraftView({
   const vision = modelInfo?.vision !== false;
 
   return (
-    <div className="anim-fade flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-6 md:px-4">
-      {/*
-       * Vertical layout: everything visible — brand, input card, ownership pills, example tasks —
-       * lives in ONE block between two empty flex-1 spacers, so the block is centred and the free
-       * space above and below it is exactly equal. The brand deliberately sits inside that block
-       * rather than in the upper spacer: keeping it in the spacer made the upper gap shorter than
-       * the lower one by the brand's own height, which pushed the card up the viewport and left
-       * the slash menu — it opens upward, `bottom-full` — too little room, so it clipped against
-       * the top of this scroll container. When the viewport is too short the spacers collapse to
-       * nothing, the container's own py-6 keeps the content off the edges, and the page falls back
-       * to natural scrolling.
-       */}
-      <div className="flex-1" />
-
-      <div className="mx-auto w-full max-w-3xl">
-        {/* Large brand logo + brand name + subtitle (e2e tests identify the draft page by this
-            heading). The asset is square-cropped and the graphic already has a bit of built-in
-            padding, so a small margin is enough to sit visually close to the title. */}
-        <div className="mb-10 text-center">
-          <PenguinLogo className="mx-auto mb-1 h-36 w-36 rounded-3xl" />
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+    <div
+      className="anim-fade flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#fcfcfb] dark:bg-gray-950"
+      style={{ scrollbarGutter: "stable both-edges" }}
+    >
+      <header className="flex min-h-14 shrink-0 items-center justify-between px-5 py-3 md:px-7">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <PenguinLogo className="h-7 w-7 shrink-0 rounded-lg" />
+          <h1 className="truncate text-sm font-semibold tracking-tight text-gray-900 dark:text-gray-100">
             {S.appName}
           </h1>
-          <p className="mt-2 text-base text-gray-400 dark:text-gray-500">{S.chat.draftSubtitle}</p>
-          <VersionLine />
         </div>
+        <VersionLine />
+      </header>
 
-        <ChatInput
-          status="idle"
-          onSend={(input, goal) => onSend(input, false, goal)}
-          onStop={async () => undefined}
-          onCompact={async () => undefined}
-          modelRef={modelRef}
-          models={models?.models ?? []}
-          onChangeModel={setModelRef}
-          thinkingLevel={thinkingLevel}
-          onChangeThinkingLevel={onChangeThinkingLevel}
-          {...(models?.defaultModel !== undefined ? { defaultModel: models.defaultModel } : {})}
-          {...(contextWindow !== undefined ? { contextWindow } : {})}
-          contextNow={0}
-          vision={vision}
-          approvalMode={approvalMode}
-          onChangeApprovalMode={changeApprovalMode}
-          modeSaving={false}
-          autoFocus
-          agents={agents}
-          {...(agentId ? { currentAgentId: agentId } : {})}
-          skills={agentSkills}
-          {...(cached.skills && cached.skills.length > 0 ? { initialSkills: cached.skills } : {})}
-          onSkillsChange={onSkillsChange}
-          initialText={cached.text ?? ""}
-          onTextChange={onTextChange}
-        />
+      <div className="flex min-h-[36rem] flex-1 flex-col">
+        <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0">
+          <img
+            src="/travel-collage.png"
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="mb-2 h-32 w-32 select-none object-contain sm:h-36 sm:w-36"
+          />
+          <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-gray-950 sm:text-[2.5rem] dark:text-white">
+            {S.chat.draftGreeting(travellerName)}
+          </h2>
+          <p className="mt-3 max-w-xl text-base leading-7 text-gray-500 dark:text-gray-400">
+            {S.chat.draftSubtitle}
+          </p>
 
-        {/* Ownership selection right below the card (small pill dropdowns, styled after ChatGPT's project picker button) */}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
-          <WorkspaceSelect projectId={projectId} workspace={workspace} onChange={changeWorkspace} />
-        </div>
+          <div className="mt-6 w-full text-left">
+            <ChatInput
+              appearance="travel"
+              status="idle"
+              onSend={(input, goal) => onSend(input, false, goal)}
+              onStop={async () => undefined}
+              onCompact={async () => undefined}
+              modelRef={modelRef}
+              models={models?.models ?? []}
+              onChangeModel={setModelRef}
+              thinkingLevel={thinkingLevel}
+              onChangeThinkingLevel={onChangeThinkingLevel}
+              {...(models?.defaultModel !== undefined ? { defaultModel: models.defaultModel } : {})}
+              {...(contextWindow !== undefined ? { contextWindow } : {})}
+              contextNow={0}
+              vision={vision}
+              approvalMode={approvalMode}
+              onChangeApprovalMode={changeApprovalMode}
+              modeSaving={false}
+              autoFocus
+              agents={agents}
+              {...(agentId ? { currentAgentId: agentId } : {})}
+              skills={agentSkills}
+              {...(cached.skills && cached.skills.length > 0
+                ? { initialSkills: cached.skills }
+                : {})}
+              onSkillsChange={onSkillsChange}
+              initialText={cached.text ?? ""}
+              onTextChange={onTextChange}
+            />
 
-        {/* Example tasks: one-click canned builds showing off the one-sentence → app flow.
-            Bookmark-style folders with ALWAYS exactly one open — selecting another closes the
-            previous, and the open one cannot be collapsed. The block is therefore a FIXED
-            height: two folder rows plus one folder's rows, whichever folder that is (they are
-            kept the same length). Nothing below shifts when folders are switched, and no
-            scroll container is needed — a scrollbar inside a six-line showcase reads as a
-            defect. Each example is a single-line title; its one-sentence description rides in
-            the row tooltip rather than a second line. Rows are disabled until
-            agents/models/skills are resolved (onSend would silently no-op without an Agent). */}
-        <div className="mt-6 space-y-1">
-          {EXAMPLE_FOLDERS.map((folder) => {
-            const open = folder.id === openFolder;
-            return (
-              <div key={folder.id}>
-                {/* A tab, not a disclosure: the open folder stays open (clicking it is a
-                    no-op) and carries the selected fill, so the block always shows one
-                    folder's examples and its height never changes. */}
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  onClick={() => setOpenFolder(folder.id)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors duration-150 ${
-                    open
-                      ? "bg-gray-100 dark:bg-gray-800/70"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800/70"
-                  }`}
-                >
-                  <span className="shrink-0 text-brand-500 dark:text-brand-400">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d={FOLDER_GLYPHS[folder.id]} />
-                    </svg>
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {S.chat.exampleFolders[folder.id]}
-                  </span>
-                  <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                    {folder.tasks.length}
-                  </span>
-                  <Chevron open={open} size={14} className="text-gray-400" />
-                </button>
+            <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
+              <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
+              <WorkspaceSelect
+                projectId={projectId}
+                workspace={workspace}
+                onChange={changeWorkspace}
+              />
+            </div>
+          </div>
 
-                {open && (
-                  <ul className="mt-0.5 space-y-0.5 pl-4">
-                    {folder.tasks.map((task) => {
-                      const copy = S.chat.exampleTasks[task.id];
-                      return (
-                        <li key={task.id}>
-                          <button
-                            type="button"
-                            title={copy.desc}
-                            disabled={
-                              exampleBusy !== null ||
-                              sending ||
-                              !skillsLoaded ||
-                              !agentId ||
-                              !models
-                            }
-                            onClick={() => void runExample(task)}
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-gray-600 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-                          >
-                            <span className="min-w-0 flex-1 truncate">{copy.label}</span>
-                            {exampleBusy === task.id && (
-                              <span className="shrink-0 text-xs text-gray-400">
-                                {S.common.loading}
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
+          <div className="mt-6 w-full">
+            <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
+              {S.chat.draftPrompt}
+            </p>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-2">
+              {EXAMPLE_TASKS.map((task) => {
+                const copy = S.chat.exampleTasks[task.id];
+                const TaskIcon = TASK_ICONS[task.id];
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    title={copy.desc}
+                    disabled={
+                      exampleBusy !== null || sending || !skillsLoaded || !agentId || !models
+                    }
+                    onClick={() => void runExample(task)}
+                    className="group flex min-h-12 items-center gap-2.5 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 shadow-[0_1px_2px_rgb(0_0_0/0.03)] transition-[border-color,background-color,color,transform] duration-150 hover:-translate-y-px hover:border-gray-300 hover:text-gray-950 disabled:cursor-default disabled:opacity-50 disabled:hover:translate-y-0 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors duration-150 group-hover:bg-gray-900 group-hover:text-white dark:bg-gray-800 dark:text-gray-300 dark:group-hover:bg-gray-100 dark:group-hover:text-gray-950">
+                      <TaskIcon size={17} weight="regular" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1 leading-5">{copy.label}</span>
+                    {exampleBusy === task.id && (
+                      <span className="shrink-0 text-xs text-gray-400">{S.common.loading}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       </div>
-
-      {/* Lower symmetric space — empty, so it matches the upper one exactly */}
-      <div className="flex-1" />
     </div>
   );
 }

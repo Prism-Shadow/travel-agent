@@ -967,13 +967,54 @@ export const en: Strings = {
     groupByAgent: "Group by agent",
     tempWorkspaces: "Temporary workspaces",
     newSessionInWorkspace: "New chat in this workspace",
-    draftSubtitle: "The self-evolving agent that excels at AI development tasks",
+    draftGreeting: (name: string) => `Where to today${name ? `, ${name}` : ""}?`,
+    draftSubtitle:
+      "Tell me where you want to go. I’ll search, compare, and make the trade-offs clear.",
+    draftPrompt: "Start with an idea",
     /** Folder names for the draft page's collapsible examples (bookmark-style: exactly one open at a time). */
     exampleFolders: {
+      plan: "Plan a new trip",
+      booking: "Manage a booking",
       webapps: "Build web apps",
       agents: "Build and optimize agents",
     },
     exampleTasks: {
+      destinationPlan: {
+        label: "Plan five days in Tokyo",
+        desc: "A Shanghai departure balancing food, neighbourhood walks, and one day trip",
+        prompt:
+          "Plan a five-day Tokyo trip next month from Shanghai for two people on a moderate budget. We like local food and neighbourhood walks, with one day trip. Start with a clear itinerary outline and the important trade-offs, then search for the transport and stays that need booking. Keep each category to a few representative options and explain why each made the cut. Do not continue until I choose, and stop at the payment page.",
+      },
+      hotelCompare: {
+        label: "Compare three West Lake stays",
+        desc: "Distinct options filtered by location, quietness, and total price",
+        prompt:
+          "Compare hotels near Hangzhou's West Lake for two people staying two nights next weekend. Prioritize walkability, quiet nights, and transparent tax-inclusive totals. Do not give me a long list: choose three meaningfully different representative options, explain why each made the cut and its main trade-off, wait for my choice, and stop at the payment page.",
+      },
+      flightCompare: {
+        label: "Find a less stressful return flight",
+        desc: "Balance total price, timing, baggage, and connection risk",
+        prompt:
+          "Find return flights from Shanghai to Osaka next month for two adults on a four-day, three-night trip. Balance tax-inclusive price, departure times, baggage, and connection risk. Show three representative options with clear trade-offs rather than only the cheapest, wait for my confirmation, and stop at the payment page.",
+      },
+      reviewBooking: {
+        label: "Organize my existing bookings",
+        desc: "Turn flights, stays, and activities into an actionable timeline",
+        prompt:
+          "I will share my existing flight, hotel, and activity bookings. First tell me which screenshots or confirmation details you need. Then organize them into a day-by-day travel timeline and flag timing conflicts, connection risks, cancellation deadlines, and anything still unbooked. Do not guess details that are not supported by the evidence.",
+      },
+      adjustTrip: {
+        label: "Decide whether changing dates is worth it",
+        desc: "Compare change fees, stay prices, and itinerary loss",
+        prompt:
+          "I want to change the dates of a trip I have already booked. Ask for the current bookings and proposed dates first, then check each change or cancellation rule, compare added cost, stay-price differences, and itinerary loss, and recommend keeping the plan, changing everything, or changing only part of it. Wait for my explicit confirmation before any irreversible action.",
+      },
+      browseDeals: {
+        label: "Continue from a travel link",
+        desc: "Verify the page in the browser and turn inspiration into a bookable plan",
+        prompt:
+          "I will share a travel guide, hotel, or activity link. Open it in the browser on the right and verify the page, extract supported details such as destination, dates, places, and prices, and turn them into an actionable travel plan. Ask me about anything uncertain and wait for explicit authorization before filling forms or reaching payment.",
+      },
       game: {
         label: "2D penguin sled game",
         desc: "A cute Antarctic penguin sleds over rocks, easy start with a gentle difficulty ramp — a 2D pure-frontend mini game",
@@ -1125,6 +1166,7 @@ Scenarios:
     outlineAnswering: "Answering…",
     inputPlaceholder: "Type a message. Enter to send, Shift+Enter for newline, paste images",
     inputPlaceholderShort: "Type a message…",
+    draftInputPlaceholder: "Tell me where, when, and what matters most…",
     /** Placeholder while a Task is running (mid-run steering): the message is delivered between turns with the next request. */
     steerPlaceholder: "Message the running agent — delivered with the next turn",
     steerPlaceholderShort: "Message the running agent…",

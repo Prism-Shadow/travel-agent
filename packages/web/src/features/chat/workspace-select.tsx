@@ -31,8 +31,9 @@ export const pillClass =
  * a temporary workspace). The menu browses server-side directories: **the current path can be
  * edited directly** at the top (Enter/blur commits it, an invalid directory toasts and reverts
  * to the previous path), the list omits hidden directories, and the hint text sits at the bottom
- * of the menu; only loads on first expand. On narrow screens the menu docks to whichever side
- * of the pill keeps it inside the viewport (measured on open — see menuDock).
+ * of the menu; only loads on first expand. The pill menu deliberately stays attached below its
+ * trigger (instead of auto-flipping above); the draft page reserves a stable scrollbar gutter so
+ * its extra scrollable height cannot nudge the centered layout sideways.
  */
 export function WorkspaceSelect({
   projectId,
@@ -47,18 +48,11 @@ export function WorkspaceSelect({
   variant?: "pill" | "form";
 }) {
   const [open, setOpen] = useState(false);
-  /**
-   * Menu docking, measured on each open: the pill follows the agent pill in a wrapping row, so
-   * its left offset varies with the agent's name — a statically left-anchored 20rem panel can
-   * cross the viewport's right edge on phones (measured ~143px past a 390px viewport). Keep the
-   * desktop left anchoring whenever the panel fits; otherwise dock to whichever side of the
-   * pill has more room, capping the width to that room via menuStyle. On desktop the panel
-   * always fits, so nothing changes there.
-   */
+  const browsedRef = useRef(false);
+  /** Dock a wide pill menu to whichever trigger edge keeps it inside a narrow viewport. */
   const [menuDock, setMenuDock] = useState<{ right: boolean; maxWidth?: number }>({
     right: false,
   });
-  const browsedRef = useRef(false);
 
   const [dir, setDir] = useState<DirListResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -122,22 +116,29 @@ export function WorkspaceSelect({
     loadOnFirstOpen(next);
   };
 
-  /** Pill-variant trigger: measures viewport room to dock the in-flow panel left/right before opening. */
+  /**
+   * Pill-variant trigger: measure horizontal room before opening. The panel remains in-flow and
+   * always opens downward, while this docking keeps its 20rem width on-screen on phones.
+   */
   const toggle = (e: ReactMouseEvent<HTMLButtonElement>) => {
     const next = !open;
     if (next) {
-      const r = e.currentTarget.getBoundingClientRect();
+      const rect = e.currentTarget.getBoundingClientRect();
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-      const margin = 12; // breathing room against the viewport edge
-      // The panel's effective width: w-80 capped by its max-w-[calc(100vw-2rem)] class
-      // (rem-derived — the root font size is not 16px here).
+      const margin = 12;
       const width = Math.min(20 * rem, window.innerWidth - 2 * rem);
-      const roomRight = window.innerWidth - margin - r.left; // room for a left-anchored panel
-      const roomLeft = r.right - margin; // room for a right-anchored panel
-      if (roomRight >= width) setMenuDock({ right: false });
-      else if (roomLeft > roomRight)
-        setMenuDock({ right: true, ...(roomLeft < width ? { maxWidth: roomLeft } : {}) });
-      else setMenuDock({ right: false, maxWidth: roomRight });
+      const roomRight = window.innerWidth - margin - rect.left;
+      const roomLeft = rect.right - margin;
+      if (roomRight >= width) {
+        setMenuDock({ right: false });
+      } else if (roomLeft > roomRight) {
+        setMenuDock({
+          right: true,
+          ...(roomLeft < width ? { maxWidth: roomLeft } : {}),
+        });
+      } else {
+        setMenuDock({ right: false, maxWidth: roomRight });
+      }
     }
     setOpen(next);
     loadOnFirstOpen(next);
@@ -328,7 +329,8 @@ export function WorkspaceSelect({
     );
   }
 
-  // Pill: the composer's compact toolbar trigger, with the in-flow panel docked left/right by `toggle`'s measurement.
+  // Pill: the compact trigger with a menu fixed below it. The enclosing draft scroller reserves
+  // stable gutters, so this menu can extend the scrollable height without shifting the page.
   return (
     <Dropdown
       open={open}

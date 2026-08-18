@@ -15,19 +15,19 @@
  */
 export const EXAMPLE_FOLDERS = [
   {
-    id: "webapps",
+    id: "plan",
     tasks: [
-      { id: "game", skills: ["web-design"] },
-      { id: "gamecenter", skills: ["web-design"] },
-      { id: "lol", skills: ["web-design"] },
+      { id: "destinationPlan", skills: [] },
+      { id: "hotelCompare", skills: [] },
+      { id: "flightCompare", skills: [] },
     ],
   },
   {
-    id: "agents",
+    id: "booking",
     tasks: [
-      { id: "rag", skills: ["penguin-sdk", "web-design"] },
-      { id: "agentBenchmarkBuild", skills: [] },
-      { id: "agentOptimization", skills: [] },
+      { id: "reviewBooking", skills: [] },
+      { id: "adjustTrip", skills: [] },
+      { id: "browseDeals", skills: [] },
     ],
   },
 ] as const;

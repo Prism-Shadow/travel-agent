@@ -882,6 +882,7 @@ export function ChatInput({
   onOpenModels,
   onRetryModelAuth,
   onNewSession,
+  appearance = "default",
 }: {
   status: SessionStatus;
   /**
@@ -1059,6 +1060,8 @@ export function ChatInput({
   onRetryModelAuth?: () => void;
   /** Navigates to a fresh draft (`/chat/new`); renders the notice's "New Session" button when supplied. */
   onNewSession?: () => void;
+  /** The new-trip screen uses a softer, floating consumer surface; active conversations retain the compact default. */
+  appearance?: "default" | "travel";
 }) {
   const { locale } = useLocale();
   const [text, setText] = useState(initialText ?? "");
@@ -2144,9 +2147,11 @@ export function ChatInput({
         // textarea's `disabled` already blocks editing, and the stuck draft must stay
         // selectable/copyable — a long message that failed to send is exactly what the
         // user wants to copy back out.
-        className={`@container rounded-lg border border-gray-300 bg-white px-2.5 pb-2 pt-2 transition-[border-color,box-shadow] duration-200 focus-within:border-gray-500 focus-within:ring-2 focus-within:ring-gray-400/30 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-gray-400${
-          modelAuthDead ? " opacity-50 grayscale" : ""
-        }`}
+        className={`@container border bg-white transition-[border-color,box-shadow] duration-200 focus-within:border-gray-500 focus-within:ring-2 focus-within:ring-gray-400/25 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-gray-400 ${
+          appearance === "travel"
+            ? "rounded-[1.65rem] border-gray-200 px-3.5 pb-3 pt-3 shadow-[0_8px_30px_rgb(15_23_42/0.08)] dark:shadow-[0_8px_30px_rgb(0_0_0/0.28)]"
+            : "rounded-lg border-gray-300 px-2.5 pb-2 pt-2"
+        }${modelAuthDead ? " opacity-50 grayscale" : ""}`}
       >
         {/* Chip row above the text body: the staged switch target (an /agent handoff or a
             /model fork — never both) followed by the selected skills, all sharing the same
@@ -2375,17 +2380,19 @@ export function ChatInput({
           placeholder={
             modelAuthDead
               ? S.chat.modelAuthDeadPlaceholder
-              : running && followUpMode
-                ? narrow
-                  ? S.chat.followUpPlaceholderShort
-                  : S.chat.followUpPlaceholder
-                : running && onSteer
+              : appearance === "travel" && !running
+                ? S.chat.draftInputPlaceholder
+                : running && followUpMode
                   ? narrow
-                    ? S.chat.steerPlaceholderShort
-                    : S.chat.steerPlaceholder
-                  : narrow
-                    ? S.chat.inputPlaceholderShort
-                    : S.chat.inputPlaceholder
+                    ? S.chat.followUpPlaceholderShort
+                    : S.chat.followUpPlaceholder
+                  : running && onSteer
+                    ? narrow
+                      ? S.chat.steerPlaceholderShort
+                      : S.chat.steerPlaceholder
+                    : narrow
+                      ? S.chat.inputPlaceholderShort
+                      : S.chat.inputPlaceholder
           }
           className="block max-h-44 min-h-[60px] w-full resize-none bg-transparent px-1 py-0.5 text-base leading-6 placeholder:text-gray-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:placeholder:text-gray-500"
         />
@@ -2568,8 +2575,8 @@ export function ChatInput({
               onClick={() => (stopAction ? void onStop() : void send())}
               className={
                 stopAction
-                  ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-600 transition-colors duration-150 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-400 dark:hover:bg-red-950"
-                  : "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gray-900 text-white transition-colors duration-150 hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:disabled:bg-gray-800 dark:disabled:text-gray-600"
+                  ? `flex h-8 w-8 shrink-0 items-center justify-center ${appearance === "travel" ? "rounded-full" : "rounded-md"} bg-red-50 text-red-600 transition-colors duration-150 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-400 dark:hover:bg-red-950`
+                  : `flex h-8 w-8 shrink-0 items-center justify-center ${appearance === "travel" ? "rounded-full" : "rounded-md"} bg-gray-900 text-white transition-colors duration-150 hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:disabled:bg-gray-800 dark:disabled:text-gray-600`
               }
             >
               {stopAction ? (

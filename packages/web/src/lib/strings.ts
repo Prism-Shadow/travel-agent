@@ -924,9 +924,13 @@ export const zh = {
     groupByAgent: "按 Agent 分组",
     tempWorkspaces: "临时工作区",
     newSessionInWorkspace: "在此工作区新建对话",
-    draftSubtitle: "最擅长 AI 开发任务的自进化 Agent",
+    draftGreeting: (name: string) => `今天想去哪里${name ? `，${name}` : ""}？`,
+    draftSubtitle: "告诉我想去哪里，我会替你搜索、比较，并把关键取舍讲清楚。",
+    draftPrompt: "从一个想法开始",
     /** Collapsed group names for the home-page examples (bookmark style; only one open at a time). */
     exampleFolders: {
+      plan: "规划新旅程",
+      booking: "管理已有预订",
       webapps: "搭建网页应用",
       agents: "搭建和优化智能体",
     },
@@ -936,6 +940,42 @@ export const zh = {
      * remain detailed because execution quality depends on them.
      */
     exampleTasks: {
+      destinationPlan: {
+        label: "规划一趟东京五日游",
+        desc: "从上海出发，兼顾美食、街区漫步和一天近郊",
+        prompt:
+          "帮我规划下个月从上海出发的东京五日游：两个人，预算适中，喜欢当地美食和街区漫步，安排一天近郊。先给我清晰的行程框架和关键取舍，再搜索需要预订的交通与住宿；每类只保留少数有代表性的选项并说明入选理由，未经我选择不要继续下单，最终停在支付页。",
+      },
+      hotelCompare: {
+        label: "比较三家西湖附近酒店",
+        desc: "按位置、安静程度和总价筛出差异明显的代表选项",
+        prompt:
+          "帮我比较下周末杭州西湖附近适合两人住两晚的酒店。优先步行方便、晚上安静、含税总价透明；不要罗列一长串，只给我三家差异明显的代表选项，每家写清为什么入选和主要取舍，等我选择后再继续填单，并停在支付页。",
+      },
+      flightCompare: {
+        label: "查找更省心的往返航班",
+        desc: "平衡总价、出发时间、行李与中转风险",
+        prompt:
+          "帮我查找下个月上海往返大阪、四天三晚的航班，两位成人。请综合含税总价、起降时间、行李额度和中转风险，筛出三组有代表性的方案并解释取舍；不要只推最便宜的，等我确认后再继续，最终停在支付页。",
+      },
+      reviewBooking: {
+        label: "整理我已有的旅行订单",
+        desc: "把航班、酒店和活动整理成可执行时间线",
+        prompt:
+          "我会把已有的航班、酒店和活动订单发给你。请先告诉我需要哪些截图或确认信息，再把它们整理成按天的旅行时间线，标出时间冲突、衔接风险、退改期限和还没订的环节；没有依据的内容不要猜。",
+      },
+      adjustTrip: {
+        label: "评估一次改期是否值得",
+        desc: "比较改签成本、住宿变化与行程损失",
+        prompt:
+          "我想调整一趟已经订好的旅行日期。请先向我收集现有订单和新日期，再逐项核对改签或取消规则，比较额外成本、住宿价差与行程损失，最后给出保留原计划、整体改期或只改一部分的建议；任何不可逆操作都必须等我明确确认。",
+      },
+      browseDeals: {
+        label: "从一个旅行链接继续规划",
+        desc: "打开浏览器核对页面，把灵感变成可预订方案",
+        prompt:
+          "我会发一个旅行攻略、酒店或活动链接。请在右侧浏览器打开并核对页面内容，提取目的地、日期、地点和价格等有效信息，把它整理成可执行的旅行方案；不确定的地方先问我，涉及填写与支付时明确等待我的授权。",
+      },
       game: {
         label: "2D 企鹅雪橇越野小游戏",
         desc: "可爱南极企鹅滑雪橇跳石头，难度由易到难的 2D 纯前端小游戏",
@@ -1083,6 +1123,7 @@ Benchmark：
     outlineAnswering: "回答生成中…",
     inputPlaceholder: "输入消息，Enter 发送，Shift+Enter 换行，可粘贴图片",
     inputPlaceholderShort: "输入消息…",
+    draftInputPlaceholder: "告诉我想去哪里、什么时候出发，以及你最在意什么…",
     /** Placeholder while a Task is running (mid-run steering): the message is delivered between turns with the next request. */
     steerPlaceholder: "给运行中的 Agent 留言，随下一轮对话送达",
     steerPlaceholderShort: "给运行中的 Agent 留言…",
