@@ -65,7 +65,7 @@ packages/web 是 PenguinHarness 控制台的冻结快照。逐层看：
 | --- | --- | --- |
 | 左栏（半屏） | 拼贴插画 + 个性化问候「Where to today, 名字?」+ 一句介绍 + 底部 composer | ✅ 已落地（`1362ea4`） |
 | 右栏「Jump back in」 | 最近对象的**图片优先卡片**（满幅封面 + 底部深色渐变压字 + 类型徽章 Trip/Chat/Guide） | ✅ 已落地（jump-back-in.tsx）：最近 3 个活跃 Session，卡片几何对齐 Mindtrip；封面是 **sessionId 哈希→确定性装饰渐变+图标水纹**，不是目的地照片——我们没有 POI 图库，错城市的库存照比装饰更糟；真封面的诚实升级路径见 P2.2 |
-| 顶栏 Where/When/Who/Budget 约束 chips | 结构化约束预填对话 | ⏳ 待做（与 composer 的 goal/budget 能力对接） |
+| 顶栏 Where/When/Who/Budget 约束 chips | 结构化约束预填对话 | ⏳ 待做，方案已定：**纯 prompt 脚手架**（填写值编排成首条消息里可见的结构化文本行，零协议改动）。两条红线：① Budget chip 是旅行预算偏好信号，**不进交易闸门**（transaction/commitment.ts 已否决数字上限模型：授权=对具体方案的承诺）；② 与 composer 既有的 goal **token 预算**同名不同物，互不触碰 |
 | 右栏 AI nudge 卡（接着上次话题的建议） | 可关闭的建议卡 + 动作 chips | ⏳ 候选（需要最近会话的摘要数据，后置） |
 | 「For you in Tokyo」POI 推荐流 / Map / Explore | 目的地 discovery | ❌ 不采（§2 不做清单：discovery 面） |
 | 「Create a trip」顶部 CTA / 「Set up my assistant」 | 行程容器与助手人格配置 | ⏳ 待议（我们的对应物是 Agent 配置，入口已在 draft 屏的 Agent pill） |
