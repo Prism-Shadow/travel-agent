@@ -1,22 +1,19 @@
 /**
- * End-to-end test for the skill library (locale zh-CN):
+ * End-to-end test for the skill library (locale zh-CN), against the trimmed one-skill
+ * library (`penguin-browser` in a single Browser group):
  * - the sidebar nav shows "技能库" ("Skill Library"), and the page renders the library's skill
- *   cards across group sections (a collapsible group header: group name + skill count,
- *   **no icon**; the group name follows the UI language — when the server ships a Chinese
- *   group name it's "办公效率 / 软件开发 / AI 应用开发 / Agent 调优", falling back to
- *   English by default); cards carry a custom icon (icon.svg sanitized then inlined, not the book
- *   fallback), with metadata showing version and usage count (worded semantically, not a bare
- *   number badge);
+ *   cards under a collapsible group header (group name + skill count, **no icon**; the group
+ *   name follows the UI language — "浏览器" when the server ships the Chinese title, falling
+ *   back to "Browser"); cards carry a custom icon (icon.svg sanitized then inlined, not the
+ *   book fallback), with metadata showing version and usage count (worded semantically, not a
+ *   bare number badge);
  * - the "Manage installation" Modal: an Agent row + Install / Installed (hover flips to
  *   Uninstall) button, with optimistic updates on install/uninstall;
- * - Quick invoke is gated on the currently selected agent having the skill installed (here the
- *   current agent is default_agent; its button is disabled for a preinstall:false skill like
- *   remote-claude-code the current agent lacks);
  * - "Quick invoke" navigates to /chat/new (default_agent), **prefilling** the invoke text in the
  *   UI language (zh: "使用 X 技能") and preselecting that skill — the toolbar's skill dropdown
  *   button shows a count badge of 1, and that item shows as selected in the menu;
- * - the skill dropdown: the search box filters by name (typing "sdk" leaves only
- *   penguin-sdk); clicking a row toggles selection **without closing the menu**;
+ * - the skill dropdown: the search box filters by name (a non-matching query empties the list);
+ *   clicking a row toggles selection **without closing the menu**;
  * - selections are written into the draft (#74 comment): in draft state, checking the dropdown
  *   then reloading keeps both the body and the selection; in session state, selecting via slash
  *   then reloading likewise persists (keyed by user x Session);
@@ -37,24 +34,8 @@ const P = "password123";
 // Group names follow the UI language: Chinese when the server dist ships titleZh, otherwise
 // falling back to English (both states are asserted).
 // The group header is a collapsible button (group name + skill count); matched by a substring of its accessible name.
-const GROUPS = [
-  /Office Productivity|办公效率/,
-  /Software Development|软件开发/,
-  /AI App Development|AI 应用开发/,
-  /Agent Tuning|Agent 调优/,
-];
-const SKILLS = [
-  "agent-creation",
-  "benchmark-design",
-  "agent-evaluation",
-  "agent-optimization",
-  "data-analysis",
-  "penguin-sdk",
-  "penguin-cli",
-  "agenthub-models",
-  "web-design",
-  "software-engineering",
-];
+const GROUPS = [/Browser|浏览器/];
+const SKILLS = ["penguin-browser"];
 
 // The path prefix of the default book icon (used as a fallback): the group header has no icon,
 // and the card renders a custom icon.svg — neither spot should show this fallback path.
@@ -112,22 +93,21 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   await expect(page.getByText(/v\d+ · .*Agent 在用/).first()).toBeVisible();
 
   // Quick invoke opens a draft on the currently selected Agent (default_agent here), so it's
-  // gated on that Agent having the skill: default_agent ships every preinstalled skill
-  // (agent-creation is enabled), while remote-claude-code is preinstall:false and absent from it,
-  // so its button is disabled.
-  await expect(page.getByRole("button", { name: "快捷调用 agent-creation" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "快捷调用 remote-claude-code" })).toBeDisabled();
+  // gated on that Agent having the skill: default_agent ships the preinstalled library, so
+  // penguin-browser is enabled. (The disabled state has no library fixture since the trim —
+  // the library no longer carries a preinstall:false skill.)
+  await expect(page.getByRole("button", { name: "快捷调用 penguin-browser" })).toBeEnabled();
 
   // Card icon: the DTO icon (icon.svg in the skill's directory) is sanitized and rendered
   // inline (an aria-hidden wrapper + svg); builtin skills each carry a custom icon, not the book
   // fallback. The card root = the nearest rounded-md ancestor of the name element (the new card
   // layout has the icon spanning two rows on the left, with the name and short description as
   // separate text columns, so it can no longer be located by "the innermost div containing the name").
-  const creationCard = page
-    .getByText("agent-creation", { exact: true })
+  const browserCard = page
+    .getByText("penguin-browser", { exact: true })
     .locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
-  await expect(creationCard.locator("span[aria-hidden] > svg")).toHaveCount(1);
-  await expect(creationCard.locator(`svg path[d^="${BOOK_PATH_PREFIX}"]`)).toHaveCount(0);
+  await expect(browserCard.locator("span[aria-hidden] > svg")).toHaveCount(1);
+  await expect(browserCard.locator(`svg path[d^="${BOOK_PATH_PREFIX}"]`)).toHaveCount(0);
 
   // Clicking the group header collapses it: aria-expanded flips, and the group's content
   // becomes inert (a zero-height card can't be interacted with); clicking again expands it back.
@@ -143,8 +123,8 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   await expect(firstGroup.locator("[inert]")).toHaveCount(0);
 
   // —— Manage installation Modal: an Agent row + Install/Installed (clicking Installed uninstalls) ——
-  await page.getByRole("button", { name: "管理安装 agent-creation" }).click();
-  const dialog = page.locator("div").filter({ hasText: "管理安装：agent-creation" }).last();
+  await page.getByRole("button", { name: "管理安装 penguin-browser" }).click();
+  const dialog = page.locator("div").filter({ hasText: "管理安装：penguin-browser" }).last();
   // default_agent (display name General Agent) has everything preinstalled -> "已安装"
   // ("Installed", whose accessible name is the uninstall action); agent_helper has nothing
   // installed -> "安装" ("Install").
@@ -158,7 +138,7 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   const uninstallHelper = page.getByRole("button", { name: "卸载 agent_helper" });
   await expect(uninstallHelper).toBeVisible();
   await expect(uninstallHelper).toContainText("已安装");
-  // Server-side truth converges: agent-creation really does appear in helper's installed list.
+  // Server-side truth converges: penguin-browser really does appear in helper's installed list.
   await expect
     .poll(async () => {
       const res = await (
@@ -166,7 +146,7 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
       ).json();
       return res.skills.map((s) => s.name);
     })
-    .toContain("agent-creation");
+    .toContain("penguin-browser");
   // Clicking "已安装" ("Installed") uninstalls: flips back to "安装" ("Install").
   await uninstallHelper.click();
   await expect(page.getByRole("button", { name: "安装 agent_helper" })).toBeVisible();
@@ -175,11 +155,11 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   await expect(dialog).toHaveCount(0);
 
   // —— Quick invoke: navigates to /chat/new (default_agent), prefilling the invoke text + preselecting that skill ——
-  await page.getByRole("button", { name: "快捷调用 agent-creation" }).click();
+  await page.getByRole("button", { name: "快捷调用 penguin-browser" }).click();
   await page.waitForURL(/\/chat\/new$/);
   const ta = page.getByPlaceholder(/输入消息/);
   // Prefilled per the UI language (zh): 使用 X 技能 ("use the X skill").
-  await expect(ta).toHaveValue("使用 agent-creation 技能");
+  await expect(ta).toHaveValue("使用 penguin-browser 技能");
   // The draft belongs to default_agent (display name General Agent).
   await expect(page.getByLabel("选择 Agent")).toContainText("General Agent");
 
@@ -188,38 +168,37 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   await expect(skillsBtn).toBeVisible();
   await expect(skillsBtn).toContainText("1");
 
-  // Open the menu: all listed skills each occupy a row (default_agent has everything preinstalled), with agent-creation shown as selected.
+  // Open the menu: all listed skills each occupy a row (default_agent has everything preinstalled), with penguin-browser shown as selected.
   const row = (name) => page.getByRole("button", { name: new RegExp(`^${name}`) });
   await skillsBtn.click();
   for (const s of SKILLS) {
     await expect(row(s)).toBeVisible();
   }
-  await expect(row("agent-creation")).toHaveAttribute("aria-pressed", "true");
+  await expect(row("penguin-browser")).toHaveAttribute("aria-pressed", "true");
 
-  // Search filter: typing "sdk" leaves only penguin-sdk.
+  // Search filter: a non-matching query empties the list; clearing it brings the row back.
   await page.getByPlaceholder("搜索技能").fill("sdk");
-  await expect(row("penguin-sdk")).toBeVisible();
-  await expect(row("agent-creation")).toHaveCount(0);
+  await expect(row("penguin-browser")).toHaveCount(0);
+  await page.getByPlaceholder("搜索技能").fill("browser");
+  await expect(row("penguin-browser")).toBeVisible();
   await page.getByPlaceholder("搜索技能").fill("");
 
-  // Clicking a row toggles its selection **without closing the menu**: select penguin-sdk, then deselect it.
-  await row("penguin-sdk").click();
-  await expect(row("penguin-sdk")).toHaveAttribute("aria-pressed", "true");
-  await expect(skillsBtn).toContainText("2");
+  // Clicking a row toggles its selection **without closing the menu**: deselect, then reselect.
+  await row("penguin-browser").click();
+  await expect(row("penguin-browser")).toHaveAttribute("aria-pressed", "false");
+  await expect(skillsBtn).not.toContainText("1");
+  await row("penguin-browser").click();
+  await expect(row("penguin-browser")).toHaveAttribute("aria-pressed", "true");
+  await expect(skillsBtn).toContainText("1");
 
   // —— Survives a reload (#74 comment): checking the dropdown writes into the draft immediately, so both the body and the selection persist after a reload ——
   await page.reload();
-  await expect(ta).toHaveValue("使用 agent-creation 技能");
-  await expect(skillsBtn).toContainText("2");
-  await skillsBtn.click();
-  await expect(row("penguin-sdk")).toHaveAttribute("aria-pressed", "true");
-
-  await row("penguin-sdk").click();
-  await expect(row("penguin-sdk")).toHaveAttribute("aria-pressed", "false");
+  await expect(ta).toHaveValue("使用 penguin-browser 技能");
   await expect(skillsBtn).toContainText("1");
+  await skillsBtn.click();
+  await expect(row("penguin-browser")).toHaveAttribute("aria-pressed", "true");
   // Escape closes the menu (built into the Dropdown).
   await page.keyboard.press("Escape");
-  await expect(row("agent-creation")).toHaveCount(0);
 
   // —— Sending the prefilled body directly -> "使用技能" ("Use skills") banner + invoke text lands in the message ——
   await page.getByRole("button", { name: "发送" }).click();
@@ -227,30 +206,30 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   const sessionId = page.url().split("/chat/")[1];
 
   // Message stream: the block collapses into a "使用技能" ("Use skills") banner, and the
-  // prefilled body "使用 agent-creation 技能" still renders normally; the selection clears once
+  // prefilled body "使用 penguin-browser 技能" still renders normally; the selection clears once
   // sending succeeds (the dropdown button's badge disappears).
-  await expect(page.getByText(/使用技能.*agent-creation/)).toBeVisible();
-  await expect(page.getByText("使用 agent-creation 技能", { exact: true })).toBeVisible();
+  await expect(page.getByText(/使用技能.*penguin-browser/)).toBeVisible();
+  await expect(page.getByText("使用 penguin-browser 技能", { exact: true })).toBeVisible();
   await expect(skillsBtn).not.toContainText("1");
 
   // The mock LLM's fallback reply completes a full round (allow-all auto-approves exec_command).
   await expect(page.getByText("Command finished; the result looks as expected.")).toBeVisible();
 
-  // —— Slash invocation: typing /agent-opt shows a skill command item; pressing Enter selects it and clears the input box (without sending) ——
-  await ta.fill("/agent-opt");
-  await expect(page.getByRole("button", { name: /\/agent-optimization/ })).toBeVisible();
+  // —— Slash invocation: typing /penguin-b shows a skill command item; pressing Enter selects it and clears the input box (without sending) ——
+  await ta.fill("/penguin-b");
+  await expect(page.getByRole("button", { name: /\/penguin-browser/ })).toBeVisible();
   await ta.press("Enter");
   await expect(ta).toHaveValue("");
   await expect(skillsBtn).toContainText("1");
   await skillsBtn.click();
-  await expect(row("agent-optimization")).toHaveAttribute("aria-pressed", "true");
+  await expect(row("penguin-browser")).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
 
   // The session-state selection is likewise written into the draft (keyed by user x Session): the selection persists after a reload.
   await page.reload();
   await expect(skillsBtn).toContainText("1");
   await skillsBtn.click();
-  await expect(row("agent-optimization")).toHaveAttribute("aria-pressed", "true");
+  await expect(row("penguin-browser")).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
 
   // The stored message really does start with the [use_skills] block (the banner is only a
@@ -261,6 +240,6 @@ test("skills: library groups and cards -> manage-install Modal -> quick-invoke p
   ).json();
   const flat = JSON.stringify(messages);
   expect(flat, "stored message keeps the [use_skills] block").toContain("[use_skills]");
-  expect(flat, "block lists the selected skill").toContain("skills: agent-creation");
-  expect(flat, "prefilled body follows the block").toContain("使用 agent-creation 技能");
+  expect(flat, "block lists the selected skill").toContain("skills: penguin-browser");
+  expect(flat, "prefilled body follows the block").toContain("使用 penguin-browser 技能");
 });
