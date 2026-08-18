@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-18] Upstream residue cleanup: two more e2e specs repointed at the one-skill library (plus a pre-existing uninstall-confirm spec bug fixed), `THIRD-PARTY-NOTICES.md` (describing the retired release archives) deleted, and the desktop GitHub link and root package identity now name this fork. ([details](2026-08-18-upstream-residue-cleanup.md))
 - [2026-08-18] Docs-only pushes (docs/, design/, changelog/, root markdown) no longer trigger CI; markdown under packages/ still does. ([details](2026-08-18-ci-skip-docs-only.md))
 - [2026-08-18] The upstream terminal CLI (`packages/cli`) is retired along with the standalone installers and release scripts — no live consumer, and `penguin update` / `install.sh` fetched upstream's releases; desktop now bundles only `penguin-browser`. ([details](2026-08-18-retire-terminal-cli.md))
 - [2026-08-18] Documented the current project directory tree and package responsibilities under `docs/project-structure/`. ([details](2026-08-18-project-structure-doc.md))
