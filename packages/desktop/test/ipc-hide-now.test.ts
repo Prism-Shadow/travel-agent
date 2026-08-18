@@ -42,6 +42,7 @@ function harness(options: { failHide?: boolean } = {}) {
   handlers.clear();
   listeners.clear();
   const measurements: Array<unknown> = [];
+  const reassignments: string[] = [];
   const webContents = { id: 1 };
   const window = { webContents } as never;
   const pane = {
@@ -51,9 +52,13 @@ function harness(options: { failHide?: boolean } = {}) {
     },
     state: () => ({ sessionScope: null }),
     setActiveSession: () => {},
+    reassignActiveSession: (sessionId: string) => {
+      reassignments.push(sessionId);
+      return sessionId;
+    },
   } as never;
   const dispose = installBrowserIpc({ window, pane, promptTaskRefresh: () => {} });
-  return { measurements, webContents, dispose };
+  return { measurements, reassignments, webContents, dispose };
 }
 
 /** Calls the synchronous channel the way Electron does, and reports what it answered. */
@@ -107,5 +112,24 @@ describe("iab:hide-now", () => {
     const { dispose } = harness();
     dispose();
     expect(listeners.has("iab:hide-now")).toBe(false);
+  });
+});
+
+describe("iab:reassign-session", () => {
+  it("validates and forwards the newly-created Session id from the app window", () => {
+    const { reassignments, webContents, dispose } = harness();
+    const handler = handlers.get("iab:reassign-session");
+    expect(handler).toBeDefined();
+    expect(handler!({ sender: webContents }, "session-created")).toBe("session-created");
+    expect(reassignments).toEqual(["session-created"]);
+    dispose();
+  });
+
+  it("does not forward malformed ids", () => {
+    const { reassignments, webContents, dispose } = harness();
+    const handler = handlers.get("iab:reassign-session")!;
+    expect(() => handler({ sender: webContents }, "")).toThrow(/sessionId/);
+    expect(reassignments).toEqual([]);
+    dispose();
   });
 });

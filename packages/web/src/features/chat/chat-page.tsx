@@ -62,7 +62,8 @@ import { latestTaskHasSubagent, taskStartCount } from "./agent-topology";
 import { ChatInput } from "./chat-input";
 import { ConversationOutline, OutlineMenuButton, useOutlineRailFit } from "./conversation-outline";
 import { DraftView } from "./draft-view";
-import { parkActiveDraft } from "./draft-sessions";
+import { createDraftBrowserScopeId, draftBrowserScope, draftKey, loadDraft } from "./draft-cache";
+import { getDraftSession, parkActiveDraft } from "./draft-sessions";
 import { CHAT_DEFAULTS_CHANGED_EVENT, chatDefaultsChangedDetail } from "./chat-defaults-event";
 import { advanceCostStat, applyUsageFetch, createCostStatHold } from "./header-stats";
 import type { CostStatDisplay } from "./header-stats";
@@ -381,14 +382,30 @@ export function ChatPage() {
   const parkedDraftId = parkedDraftIdOf(routeSessionId);
   const draft = routeSessionId === DRAFT_SESSION_ID || parkedDraftId !== null;
   const selected = draft ? null : (sessions.find((s) => s.sessionId === routeSessionId) ?? null);
+  const userId = user?.userId ?? null;
+
+  // A draft has no server Session id yet, but it still owns a real desktop browser strip. Read the
+  // opaque id that moves with its cache (including into a parked draft), or mint one for an older
+  // cache/new draft. location.key deliberately remints only when `/chat/new` was entered as a new
+  // history entry and the active cache was cleared by parking the previous typed draft.
+  const draftBrowserScopeId = useMemo(() => {
+    if (!draft || !userId || !projectId) return null;
+    const cached =
+      parkedDraftId !== null
+        ? getDraftSession(userId, projectId, parkedDraftId)?.draft
+        : loadDraft(draftKey(userId, projectId));
+    return cached?.browserScopeId ?? createDraftBrowserScopeId();
+  }, [draft, userId, projectId, parkedDraftId, location.key]);
+  const browserScope =
+    selected?.sessionId ??
+    (draftBrowserScopeId !== null ? draftBrowserScope(draftBrowserScopeId) : null);
 
   // Desktop only: `supported` is false in a browser tab, and the column is not rendered at all.
   //
-  // The route's session is what scopes the tab strip: a tab belongs to the conversation it was
-  // opened in, and switching conversations swaps the whole strip rather than filtering it. Only the
-  // conversation travels — which Agent it belongs to, and therefore where its downloads go, main
-  // learns from the server rather than from here.
-  const browserPane = useBrowserPane(selected?.sessionId ?? null);
+  // A real route uses its Session id; a not-yet-sent draft uses the persisted scope above. Switching
+  // either swaps the whole strip. On first send DraftView promotes the draft scope to the freshly
+  // created Session before it starts the task, so prepared pages remain available to user and agent.
+  const browserPane = useBrowserPane(browserScope);
   // Currently effective model (session state, the model reference comes from the Session DTO): model selection in draft state is handled internally by DraftView.
   const activeModelRef = selected
     ? { provider: selected.provider, modelId: selected.modelId }
@@ -1652,6 +1669,8 @@ export function ChatPage() {
               key={`draft:${projectId}:${parkedDraftId ?? location.key}`}
               projectId={projectId}
               models={models}
+              browserScopeId={draftBrowserScopeId!}
+              onReassignBrowserScope={browserPane.actions.reassignSession}
               {...(parkedDraftId !== null ? { draftId: parkedDraftId } : {})}
             />
           ) : (

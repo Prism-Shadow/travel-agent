@@ -147,11 +147,41 @@ function reservePort() {
   pane.setViewCreatedHandler((contents) => transport.attach(contents));
   transport.start();
 
-  // The conversation on screen. Every tab belongs to one, and the pane shows only this one's — so
-  // an agent cannot start work in a conversation the user is not looking at.
+  // Before the first message there is no server Session, but the draft already has its own browser
+  // strip. This is the product regression this run covers: the user can open and navigate a real
+  // WebContentsView now, and the exact same tab is promoted once the Session is created.
+  const DRAFT_SCOPE = "draft-scope-0123456789abcdef0123456789abcdef";
   const SESSION_ID = "session-2026-08-15-00-00-00-e2e00001";
   const TASK_ID = "task-1755000000000-e2e00001";
+  pane.setActiveSession(DRAFT_SCOPE);
+
+  // The renderer reports where the pane goes, exactly as the real hook does. The workspace is open
+  // by product default, but no tab or WebContentsView exists until someone asks for one.
+  pane.setMeasurement({ x: 700, y: 0, width: 700, height: 900 });
+  out({ step: "cold-start", requested: pane.state().requested, present: pane.state().present });
+
+  const draftTabId = pane.openTabForUser(fixtureUrl);
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  out({
+    step: "draft-before-chat",
+    scope: pane.state().sessionScope,
+    tabs: pane.state().tabs.length,
+    navigated: pane.state().tabs[0]?.url === fixtureUrl,
+    polledAsSession: pane.sessionsOfInterest().includes(DRAFT_SCOPE),
+  });
+
+  pane.reassignActiveSession(SESSION_ID);
+  out({
+    step: "draft-promoted",
+    scope: pane.state().sessionScope,
+    tabs: pane.state().tabs.length,
+    sameTab: pane.state().tabs[0]?.id === draftTabId,
+    polledAsSession: pane.sessionsOfInterest().includes(SESSION_ID),
+  });
+  // The real renderer's route switch confirms the promotion. Close this proof tab so all later
+  // lifetime/count assertions remain about the agent tabs they were designed to cover.
   pane.setActiveSession(SESSION_ID);
+  pane.closeTab(draftTabId);
   pane.setSessionDownloadDir(SESSION_ID, {
     directory: path.join(REPO, "packages/desktop/dist-e2e/downloads"),
     root: path.join(REPO, "packages/desktop/dist-e2e"),
@@ -169,11 +199,6 @@ function reservePort() {
       lastFinished: null,
     },
   ]);
-
-  // The renderer reports where the pane goes, exactly as the real hook does. The workspace is open
-  // by product default, but no tab or WebContentsView exists until someone asks for one.
-  pane.setMeasurement({ x: 700, y: 0, width: 700, height: 900 });
-  out({ step: "cold-start", requested: pane.state().requested, present: pane.state().present });
   // Keep the old visibility regression covered independently of the new launch default: an agent
   // that starts after the user closes the workspace must bring it back into view.
   pane.setRequested(false);

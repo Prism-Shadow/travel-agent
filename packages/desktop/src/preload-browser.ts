@@ -190,18 +190,21 @@ const api = {
     ipcRenderer.invoke("iab:set-occluded", occluded),
 
   /**
-   * Which conversation the user is looking at.
+   * Which browser scope the user is looking at (a conversation or a pre-send draft).
    *
-   * Decides which tabs the strip shows. `null` when no conversation is open, which shows none — a
-   * tab belongs to the conversation it was opened in, and no other one may display it. The three
-   * ids also tell main where this conversation's downloads go; main builds that path from its own
-   * data root, so what travels here is identity, never a location.
+   * Decides which tabs the strip shows. `null` shows none — a tab belongs to the scope it was opened
+   * in, and no other one may display it. For a real Session, main resolves download ownership from
+   * the server; a draft scope is only an opaque local tab owner.
    *
    * Answers with the scope main is now showing, so a renderer that changed route twice in quick
    * succession can tell which switch this reply belongs to.
    */
   setSession: (sessionId: string | null): Promise<string | null> =>
     ipcRenderer.invoke("iab:set-session", sessionId),
+
+  /** Promote the active draft's browser strip to its newly-created Session (or roll it back). */
+  reassignSession: (sessionId: string): Promise<string> =>
+    ipcRenderer.invoke("iab:reassign-session", sessionId),
 
   /** Which browser the next agent session should use (002 §6.1). */
   setBackend: (backend: "iab" | "extension"): Promise<void> =>

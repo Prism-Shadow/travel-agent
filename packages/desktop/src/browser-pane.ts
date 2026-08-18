@@ -300,6 +300,13 @@ function delay(ms: number): Promise<void> {
   });
 }
 
+/** Renderer-created owner for a browser strip before its server Session exists. */
+const DRAFT_BROWSER_SCOPE_PREFIX = "draft-scope-";
+
+function isDraftBrowserScope(scope: string): boolean {
+  return scope.startsWith(DRAFT_BROWSER_SCOPE_PREFIX);
+}
+
 export class BrowserPane {
   private readonly tabs = new Map<string, Tab>();
   private nextTabOrdinal = 1;
@@ -309,6 +316,14 @@ export class BrowserPane {
   private occluded = false;
   /** The conversation the renderer is showing. Null means no conversation is open. */
   private activeSession: string | null = null;
+  /**
+   * The one promotion that may still be rolled back if posting the first task fails.
+   *
+   * A renderer may never move an arbitrary real conversation's tabs. The reverse transition is
+   * accepted only for the exact draft → Session promotion immediately preceding it; the normal
+   * route-driven `setActiveSession` confirmation commits (clears) the promotion.
+   */
+  private pendingDraftPromotion: { draftScope: string; sessionId: string } | null = null;
   /** Backend per conversation. Two chats can legitimately want different browsers (002 §6.1). */
   private readonly backendBySession = new Map<string, PaneBackend>();
   /**
@@ -1162,10 +1177,75 @@ export class BrowserPane {
 
   /** Which conversation the renderer is showing. */
   setActiveSession(sessionId: string | null): void {
+    // The route has caught up with a successful promotion (including when `sessionId` is already
+    // active), or has moved elsewhere. Either way, its one-shot rollback window is over.
+    this.pendingDraftPromotion = null;
     if (this.activeSession === sessionId) return;
     this.activeSession = sessionId;
     this.applyLayout();
     this.publishState();
+  }
+
+  /**
+   * Turns the active pre-Session draft strip into the newly-created Session's strip.
+   *
+   * This happens before the first task is posted, so an agent starting immediately sees the same
+   * active Session and can claim the pages the user prepared in the draft. If posting fails, the
+   * exact inverse is accepted once so the still-visible draft keeps its tabs. No other real ↔ real
+   * or arbitrary real → draft reassignment is permitted.
+   */
+  reassignActiveSession(nextSessionId: string): string {
+    const previousSessionId = this.requireActiveSession();
+    if (previousSessionId === nextSessionId) return nextSessionId;
+
+    const promoting = isDraftBrowserScope(previousSessionId) && !isDraftBrowserScope(nextSessionId);
+    const rollingBack =
+      !isDraftBrowserScope(previousSessionId) &&
+      isDraftBrowserScope(nextSessionId) &&
+      this.pendingDraftPromotion?.sessionId === previousSessionId &&
+      this.pendingDraftPromotion.draftScope === nextSessionId;
+
+    if (!promoting && !rollingBack) {
+      throw new Error(
+        "Browser tabs can only move from the active draft to its new conversation, or roll back that exact move",
+      );
+    }
+    if (this.hasRunningTask(previousSessionId) || this.hasRunningTask(nextSessionId)) {
+      throw new Error("Browser tabs cannot move while either browser scope has a running task");
+    }
+    if ([...this.tabs.values()].some((tab) => tab.sessionScope === nextSessionId)) {
+      throw new Error("The destination browser scope already has tabs");
+    }
+
+    const selected = this.activeByScope.get(previousSessionId);
+    this.activeByScope.delete(previousSessionId);
+    if (selected) this.activeByScope.set(nextSessionId, selected);
+
+    const backend = this.backendFor(previousSessionId);
+    this.backendBySession.delete(previousSessionId);
+    if (backend !== "iab") this.backendBySession.set(nextSessionId, backend);
+
+    for (const tab of this.tabs.values()) {
+      if (tab.sessionScope !== previousSessionId) continue;
+      tab.sessionScope = nextSessionId;
+      if (tab.targetId) {
+        this.notifyRelay("iab-ownership-changed", {
+          targetId: tab.targetId,
+          ...this.ownershipFor(tab),
+        });
+      }
+    }
+
+    this.activeSession = nextSessionId;
+    this.pendingDraftPromotion = promoting
+      ? { draftScope: previousSessionId, sessionId: nextSessionId }
+      : null;
+    if (promoting && backend !== "iab") this.options.onBackendChange?.(nextSessionId, backend);
+    this.applyLayout();
+    this.publishState();
+    this.scheduleCheckpoint();
+    this.log(`reassigned browser scope ${previousSessionId} to ${nextSessionId}`);
+    return nextSessionId;
   }
 
   /** Which browser the next agent session should use (002 §6.1). A task-level decision. */
@@ -1315,10 +1395,14 @@ export class BrowserPane {
   /** Conversations the supervisor should be asking about: anything this pane holds state for. */
   sessionsOfInterest(): string[] {
     const sessions = new Set<string>();
-    for (const tab of this.tabs.values()) sessions.add(tab.sessionScope);
+    for (const tab of this.tabs.values()) {
+      if (!isDraftBrowserScope(tab.sessionScope)) sessions.add(tab.sessionScope);
+    }
     for (const sessionId of this.runningTasks.values()) sessions.add(sessionId);
     for (const sessionId of this.askedAbout) sessions.add(sessionId);
-    if (this.activeSession) sessions.add(this.activeSession);
+    if (this.activeSession && !isDraftBrowserScope(this.activeSession)) {
+      sessions.add(this.activeSession);
+    }
     return [...sessions];
   }
 

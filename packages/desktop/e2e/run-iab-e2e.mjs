@@ -127,6 +127,24 @@ expect(
   "the workspace starts open without eagerly creating a browser target",
 );
 expect(
+  "draft-before-chat",
+  (s) =>
+    s.scope?.startsWith("draft-scope-") &&
+    s.tabs === 1 &&
+    s.navigated === true &&
+    s.polledAsSession === false,
+  "a user can open and navigate the browser before sending the first message",
+);
+expect(
+  "draft-promoted",
+  (s) =>
+    s.scope?.startsWith("session-") &&
+    s.tabs === 1 &&
+    s.sameTab === true &&
+    s.polledAsSession === true,
+  "the first send promotes the same draft tab into the newly-created Session",
+);
+expect(
   "backend",
   (s) => s.publicExtensions === 0,
   "the in-app browser does not appear as a Chrome extension, so choosing your own Chrome cannot select it",

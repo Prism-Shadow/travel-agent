@@ -35,6 +35,7 @@ const CHANNELS = [
   "iab:set-occluded",
   "iab:get-state",
   "iab:set-session",
+  "iab:reassign-session",
   "iab:set-backend",
   "iab:open-tab",
   "iab:close-tab",
@@ -277,14 +278,18 @@ export function installBrowserIpc({
   on("iab:set-occluded", (payload) => pane.setOccluded(parseBoolean(payload, "occluded")));
   on("iab:get-state", () => pane.state());
   on("iab:set-session", (payload) => {
-    // The conversation only. Where its downloads go is *not* taken from here: the project and agent
-    // a Session belongs to come from the server, through the supervisor, because a renderer-supplied
-    // triple is a relationship nobody has checked.
+    // The visible browser scope only: a real conversation id, or an opaque local draft scope before
+    // its first send. Where a real Session's downloads go is *not* taken from here: the project and
+    // agent come from the server, through the supervisor, because a renderer-supplied triple is a
+    // relationship nobody has checked.
     pane.setActiveSession(parseOptionalId(payload, "sessionId"));
     // Echoed back so the renderer can tell *which* switch this answer belongs to: two route changes
     // in quick succession would otherwise leave it unable to know whether the later one landed.
     return pane.state().sessionScope;
   });
+  on("iab:reassign-session", (payload) =>
+    pane.reassignActiveSession(parseId(payload, "sessionId")),
+  );
   on("iab:set-backend", (payload) => pane.setBackend(parseBackend(payload)));
 
   // —— tabs ——

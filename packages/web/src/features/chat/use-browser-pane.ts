@@ -113,6 +113,8 @@ export interface BrowserPaneState {
 
 /** What the chrome can ask main to do. Every one of them is refused for a tab outside the strip. */
 export interface BrowserPaneActions {
+  /** Promote this draft's whole browser strip to the Session created by its first send. */
+  reassignSession: (sessionId: string) => Promise<void>;
   /** Opens a blank tab, or opens the supplied address as the first tab in an empty strip. */
   openTab: (url?: string) => Promise<void>;
   closeTab: (tabId: string) => Promise<void>;
@@ -139,8 +141,8 @@ export interface BrowserPaneActions {
 }
 
 /**
- * @param sessionId the conversation on screen. Main shows only this conversation's tabs; `null`
- * (no conversation open) shows none, because every tab belongs to exactly one.
+ * @param sessionId the browser scope on screen: a real Session or a persisted draft scope. Main
+ * shows only this scope's tabs; `null` shows none, because every tab belongs to exactly one scope.
  */
 export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   const bridge = desktopBrowserBridge();
@@ -158,6 +160,9 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   const [containerWidth, setContainerWidth] = useState(0);
 
   const containerNode = useRef<HTMLElement | null>(null);
+  /** Current requested scope, so an async send from a draft already navigated away from cannot win. */
+  const requestedScopeRef = useRef(sessionId);
+  requestedScopeRef.current = sessionId;
   /** Read by the measurement callback, which must not close over a stale render's verdict. */
   const scopeSettledRef = useRef(false);
   const nodeRef = useRef<HTMLElement | null>(null);
@@ -492,6 +497,25 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       void work?.catch(() => {});
     };
     return {
+      reassignSession: async (nextSessionId) => {
+        if (requestedScopeRef.current !== sessionId) {
+          throw new Error("The draft browser scope is no longer active");
+        }
+        // A very fast first send can beat the layout effect's initial set-session round trip. Make
+        // the draft scope current before promoting it; on rollback `nextSessionId === sessionId`,
+        // so deliberately skip this confirmation — setting the draft normally would clear main's
+        // one-shot rollback record before it can move the tabs back.
+        if (bridge && sessionId !== null && nextSessionId !== sessionId) {
+          const confirmed = await bridge.setSession(sessionId);
+          if (confirmed !== sessionId) {
+            throw new Error("The draft browser scope was not ready to be promoted");
+          }
+        }
+        if (requestedScopeRef.current !== sessionId) {
+          throw new Error("The draft browser scope is no longer active");
+        }
+        await bridge?.reassignSession(nextSessionId);
+      },
       // Awaited by the address bar, which uses a submitted URL to create the first tab in an empty
       // strip. The plus button may still deliberately ignore a stale-conversation rejection.
       openTab: async (url) => {
@@ -529,7 +553,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       },
       openInDefaultBrowser: async () => (await bridge?.handoffOpen()) ?? false,
     };
-  }, [bridge]);
+  }, [bridge, sessionId]);
 
   const splittable = canSplit(containerWidth);
   const clamped = clampPaneFraction(fraction, containerWidth);

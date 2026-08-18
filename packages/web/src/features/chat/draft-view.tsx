@@ -65,7 +65,14 @@ import { ChatInput } from "./chat-input";
 import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_FOLDERS } from "./example-tasks";
 import type { ExampleFolderId, ExampleTask, ExampleTaskId } from "./example-tasks";
-import { clearDraft, draftKey, loadDraft, saveDraft } from "./draft-cache";
+import {
+  clearDraft,
+  createDraftBrowserScopeId,
+  draftBrowserScope,
+  draftKey,
+  loadDraft,
+  saveDraft,
+} from "./draft-cache";
 import type { DraftCache } from "./draft-cache";
 import {
   DRAFT_FLUSH_EVENT,
@@ -133,12 +140,18 @@ export function DraftView({
   projectId,
   models,
   draftId,
+  browserScopeId,
+  onReassignBrowserScope,
 }: {
   projectId: string;
   /** Project model config (already fetched by ChatPage): candidate list and default model. */
   models: ModelsResponse | null;
   /** Parked draft conversation id (`/chat/draft-…` — see draft-sessions.ts); absent = the ordinary active draft (`/chat/new`). */
   draftId?: string;
+  /** Stable opaque identity of this draft's desktop browser strip. */
+  browserScopeId: string;
+  /** Reassigns the active strip before the first task starts; also performs its one-shot rollback. */
+  onReassignBrowserScope: (sessionId: string) => Promise<void>;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -180,6 +193,9 @@ export function DraftView({
   );
   const [modelRef, setModelRef] = useState<ModelRefDto | null>(cached.modelRef ?? null);
   const textRef = useRef(cached.text ?? "");
+  // Mutable because example-task sends preserve the typed draft: its old strip becomes the sent
+  // Session's strip, while the still-cached draft must receive a fresh empty strip for next time.
+  const browserScopeIdRef = useRef(browserScopeId);
   /**
    * Selected skills (prefilled by "quick invoke" from the Skills page + checked in
    * the input area): passed to ChatInput as the initial selection via initialSkills
@@ -486,7 +502,12 @@ export function DraftView({
   const persistNow = useCallback(() => {
     cancelPendingSave();
     if (!userId) return;
-    const data: DraftCache = { text: textRef.current, workspace, approvalMode };
+    const data: DraftCache = {
+      text: textRef.current,
+      workspace,
+      approvalMode,
+      browserScopeId: browserScopeIdRef.current,
+    };
     if (agentId) data.agentId = agentId;
     if (modelRef) data.modelRef = modelRef;
     if (skillsRef.current.length > 0) data.skills = skillsRef.current;
@@ -614,6 +635,7 @@ export function DraftView({
       sendingRef.current = true;
       setSending(true);
       let createdId: string | null = null;
+      let browserReassigned = false;
       try {
         const body: SessionCreateRequest = { approvalMode };
         // Model reference is submitted as a pair (provider + modelId; falls back to the Project default when not set).
@@ -624,9 +646,18 @@ export function DraftView({
         if (workspace.trim()) body.workspace = workspace.trim();
         const created = await api.createSession(projectId, agentId, body);
         createdId = created.session.sessionId;
+        // Promote before starting the task. Otherwise a fast first agent browser call races main,
+        // which would still be showing the draft scope and correctly refuse the hidden Session.
+        await onReassignBrowserScope(createdId);
+        browserReassigned = true;
         const res = await api.postTask(createdId, { input, ...(goal ? { goal } : {}) });
         add(created.session);
-        if (!keepDraft) discardDraft();
+        if (keepDraft) {
+          browserScopeIdRef.current = createDraftBrowserScopeId();
+          persistRef.current();
+        } else {
+          discardDraft();
+        }
         navigate(`/chat/${res.sessionId}`, { replace: true });
         return true;
       } catch (e) {
@@ -634,6 +665,13 @@ export function DraftView({
         // this empty Session, otherwise every resend attempt would create another one, piling up
         // empty sessions with no messages in the sidebar (best-effort cleanup).
         if (createdId) void api.deleteSession(createdId).catch(() => undefined);
+        if (browserReassigned) {
+          // Keep the browser pages with the still-editable draft. Main accepts only this exact
+          // inverse of the immediately preceding promotion, so this cannot move another Session.
+          await onReassignBrowserScope(draftBrowserScope(browserScopeIdRef.current)).catch(
+            () => undefined,
+          );
+        }
         toastError(apiErrorText(e, modelRef ? { modelId: modelRef.modelId } : {}));
         return false;
       } finally {
@@ -641,7 +679,17 @@ export function DraftView({
         setSending(false);
       }
     },
-    [projectId, agentId, approvalMode, modelRef, workspace, add, discardDraft, navigate],
+    [
+      projectId,
+      agentId,
+      approvalMode,
+      modelRef,
+      workspace,
+      add,
+      discardDraft,
+      navigate,
+      onReassignBrowserScope,
+    ],
   );
 
   // Example tasks: one click submits the canned prompt exactly like a hand-typed send (the

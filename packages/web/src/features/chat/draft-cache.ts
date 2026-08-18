@@ -20,6 +20,15 @@ export interface DraftCache {
   workspace?: string;
   approvalMode?: ApprovalMode;
   /**
+   * Opaque identity of the desktop browser strip attached to this not-yet-persisted conversation.
+   *
+   * A draft has no server Session id, but its tabs still need a stable owner: the active draft may
+   * be parked and reopened, and a second new draft must not inherit the first one's pages. The id
+   * moves with the draft cache; once the first message creates a Session, main reassigns the whole
+   * strip to that real Session id and this field is rotated or discarded with the draft.
+   */
+  browserScopeId?: string;
+  /**
    * The model selected in the draft (a paired reference; (provider, modelId) is the unique key):
    * load validates the object shape; the old string-typed modelId field is simply dropped
    * (product hasn't shipped, so no migration is done).
@@ -89,6 +98,9 @@ export function draftFromUnknown(parsed: unknown): DraftCache {
   if (typeof o.text === "string") out.text = o.text;
   if (typeof o.agentId === "string") out.agentId = o.agentId;
   if (typeof o.workspace === "string") out.workspace = o.workspace;
+  if (typeof o.browserScopeId === "string" && /^[0-9a-f]{32}$/.test(o.browserScopeId)) {
+    out.browserScopeId = o.browserScopeId;
+  }
   const modelRef = parseModelRef(o.modelRef);
   if (modelRef) out.modelRef = modelRef;
   if (typeof o.handoffAgentId === "string") out.handoffAgentId = o.handoffAgentId;
@@ -107,6 +119,23 @@ export function draftFromUnknown(parsed: unknown): DraftCache {
     out.approvalMode = o.approvalMode as ApprovalMode;
   }
   return out;
+}
+
+/** Prefix understood by the desktop main process as a pre-Session browser scope. */
+export const DRAFT_BROWSER_SCOPE_PREFIX = "draft-scope-";
+
+/** New opaque scope identity. UUID punctuation is removed so the IPC id remains compact. */
+export function createDraftBrowserScopeId(
+  randomUuid: () => string = () => crypto.randomUUID(),
+): string {
+  const id = randomUuid().replace(/-/g, "").toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(id)) throw new Error("Could not create a valid draft browser scope");
+  return id;
+}
+
+/** The actual scope passed over the desktop bridge. */
+export function draftBrowserScope(scopeId: string): string {
+  return `${DRAFT_BROWSER_SCOPE_PREFIX}${scopeId}`;
 }
 
 export function loadDraft(key: string, storage: DraftStorage = localStorage): DraftCache {

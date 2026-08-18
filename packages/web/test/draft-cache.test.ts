@@ -13,6 +13,8 @@ import {
   clearDraft,
   clearDraftChatDefaults,
   clearDraftModelRef,
+  createDraftBrowserScopeId,
+  draftBrowserScope,
   draftKey,
   loadDraft,
   parseDraft,
@@ -49,6 +51,7 @@ describe("parseDraft (field-by-field validation)", () => {
       agentId: "default_agent",
       workspace: "/srv/repo",
       approvalMode: "read-only",
+      browserScopeId: "0123456789abcdef0123456789abcdef",
       modelRef: { provider: "anthropic", modelId: "claude-opus-4-8" },
       handoffAgentId: "agent_helper",
       switchModelRef: { provider: "openai", modelId: "gpt-5" },
@@ -59,6 +62,7 @@ describe("parseDraft (field-by-field validation)", () => {
       agentId: "default_agent",
       workspace: "/srv/repo",
       approvalMode: "read-only",
+      browserScopeId: "0123456789abcdef0123456789abcdef",
       modelRef: { provider: "anthropic", modelId: "claude-opus-4-8" },
       handoffAgentId: "agent_helper",
       switchModelRef: { provider: "openai", modelId: "gpt-5" },
@@ -71,12 +75,20 @@ describe("parseDraft (field-by-field validation)", () => {
       text: 123,
       agentId: null,
       workspace: { path: "/x" },
+      browserScopeId: "not-a-valid-scope",
       approvalMode: "read-only",
       modelRef: ["m"],
       handoffAgentId: 7,
       switchModelRef: "custom:claude-4-8",
     });
     expect(parseDraft(raw)).toEqual({ approvalMode: "read-only" });
+  });
+
+  it("creates a compact stable draft browser scope accepted by the desktop contract", () => {
+    const id = createDraftBrowserScopeId(() => "01234567-89AB-CDEF-0123-456789ABCDEF");
+    expect(id).toBe("0123456789abcdef0123456789abcdef");
+    expect(draftBrowserScope(id)).toBe("draft-scope-0123456789abcdef0123456789abcdef");
+    expect(() => createDraftBrowserScopeId(() => "broken")).toThrow(/valid draft browser scope/);
   });
 
   it("legacy string modelId and half references are always dropped (never released, no migration)", () => {

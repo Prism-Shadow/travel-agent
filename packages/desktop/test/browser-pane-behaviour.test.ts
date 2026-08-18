@@ -404,6 +404,65 @@ describe("scoping", () => {
   });
 });
 
+describe("draft browser scopes", () => {
+  const draftScope = "draft-scope-0123456789abcdef0123456789abcdef";
+
+  it("lets the user browse before a conversation exists without polling the draft as a Session", () => {
+    const { pane } = makePane();
+    pane.setActiveSession(draftScope);
+    const tabId = pane.openTabForUser("https://example.com/before-first-message");
+
+    expect(pane.state()).toMatchObject({ sessionScope: draftScope, activeTabId: tabId });
+    expect(pane.state().tabs[0]?.url).toBe("https://example.com/before-first-message");
+    expect(pane.sessionsOfInterest()).not.toContain(draftScope);
+  });
+
+  it("promotes the complete draft strip before the first task starts", () => {
+    const { pane } = makePane();
+    pane.setActiveSession(draftScope);
+    const first = pane.openTabForUser("https://example.com/one");
+    pane.openTabForUser("https://example.com/two");
+    pane.selectTab(first);
+
+    expect(pane.reassignActiveSession("session-created")).toBe("session-created");
+    expect(pane.state()).toMatchObject({
+      sessionScope: "session-created",
+      activeTabId: first,
+    });
+    expect(pane.state().tabs).toHaveLength(2);
+    expect(pane.sessionsOfInterest()).toContain("session-created");
+
+    reportRunning(pane, "session-created", "task-first");
+    expect(pane.state().backendLocked).toBe(true);
+  });
+
+  it("allows only the exact one-shot rollback until the route confirms the new Session", () => {
+    const { pane } = makePane();
+    pane.setActiveSession(draftScope);
+    pane.openTabForUser("https://example.com/keep-with-draft");
+
+    pane.reassignActiveSession("session-created");
+    pane.reassignActiveSession(draftScope);
+    expect(pane.state().sessionScope).toBe(draftScope);
+    expect(pane.state().tabs).toHaveLength(1);
+
+    pane.reassignActiveSession("session-created");
+    pane.setActiveSession("session-created");
+    expect(() => pane.reassignActiveSession(draftScope)).toThrow(/only move from the active draft/);
+  });
+
+  it("does not merge a draft into a destination that already owns tabs", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-created");
+    pane.openTabForUser("https://example.com/existing");
+    pane.setActiveSession(draftScope);
+    pane.openTabForUser("https://example.com/draft");
+
+    expect(() => pane.reassignActiveSession("session-created")).toThrow(/already has tabs/);
+    expect(pane.state().sessionScope).toBe(draftScope);
+  });
+});
+
 describe("renderer-facing operations", () => {
   it("refuses a tab id from another conversation", async () => {
     // Tab ids are sequential and guessable, and every operation here is destructive or

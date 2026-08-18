@@ -40,6 +40,7 @@ describe("parkActiveDraft", () => {
         agentId: "default_agent",
         workspace: "/srv/repo",
         approvalMode: "read-only",
+        browserScopeId: "0123456789abcdef0123456789abcdef",
         modelRef: { provider: "anthropic", modelId: "claude-sonnet-5" },
         skills: ["ship-it"],
       },
@@ -51,6 +52,7 @@ describe("parkActiveDraft", () => {
     expect(entry?.draft.text).toBe("half-written prompt");
     expect(entry?.draft.agentId).toBe("default_agent");
     expect(entry?.draft.skills).toEqual(["ship-it"]);
+    expect(entry?.draft.browserScopeId).toBe("0123456789abcdef0123456789abcdef");
     // The active slot keeps exactly the model pick (switch-becomes-default), nothing else.
     expect(loadDraft(draftKey("u-park", "proj"), s)).toEqual({
       modelRef: { provider: "anthropic", modelId: "claude-sonnet-5" },

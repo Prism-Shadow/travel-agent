@@ -103,12 +103,15 @@ export interface DesktopBrowserBridge {
   hideNow(): boolean;
   setOccluded(occluded: boolean): Promise<void>;
   /**
-   * Which conversation is on screen. `null` shows no tabs — every tab belongs to one conversation.
+   * Which browser scope is on screen: a real Session or an opaque pre-send draft. `null` shows no
+   * tabs — every tab belongs to exactly one scope.
    *
    * Answers with the scope main is now showing, which is how the renderer tells a stale reply from
    * the current one when the route changed twice in a row.
    */
   setSession(sessionId: string | null): Promise<string | null>;
+  /** Promote the active draft browser strip to its new Session, or roll back that exact move. */
+  reassignSession(sessionId: string): Promise<string>;
   setBackend(backend: DesktopBackend): Promise<void>;
   getState(): Promise<DesktopPaneState>;
   openTab(url?: string): Promise<string>;

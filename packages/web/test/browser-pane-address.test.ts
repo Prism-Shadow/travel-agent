@@ -38,6 +38,7 @@ function emptyState(scopeSettled: boolean): BrowserPaneState {
     extensionBackendAvailable: true,
     profileResetLocked: false,
     actions: {
+      reassignSession: async () => {},
       openTab: async () => {},
       closeTab: async () => {},
       selectTab: async () => {},
