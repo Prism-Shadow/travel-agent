@@ -26,10 +26,28 @@ name: CI
 # push is limited to main so a merge does not re-run what its pull request already ran. Pull
 # requests carry no branch filter on purpose: this repo's PRs often target integration branches
 # rather than main, and a target filter would leave those with no CI at all.
+#
+# Docs-only changes skip CI: nothing under docs/, design/ or changelog/, and no root-level
+# markdown, is reachable from a build or a test, so a push touching only those has nothing to
+# verify (paths-ignore skips the run only when EVERY changed file matches; mixed pushes still
+# run). Deliberately NOT `**/*.md`: the skill library's SKILL.md files under packages/ are
+# runtime content that tests assert on, and package READMEs ride along with code anyway.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "design/**"
+      - "changelog/**"
+      - "*.md"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "design/**"
+      - "changelog/**"
+      - "*.md"
+      - "LICENSE"
   workflow_dispatch:
 
 concurrency:
