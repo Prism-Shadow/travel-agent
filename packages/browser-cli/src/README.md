@@ -64,6 +64,16 @@ one level down turned all nine into `src/dist/…` at runtime — which no type 
 - `penguin-browser/src/browser/ghost-browser`
 
 and inlines `dist/ghost-cursor-client.js` with vite's `?raw`. Moving or renaming any of them means
-updating the extension in the same change — and because the workspace uses
-`injectWorkspacePackages`, the extension sees a *copy* of this package, so `pnpm install` has to
-re-run before its build can see the new layout.
+updating the extension in the same change.
+
+It also means the change cannot build until the workspace re-syncs. The extension does not symlink
+to this package — `injectWorkspacePackages` gives it a hard-linked *copy*, so edits to a file's
+contents reach it immediately but **added, renamed, moved or deleted files do not**. Worse, the
+build that would re-sync the copy is the same build that fails, so retrying never clears it. The
+escape:
+
+```bash
+rm -f node_modules/.pnpm-workspace-state-v1.json && pnpm install
+```
+
+`docs/issues/0005-injected-workspace-deps-sync-deadlock.md` has the measurements.

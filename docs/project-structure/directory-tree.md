@@ -33,7 +33,11 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 │   │   ├── 005-mindtrip-benchmark-ui-refactor.md # Mindtrip-informed consumer UI direction
 │   │   └── 006-generated-travel-cover-library.md # Generated travel cover library plan
 │   ├── issues/ # Tracked investigation notes and known issue write-ups
-│   │   └── 0001-extension-open-window-blocked.md # Browser-extension open-window issue record
+│   │   ├── 0001-extension-open-window-blocked.md # Browser-extension open-window issue record
+│   │   ├── 0002-browser-cli-redaction-never-wired.md # design/003 §6.5 redaction built but never called
+│   │   ├── 0003-browser-cli-flaky-browser-tests.md # Two browser-backed tests fail intermittently
+│   │   ├── 0004-browser-cli-scripts-not-typechecked.md # Dev scripts excluded from tsc; several do not compile
+│   │   └── 0005-injected-workspace-deps-sync-deadlock.md # Layout changes deadlock the extension build
 │   ├── manual-testing/ # Manual QA scripts and checklists by phase
 │   │   ├── _template.md # Template for future manual-testing plans
 │   │   ├── phase-00-verification.md # Phase 0 manual verification checklist
