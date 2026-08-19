@@ -14,7 +14,7 @@ import {
 import '../src/shared/test-declarations.js'
 
 const TEST_PORT = 19992
-const FIXTURE_EXTENSION_PATH = path.resolve('../browser-extension/test-fixtures/fixture-extension')
+const FIXTURE_EXTENSION_PATH = path.resolve('test/fixtures/fixture-extension')
 
 describe('Relay Navigation Tests', () => {
   let testCtx: TestContext | null = null

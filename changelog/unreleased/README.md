@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] The fixture extension used by relay-navigation tests moves from `browser-extension/test-fixtures/` to `browser-cli/test/fixtures/`, next to its only consumer. ([details](2026-08-19-fixture-extension-moves-to-its-consumer.md))
 - [2026-08-19] Docs reorganized into tiers: lifecycle decision records (`docs/decisions/`), incident postmortems, one home per fact; the design-doc series, manual-testing checklists, directory tree, upstream changelog mirrors, and phase verification records are removed — the isolation decision (D3) lives on as a proposed decision note, every spec citation in source (342 sites) is rewritten to self-contained prose, docs/architecture gains the missing project-level map, and issue 0006 records an environmental core test failure. ([details](2026-08-19-docs-tier-refactor.md))
 - [2026-08-19] The code workflow is available as an explicit, repository-scoped Codex skill with valid discovery metadata. ([details](2026-08-19-repository-code-workflow-skill.md))
 - [2026-08-19] Web class strings move to canonical Tailwind v4 forms (89 language-server warnings to zero, CSS unchanged); the five-file `format:check` backlog is cleared. ([details](2026-08-19-web-canonical-tailwind-classes.md))
