@@ -31,6 +31,7 @@ import {
   startBrowserRelay,
   stopBrowserRelay,
   revealBrowserExtension,
+  revealBrowserExtensionStatus,
 } from "./browser-relay.js";
 import { attachShortcutRouter } from "./browser-shortcut-router.js";
 // Deep subpath, like the relay discovery helper above: importing the package root would pull in
@@ -108,10 +109,9 @@ const iabEnabled = resolvedFlags["iab.enabled"];
 /**
  * Whether the Chrome extension backend may be offered as an alternative to the in-app browser.
  *
- * Its own flag remains off by default (design/004 §5): the choice changes whose browser an
- * order is placed in, and it is not something to ship enabled before the handoff has been tried by
- * hand. Read once here and passed to the pane, which refuses the backend when it is off — the
- * renderer's own control is disabled too, but a disabled control is a hint, not an enforcement.
+ * It ships on, while IAB remains the selection for new conversations. The flag stays as a
+ * diagnostic/rollback opt-out; main still enforces it because a disabled renderer control alone is
+ * not a capability boundary.
  */
 const chromeFallbackEnabled = resolvedFlags["chrome.fallback"];
 /** App origin (embedded or attached); null until boot resolves. */
@@ -256,6 +256,9 @@ function createWindow(url: string): void {
       // offered at all (design/004 §5); the port is whether it could work in this run.
       extensionBackendAvailable: chromeFallbackEnabled && !relayMovedOffConventionalPort(),
       onBackendChange: (sessionId, backend) => writeBackendPreference(sessionId, backend),
+      onBackendSelected: (backend) => {
+        if (backend === "extension") void revealBrowserExtensionStatus(win, relayPort);
+      },
       // Feeds the address bar's completion. Goes through the importer because it owns the history
       // store's lifetime — the import fills it, ordinary browsing keeps it current.
       onVisit: (visit) => browserImporter?.historyStore()?.record(visit),

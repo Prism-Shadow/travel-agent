@@ -1,5 +1,16 @@
-import { describe, it, expect } from 'vitest'
-import { shouldAutoReturn, wrapCode, isPlaywrightChannelOwner } from './executor.js'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import {
+  isPlaywrightChannelOwner,
+  PlaywrightExecutor,
+  shouldAutoReturn,
+  wrapCode,
+} from './executor.js'
+import { tabRegistry } from './tab-ownership.js'
+
+afterEach(() => {
+  tabRegistry.releaseAll('iab-bootstrap-test')
+  tabRegistry.releaseAll('another-session')
+})
 
 describe('shouldAutoReturn', () => {
   it('returns true for simple expressions', () => {
@@ -160,5 +171,62 @@ describe('isPlaywrightChannelOwner', () => {
     expect(isPlaywrightChannelOwner({ _type: 'x', _guid: 'y' })).toBe(false)
     // _type must be a string
     expect(isPlaywrightChannelOwner({ _type: 123, _guid: 'y', _connection: {} })).toBe(false)
+  })
+})
+
+describe('IAB bootstrap tab reuse', () => {
+  const fakePage = (url: string) => ({
+    isClosed: () => false,
+    url: () => url,
+    goto: vi.fn(async () => null),
+  })
+
+  const makeExecutor = (bootstrap: ReturnType<typeof fakePage>) => {
+    const created = fakePage('https://created.example/')
+    const executor = new PlaywrightExecutor({
+      sessionId: 'iab-bootstrap-test',
+      cdpConfig: {
+        iab: true,
+        iabBootstrapTargetId: 'bootstrap-target',
+        iabIdentity: { sessionId: 'conversation-1', taskId: 'task-1' },
+      },
+    }) as any
+    executor.context = { pages: () => [bootstrap, created] }
+    executor.targetIdFor = vi.fn(async (page: unknown) =>
+      page === bootstrap ? 'bootstrap-target' : 'created-target',
+    )
+    executor.createIabPage = vi.fn(async () => created)
+    executor.claimTab = vi.fn(async () => ({ ok: true, state: 'already_yours' }))
+    return { executor, created }
+  }
+
+  it('navigates the existing bootstrap on first open and creates on the second', async () => {
+    const bootstrap = fakePage('about:blank')
+    const { executor, created } = makeExecutor(bootstrap)
+    tabRegistry.claim('bootstrap-target', 'iab-bootstrap-test')
+
+    await expect(executor.openOwnedTab('https://hotels.ctrip.com/')).resolves.toBe(bootstrap)
+    expect(bootstrap.goto).toHaveBeenCalledWith('https://hotels.ctrip.com/', {
+      waitUntil: 'domcontentloaded',
+    })
+    expect(executor.createIabPage).not.toHaveBeenCalled()
+
+    await expect(executor.openOwnedTab('https://example.com/')).resolves.toBe(created)
+    expect(executor.createIabPage).toHaveBeenCalledWith('https://example.com/')
+  })
+
+  it('does not reuse the exact target after it navigated or changed owner', async () => {
+    const navigated = fakePage('https://already.example/')
+    const first = makeExecutor(navigated)
+    tabRegistry.claim('bootstrap-target', 'iab-bootstrap-test')
+    await expect(first.executor.openOwnedTab('https://new.example/')).resolves.toBe(first.created)
+    expect(navigated.goto).not.toHaveBeenCalled()
+
+    tabRegistry.release('bootstrap-target', 'iab-bootstrap-test')
+    tabRegistry.claim('bootstrap-target', 'another-session')
+    const foreign = fakePage('about:blank')
+    const second = makeExecutor(foreign)
+    await expect(second.executor.openOwnedTab('https://safe.example/')).resolves.toBe(second.created)
+    expect(foreign.goto).not.toHaveBeenCalled()
   })
 })

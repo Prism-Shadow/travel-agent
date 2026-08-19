@@ -8,9 +8,10 @@
  *
  * Three rules shape the design:
  *
- * 1. **Explicit, conservative product defaults.** The in-app browser is the desktop baseline and
- *    defaults on. Security-sensitive or optional capabilities stay off until their own rollout
- *    criteria are met, keeping those paths independently revertible (004 §3).
+ * 1. **Explicit, conservative product defaults.** Both user-visible browser backends ship on:
+ *    the in-app browser is the default selection, while Chrome is an explicitly chosen alternative
+ *    for an existing signed-in profile. Security-sensitive capabilities stay off until their own
+ *    rollout criteria are met, keeping those paths independently revertible (004 §3).
  *
  * 2. **Dependencies are declared, not remembered.** `secret_entry.live` must never be on
  *    while the vault is unavailable, and `payments.execute` must never be on while
@@ -62,9 +63,10 @@ export type FeatureFlags = Record<FeatureFlag, boolean>;
 /**
  * Product defaults.
  *
- * The in-app browser is on so `pnpm desktop` provides the browser workspace without an environment
- * override. Every optional or security-sensitive capability remains off and must be enabled
- * explicitly after satisfying its own prerequisites.
+ * The in-app browser and Chrome alternative are both offered without an environment override.
+ * This table controls availability, not selection: a new desktop conversation still selects IAB
+ * in `BrowserPane.backendFor`. Security-sensitive capabilities remain off and must be enabled
+ * explicitly after satisfying their own prerequisites.
  *
  * **Frozen, and typed read-only.** The `Readonly` type stops a compile-time write; `Object.freeze`
  * stops a runtime one. Both are needed: without the freeze, any importer could do
@@ -75,7 +77,7 @@ export type FeatureFlags = Record<FeatureFlag, boolean>;
  */
 export const FLAG_DEFAULTS: Readonly<FeatureFlags> = Object.freeze({
   "iab.enabled": true,
-  "chrome.fallback": false,
+  "chrome.fallback": true,
   "secret_entry.contract": false,
   "secret_entry.live": false,
   "vault.enabled": false,

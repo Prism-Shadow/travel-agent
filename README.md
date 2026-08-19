@@ -1,6 +1,6 @@
 # travel-agent
 
-Glue between [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness) (agent engine) and penguin-browser (control of the user's own Chrome). Ctrip is a demo scene, not the product.
+Glue between [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness) (agent engine) and penguin-browser (the visible in-app browser plus an optional connection to the user's own Chrome). Ctrip is a demo scene, not the product.
 
 A user says one sentence. The agent searches, reduces the option space to a few representatives with a reason each, waits for a click that is also authorization, then fills the form and stops on the payment page. It does **not** do price watching, auto rebooking, ticket-sniping, or anything that needs a long-lived process.
 
@@ -42,9 +42,18 @@ is itself inside the threat model — is the rule we now apply before adding any
 | `packages/web` | travel-agent's active consumer UI, shared by web and desktop |
 | `packages/browser-cli`, `browser-extension` | penguin-browser, vendored in |
 | `packages/transaction` | Irreversible-action semantics, incl. the `submitBooking` gates |
-| `packages/skills/skills/penguin-browser` | How the agent is supposed to drive Chrome |
+| `packages/skills/skills/penguin-browser` | How the agent follows the conversation's browser choice |
 
 ## Browser backends
+
+The Desktop offers both backends in the right-side Browser menu:
+
+- **In-app browser (default):** every new conversation starts here. It is visible in the app and
+  keeps its own persistent cookies and sign-ins.
+- **My own Chrome (extension):** choose this between tasks to reuse a Chrome profile. If the bundled
+  extension is not connected, the app opens setup. Selecting Chrome permits the agent to create its
+  own task tabs; using an already-open Chrome tab still requires clicking the extension icon on that
+  tab.
 
 Both backends converge on the same relay and Playwright execution layer; they differ in the debugger
 bridge and the browser profile being controlled:
@@ -61,6 +70,10 @@ flowchart TB
     Extension <-->|"chrome.debugger"| Chrome["User's Chrome tab"]
 ```
 
+The choice is stored per conversation and cannot change while a task runs. Opening the current page
+in the system default browser does not switch the agent backend. There is no silent fallback between
+the two profiles when the selected backend is unavailable.
+
 ## Development
 
 Needs Node >= 24 and pnpm 11.
@@ -74,7 +87,8 @@ Dev data is separate from an installed PenguinHarness's `~/.penguin/data`.
 
 Existing `default_agent` instances created before `penguin-browser` was added pick the skill up on the next load. Start a **new** chat after pulling — the system prompt is assembled when the session is created.
 
-The `penguin-browser` CLI must be on `PATH` (`pnpm build` links it). The skill still talks about a standalone checkout; that path is stale.
+The `penguin-browser` CLI must be on `PATH` (`pnpm build` links it). The bundled Skill resolves the
+in-tree CLI and uses automatic backend routing, so agent commands honor the Browser menu.
 
 ## What this is not
 

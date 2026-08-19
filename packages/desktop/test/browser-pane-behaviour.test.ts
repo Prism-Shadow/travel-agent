@@ -54,6 +54,11 @@ class FakeContents {
   });
   reload = vi.fn();
   stop = vi.fn();
+  setZoomFactor = vi.fn();
+  capturePage = vi.fn(async () => ({
+    isEmpty: () => false,
+    toDataURL: () => "data:image/png;base64,frozen-page",
+  }));
   setWindowOpenHandler = vi.fn();
   windowOpenHandler:
     ((details: { url: string }) => { action: string; createWindow?: () => unknown }) | null = null;
@@ -176,7 +181,16 @@ function makeWindow() {
   };
 }
 
-function makePane(options: { checkpointPath?: string; log?: (message: string) => void } = {}) {
+function makePane(
+  options: {
+    checkpointPath?: string;
+    log?: (message: string) => void;
+    initialBackends?: Record<string, "iab" | "extension">;
+    extensionBackendAvailable?: boolean;
+    onBackendChange?: (sessionId: string, backend: "iab" | "extension") => boolean;
+    onBackendSelected?: (backend: "iab" | "extension") => void;
+  } = {},
+) {
   const states: Array<Record<string, unknown>> = [];
   const closedByUser: Array<Record<string, unknown>> = [];
   const window = makeWindow();
@@ -258,6 +272,68 @@ describe("isNavigableUrl", () => {
 describe("initial state", () => {
   it("starts with the browser workspace open", () => {
     expect(makePane().pane.state().requested).toBe(true);
+  });
+});
+
+describe("page zoom", () => {
+  it("publishes and applies the selected tab's scale", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    const tabId = pane.openTabForUser("https://ctrip.com/");
+
+    expect(pane.state().tabs[0]?.zoomFactor).toBe(1);
+    pane.setZoom(tabId, 1.25);
+
+    expect(views[0]?.webContents.setZoomFactor).toHaveBeenLastCalledWith(1.25);
+    expect(pane.state().tabs[0]?.zoomFactor).toBe(1.25);
+  });
+
+  it("restores the scale when a crashed page is rebuilt", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    const tabId = pane.openTabForUser("https://ctrip.com/");
+    pane.setZoom(tabId, 0.8);
+
+    views[0]!.webContents.emit("render-process-gone", { reason: "crashed" });
+
+    expect(views[1]?.webContents.setZoomFactor).toHaveBeenCalledWith(0.8);
+    expect(pane.state().tabs[0]?.zoomFactor).toBe(0.8);
+  });
+
+  it.each([0.49, 2.01, Number.NaN])("refuses an unsafe factor of %s", (factor) => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    const tabId = pane.openTabForUser();
+    expect(() => pane.setZoom(tabId, factor)).toThrow(/between 0.5 and 2/);
+  });
+});
+
+describe("menu preview", () => {
+  it("captures the visible active page without changing its bounds", async () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    pane.setMeasurement({ x: 800, y: 40, width: 700, height: 800 });
+    pane.openTabForUser("https://ctrip.com/");
+    const before = views[0]?.setBounds.mock.lastCall;
+
+    await expect(pane.captureActivePage()).resolves.toEqual({
+      dataUrl: "data:image/png;base64,frozen-page",
+      bounds: { x: 800, y: 40, width: 700, height: 800 },
+    });
+    expect(views[0]?.webContents.capturePage).toHaveBeenCalledOnce();
+    expect(views[0]?.setBounds.mock.lastCall).toEqual(before);
+  });
+
+  it("does not capture a page that is hidden or belongs to the Chrome backend", async () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    pane.openTabForUser("https://ctrip.com/");
+
+    await expect(pane.captureActivePage()).resolves.toBeNull();
+    pane.setMeasurement({ x: 800, y: 40, width: 700, height: 800 });
+    await pane.setBackend("extension");
+    await expect(pane.captureActivePage()).resolves.toBeNull();
+    expect(views[0]?.webContents.capturePage).not.toHaveBeenCalled();
   });
 });
 
@@ -401,6 +477,142 @@ describe("scoping", () => {
     expect(pane.state().activeTabId).not.toBe(first);
     pane.setActiveSession("session-1");
     expect(pane.state().activeTabId).toBe(first);
+  });
+});
+
+describe("browser backend choice", () => {
+  it("makes IAB explicit when a desktop conversation becomes active", () => {
+    const changes: Array<[string, string]> = [];
+    const { pane } = makePane({
+      onBackendChange: (sessionId, backend) => {
+        changes.push([sessionId, backend]);
+        return true;
+      },
+    });
+
+    pane.setActiveSession("session-1");
+
+    expect(pane.state().backend).toBe("iab");
+    expect(changes).toEqual([["session-1", "iab"]]);
+  });
+
+  it("persists the default IAB choice before promoting a draft into its first task", () => {
+    const changes: Array<[string, string]> = [];
+    const { pane } = makePane({
+      onBackendChange: (sessionId, backend) => {
+        changes.push([sessionId, backend]);
+        return true;
+      },
+    });
+    pane.setActiveSession("draft-scope-0123456789abcdef0123456789abcdef");
+
+    pane.reassignActiveSession("session-created");
+
+    expect(changes).toEqual([["session-created", "iab"]]);
+    expect(pane.state().backend).toBe("iab");
+  });
+
+  it("keeps a draft choice in memory and persists it only under the real conversation id", () => {
+    const draft = "draft-scope-0123456789abcdef0123456789abcdef";
+    const changes: Array<[string, string]> = [];
+    const { pane } = makePane({
+      onBackendChange: (sessionId, backend) => {
+        changes.push([sessionId, backend]);
+        return true;
+      },
+    });
+    pane.setActiveSession(draft);
+
+    pane.setBackend("extension");
+    expect(changes).toEqual([]);
+
+    pane.reassignActiveSession("session-created");
+    expect(changes).toEqual([["session-created", "extension"]]);
+    expect(pane.state().backend).toBe("extension");
+  });
+
+  it("keeps a stored Chrome choice visible when Chrome is temporarily unavailable", () => {
+    const changes: Array<[string, string]> = [];
+    const { pane } = makePane({
+      initialBackends: { "session-1": "extension" },
+      extensionBackendAvailable: false,
+      onBackendChange: (sessionId, backend) => {
+        changes.push([sessionId, backend]);
+        return true;
+      },
+    });
+
+    pane.setActiveSession("session-1");
+
+    expect(pane.state()).toMatchObject({
+      backend: "extension",
+      extensionBackendAvailable: false,
+    });
+    expect(changes).toEqual([]);
+  });
+
+  it("lets the user explicitly switch an unavailable Chrome conversation back to IAB", () => {
+    const changes: Array<[string, string]> = [];
+    const selected: string[] = [];
+    const { pane } = makePane({
+      initialBackends: { "session-1": "extension" },
+      extensionBackendAvailable: false,
+      onBackendChange: (sessionId, backend) => {
+        changes.push([sessionId, backend]);
+        return true;
+      },
+      onBackendSelected: (backend) => selected.push(backend),
+    });
+    pane.setActiveSession("session-1");
+
+    pane.setBackend("iab");
+
+    expect(pane.state().backend).toBe("iab");
+    expect(changes.at(-1)).toEqual(["session-1", "iab"]);
+    expect(selected).toEqual(["iab"]);
+  });
+
+  it("does not change the UI when persistence fails", () => {
+    const { pane } = makePane({
+      initialBackends: { "session-1": "iab" },
+      onBackendChange: () => false,
+    });
+    pane.setActiveSession("session-1");
+
+    expect(() => pane.setBackend("extension")).toThrow(/could not be saved/i);
+    expect(pane.state().backend).toBe("iab");
+  });
+
+  it("does not promote a draft when the real conversation choice cannot be persisted", () => {
+    const draft = "draft-scope-0123456789abcdef0123456789abcdef";
+    const { pane } = makePane({ onBackendChange: () => false });
+    pane.setActiveSession(draft);
+
+    expect(() => pane.reassignActiveSession("session-created")).toThrow(/could not be saved/i);
+    expect(pane.state()).toMatchObject({ sessionScope: draft, backend: "iab" });
+  });
+
+  it("opens setup when the user actively selects Chrome, including reselecting it", () => {
+    const selected: string[] = [];
+    const changes: Array<[string, string]> = [];
+    const { pane } = makePane({
+      initialBackends: { "session-1": "iab" },
+      onBackendChange: (sessionId, backend) => {
+        changes.push([sessionId, backend]);
+        return true;
+      },
+      onBackendSelected: (backend) => selected.push(backend),
+    });
+    pane.setActiveSession("session-1");
+
+    pane.setBackend("extension");
+    pane.setBackend("extension");
+
+    expect(selected).toEqual(["extension", "extension"]);
+    expect(changes).toEqual([
+      ["session-1", "extension"],
+      ["session-1", "extension"],
+    ]);
   });
 });
 
@@ -843,13 +1055,14 @@ describe("declared outcomes", () => {
     expect(pane.state().tabs).toHaveLength(1);
   });
 
-  it("closes when every declaration was read-only", async () => {
+  it("keeps the final result when every declaration was read-only", async () => {
     const { pane } = await paneWithSession();
     await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
     pane.declareTaskOutcome("task-a", "read_only");
     pane.declareTaskOutcome("task-a", "read_only");
     pane.endTask("task-a", { abnormal: false });
-    expect(pane.state().tabs).toEqual([]);
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(pane.state().tabs[0]?.ownedByTask).toBeNull();
   });
 
   it("lets an abnormal ending override a read-only declaration", async () => {
@@ -875,7 +1088,7 @@ describe("declared outcomes", () => {
 });
 
 describe("end of task", () => {
-  it("closes a read-only task's tabs and keeps a marked one", async () => {
+  it("closes intermediate read-only tabs and keeps the final result", async () => {
     const { pane } = await paneWithSession();
     await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
     await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
@@ -905,7 +1118,8 @@ describe("end of task", () => {
 
     expect(pane.state().tabs.map((tab) => tab.ownedByTask)).toEqual(["task-b"]);
     pane.setActiveSession("session-1");
-    expect(pane.state().tabs).toEqual([]);
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(pane.state().tabs[0]?.ownedByTask).toBeNull();
   });
 });
 
@@ -1017,6 +1231,22 @@ describe("failed loads", () => {
 });
 
 describe("layout", () => {
+  it("hides IAB views while Chrome is selected and restores them when IAB is reselected", () => {
+    const { pane } = makePane({ onBackendChange: () => true });
+    pane.setActiveSession("session-1");
+    pane.setRequested(true);
+    pane.setMeasurement({ x: 800, y: 40, width: 700, height: 800 });
+    pane.openTabForUser("https://example.com/");
+    expect(views[0]!.setVisible).toHaveBeenLastCalledWith(true);
+
+    pane.setBackend("extension");
+    expect(views[0]!.setVisible).toHaveBeenLastCalledWith(false);
+    expect(pane.state().visible).toBe(false);
+
+    pane.setBackend("iab");
+    expect(views[0]!.setVisible).toHaveBeenLastCalledWith(true);
+  });
+
   it("positions and shows only the active tab", async () => {
     const { pane } = await paneWithSession("session-1", "a");
     await pane.openTabForAgent({ sessionId: "session-1", taskId: "a" });
@@ -1778,9 +2008,9 @@ describe("a tab left with no view", () => {
     });
   });
 
-  it("is closed by the end-of-task rules like any other", async () => {
-    // A read-only turn closes its tabs. One with no view must go the same way rather than throwing
-    // on a `WebContents` that is not there.
+  it("keeps the final result even when its view is missing", async () => {
+    // A read-only turn releases its final result. One with no view must do the same without
+    // throwing on a `WebContents` that is not there.
     const { pane } = await paneWithSession("session-1", "task-a");
     await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
 
@@ -1791,7 +2021,8 @@ describe("a tab left with no view", () => {
 
     pane.declareTaskOutcome("task-a", "read_only");
     expect(() => pane.endTask("task-a", { abnormal: false })).not.toThrow();
-    expect(pane.state().tabs).toEqual([]);
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(pane.state().tabs[0]?.ownedByTask).toBeNull();
   });
 
   it("keeps the page it lost when a retry fails again", async () => {

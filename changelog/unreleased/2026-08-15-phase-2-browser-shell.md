@@ -7,7 +7,8 @@ underneath all of it, an answer to a question the previous phase could avoid wit
 
 At this checkpoint the pane was still off by default. The startup default was later superseded:
 current Desktop builds enable and open the IAB automatically, while `chrome.fallback` still gates
-offering the user's own Chrome as an alternative.
+offering the user's own Chrome as an alternative. That second statement was superseded on
+2026-08-19: Chrome now ships as an available option while IAB remains selected by default.
 
 ## The question that had no answer
 

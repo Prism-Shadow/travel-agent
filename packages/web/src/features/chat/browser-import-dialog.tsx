@@ -45,11 +45,14 @@ import { toastError, toastInfo, toastSuccess } from "../../components/ui/toast";
 /** Listed in the order the dialog shows them. */
 const KINDS: DesktopImportKind[] = ["passwords", "cookies", "history"];
 
-const KIND_LABEL: Record<DesktopImportKind, string> = {
-  passwords: S.chat.browserPane.import.passwords,
-  cookies: S.chat.browserPane.import.cookies,
-  history: S.chat.browserPane.import.history,
-};
+/** Reads the live locale binding; a module-level object would freeze the default Chinese labels. */
+export function browserImportKindLabel(kind: DesktopImportKind): string {
+  return {
+    passwords: S.chat.browserPane.import.passwords,
+    cookies: S.chat.browserPane.import.cookies,
+    history: S.chat.browserPane.import.history,
+  }[kind];
+}
 
 const KIND_ICON = {
   passwords: KeyIcon,
@@ -149,7 +152,9 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
       // keychain, an unreadable scheme, no encrypted storage) and one merged message would say
       // none of them.
       for (const result of outcome.results) {
-        if (result.failure !== null) toastError(`${KIND_LABEL[result.kind]}: ${result.failure}`);
+        if (result.failure !== null) {
+          toastError(`${browserImportKindLabel(result.kind)}: ${result.failure}`);
+        }
       }
       const imported = outcome.results.reduce((total, result) => total + result.imported, 0);
       const skipped = outcome.results.reduce((total, result) => total + result.skipped, 0);
@@ -267,7 +272,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
                     />
                     <div className="min-w-0 flex-1">
                       <span className="block text-sm leading-5 font-medium text-gray-900 dark:text-gray-100">
-                        {KIND_LABEL[kind]}
+                        {browserImportKindLabel(kind)}
                       </span>
                       {blocked !== null && (
                         <p className="truncate text-[10px] leading-3.5 text-gray-400 dark:text-gray-500">
@@ -279,7 +284,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
                       size="compact"
                       checked={blocked === null && selected.has(kind)}
                       disabled={!hydrated || busy || blocked !== null}
-                      aria-label={KIND_LABEL[kind]}
+                      aria-label={browserImportKindLabel(kind)}
                       className="aria-checked:!bg-[#3098f7]"
                       onChange={(next) =>
                         setSelected((current) => {

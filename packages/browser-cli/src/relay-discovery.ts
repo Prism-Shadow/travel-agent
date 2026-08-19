@@ -219,6 +219,45 @@ export async function resolveRelayEndpoint(options: {
  * every time the relay starts and a preference must survive that.
  */
 export type BrowserBackend = 'iab' | 'extension'
+export type BrowserBackendRequest = BrowserBackend | 'auto'
+export type StandaloneBrowserMode = 'headless' | 'cloud' | 'direct'
+
+/**
+ * Resolves the CLI's backend request against the desktop shell's per-conversation choice.
+ *
+ * A recorded choice is authority, not a hint: an agent cannot force the other browser by changing
+ * flags. `auto` is the normal task path. When there is no record, extension preserves the CLI's
+ * standalone/plain-web behaviour; Desktop writes an explicit `iab` record before its first task.
+ */
+export function resolveBackendRequest(input: {
+  requested: BrowserBackendRequest
+  preference: BrowserBackend | null
+}): BrowserBackend {
+  if (input.requested === 'auto') return input.preference ?? 'extension'
+  if (input.preference !== null && input.preference !== input.requested) {
+    const chosen = input.preference === 'iab' ? 'the in-app browser' : 'your own Chrome'
+    throw new Error(
+      `This conversation is set to use ${chosen}. Change the choice in the browser panel before ` +
+        `starting the task; the browser backend cannot be overridden from the agent CLI.`,
+    )
+  }
+  return input.requested
+}
+
+/**
+ * Direct/headless/cloud are standalone and developer modes, not hidden third choices for a Desktop
+ * conversation. Refuse them whenever Desktop has recorded either user-visible backend.
+ */
+export function assertStandaloneBrowserModeAllowed(
+  preference: BrowserBackend | null,
+  mode: StandaloneBrowserMode,
+): void {
+  if (preference === null) return
+  throw new Error(
+    `This task belongs to a desktop conversation set to ${preference}. ${mode} mode cannot ` +
+      'override it; change the Browser menu between tasks instead.',
+  )
+}
 
 /** Bumped if the shape changes incompatibly; an unknown version reads as "no preference". */
 export const BACKEND_PREFERENCE_VERSION = 2
@@ -290,15 +329,15 @@ export function readAllBackendPreferences(
  * Records one conversation's choice.
  *
  * Written through a temporary file and renamed, so a crash mid-write leaves the previous choices
- * rather than a truncated file. One attempt at the rename: if it fails — on Windows another process
- * can hold the destination open — the old file stays, which is a better outcome than none.
+ * rather than a truncated file. Windows cannot always rename over an existing destination, so the
+ * fallback briefly parks the old file as a backup and restores it if replacement fails.
  */
 export function writeBackendPreference(
   sessionId: string,
   backend: BrowserBackend,
   baseDir: string = DISCOVERY_BASE_DIR,
-): void {
-  if (!sessionId) return
+): boolean {
+  if (!sessionId) return false
   const current = readBackendFile(baseDir)
   // Re-inserted rather than updated in place, so the most recently touched conversation is the last
   // to be pruned.
@@ -314,15 +353,45 @@ export function writeBackendPreference(
 
   const target = backendPreferencePath(baseDir)
   const temporary = `${target}.${randomBytes(6).toString('hex')}.tmp`
+  const backup = `${target}.${randomBytes(6).toString('hex')}.bak`
   try {
     fs.mkdirSync(baseDir, { recursive: true })
     fs.writeFileSync(temporary, JSON.stringify(record), { encoding: 'utf-8', mode: 0o600 })
-    fs.renameSync(temporary, target)
+    try {
+      fs.renameSync(temporary, target)
+    } catch (replaceError) {
+      // `rename(temp, existing)` is atomic on POSIX but fails on Windows. Moving the valid old
+      // record aside first lets us replace it without ever truncating it in place.
+      if (!fs.existsSync(target)) throw replaceError
+      fs.renameSync(target, backup)
+      try {
+        fs.renameSync(temporary, target)
+      } catch (secondError) {
+        try {
+          if (!fs.existsSync(target)) fs.renameSync(backup, target)
+        } catch {
+          // The return value below tells callers not to commit their in-memory selection.
+        }
+        throw secondError
+      }
+      try {
+        fs.unlinkSync(backup)
+      } catch {
+        // A stale backup is harmless; the canonical target already contains the complete record.
+      }
+    }
+    return true
   } catch {
     try {
       fs.unlinkSync(temporary)
     } catch {
       // Nothing to clean up.
     }
+    try {
+      if (fs.existsSync(backup) && !fs.existsSync(target)) fs.renameSync(backup, target)
+    } catch {
+      // Best effort restoration; callers receive false and keep their prior in-memory choice.
+    }
+    return false
   }
 }

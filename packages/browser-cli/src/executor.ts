@@ -32,7 +32,13 @@ import { requestUserInteraction, type RequestInteractionOptions } from './user-i
 import { sandboxedProcess } from './sandboxed-process.js'
 import { guardHelper, guardPage, unguard } from './write-gate.js'
 import { forgetControl } from './handover-state.js'
-import { ClaimResult, selectReusableBlankTargetId, SerializedOwnedTabOpener, tabRegistry } from './tab-ownership.js'
+import {
+  ClaimResult,
+  isReusableIabBootstrapTarget,
+  selectReusableBlankTargetId,
+  SerializedOwnedTabOpener,
+  tabRegistry,
+} from './tab-ownership.js'
 import {
   classifyOutcome,
   clickThrough,
@@ -332,6 +338,8 @@ export interface CdpConfig {
    * every `iab-open-tab`, so a tab opened on the tenth call is attributed exactly like the first.
    */
   iabIdentity?: { sessionId: string; taskId: string }
+  /** Exact placeholder target created by `session new` so the first `tabs.open()` can consume it. */
+  iabBootstrapTargetId?: string
 }
 
 export interface SessionMetadata {
@@ -406,7 +414,7 @@ export class PlaywrightExecutor {
   /** Page -> CDP target id. Resolving costs a round trip; identity never changes. */
   private readonly targetIdCache = new WeakMap<Page, string>()
   /** Only tab acquisition is serialized; independent execute calls may otherwise run concurrently. */
-  private readonly tabOpener = new SerializedOwnedTabOpener<Page>()
+  private readonly tabOpener: SerializedOwnedTabOpener<Page>
 
   private userState: Record<string, any> = {}
   private browserLogs: Map<Page, string[]> = new Map()
@@ -451,6 +459,7 @@ export class PlaywrightExecutor {
   constructor(options: ExecutorOptions) {
     this.sessionId = options.sessionId ?? 'default'
     this.cdpConfig = options.cdpConfig
+    this.tabOpener = new SerializedOwnedTabOpener<Page>(options.cdpConfig.iabBootstrapTargetId)
     this.logger = options.logger || { log: console.log, error: console.error }
     this.sessionMetadata = options.sessionMetadata || { extensionId: null, browser: null, profile: null }
     this.sessionCwd = options.cwd ? path.resolve(options.cwd) : null
@@ -1903,9 +1912,9 @@ export class PlaywrightExecutor {
           ownerOf: async (target: Page) =>
             tabRegistry.ownerOf(await this.targetIdFor(unguard(target))) ?? null,
           /**
-           * A tab already claimed by this session. Reuses an unclaimed about:blank when
-           * AUTO_ENABLE left one behind; otherwise creates a new tab. Safe replacement
-           * for `context.pages().find(idle) ?? context.newPage()`, which is the racy idiom.
+           * A tab already claimed by this session. First consumes the exact IAB bootstrap or, in
+           * extension mode, an unclaimed about:blank left by AUTO_ENABLE; otherwise creates a new
+           * tab. Safe replacement for the racy `context.pages().find(idle) ?? context.newPage()`.
            */
           // Opening a tab is a write: it is on 002 §6.5's list because a new page appearing under
           // somebody who is mid-form is as disruptive as clicking in the one they are using.
@@ -2325,27 +2334,38 @@ export class PlaywrightExecutor {
   /**
    * A tab claimed before it is handed back.
    *
-   * Reuses an unclaimed about:blank when one is already sitting there — AUTO_ENABLE
-   * creates one on connect and again after the last authorized tab is closed, and
-   * `tabs.open(url)` used to stack a second tab on top of it. A claimed blank, or a
-   * tab that already has a URL, is left alone. If the reuse claim loses a race,
-   * fall through to `newPage()` so two sessions never share the same tab.
+   * IAB consumes only the exact placeholder created for this relay session; Chrome extension mode
+   * may reuse an unclaimed about:blank left by AUTO_ENABLE. A claimed arbitrary blank, or a tab
+   * that already has a URL, is left alone. If a normal reuse claim loses a race, fall through to
+   * `newPage()` so two sessions never share the same tab.
    */
   private async openOwnedTab(url?: string): Promise<Page> {
     const context = this.context
     if (!context) throw new Error('No browser context is connected')
 
-    // A freshly created about:blank is briefly visible to every executor before this
-    // session resolves its target id and claims it. If another session wins that window,
-    // never return the now-foreign page: retry and preserve no-stealing.
-    // The in-app browser has one view in Phase 1, and the shell owns its lifecycle. Asking it for
-    // a tab returns that view — already claimed by this session on a second call — so the
-    // no-stealing retry loop below would spin against a page it can never "newly" claim. Ask, then
-    // claim if it is free.
+    // Session creation must bootstrap one IAB view before Playwright can connect: without an
+    // existing target there is no CDP channel through which `iab-open-tab` can reach the shell.
+    // The first open navigates that exact, already-owned placeholder in place. Subsequent calls
+    // still create genuine tabs, and all calls share this queue so concurrent opens cannot both
+    // consume the one-shot marker.
     if (this.cdpConfig.iab) {
-      const page = await this.createIabPage(url)
-      await this.claimTab(page)
-      return page
+      return this.tabOpener.openBootstrapFirst({
+        findBootstrap: (targetId) => this.findIabBootstrapPage(targetId),
+        useBootstrap: async (page) => {
+          if (url) await page.goto(url, { waitUntil: 'domcontentloaded' })
+          return page
+        },
+        create: async () => {
+          const page = await this.createIabPage(url)
+          const claim = await this.claimTab(page)
+          if (!claim.ok) {
+            throw new Error(
+              `The in-app browser opened a tab but this session could not claim it; it is held by ${claim.heldBy}.`,
+            )
+          }
+          return page
+        },
+      })
     }
 
     return this.tabOpener.open({
@@ -2447,6 +2467,26 @@ export class PlaywrightExecutor {
     }
     const reusableId = selectReusableBlankTargetId(candidates)
     return candidates.find((candidate) => candidate.targetId === reusableId)?.page ?? null
+  }
+
+  /** Returns only this session's exact, still-blank IAB bootstrap target. */
+  private async findIabBootstrapPage(expectedTargetId: string): Promise<Page | null> {
+    for (const page of this.livePages()) {
+      const targetId = await this.targetIdFor(page).catch(() => null)
+      if (targetId !== expectedTargetId) continue
+      return isReusableIabBootstrapTarget(
+        {
+          targetId,
+          isBlank: this.isBlankPage(page),
+          owner: tabRegistry.ownerOf(targetId),
+        },
+        expectedTargetId,
+        this.sessionId,
+      )
+        ? page
+        : null
+    }
+    return null
   }
 
 }

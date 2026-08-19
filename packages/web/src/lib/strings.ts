@@ -851,16 +851,34 @@ export const zh = {
       backendIab: "应用内浏览器",
       backendExtension: "我自己的 Chrome（扩展）",
       backendExtensionHint: "使用 Chrome 中已有的登录状态；若扩展尚未连接，将打开安装引导",
+      backendExtensionSelected:
+        "下一项任务将使用 Chrome。若要使用已有标签页，请在该页点击扩展图标。",
+      backendExtensionUnavailableSelected:
+        "已选择 Chrome，但当前无法连接。请改选应用内浏览器，或解决连接问题后重启。",
+      chromePanelTitle: "此对话将使用你的 Chrome",
+      chromePanelBody:
+        "下一项 Agent 任务会在 Chrome 中创建并控制自己的标签页。这里不会镜像 Chrome，也不会自动转移应用内浏览器的当前页面。",
+      chromePanelUnavailable:
+        "Chrome 目前不可连接。请从右上角菜单改选应用内浏览器，或解决中继端口冲突后重启应用。",
+      chromePanelIabSafe: "应用内浏览器的页面仍会保留；改选回来即可继续查看。",
+      chromePanelCheck: "检查或设置 Chrome 扩展",
+      inAppBrowserData: "应用内浏览器数据",
       /** Deliberately says "default browser": this opens the OS handler, which may not be the
           browser the extension is connected to. The real backend handoff is the extension. */
-      openInDefaultBrowser: "在系统默认浏览器中打开此页",
-      openInDefaultBrowserHint: "会在系统默认浏览器中另开一份，不会把当前登录状态带过去",
+      openInDefaultBrowser: "在系统默认浏览器中打开当前应用内页面",
+      openInDefaultBrowserHint:
+        "只会在系统默认浏览器中另开一份，不会切换 Agent 的浏览器后端，也不会带入当前登录状态",
       backendLocked: "任务进行中，不能切换浏览器",
       backendUnavailable: "本次运行连不到扩展所在的中继端口，无法使用你自己的 Chrome",
       profileResetLocked: "有任务正在使用浏览器，暂时不能清除数据",
       clearProfileDone: "已清除浏览器数据",
       clearProfileFailed: "清除浏览器数据失败",
       backendFailed: "切换浏览器失败",
+      zoom: "缩放",
+      zoomOut: "缩小",
+      zoomIn: "放大",
+      zoomReset: "恢复 100%",
+      zoomFailed: "调整页面缩放失败",
       openInDefaultBrowserFailed: "无法在系统默认浏览器中打开此页",
       suggestions: "网址建议",
       /** The "sign in as youhai@example.com" bar. User-pressed only; the agent cannot use these. */

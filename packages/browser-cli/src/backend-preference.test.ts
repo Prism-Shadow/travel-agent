@@ -12,9 +12,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   BACKEND_PREFERENCE_VERSION,
   MAX_BACKEND_PREFERENCES,
+  assertStandaloneBrowserModeAllowed,
   backendPreferencePath,
   readAllBackendPreferences,
   readBackendPreference,
+  resolveBackendRequest,
   writeBackendPreference,
 } from './relay-discovery.js'
 
@@ -39,8 +41,10 @@ describe('readBackendPreference', () => {
 
   it('round-trips a choice', () => {
     const dir = tempDir()
-    writeBackendPreference('session-1', 'extension', dir)
+    expect(writeBackendPreference('session-1', 'extension', dir)).toBe(true)
     expect(readBackendPreference('session-1', dir)).toBe('extension')
+    expect(writeBackendPreference('session-1', 'iab', dir)).toBe(true)
+    expect(readBackendPreference('session-1', dir)).toBe('iab')
   })
 
   it('keeps conversations apart', () => {
@@ -105,7 +109,61 @@ describe('readBackendPreference', () => {
 
   it('ignores a blank session id instead of writing one', () => {
     const dir = tempDir()
-    writeBackendPreference('', 'extension', dir)
+    expect(writeBackendPreference('', 'extension', dir)).toBe(false)
     expect(readAllBackendPreferences(dir)).toEqual({})
   })
+
+  it('reports a persistence failure instead of letting the UI claim success', () => {
+    const blocked = path.join(tempDir(), 'not-a-directory')
+    fs.writeFileSync(blocked, 'occupied')
+    expect(writeBackendPreference('session-1', 'extension', blocked)).toBe(false)
+    expect(readBackendPreference('session-1', blocked)).toBeNull()
+  })
+})
+
+describe('resolveBackendRequest', () => {
+  it('uses the recorded per-conversation choice in auto mode', () => {
+    expect(resolveBackendRequest({ requested: 'auto', preference: 'iab' })).toBe('iab')
+    expect(resolveBackendRequest({ requested: 'auto', preference: 'extension' })).toBe('extension')
+  })
+
+  it('keeps standalone and plain-web CLI use on the extension backend', () => {
+    expect(resolveBackendRequest({ requested: 'auto', preference: null })).toBe('extension')
+  })
+
+  it('allows an explicit backend when no desktop conversation has recorded a choice', () => {
+    expect(resolveBackendRequest({ requested: 'iab', preference: null })).toBe('iab')
+    expect(resolveBackendRequest({ requested: 'extension', preference: null })).toBe('extension')
+  })
+
+  it('refuses overriding an IAB conversation from the CLI', () => {
+    expect(() =>
+      resolveBackendRequest({ requested: 'extension', preference: 'iab' }),
+    ).toThrow(/set to use the in-app browser.*cannot be overridden/i)
+  })
+
+  it('refuses overriding a Chrome conversation from the CLI', () => {
+    expect(() => resolveBackendRequest({ requested: 'iab', preference: 'extension' })).toThrow(
+      /set to use your own Chrome.*cannot be overridden/i,
+    )
+  })
+
+  it.each(['headless', 'cloud', 'direct'] as const)(
+    'refuses %s mode when a Desktop conversation has a browser choice',
+    (mode) => {
+      expect(() => assertStandaloneBrowserModeAllowed('iab', mode)).toThrow(
+        /desktop conversation.*cannot override/i,
+      )
+      expect(() => assertStandaloneBrowserModeAllowed('extension', mode)).toThrow(
+        /desktop conversation.*cannot override/i,
+      )
+    },
+  )
+
+  it.each(['headless', 'cloud', 'direct'] as const)(
+    'keeps standalone %s mode available without a Desktop preference',
+    (mode) => {
+      expect(() => assertStandaloneBrowserModeAllowed(null, mode)).not.toThrow()
+    },
+  )
 })

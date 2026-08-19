@@ -16,7 +16,14 @@ Buffer.prototype[util.inspect.custom] = function () {
 import { killPortProcess } from './kill-port.js'
 import { canEmitKittyGraphics, emitKittyImage } from './kitty-graphics.js'
 import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './utils.js'
-import { readBackendPreference, resolveRelayEndpoint } from './relay-discovery.js'
+import {
+  assertStandaloneBrowserModeAllowed,
+  readBackendPreference,
+  resolveBackendRequest,
+  resolveRelayEndpoint,
+  type BrowserBackendRequest,
+  type StandaloneBrowserMode,
+} from './relay-discovery.js'
 import { MISSING_IDENTITY_MESSAGE, readAgentIdentity } from './agent-identity.js'
 import { iabKeyFromEnv } from './iab-key.js'
 import {
@@ -437,6 +444,12 @@ interface BrowserOption {
   activeCloudSessionId?: string
 }
 
+function parseBackendRequest(value: unknown): BrowserBackendRequest {
+  if (value === undefined) return 'auto'
+  if (value === 'auto' || value === 'iab' || value === 'extension') return value
+  throw new Error(`Unknown browser backend "${String(value)}". Use auto, iab, or extension.`)
+}
+
 cli
   .command('session new', 'Create a new session and print the session ID')
   .option('--host <host>', 'Remote relay server host')
@@ -456,7 +469,11 @@ cli
   )
   .option(
     '--iab',
-    "Drive the desktop app's in-app browser pane instead of Chrome. Requires the Travel Agent desktop app to be running; it owns the relay and the WebContentsView.",
+    "Deprecated alias for --backend iab. The per-conversation choice still takes precedence.",
+  )
+  .option(
+    '--backend <backend>',
+    'Browser backend: auto (the conversation choice), iab, or extension. Default: auto.',
   )
   .option('--custom-proxy <url>', 'Custom proxy for cloud browser (host:port or user:pass@host:port)')
   .option('--timeout <minutes>', 'Cloud browser timeout in minutes (1-240, default 60)')
@@ -471,28 +488,83 @@ cli
 
     const isLocal = !options.host && !process.env.PENGUIN_BROWSER_HOST
 
-    // --iab: the desktop shell's in-app WebContentsView. No browser to find or launch — the
-    // shell is already connected to the relay, so this only picks which backend to bind.
-    if (options.iab) {
+    const identity = readAgentIdentity()
+    const backendPreference = identity ? readBackendPreference(identity.sessionId) : null
+    let backendOption: BrowserBackendRequest
+    try {
+      backendOption = parseBackendRequest(options.backend)
+    } catch (error) {
+      console.error((error as Error).message)
+      process.exit(1)
+    }
+
+    if (options.iab && options.backend !== undefined) {
+      console.error('Use either --iab or --backend, not both.')
+      process.exit(1)
+    }
+    if (options.browser && (options.iab || backendOption === 'iab')) {
+      console.error('A concrete --browser selects Chrome and cannot be combined with the IAB backend.')
+      process.exit(1)
+    }
+
+    const specialModes: StandaloneBrowserMode[] = []
+    if (options.browser === 'headless') specialModes.push('headless')
+    if (typeof options.browser === 'string' && options.browser.startsWith('cloud')) {
+      specialModes.push('cloud')
+    }
+    if (typeof options.browser === 'string' && options.browser.startsWith('direct:')) {
+      specialModes.push('direct')
+    }
+    if (options.direct !== undefined) specialModes.push('direct')
+    if (specialModes.length > 1) {
+      console.error('Choose only one of headless, cloud, or direct CDP mode.')
+      process.exit(1)
+    }
+    const specialMode = specialModes[0] ?? null
+    const specialBrowser = specialMode !== null
+    if (specialBrowser && (options.iab || options.backend !== undefined)) {
+      console.error('--backend/--iab cannot be combined with headless, cloud, or direct CDP mode.')
+      process.exit(1)
+    }
+    if (specialMode !== null) {
+      try {
+        assertStandaloneBrowserModeAllowed(backendPreference, specialMode)
+      } catch (error) {
+        console.error((error as Error).message)
+        process.exit(1)
+      }
+    }
+
+    let selectedBackend: 'iab' | 'extension' | null = null
+    if (!specialBrowser) {
+      // Naming a concrete browser key is an explicit extension request. `--backend auto` does not
+      // turn that back into IAB; the recorded conversation choice still has authority below.
+      const requested: BrowserBackendRequest = options.iab
+        ? 'iab'
+        : options.browser
+          ? backendOption === 'iab'
+            ? 'iab'
+            : 'extension'
+          : backendOption
+      try {
+        selectedBackend = resolveBackendRequest({
+          requested,
+          preference: backendPreference,
+        })
+      } catch (error) {
+        console.error((error as Error).message)
+        process.exit(1)
+      }
+    }
+
+    // IAB: the desktop shell's WebContentsView. Auto mode reaches this branch from the explicit
+    // per-conversation preference Desktop writes before the task starts.
+    if (selectedBackend === 'iab') {
       // Resolved before anything is opened. A tab belongs to a conversation and to a task, and
       // neither can be inferred here — refusing now produces one clear message instead of a
       // session whose first `tabs.open()` fails for a reason nothing explains.
-      const identity = readAgentIdentity()
       if (!identity) {
         console.error(MISSING_IDENTITY_MESSAGE)
-        process.exit(1)
-      }
-      // The user's own choice of backend outranks the flag, and it is *per conversation*: two chats
-      // can legitimately use different browsers, so the preference is read for this session rather
-      // than as one global setting. Honouring it here, instead of silently opening the in-app
-      // browser anyway, is what makes it a decision rather than a preference nobody reads
-      // (design/002 §6.1, §7.3).
-      if (readBackendPreference(identity.sessionId) === 'extension') {
-        console.error(
-          'This conversation is set to use your own Chrome, so the in-app browser is not ' +
-            'available to it. Run this command without --iab to use the extension backend, or ' +
-            "change the choice in the browser panel's menu.",
-        )
         process.exit(1)
       }
 
@@ -700,8 +772,9 @@ cli
     }
 
     if (extensions.length === 0) {
-      // Before giving up, check if cloud browsers are available
-      const cloudOptions = await discoverCloudBrowsers()
+      // Cloud is a standalone/developer alternative, never a fallback from the browser explicitly
+      // selected for a Desktop conversation.
+      const cloudOptions = backendPreference === null ? await discoverCloudBrowsers() : []
       if (cloudOptions.length > 0) {
         // Cloud-only user: skip extension requirement, show cloud options
         await ensureRelayForSessionCreation(isLocal)
@@ -750,13 +823,24 @@ cli
       if (options.browser) {
         await handleCloudBrowserNotFound(options.browser, { hasCloudOptions: false })
       }
-      console.error('No connected browsers detected. Click the Penguin Browser extension icon.')
-      console.error(pc.dim('Tip: Use --direct to connect via Chrome DevTools Protocol instead.'))
       console.error(
-        pc.dim(
-          'Tip: Cloud browsers require a configured private deployment; see `penguin-browser cloud login --help`.',
-        ),
+        'No Chrome extension is connected. Open Chrome or finish extension setup from the Browser menu.',
       )
+      console.error(
+        pc.dim('Click the extension icon only when this task needs a specific tab you already opened.'),
+      )
+      if (backendPreference === null) {
+        console.error(pc.dim('Tip: Use --direct to connect via Chrome DevTools Protocol instead.'))
+        console.error(
+          pc.dim(
+            'Tip: Cloud browsers require a configured private deployment; see `penguin-browser cloud login --help`.',
+          ),
+        )
+      } else {
+        console.error(
+          pc.dim('Keep Chrome selected and finish setup, or choose IAB in the Browser menu between tasks.'),
+        )
+      }
       process.exit(1)
     }
 
@@ -801,15 +885,17 @@ cli
 
     // Multiple extensions: also discover direct CDP instances and cloud browsers.
     // Direct discovery only works locally — remote relay can't reach local Chrome debug ports.
-    const directInstances = isLocal
+    const directInstances = backendPreference === null && isLocal
       ? await (async () => {
           console.log(pc.dim('Discovering additional Chrome instances...'))
           return await discoverChromeInstances()
         })()
       : []
 
-    // Fetch cloud browser slots if user is logged in
-    const cloudOptions = await discoverCloudBrowsers()
+    // A Desktop conversation exposes only the chosen product backend here. Standalone direct and
+    // cloud browsers remain available to plain CLI/web use, but are neither offered nor accepted
+    // as hidden alternatives to a conversation's Browser-menu choice.
+    const cloudOptions = backendPreference === null ? await discoverCloudBrowsers() : []
 
     const allOptions: BrowserOption[] = [
       ...extensions.map((ext) => {

@@ -52,6 +52,8 @@ class BackendDouble {
   readonly received: Forwarded[] = []
   /** Methods the shell should answer with an error, by name. */
   readonly refuse = new Map<string, string>()
+  /** Exact result of the shell-owned tab creation command. */
+  openTabResult: unknown = { targetId: 'bootstrap-target' }
   private socket: WebSocket | null = null
 
   constructor(
@@ -90,6 +92,10 @@ class BackendDouble {
       if (refusal) {
         // A string, which is how the shell states a refusal.
         socket.send(JSON.stringify({ id: message.id, error: refusal }))
+        return
+      }
+      if (inner === 'iab-open-tab') {
+        socket.send(JSON.stringify({ id: message.id, result: this.openTabResult }))
         return
       }
       socket.send(JSON.stringify({ id: message.id, result: { ok: true, echoed: inner } }))
@@ -296,6 +302,48 @@ beforeEach(async () => {
     owner: { sessionScope: 'session-b', taskId: 'task-b', relaySessionId: 'relay-b' },
   })
   await settle()
+})
+
+describe('IAB session bootstrap contract', () => {
+  it.each([{ ok: true }, { targetId: '' }, { targetId: '   ' }])(
+    'requires the shell to return a non-empty exact bootstrap target id',
+    async (invalidResult) => {
+      backend.openTabResult = invalidResult
+
+      const response = await fetch(`http://127.0.0.1:${port}/cli/session/new`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ iab: true, sessionId: 'session-a', taskId: 'task-a' }),
+      })
+      const body = (await response.json()) as {
+        error?: { code?: string; message?: string }
+      }
+
+      expect(response.status).toBe(502)
+      expect(body.error?.code).toBe('IAB_BOOTSTRAP_FAILED')
+      expect(body.error?.message).toContain('did not return the bootstrap target id')
+    },
+  )
+
+  it('creates the session when a non-empty bootstrap target id is returned', async () => {
+    backend.openTabResult = { targetId: 'bootstrap-exact' }
+
+    const response = await fetch(`http://127.0.0.1:${port}/cli/session/new`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ iab: true, sessionId: 'session-a', taskId: 'task-a' }),
+    })
+    const body = (await response.json()) as { id?: string; mode?: string }
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ mode: 'iab' })
+    expect(
+      backend.received.some(
+        (entry) =>
+          entry.method === 'iab-open-tab' && entry.params.relaySessionId === body.id,
+      ),
+    ).toBe(true)
+  })
 })
 
 describe('what a conversation can see', () => {

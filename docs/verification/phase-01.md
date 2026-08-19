@@ -1,5 +1,9 @@
 # Phase 1 verification record
 
+> Historical checkpoint (2026-08-15). Current product defaults changed on 2026-08-19: IAB remains
+> the selected Desktop default and Chrome is now a user-visible alternative. Commands and flag
+> statements below preserve the evidence as it was collected.
+
 | | |
 | --- | --- |
 | Phase | 1 — Vertical slice：左聊右览（design/004 §2 Phase 1） |

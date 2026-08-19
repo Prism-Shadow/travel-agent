@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe("resolveTabDisposition", () => {
-  it("closes a read-only task's tabs", () => {
+  it("treats an unmarked read-only tab as an intermediate cleanup candidate", () => {
     expect(resolveTabDisposition({ id: "t1", retain: false, ownedByTask: "a" }, "read_only")).toBe(
       "close",
     );
@@ -73,6 +73,19 @@ describe("planTaskEnd", () => {
 
   it("only considers the ending task's tabs", () => {
     const plan = planTaskEnd(tabs, "task-a", "read_only");
+    expect(plan.close).toEqual(["t1"]);
+    expect(plan.retain).toEqual(["t2"]);
+  });
+
+  it("keeps the selected final result of a read-only task", () => {
+    const plan = planTaskEnd(tabs, "task-a", "read_only", { readOnlyResultTabId: "t1" });
+    expect(plan.close).toEqual([]);
+    expect(plan.retain).toEqual(["t1", "t2"]);
+  });
+
+  it("keeps the newest owned tab when the selected page is not the task's", () => {
+    const unmarked = tabs.map((tab) => ({ ...tab, retain: false }));
+    const plan = planTaskEnd(unmarked, "task-a", "read_only", { readOnlyResultTabId: "t4" });
     expect(plan.close).toEqual(["t1"]);
     expect(plan.retain).toEqual(["t2"]);
   });

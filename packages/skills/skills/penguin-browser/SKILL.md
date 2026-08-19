@@ -1,15 +1,15 @@
 ---
 name: penguin-browser
-description: Control explicitly authorized tabs in the user's local Chrome through the Penguin Browser CLI, a local CDP relay, and persistent Playwright sessions. Use for interactive or authenticated browser tasks that require the rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
-short_description: Automate authorized Chrome tabs through the local CLI.
-short_description_zh: 通过本地 CLI 自动化已授权的 Chrome 标签页。
-version: 7
-updated: 2026-08-15T00:00:00Z
+description: Control the browser backend selected for a Travel Agent conversation through the Penguin Browser CLI and persistent Playwright sessions. Desktop conversations default to the visible in-app browser; the user's own Chrome is an explicit alternative for reusing that profile or an existing authorized tab. Use for interactive or authenticated browser tasks that require rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
+short_description: Automate the conversation's selected browser backend.
+short_description_zh: 通过本地 CLI 自动化对话中由用户选择的浏览器后端。
+version: 9
+updated: 2026-08-19T00:00:00Z
 ---
 
 # Penguin Browser
 
-Penguin Browser drives explicitly authorized tabs in the user's existing Chrome. The extension attaches to a tab with `chrome.debugger`, a local relay listens on port `19989`, and the CLI evaluates Playwright JavaScript in a persistent session.
+Penguin Browser drives the backend selected for the current conversation. In the Travel Agent desktop app, the default is the visible in-app browser (IAB). The user may instead select **My own Chrome (extension)** in the Browser menu to reuse their Chrome profile. The local relay and CLI evaluate Playwright JavaScript in a persistent task session for either backend.
 
 Use Penguin Browser only through normal command execution. PenguinHarness does not gain special `penguin-browser` tools from this skill. Do not invent tool names such as `penguin_browser_execute` or treat MCP's `execute` operation as a native PenguinHarness function.
 
@@ -31,88 +31,99 @@ If neither the command nor `packages/browser-cli/dist/cli.js` exists, stop and t
 
 In every example below, `penguin-browser` means that resolved command.
 
-### 2. Check prerequisites and status
+### 2. Follow the conversation's backend choice
+
+Create a session in automatic mode. The Desktop records its per-conversation selection before the
+task starts, so do not guess from the requested website and do not add `--iab`, `--backend`,
+`--browser`, or `--direct` to override it:
+
+```bash
+penguin-browser session new
+```
+
+Resolution is deliberately asymmetric only when no Desktop preference exists:
+
+- A Desktop conversation with no prior user change is explicitly recorded as **IAB**.
+- A Desktop conversation where the user selected Chrome resolves to **extension**.
+- A standalone CLI or plain-web run has no IAB host and no Desktop preference, so auto preserves
+  its historical **extension** behaviour.
+
+The choice is saved per conversation, applies to the next task, and is locked while a task runs.
+A refusal is not permission to retry the other backend. Ask the user to change the Browser menu
+between tasks if they want a different browser; never change or rewrite the preference yourself.
+
+IAB has its own persistent profile and can sign into sites. It does not inherit Chrome cookies, but
+it can keep sign-ins created in IAB across restarts and can receive data through **Import into
+in-app browser**. Chrome is useful when the task specifically needs the user's existing Chrome
+login, SSO, certificate, profile, or an already-open tab.
+
+### 3. Check the selected backend's prerequisites
 
 ```bash
 command -v penguin-browser || test -f packages/browser-cli/dist/cli.js
-test -f packages/browser-extension/dist/manifest.json && echo "extension build present" || echo "extension build missing"
 lsof -nP -iTCP:19989 -sTCP:LISTEN 2>/dev/null || true
 penguin-browser session list
 ```
 
 `session list` reports `CONNECTED`, `DISCONNECTED`, or `N/A` (direct/headless). A disconnected
 extension session stays visible so its state is not silently discarded, and it recovers automatically
-if the same installation reconnects after a brief worker or network interruption. If that installation
-will not return, delete the session and create a new one after authorizing a tab in the current
-extension. Removing and loading an unpacked extension again creates a new installation identity;
-ordinary `session reset` deliberately does not migrate a session across identities. Browser names,
+if the same installation reconnects after a brief worker or network interruption. Browser names,
 account emails, and profile labels are display metadata, never safe session-rebinding identities.
 
-If nothing is listening on `19989`, start the relay and leave it running:
+For a standalone Chrome run, if nothing is listening on `19989`, start the relay and leave it
+running. Do not start a second relay for IAB; the Desktop owns and authenticates that relay:
 
 ```bash
 penguin-browser serve
 ```
 
-A listener on `19989` is not enough: that port must belong to this relay, the Chrome extension must be connected, and at least one tab must be authorized. The unpacked extension is `packages/browser-extension/dist` (not `extension/dist`). If the port belongs to an unrelated process, report the conflict; do not kill it without permission.
-
-For logged-in sites (booking, mail, anything with a session cookie) use **extension mode only**. Do not pass `--browser headless` or `--direct` as a shortcut around the extension.
-
-### 3. Require explicit tab authorization
-
-Before controlling an existing tab, tell the user which tab or site is needed and ask them to click the Penguin Browser extension icon on that tab. Continue only after the user confirms or the CLI shows that the tab is available.
-
-Authorization rules:
-
-- Treat extension attachment as consent for that tab only.
-- Do not enable another tab, direct CDP, remote debugging, or broad browser flags as a shortcut around consent.
-- Never use profile-wide cookie/cache clearing commands.
-- Do not automate passwords, payments, permission prompts, or CAPTCHAs. Payments have their own
-  protocol — a card, then a stop — see "Payment: stop, ask, and do not press the button".
-- If several authorized tabs match, inspect their URLs and ask which one to use before a destructive or externally visible action.
-
-## Choosing a backend
-
-Two backends exist, and the choice is made once when the session is created.
-
-**In-app browser (`--iab`).** The Travel Agent desktop app renders a real browser in the right half
-of its own window: the user watches the work happen and can click the page themselves. Prefer it
-whenever it is available, because a task the user cannot see is worse than one they can.
-
-It is available only inside the desktop app, and only when the pane is enabled. **Do not fall back
-silently.** `--iab` refuses for reasons that mean different things, and each has its own next step:
-
-```bash
-penguin-browser session new --iab
-```
+For an IAB selection, the Desktop app must be running and showing the current conversation. Auto
+mode can refuse with actionable errors:
 
 - **`IAB_NOT_CONNECTED`** — the desktop app is not running, or its browser pane is off. Extension
-  mode is a reasonable alternative; say that you switched and why.
-- **"This conversation is set to use your own Chrome"** — the user chose that backend for this
-  conversation. Honour it: run `penguin-browser session new` without `--iab`. Do not switch back.
+  mode is not an automatic fallback. Ask the user to open Desktop or explicitly select Chrome
+  between tasks.
 - **`IAB_IDENTITY_REQUIRED`** — the command was not started by a task. It carries no conversation
   and no task, so its tabs would belong to nobody; there is no flag for this on purpose.
 - **`IAB_SESSION_NOT_VISIBLE`** — the conversation you are working in is not the one on screen. Ask
   the user to open it rather than working in a browser they cannot see.
 
-Which backend a conversation uses is the user's choice, made in the browser panel's menu, and it
-changes whose logins an order is placed under. Never switch backends mid-task, and never treat a
-refusal as an invitation to try the other one.
+For a Chrome selection, `packages/browser-extension/dist/manifest.json` must exist and the extension
+must connect to the same relay. The Desktop opens setup when the user selects Chrome and no extension
+is connected. If setup is incomplete, stop with that actionable state; never silently move the task
+into IAB. Removing and reloading an unpacked extension creates a new installation identity, so delete
+an old disconnected session and create a new one after the current installation connects.
 
-The in-app browser has **its own profile**, separate from the user's Chrome. It keeps whatever it
-is signed into across restarts, but it does not inherit an existing Chrome login — the first visit
-to a site the user is signed into elsewhere will be signed out. When a task needs a login the user
-already has in their own Chrome, use extension mode instead and say why.
+If several Chrome installations or profiles are connected, `session new` lists their browser keys.
+Show the user the labels and ask which profile to use before retrying with `--browser <key>`; never
+infer identity from an email or silently select the first profile.
 
-**Extension mode (default).** Drives an explicitly authorized tab in the user's real Chrome, with
-their real logins. Requires the steps in the previous sections.
+### 4. Understand Chrome authorization
+
+Two explicit user actions grant different scopes:
+
+- Selecting **My own Chrome (extension)** in the Browser menu authorizes this conversation to use
+  the Chrome backend. Once its extension is connected, the task may create and control its own new
+  tabs. It does not adopt arbitrary tabs the user already has open.
+- Clicking the Penguin Browser extension icon on an existing Chrome tab explicitly adds that tab to
+  the available automation pool. Attachment is consent for that existing tab only.
+
+Before controlling an existing tab, tell the user which tab or site is needed and ask them to click
+the extension icon on that tab. Continue only after the user confirms or the CLI shows it as
+available. Do not enable another tab, direct CDP, remote debugging, or broad browser flags as a
+shortcut around consent. If several authorized tabs match, inspect their URLs and ask which one to
+use before a destructive or externally visible action.
+
+Never use profile-wide cookie/cache clearing commands. Do not automate passwords, payments,
+permission prompts, or CAPTCHAs. Payments have their own protocol — a card, then a stop — see
+"Payment: stop, ask, and do not press the button".
 
 ## Persistent session workflow
 
-Create one CLI session per task and preserve its ID for every call:
+Create one CLI session per task in auto mode and preserve its ID for every call:
 
 ```bash
-penguin-browser session new --iab   # or without --iab for extension mode; see above
+penguin-browser session new
 # Keep the returned ID, for example: 1
 export PENGUIN_BROWSER_SESSION=1
 ```
@@ -133,10 +144,9 @@ penguin-browser -s "$PENGUIN_BROWSER_SESSION" -e 'state.page = await tabs.open("
 ```
 
 `tabs.open()` claims the tab before handing it back, which is what removes the race: a tab you
-just opened cannot have been adopted in between. It also reuses an unclaimed `about:blank` tab
-when one is already there — `session new` and a later execute after the last authorized tab
-closes both auto-create one, and opening a URL on top of that leftover would otherwise leave
-an empty tab in the penguin-browser group. The older idiom —
+just opened cannot have been adopted in between. In IAB, the first call navigates the exact
+`about:blank` placeholder created for that session; in Chrome it may reuse an unclaimed blank left
+by extension auto-enable. Opening a second page still creates a second tab. The older idiom —
 `context.pages().find((p) => p.url() === "about:blank") ?? (await context.newPage())` — is a race
 whenever a second session runs it, and two agents typing into one page is the *expected* outcome,
 not a rare interleaving.
@@ -374,7 +384,9 @@ Classify the failure before retrying:
 
 1. **Selector, strictness, timeout, or overlay error:** take a fresh snapshot, confirm the URL, identify the real blocker, and retry with a semantic locator. Do not reset the session.
 2. **Page closed:** list `context.pages()`. If the page was user-owned, ask the user to reopen and authorize it. If the agent-owned page was closed, create a replacement and update `state.page`.
-3. **No authorized pages / extension disconnected:** ask the user to open Chrome and click the extension icon on the intended tab. Do not bypass authorization.
+3. **Extension disconnected:** ask the user to open Chrome or finish the setup opened from the
+   Browser menu. If Chrome is connected and an agent-owned tab was closed, create a new task tab.
+   Ask for an extension-icon click only when the task needs a specific existing user tab.
 4. **Relay unavailable:** run `penguin-browser logfile`, inspect `~/.penguin-browser/relay-server.log`, and verify that `19989` belongs to the relay. Do not kill an unknown listener.
 5. **Stale Playwright/CDP connection:** reset only after connection-level evidence:
 
@@ -395,7 +407,9 @@ At the end of the task:
 1. Remove listeners created by this session.
 2. Delete the CLI session, **declaring how the task went** — see below.
 3. Tell the user which files were downloaded or created.
-4. Ask the user to click the extension icon again if they want the tab detached; do not broaden or revoke browser authorization through an unverified shortcut.
+4. If the task adopted an existing Chrome tab, ask the user to click the extension icon again if
+   they want it detached; do not broaden or revoke browser authorization through an unverified
+   shortcut.
 
 **In-app browser: do not close the tabs yourself.** The desktop app owns their lifetime and applies
 one rule per outcome, so closing them here would pre-empt a decision that is not yours — and would

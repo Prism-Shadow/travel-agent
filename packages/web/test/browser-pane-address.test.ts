@@ -43,6 +43,8 @@ function emptyState(scopeSettled: boolean): BrowserPaneState {
       closeTab: async () => {},
       selectTab: async () => {},
       setRetain: () => {},
+      setZoom: async () => {},
+      captureActivePage: async () => null,
       navigate: async () => {},
       goBack: () => {},
       goForward: () => {},
@@ -85,5 +87,16 @@ describe("BrowserPanePanel address bar", () => {
 
   it("stays disabled until main confirms the conversation scope", () => {
     expect(renderedAddress(false)).toMatch(/\sdisabled(?:=|\s|>)/);
+  });
+
+  it("gives a startup restore decision the whole pane instead of drawing empty browser chrome", () => {
+    const state = emptyState(true);
+    state.restorable = 2;
+    state.pane = { ...state.pane, restorable: 2 };
+    const markup = renderToStaticMarkup(createElement(BrowserPanePanel, { state }));
+
+    expect(markup).toContain('data-testid="iab-restore"');
+    expect(markup).not.toContain('data-testid="iab-viewport"');
+    expect(markup).not.toContain('data-testid="iab-address"');
   });
 });

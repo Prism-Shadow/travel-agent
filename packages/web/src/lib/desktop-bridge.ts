@@ -28,6 +28,8 @@ export interface DesktopTabState {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** Page scale for this tab. `1` is 100%. */
+  zoomFactor: number;
   /** The task whose agent may write here; null once it has ended, or for a tab the user opened. */
   ownedByTask: string | null;
   /** The user asked to keep this page past the end of its task. */
@@ -74,6 +76,12 @@ export interface DesktopRect {
   height: number;
 }
 
+/** A frozen page and the exact integer native-view rectangle it replaces. */
+export interface DesktopPageCapture {
+  dataUrl: string;
+  bounds: DesktopRect;
+}
+
 /** The three ids that identify a conversation to main (it resolves paths from them itself). */
 export interface DesktopSessionIds {
   sessionId: string;
@@ -102,6 +110,8 @@ export interface DesktopBrowserBridge {
    */
   hideNow(): boolean;
   setOccluded(occluded: boolean): Promise<void>;
+  /** A short-lived frozen preview for an app menu that must cover the native page. */
+  captureActivePage(): Promise<DesktopPageCapture | null>;
   /**
    * Which browser scope is on screen: a real Session or an opaque pre-send draft. `null` shows no
    * tabs — every tab belongs to exactly one scope.
@@ -118,6 +128,7 @@ export interface DesktopBrowserBridge {
   closeTab(tabId: string): Promise<void>;
   selectTab(tabId: string): Promise<void>;
   setRetain(tabId: string, retain: boolean): Promise<void>;
+  setZoom(tabId: string, factor: number): Promise<void>;
   navigate(tabId: string, url: string): Promise<void>;
   goBack(tabId: string): Promise<void>;
   goForward(tabId: string): Promise<void>;

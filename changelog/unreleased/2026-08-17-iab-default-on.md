@@ -4,8 +4,9 @@ Running `pnpm desktop` now enables the embedded IAB and opens its workspace imme
 no longer need to prefix the command with `PENGUIN_FLAGS=iab.enabled` or click the browser toggle
 after launch.
 
-Only the IAB default changed. Chrome fallback, Vault, live secret entry and payment capabilities
-remain off behind their existing gates. For diagnostics or extension-only testing, the IAB can still
+At this checkpoint only the IAB default changed. Chrome was formally opened as a user-selectable
+alternative on 2026-08-19; Vault, live secret entry and payment capabilities remain off behind
+their existing gates. For diagnostics or extension-only testing, the IAB can still
 be removed explicitly:
 
 ```bash

@@ -1,5 +1,9 @@
 # Phase 2 verification — a real browser shell
 
+> Historical checkpoint (2026-08-15). Current product defaults changed on 2026-08-19: both IAB and
+> Chrome are offered, with IAB selected for new Desktop conversations. The statements below record
+> the Phase 2 build at that time and are not current setup instructions.
+
 What was built, what was verified, and what was deliberately not done. Companion to
 `docs/manual-testing/phase-02-browser-shell.md`, which is the human half and is entirely `PENDING`.
 
@@ -195,8 +199,9 @@ scope, which keeps everything hidden.
 
 All four policies are implemented in `desktop/src/tab-lifecycle.ts`, which is pure.
 
-**End of task.** `read_only` closes; `committed`, `failed` and `unknown` retain; the user's own
-"keep" mark outranks all of them. The outcome is **declared by the agent** when it closes its
+**End of task.** `read_only` retains one final selected (or newest) result and closes other unmarked
+intermediate tabs; `committed`, `failed` and `unknown` retain all tabs; the user's own "keep" mark
+outranks all of them. The outcome is **declared by the agent** when it closes its
 browser session and **applied at the harness's own end-of-task boundary** — the agent declares
 before the turn is actually over, so an abort or a converged terminal failure afterwards overrides a
 declared `read_only`. Declarations merge conservatively: one task can search in one browser session

@@ -377,7 +377,7 @@ export async function revealBrowserExtension(win: BrowserWindow | null): Promise
     type: "info" as const,
     title: "Load the Penguin Browser extension",
     message: "Chrome cannot be given this extension automatically.",
-    detail: `1. Open chrome://extensions\n2. Turn on Developer mode\n3. Load unpacked and choose:\n${dir}\n4. Click the extension icon on the tab the agent should control.`,
+    detail: `1. Open chrome://extensions\n2. Turn on Developer mode\n3. Load unpacked and choose:\n${dir}\n4. Keep "My own Chrome" selected in the Browser menu. The agent may create its own task tabs. To let it use a tab you already opened, click the extension icon on that tab.`,
     buttons: ["Open folder", "OK"],
     defaultId: 0,
     cancelId: 1,
@@ -386,6 +386,46 @@ export async function revealBrowserExtension(win: BrowserWindow | null): Promise
     ? dialog.showMessageBox(win, opts)
     : dialog.showMessageBox(opts));
   if (response === 0) void shell.openPath(dir);
+}
+
+/**
+ * Whether a real Chrome extension (not the reserved IAB backend) is connected to this relay.
+ *
+ * Selection and connection are deliberately different states: Chrome remains a valid
+ * per-conversation choice while the user completes its one-time setup. This check exists only to
+ * decide whether selecting it should open that setup, never to silently change the backend.
+ */
+export async function hasConnectedBrowserExtension(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/extensions/status`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (!response.ok) return false;
+    const body = (await response.json()) as { extensions?: unknown };
+    return Array.isArray(body.extensions) && body.extensions.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Reports a ready connection, or opens the one-time setup when Chrome has not connected yet. */
+export async function revealBrowserExtensionStatus(
+  win: BrowserWindow | null,
+  port: number | null = browserRelayPort(),
+): Promise<void> {
+  if (port !== null && (await hasConnectedBrowserExtension(port))) {
+    const opts = {
+      type: "info" as const,
+      title: "Penguin Browser",
+      message: "Chrome is connected and ready for the next task.",
+      detail:
+        "The agent may create its own task tabs. If more than one Chrome profile is connected, it will ask which one to use. To use a tab you already opened, click the Penguin Browser extension icon on that tab.",
+      buttons: ["OK"],
+    };
+    await (win !== null ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts));
+    return;
+  }
+  await revealBrowserExtension(win);
 }
 
 export async function stopBrowserRelay(child: UtilityProcess | null): Promise<void> {

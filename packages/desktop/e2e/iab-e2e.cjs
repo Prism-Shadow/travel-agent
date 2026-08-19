@@ -302,7 +302,8 @@ function reservePort() {
     active: pane.state().activeTabId,
   });
 
-  // The strip is [bootstrap, fixture, second]; the last is the page the agent most recently opened.
+  // The bootstrap was navigated into fixture, so the strip is [fixture, second]. The last is the
+  // page the agent most recently opened.
   const strip = pane.state().tabs;
   const firstTab = strip[0];
   const lastTab = strip[strip.length - 1];
@@ -319,9 +320,9 @@ function reservePort() {
 
   // --- the end of a task, and what the agent may do afterwards ------------------------------
   //
-  // A read-only turn closes its tabs; the one the user marked stays, unowned. Then the agent's
-  // next write to that page is refused with a code it can act on, rather than succeeding on a
-  // page that now belongs to the user.
+  // A read-only turn keeps its selected final result, while the one the user explicitly marked
+  // stays as well. Both become unowned; intermediate pages are cleaned up. Then the agent's next
+  // write is refused with a code it can act on rather than succeeding on a user-owned page.
   pane.setRetain(lastTab.id, true);
   pane.declareTaskOutcome(TASK_ID, "read_only");
   pane.endTask(TASK_ID, { abnormal: false });
@@ -329,7 +330,9 @@ function reservePort() {
   out({
     step: "task-end",
     tabs: remaining.length,
-    retainedUnowned: remaining.length === 1 && remaining[0].ownedByTask === null,
+    retainedUnowned: remaining.length === 2 && remaining.every((tab) => tab.ownedByTask === null),
+    resultRetained: remaining.some((tab) => tab.id === firstTab.id),
+    markedRetained: remaining.some((tab) => tab.id === lastTab.id),
   });
 
   // The *retained* page: still open, still loaded, and no longer the agent's. Nothing else would

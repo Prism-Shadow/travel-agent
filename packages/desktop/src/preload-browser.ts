@@ -39,6 +39,7 @@ export interface BridgeTabState {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  zoomFactor: number;
   ownedByTask: string | null;
   retain: boolean;
   failed: BridgeTabFailure | null;
@@ -65,6 +66,12 @@ export interface BridgeRect {
   y: number;
   width: number;
   height: number;
+}
+
+/** A frozen page and the exact integer WebContentsView rectangle it replaces. */
+export interface BridgePageCapture {
+  dataUrl: string;
+  bounds: BridgeRect;
 }
 
 /** The three ids that identify a conversation to main. */
@@ -189,6 +196,10 @@ const api = {
   setOccluded: (occluded: boolean): Promise<void> =>
     ipcRenderer.invoke("iab:set-occluded", occluded),
 
+  /** Frozen pixels used only while the DOM-owned Browser menu covers the native view. */
+  captureActivePage: (): Promise<BridgePageCapture | null> =>
+    ipcRenderer.invoke("iab:capture-active-page"),
+
   /**
    * Which browser scope the user is looking at (a conversation or a pre-send draft).
    *
@@ -221,6 +232,9 @@ const api = {
   /** The user's "keep this page past the end of the task" mark. */
   setRetain: (tabId: string, retain: boolean): Promise<void> =>
     ipcRenderer.invoke("iab:set-retain", { tabId, retain }),
+  /** Scale one IAB page while leaving the app UI unchanged. */
+  setZoom: (tabId: string, factor: number): Promise<void> =>
+    ipcRenderer.invoke("iab:set-zoom", { tabId, factor }),
   navigate: (tabId: string, url: string): Promise<void> =>
     ipcRenderer.invoke("iab:navigate", { tabId, url }),
   goBack: (tabId: string): Promise<void> => ipcRenderer.invoke("iab:go-back", tabId),

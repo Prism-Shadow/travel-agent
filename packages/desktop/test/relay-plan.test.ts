@@ -11,13 +11,18 @@
  *
  * Pure, so all four combinations can be stated rather than reasoned about.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CONVENTIONAL_RELAY_PORT,
+  hasConnectedBrowserExtension,
   IAB_KEY,
   planRelay,
   relayChildEnvironment,
 } from "../src/browser-relay.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const EPHEMERAL = 45123;
 
@@ -49,6 +54,35 @@ describe("relay child environment", () => {
     );
     expect(env).toMatchObject({ PENGUIN_BROWSER_PORT: String(EPHEMERAL), KEEP_ME: "yes" });
     expect(Object.keys(env).some((name) => name.toUpperCase() === "PENGUIN_IAB_KEY")).toBe(false);
+  });
+});
+
+describe("Chrome extension readiness", () => {
+  it("recognizes a connected extension without counting the IAB host", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ extensions: [{ browserKey: "chrome-profile" }] }), {
+        status: 200,
+      }),
+    );
+
+    await expect(hasConnectedBrowserExtension(CONVENTIONAL_RELAY_PORT)).resolves.toBe(true);
+  });
+
+  it("keeps Chrome selectable for setup when no extension is connected", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ extensions: [] }), { status: 200 }),
+    );
+
+    await expect(hasConnectedBrowserExtension(CONVENTIONAL_RELAY_PORT)).resolves.toBe(false);
+  });
+
+  it("treats an unreachable or invalid status endpoint as not connected", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(new Response("not json", { status: 200 }));
+
+    await expect(hasConnectedBrowserExtension(CONVENTIONAL_RELAY_PORT)).resolves.toBe(false);
+    await expect(hasConnectedBrowserExtension(CONVENTIONAL_RELAY_PORT)).resolves.toBe(false);
   });
 });
 

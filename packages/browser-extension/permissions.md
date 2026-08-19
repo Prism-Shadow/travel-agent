@@ -8,11 +8,11 @@ Connects browser tabs to local Playwright automation scripts via Chrome DevTools
 
 ### activeTab
 
-Required to attach the Chrome debugger to the current tab when the user clicks the extension icon. Allows the extension to access only the tab that the user explicitly activates.
+Required to attach the Chrome debugger to the current tab when the user clicks the extension icon. This grants the gesture-scoped access needed to adopt that already-open tab; it is separate from task tabs the extension creates after the user selects the Chrome backend or starts a local CLI session.
 
 ### debugger
 
-Essential for core functionality. This permission allows the extension to attach Chrome DevTools Protocol (CDP) to tabs selected by the user (via clicking the extension icon). CDP access enables the extension to relay automation commands from local Playwright scripts to the browser, allowing actions like page navigation, element interaction, and JavaScript execution for testing and development purposes.
+Essential for core functionality. This permission allows the extension to attach Chrome DevTools Protocol (CDP) to two explicitly initiated kinds of tab: an existing tab selected by clicking the extension icon, or a new task tab created after the user selects the Chrome backend in Travel Agent (or starts a standalone local CLI session). CDP access enables the extension to relay local Playwright commands for navigation, element interaction, and testing.
 
 ### tabs (Testing Only - Removed in Production Builds)
 
@@ -40,11 +40,11 @@ Required to detect when one tab opens a new tab/window via `window.open`, `targe
 
 The `scripting` permission was originally added for iframe cleanup before debugger attachment. It is now also used to:
 
-1. **Inject the in-page toolbar** (`initPenguinBrowserToolbar`) into the MAIN world of every tab the user connects Penguin Browser to. The toolbar is a closed Shadow DOM element that floats in the top-right corner and provides quick AI-integration tools (e.g. pin-element copy mode).
+1. **Inject the in-page toolbar** (`initPenguinBrowserToolbar`) into the MAIN world of every tab connected to Penguin Browser. The toolbar is a closed Shadow DOM element that floats in the top-right corner and provides quick AI-integration tools (e.g. pin-element copy mode).
 2. **Re-inject the toolbar** after page navigations via `chrome.webNavigation.onDOMContentLoaded`.
 3. **Destroy the toolbar** when the user disconnects Penguin Browser from a tab, so no extension UI is left behind on pages the user is actively browsing.
 
-All injections target only tabs that the user has explicitly connected (clicked the extension icon), and only the top-level frame (`allFrames: false`). No code is injected into tabs the user has not opted in to.
+All injections target only connected tabs: either a tab explicitly adopted with the extension icon or a task tab the extension created following a local user-initiated backend/session choice. Injections use only the top-level frame (`allFrames: false`). No code is injected into unrelated pre-existing tabs.
 
 ### host_permissions (<all_urls>)
 

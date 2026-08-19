@@ -893,9 +893,22 @@ export const en: Strings = {
       backendExtension: "My own Chrome (extension)",
       backendExtensionHint:
         "Uses your existing signed-in Chrome profile; setup opens if the extension is not connected",
-      openInDefaultBrowser: "Open this page in my default browser",
+      backendExtensionSelected:
+        "The next task will use Chrome. To use an existing tab, click the extension icon in that tab.",
+      backendExtensionUnavailableSelected:
+        "Chrome is selected but unavailable. Choose the in-app browser, or resolve the connection and restart.",
+      chromePanelTitle: "This conversation will use your Chrome",
+      chromePanelBody:
+        "The next agent task creates and controls its own tabs in Chrome. This pane does not mirror Chrome or transfer the current in-app page.",
+      chromePanelUnavailable:
+        "Chrome cannot connect right now. Choose the in-app browser from the top-right menu, or resolve the relay-port conflict and restart the app.",
+      chromePanelIabSafe:
+        "Your in-app browser pages are still saved; choose it again to keep viewing them.",
+      chromePanelCheck: "Check or set up the Chrome extension",
+      inAppBrowserData: "In-app browser data",
+      openInDefaultBrowser: "Open the current in-app page in my default browser",
       openInDefaultBrowserHint:
-        "Opens a separate copy in whichever browser your system uses. It does not carry your in-app sign-in across.",
+        "Only opens a separate copy in your system browser. It does not switch the agent backend or carry your in-app sign-in across.",
       backendLocked: "A task is running; the browser cannot be switched now",
       backendUnavailable:
         "This run cannot reach the relay port the extension connects to, so your own Chrome is unavailable",
@@ -903,6 +916,11 @@ export const en: Strings = {
       clearProfileDone: "Browser data cleared",
       clearProfileFailed: "Could not clear the browser data",
       backendFailed: "Could not switch the browser",
+      zoom: "Zoom",
+      zoomOut: "Zoom out",
+      zoomIn: "Zoom in",
+      zoomReset: "Reset zoom",
+      zoomFailed: "Could not change page zoom",
       openInDefaultBrowserFailed: "Could not open this page in your default browser",
       suggestions: "Address suggestions",
       /** The "sign in as youhai@example.com" bar. User-pressed only; the agent cannot use these. */

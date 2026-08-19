@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   acquireAndNavigateOwnedTab,
   acquireOwnedTab,
+  isReusableIabBootstrapTarget,
   selectReusableBlankTargetId,
   SerializedOwnedTabOpener,
   TabRegistry,
@@ -223,6 +224,105 @@ describe('SerializedOwnedTabOpener', () => {
 
     await expect(Promise.all([first, second])).resolves.toEqual(['blank', 'created-1'])
     expect(owners).toEqual(new Set(['blank', 'created-1']))
+  })
+
+  it('consumes the exact IAB bootstrap once, then creates real tabs', async () => {
+    const opener = new SerializedOwnedTabOpener<string>('bootstrap')
+    const found: string[] = []
+    let created = 0
+    const options = {
+      findBootstrap: async (targetId: string) => {
+        found.push(targetId)
+        return 'bootstrap'
+      },
+      useBootstrap: async (tab: string) => tab,
+      create: async () => `created-${++created}`,
+    }
+
+    await expect(opener.openBootstrapFirst(options)).resolves.toBe('bootstrap')
+    await expect(opener.openBootstrapFirst(options)).resolves.toBe('created-1')
+    expect(found).toEqual(['bootstrap'])
+  })
+
+  it('falls back to creation when the exact IAB bootstrap is stale', async () => {
+    const opener = new SerializedOwnedTabOpener<string>('closed-bootstrap')
+    let created = 0
+
+    await expect(
+      opener.openBootstrapFirst({
+        findBootstrap: async () => null,
+        useBootstrap: async (tab) => tab,
+        create: async () => `created-${++created}`,
+      }),
+    ).resolves.toBe('created-1')
+  })
+
+  it('serializes concurrent IAB opens so only the first consumes bootstrap', async () => {
+    const opener = new SerializedOwnedTabOpener<string>('bootstrap')
+    let created = 0
+    let releaseNavigation!: () => void
+    const navigation = new Promise<void>((resolve) => {
+      releaseNavigation = resolve
+    })
+    let bootstrapStarted!: () => void
+    const started = new Promise<void>((resolve) => {
+      bootstrapStarted = resolve
+    })
+    const options = {
+      findBootstrap: async () => 'bootstrap',
+      useBootstrap: async (tab: string) => {
+        bootstrapStarted()
+        await navigation
+        return tab
+      },
+      create: async () => `created-${++created}`,
+    }
+
+    const first = opener.openBootstrapFirst(options)
+    const second = opener.openBootstrapFirst(options)
+    await started
+    expect(created).toBe(0)
+    releaseNavigation()
+
+    await expect(Promise.all([first, second])).resolves.toEqual(['bootstrap', 'created-1'])
+  })
+
+  it('revalidates bootstrap after a failed first navigation', async () => {
+    const opener = new SerializedOwnedTabOpener<string>('bootstrap')
+    let attempts = 0
+    const options = {
+      findBootstrap: async () => 'bootstrap',
+      useBootstrap: async (tab: string) => {
+        attempts++
+        if (attempts === 1) throw new Error('navigation failed')
+        return tab
+      },
+      create: async () => 'created',
+    }
+
+    await expect(opener.openBootstrapFirst(options)).rejects.toThrow('navigation failed')
+    await expect(opener.openBootstrapFirst(options)).resolves.toBe('bootstrap')
+  })
+})
+
+describe('isReusableIabBootstrapTarget', () => {
+  it('accepts only the exact blank target owned by this relay session', () => {
+    expect(
+      isReusableIabBootstrapTarget(
+        { targetId: 'bootstrap', isBlank: true, owner: 'relay-1' },
+        'bootstrap',
+        'relay-1',
+      ),
+    ).toBe(true)
+  })
+
+  it.each([
+    ['another same-owner blank', { targetId: 'other', isBlank: true, owner: 'relay-1' }],
+    ['a navigated exact target', { targetId: 'bootstrap', isBlank: false, owner: 'relay-1' }],
+    ['a foreign exact target', { targetId: 'bootstrap', isBlank: true, owner: 'relay-2' }],
+    ['an unclaimed exact target', { targetId: 'bootstrap', isBlank: true }],
+  ])('rejects %s', (_label, candidate) => {
+    expect(isReusableIabBootstrapTarget(candidate, 'bootstrap', 'relay-1')).toBe(false)
   })
 })
 

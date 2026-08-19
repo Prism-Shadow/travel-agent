@@ -3,8 +3,10 @@
  *
  * This is the piece that makes the workspace real rather than a picture of one. Each view is
  * Chromium rendering an actual page — the user can click it, type into it with their own input
- * method, and the agent drives the same pixels over CDP. Nothing is mirrored, screenshotted or
- * proxied.
+ * method, and the agent drives the same pixels over CDP. Nothing is mirrored or proxied. The one
+ * deliberate screenshot is a short-lived frozen preview while the DOM-owned Browser menu is open:
+ * the native view cannot sit underneath HTML, so main captures it before hiding it and discards the
+ * preview as soon as the menu closes.
  *
  * Three constraints shape the API:
  *
@@ -101,6 +103,16 @@ const MAX_DOWNLOAD_DIRS = 200;
 /** Which browser is driving this conversation (002 §6.1). */
 export type PaneBackend = "iab" | "extension";
 
+/** Exact native-view pixels and the integer Electron rectangle they came from. */
+export interface ActivePageCapture {
+  dataUrl: string;
+  bounds: PaneMeasurement;
+}
+
+/** Bounds exposed by the Browser menu. Wide enough for dense sites without making a page vanish. */
+export const MIN_BROWSER_ZOOM_FACTOR = 0.5;
+export const MAX_BROWSER_ZOOM_FACTOR = 2;
+
 /** Why a page is not showing what the user asked for. */
 export interface TabFailure {
   /** Chromium's network error code, e.g. -105 for NAME_NOT_RESOLVED. */
@@ -120,6 +132,8 @@ export interface PaneTabState {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** Page scale for this tab. `1` is 100%. */
+  zoomFactor: number;
   /** The task allowed to write here, or null for a tab the user owns. */
   ownedByTask: string | null;
   /** The user asked to keep this tab past the end of its task. */
@@ -215,7 +229,15 @@ export interface BrowserPaneOptions {
    * the agent asks for an in-app browser session. Kept as a callback so this module stays free of
    * the CLI's file format.
    */
-  onBackendChange?: (sessionId: string, backend: PaneBackend) => void;
+  /** Returns false when the cross-process preference could not be persisted. */
+  onBackendChange?: (sessionId: string, backend: PaneBackend) => boolean;
+  /**
+   * The user actively selected a backend in the pane menu.
+   *
+   * Separate from persistence: defaults and draft promotions also write the current choice, but
+   * only a deliberate selection should open Chrome setup instructions.
+   */
+  onBackendSelected?: (backend: PaneBackend) => void;
   /** Backends chosen previously, by conversation. Anything absent defaults to the in-app browser. */
   initialBackends?: Record<string, PaneBackend>;
   /**
@@ -277,6 +299,8 @@ interface Tab {
    */
   relaySession: string | null;
   retain: boolean;
+  /** Page scale survives tab switches and renderer crash rebuilds. */
+  zoomFactor: number;
   failed: TabFailure | null;
   /**
    * We are destroying this view ourselves.
@@ -349,6 +373,8 @@ export class BrowserPane {
   private readonly endedTasks = new Set<string>();
   private readonly askedAbout = new Set<string>();
   private readonly extensionBackendAvailable: boolean;
+  /** Conversations whose current choice was loaded from or successfully written to shared state. */
+  private readonly persistedBackendSessions = new Set<string>();
   /** Download directory per conversation, resolved by main from its own data root. */
   private readonly downloadDirs = new Map<string, DownloadTarget>();
   /** Remembered selection, keyed by the tab's own session scope — never by the viewed one. */
@@ -396,11 +422,12 @@ export class BrowserPane {
       return scope ? (this.downloadDirs.get(scope) ?? null) : null;
     });
     for (const [sessionId, backend] of Object.entries(options.initialBackends ?? {})) {
-      // A stored choice for a backend that cannot be reached this run is not honoured. The
-      // conversation falls back to the in-app browser rather than being unable to start a session
-      // at all, and the menu says why the other option is unavailable.
-      if (backend === "extension" && !this.extensionBackendAvailable) continue;
+      // Keep the user's choice even when that backend is temporarily unreachable. Silently showing
+      // IAB here while the preference file still says extension leaves UI and CLI disagreeing, and
+      // silently rewriting it would violate the no-automatic-backend-switch rule. The menu renders
+      // the selected Chrome backend as unavailable and leaves an explicit switch back to IAB.
       this.backendBySession.set(sessionId, backend);
+      this.persistedBackendSessions.add(sessionId);
     }
 
     this.checkpoints = options.checkpointPath
@@ -602,6 +629,7 @@ export class BrowserPane {
     relaySession?: string | null;
     id?: string;
     retain?: boolean;
+    zoomFactor?: number;
     /** False only for a restore, which rebuilds a whole strip and sets the selection itself. */
     activate?: boolean;
     /** An adopted popup: Chromium navigates it, so this must not load anything into it. */
@@ -616,6 +644,7 @@ export class BrowserPane {
       ownedByTask: options.ownedByTask,
       relaySession: options.relaySession ?? null,
       retain: options.retain ?? false,
+      zoomFactor: options.zoomFactor ?? 1,
       failed: null,
       closing: false,
       lastUrl: options.url ?? "",
@@ -665,6 +694,7 @@ export class BrowserPane {
       attached = true;
 
       const contents = view.webContents;
+      contents.setZoomFactor(tab.zoomFactor);
 
       // A booking flow opens results in new windows constantly (`target=_blank` on every result
       // link, and `window.open()` then `location =` on many search forms). Those become tabs of ours
@@ -704,6 +734,8 @@ export class BrowserPane {
             // Same relay session as the page that opened it, so the concurrency claim lands on the
             // session already driving this flow rather than being guessed from the task.
             relaySession: tab.relaySession,
+            // A result opened from a zoomed page should not jump back to 100% mid-flow.
+            zoomFactor: tab.zoomFactor,
             // Chromium drives the child's first navigation itself. Loading anything here would race
             // it, and would be the very re-navigation this path exists to avoid.
             adopted: true,
@@ -1029,6 +1061,44 @@ export class BrowserPane {
     this.scheduleCheckpoint();
   }
 
+  /** Changes the selected IAB page scale without changing the surrounding application chrome. */
+  setZoom(tabId: string, factor: number): void {
+    if (
+      !Number.isFinite(factor) ||
+      factor < MIN_BROWSER_ZOOM_FACTOR ||
+      factor > MAX_BROWSER_ZOOM_FACTOR
+    ) {
+      throw new Error(
+        `Browser zoom must be between ${MIN_BROWSER_ZOOM_FACTOR} and ${MAX_BROWSER_ZOOM_FACTOR}`,
+      );
+    }
+    const tab = this.requireVisibleTab(tabId);
+    const contents = this.contentsOf(tab);
+    // Apply first: a Chromium rejection must not publish a percentage the page never adopted.
+    contents?.setZoomFactor(factor);
+    tab.zoomFactor = factor;
+    this.publishState();
+  }
+
+  /**
+   * Captures the exact visible IAB pixels before a DOM menu temporarily occludes the native view.
+   *
+   * The data URL is returned only to the app renderer and is never logged or checkpointed. A tab
+   * outside the current conversation, a Chrome-backend selection, or an already hidden view has no
+   * pixels the renderer is entitled to preview, so each returns null.
+   */
+  async captureActivePage(): Promise<ActivePageCapture | null> {
+    if (this.backendFor(this.activeSession) !== "iab" || this.occluded) return null;
+    const tab = this.activeTab();
+    const layout = tab?.lastLayout;
+    if (!tab || !layout?.visible) return null;
+    const contents = this.contentsOf(tab);
+    if (!contents) return null;
+    const image = await contents.capturePage();
+    if (image.isEmpty()) return null;
+    return { dataUrl: image.toDataURL(), bounds: { ...layout.bounds } };
+  }
+
   /** Sends a tab to a URL. Used by the address bar; the agent navigates over CDP instead. */
   async navigate(tabId: string, url: string): Promise<void> {
     const tab = this.requireVisibleTab(tabId);
@@ -1177,10 +1247,23 @@ export class BrowserPane {
 
   /** Which conversation the renderer is showing. */
   setActiveSession(sessionId: string | null): void {
-    // The route has caught up with a successful promotion (including when `sessionId` is already
-    // active), or has moved elsewhere. Either way, its one-shot rollback window is over.
+    if (this.activeSession === sessionId) {
+      // The route has caught up with a successful promotion. Its one-shot rollback window is over.
+      this.pendingDraftPromotion = null;
+      return;
+    }
+    // Make the desktop product default authoritative at the process boundary. The CLI runs later
+    // in a different process; an explicit `iab` record lets its auto mode distinguish a desktop
+    // conversation from a plain-web conversation, where no in-app browser exists.
+    if (
+      sessionId !== null &&
+      !isDraftBrowserScope(sessionId) &&
+      !this.persistedBackendSessions.has(sessionId)
+    ) {
+      this.requireBackendPersistence(sessionId, this.backendFor(sessionId));
+    }
+    // The route moves only after any missing backend choice is safe across the process boundary.
     this.pendingDraftPromotion = null;
-    if (this.activeSession === sessionId) return;
     this.activeSession = sessionId;
     this.applyLayout();
     this.publishState();
@@ -1217,11 +1300,15 @@ export class BrowserPane {
       throw new Error("The destination browser scope already has tabs");
     }
 
+    const backend = this.backendFor(previousSessionId);
+    // Persist before mutating any strip state. The renderer awaits this call before posting the first
+    // task, so a failed write cannot leave the task and UI choosing different browsers.
+    if (promoting) this.requireBackendPersistence(nextSessionId, backend);
+
     const selected = this.activeByScope.get(previousSessionId);
     this.activeByScope.delete(previousSessionId);
     if (selected) this.activeByScope.set(nextSessionId, selected);
 
-    const backend = this.backendFor(previousSessionId);
     this.backendBySession.delete(previousSessionId);
     if (backend !== "iab") this.backendBySession.set(nextSessionId, backend);
 
@@ -1240,7 +1327,6 @@ export class BrowserPane {
     this.pendingDraftPromotion = promoting
       ? { draftScope: previousSessionId, sessionId: nextSessionId }
       : null;
-    if (promoting && backend !== "iab") this.options.onBackendChange?.(nextSessionId, backend);
     this.applyLayout();
     this.publishState();
     this.scheduleCheckpoint();
@@ -1251,7 +1337,6 @@ export class BrowserPane {
   /** Which browser the next agent session should use (002 §6.1). A task-level decision. */
   setBackend(backend: PaneBackend): void {
     const sessionId = this.requireActiveSession();
-    if (this.backendFor(sessionId) === backend) return;
     // Refused, not merely discouraged in the UI. Switching browsers changes whose login an order is
     // placed under and throws away the page state the running task is built on, so it happens
     // between tasks (002 §6.1, §7.3) — and a check that lives only in the renderer is one a stale
@@ -1269,14 +1354,35 @@ export class BrowserPane {
           "different one. Close the other program and restart the app to use your own Chrome.",
       );
     }
+    if (this.backendFor(sessionId) === backend) {
+      // An explicit re-selection repairs any out-of-band or previously failed preference write and
+      // also gives Chrome users a way to reopen setup without pretending the backend changed.
+      if (!isDraftBrowserScope(sessionId)) this.requireBackendPersistence(sessionId, backend);
+      this.options.onBackendSelected?.(backend);
+      return;
+    }
+    // A draft has no agent task yet and therefore needs no cross-process preference. Its choice is
+    // written under the real Session id by `reassignActiveSession` before the first task is posted.
+    if (!isDraftBrowserScope(sessionId)) this.requireBackendPersistence(sessionId, backend);
     this.backendBySession.set(sessionId, backend);
-    this.options.onBackendChange?.(sessionId, backend);
+    this.options.onBackendSelected?.(backend);
+    this.applyLayout();
     this.publishState();
     this.log(`backend for ${sessionId} set to ${backend}`);
   }
 
   private backendFor(sessionId: string | null): PaneBackend {
     return (sessionId && this.backendBySession.get(sessionId)) || "iab";
+  }
+
+  private requireBackendPersistence(sessionId: string, backend: PaneBackend): void {
+    if (this.options.onBackendChange?.(sessionId, backend) === false) {
+      throw new Error(
+        "The browser choice could not be saved, so it was not changed. Check that the app data " +
+          "directory is writable and try again.",
+      );
+    }
+    this.persistedBackendSessions.add(sessionId);
   }
 
   private hasRunningTask(sessionId: string): boolean {
@@ -1431,7 +1537,13 @@ export class BrowserPane {
   endTask(taskId: string, ending: { abnormal: boolean } = { abnormal: false }): void {
     const outcome = this.resolveOutcome(taskId, ending.abnormal);
     this.declaredOutcomes.delete(taskId);
-    const plan = planTaskEnd([...this.tabs.values()], taskId, outcome);
+    const taskScope = this.runningTasks.get(taskId);
+    const plan = planTaskEnd([...this.tabs.values()], taskId, outcome, {
+      // A search result is still useful after the agent stops writing to it: the user may need to
+      // inspect it, sign in, or continue manually. Prefer the page selected in this conversation;
+      // the lifecycle planner falls back to the newest task-owned tab if selection changed.
+      readOnlyResultTabId: taskScope ? this.activeByScope.get(taskScope) : null,
+    });
     for (const id of plan.retain) {
       const tab = this.tabs.get(id);
       // Ownership only. The session scope stays: the tab keeps appearing in the conversation it was
@@ -1911,7 +2023,11 @@ export class BrowserPane {
       requested: this.requested,
       occluded: this.occluded,
     });
-    const activeId = this.activeTab()?.id ?? null;
+    // Chrome renders in the user's own window. Keeping an old IAB view painted under Chrome's
+    // selected state makes the pane look controllable when the agent is working elsewhere, so the
+    // renderer gets the space for an explicit Chrome status panel and every native view is hidden.
+    const activeId =
+      this.backendFor(this.activeSession) === "iab" ? (this.activeTab()?.id ?? null) : null;
 
     let changed = false;
     for (const tab of this.tabs.values()) {
@@ -1940,6 +2056,7 @@ export class BrowserPane {
       loading: alive ? contents.isLoading() : false,
       canGoBack: alive ? (contents.navigationHistory?.canGoBack() ?? false) : false,
       canGoForward: alive ? (contents.navigationHistory?.canGoForward() ?? false) : false,
+      zoomFactor: tab.zoomFactor,
       ownedByTask: tab.ownedByTask,
       retain: tab.retain,
       failed: tab.failed,

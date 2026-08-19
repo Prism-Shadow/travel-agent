@@ -180,9 +180,48 @@ class AsyncTaskQueue {
 
 export class SerializedOwnedTabOpener<T> {
   private readonly queue = new AsyncTaskQueue()
+  /** The exact placeholder created before an IAB executor can connect, consumed at most once. */
+  private bootstrapTargetId: string | null
+
+  constructor(bootstrapTargetId?: string | null) {
+    this.bootstrapTargetId = bootstrapTargetId ?? null
+  }
 
   open(options: Parameters<typeof acquireAndNavigateOwnedTab<T>>[0]): Promise<T> {
     return this.queue.run(() => acquireAndNavigateOwnedTab(options))
+  }
+
+  /**
+   * Uses a session's exact bootstrap tab before falling back to ordinary tab creation.
+   *
+   * The identifier is removed while the queued operation is in flight so two concurrent opens
+   * cannot both use the placeholder. If navigation fails it is restored: the next queued call can
+   * revalidate the exact target and retry it when it is still blank, or discard the marker when the
+   * failed navigation changed the page. A missing, closed, navigated or foreign bootstrap is
+   * deliberately reported by `findBootstrap` as null; only the exact id supplied at session
+   * creation is ever considered.
+   */
+  openBootstrapFirst(options: {
+    findBootstrap: (targetId: string) => Promise<T | null>
+    useBootstrap: (tab: T) => Promise<T>
+    create: () => Promise<T>
+  }): Promise<T> {
+    return this.queue.run(async () => {
+      const targetId = this.bootstrapTargetId
+      this.bootstrapTargetId = null
+      if (targetId !== null) {
+        const bootstrap = await options.findBootstrap(targetId)
+        if (bootstrap !== null) {
+          try {
+            return await options.useBootstrap(bootstrap)
+          } catch (error) {
+            this.bootstrapTargetId = targetId
+            throw error
+          }
+        }
+      }
+      return options.create()
+    })
   }
 }
 
@@ -194,14 +233,33 @@ export type BlankReuseCandidate = {
 }
 
 /**
+ * Whether this is the one IAB placeholder created for this executor's session.
+ *
+ * Exact identity is important: accepting an arbitrary same-owner blank would let an old task,
+ * popup or user-created page stand in for bootstrap state. Ownership is equally important because
+ * target ids remain visible briefly across lifecycle changes and a tab must never be stolen.
+ */
+export function isReusableIabBootstrapTarget(
+  candidate: BlankReuseCandidate,
+  expectedTargetId: string,
+  sessionId: string,
+): boolean {
+  return (
+    candidate.targetId === expectedTargetId &&
+    candidate.isBlank &&
+    candidate.owner === sessionId
+  )
+}
+
+/**
  * Prefer an unclaimed about:blank over `newPage()`.
  *
- * `session new` and every later `-e` call auto-create a blank tab when no Playwright
- * pages remain (AUTO_ENABLE). The skill then teaches `tabs.open(url)`, which used to
- * always create a second tab and leave the empty one sitting in the penguin-browser
- * group. Reusing the unclaimed blank is not the old racy "adopt any idle tab" idiom:
- * a claimed blank stays with its owner, and a tab that already has a URL is never
- * taken this way.
+ * The extension auto-creates a blank tab when no authorized Playwright pages remain
+ * (AUTO_ENABLE). The skill then teaches `tabs.open(url)`, which used to always create a second tab
+ * and leave the empty one sitting in the penguin-browser group. Reusing the unclaimed blank is not
+ * the old racy "adopt any idle tab" idiom: a claimed blank stays with its owner, and a tab that
+ * already has a URL is never taken this way. IAB's already-claimed bootstrap uses the exact-match
+ * predicate above instead.
  */
 export function selectReusableBlankTargetId(
   candidates: readonly BlankReuseCandidate[],

@@ -9,7 +9,8 @@
  *
  * Three decisions live here:
  *
- *  1. **Task end** — close or retain, per outcome, with the user's own mark outranking everything.
+ *  1. **Task end** — preserve the final result, clean up intermediates, and let the user's own mark
+ *     outrank every automatic rule.
  *  2. **Crash triage** — a renderer that died gets its tab rebuilt; a renderer that exited on
  *     purpose does not.
  *  3. **Checkpoint** — what is written to disk (URLs and ownership metadata, never a WebContents)
@@ -63,7 +64,8 @@ export type TabDisposition = "close" | "retain";
  * The retain mark is checked first and returns immediately, which is the whole point of the rule:
  * a user who said "keep this" must not have that overturned by a policy that thinks the task was
  * read-only. Everything else follows the outcome — a committed booking leaves evidence worth
- * keeping, a failure leaves a scene worth reading, and a search leaves neither.
+ * keeping, a failure leaves a scene worth reading, and an intermediate search page can be cleaned
+ * up once the task's final result has been selected separately by `planTaskEnd`.
  */
 export function resolveTabDisposition(tab: LifecycleTab, outcome: TaskOutcome): TabDisposition {
   if (tab.retain) return "retain";
@@ -82,6 +84,15 @@ export interface TaskEndPlan {
   retain: string[];
 }
 
+export interface TaskEndOptions {
+  /**
+   * The task's user-visible final result. A read-only task releases this tab to the user instead of
+   * deleting it, so the final answer can still point at a page the user can inspect or sign in to.
+   * If it is absent or no longer owned by the task, the newest owned tab is used as a safe fallback.
+   */
+  readOnlyResultTabId?: string | null;
+}
+
 /**
  * What to do with every tab a task owned.
  *
@@ -93,11 +104,21 @@ export function planTaskEnd(
   tabs: readonly LifecycleTab[],
   taskId: string,
   outcome: TaskOutcome,
+  options: TaskEndOptions = {},
 ): TaskEndPlan {
   const plan: TaskEndPlan = { close: [], retain: [] };
-  for (const tab of tabs) {
-    if (tab.ownedByTask !== taskId) continue;
-    plan[resolveTabDisposition(tab, outcome)].push(tab.id);
+  const owned = tabs.filter((tab) => tab.ownedByTask === taskId);
+  let readOnlyResultId: string | undefined;
+  if (outcome === "read_only") {
+    readOnlyResultId = owned.some((tab) => tab.id === options.readOnlyResultTabId)
+      ? (options.readOnlyResultTabId ?? undefined)
+      : owned.at(-1)?.id;
+  }
+
+  for (const tab of owned) {
+    const disposition =
+      tab.id === readOnlyResultId ? "retain" : resolveTabDisposition(tab, outcome);
+    plan[disposition].push(tab.id);
   }
   return plan;
 }

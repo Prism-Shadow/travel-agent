@@ -1,14 +1,24 @@
+# Standalone Penguin Browser CLI reference
+
+This document is emitted by `penguin-browser skill` for standalone CLI and MCP users. It is not the
+Travel Agent Desktop backend policy. Travel Agent agents use
+`packages/skills/skills/penguin-browser/SKILL.md`, and plain `session new` automatically follows the
+per-conversation Browser-menu choice (IAB by default, Chrome only when the user selects it). Do not
+use direct, headless, or cloud examples below to override a Desktop conversation.
+
 ## CLI Usage
 
-Penguin Browser is currently source-only. Do not install or invoke an npm package. From the repository root, install dependencies, build, and run the TypeScript CLI entry point:
+Penguin Browser is currently source-only. Do not install or invoke a public npm package. From the
+travel-agent repository root, install dependencies, build, and run the linked CLI:
 
 ```bash
 pnpm install
 pnpm build
-pnpm exec tsx penguin-browser/src/cli.ts session new
+penguin-browser session new
 ```
 
-The remaining examples use `penguin-browser` as shorthand for a verified local wrapper. If no wrapper is on `PATH`, replace it with `pnpm exec tsx /absolute/path/to/penguin-browser/penguin-browser/src/cli.ts`. If the source checkout is unavailable, ask the user for its path.
+The remaining examples use `penguin-browser`. If it is not on `PATH`, build this repository and use
+`node packages/browser-cli/dist/cli.js`; do not look for a separate source checkout.
 
 ### Session management
 
@@ -48,8 +58,8 @@ penguin-browser session reset <sessionId>
 Penguin Browser can control a Chrome browser running on a different machine over the internet. The host machine runs `penguin-browser serve` with a [traforo](https://traforo.dev) tunnel, and the remote machine connects through the tunnel URL.
 
 ```bash
-# Host machine (has Chrome + extension; run from the source checkout)
-npx -y traforo -p 19989 -- pnpm exec tsx penguin-browser/src/cli.ts serve --token MY_SECRET_TOKEN
+# Host machine (has Chrome + extension)
+npx -y traforo -p 19989 -- penguin-browser serve --token MY_SECRET_TOKEN
 
 # Remote machine
 export PENGUIN_BROWSER_HOST=https://<tunnel-id>-tunnel.traforo.dev
@@ -58,7 +68,7 @@ penguin-browser session new
 penguin-browser -s 1 -e "await page.goto('https://example.com')"
 ```
 
-For the full guide (Docker, LAN, MCP config, security), see `docs/remote-access.md` in the source checkout.
+Use `penguin-browser --help` and the root `README.md` for the in-tree commands and security notes.
 
 ### Direct CDP connection (no extension needed)
 
@@ -98,9 +108,9 @@ penguin-browser -s 1 -e "await page.goto('https://example.com')"
 {
   "mcpServers": {
     "penguin-browser": {
-      "command": "pnpm",
-      "args": ["exec", "tsx", "/absolute/path/to/penguin-browser/penguin-browser/src/cli.ts"],
-      "cwd": "/absolute/path/to/penguin-browser",
+      "command": "node",
+      "args": ["/absolute/path/to/travel-agent/packages/browser-cli/dist/cli.js"],
+      "cwd": "/absolute/path/to/travel-agent",
       "env": {
         "PENGUIN_BROWSER_DIRECT": "wss://xxx.cdp.browser-use.com"
       }
@@ -262,7 +272,7 @@ The file is read from disk and executed in the same sandbox as `-e`. All context
 
 ### Live streaming to RTMP (X Live, Twitch, YouTube)
 
-Niche use case: `penguin-browser stream start|stop|status` streams a tab live to RTMP endpoints via ffmpeg, surviving navigation and running 24/7 after the CLI exits. The source checkout documents the available commands in the website's Streaming guide.
+Niche use case: `penguin-browser stream start|stop|status` streams a tab live to RTMP endpoints via ffmpeg, surviving navigation and running 24/7 after the CLI exits. Use each command's `--help` for the current options.
 
 ### Debugging penguin-browser issues
 
@@ -287,7 +297,10 @@ If you find a bug, capture a minimal reproduction and the relevant local log pat
 
 # penguin-browser best practices
 
-Control user's Chrome browser via playwright code snippets. Prefer single-line code with semicolons between statements. Use penguin-browser immediately without waiting for user actions; only if you get "extension is not connected" or "no browser tabs have Penguin Browser enabled" should you ask the user to click the penguin-browser extension icon on the target tab.
+For standalone use without a Desktop preference, Penguin Browser controls Chrome through Playwright
+snippets. In Travel Agent, follow the product Skill and the Browser-menu choice instead. A connected
+extension can create an agent-owned task tab; ask for an extension-icon click only when a specific
+already-open user tab must be adopted.
 
 **When to use penguin-browser instead of webfetch/curl:** If a website is JS-heavy (SPAs like Instagram, Twitter, Facebook, etc.), has cookie consent modals, login walls, lazy-loaded content, carousels, or infinite scroll — **always use penguin-browser**. Simple fetch/webfetch will return an empty HTML shell with no content. Do NOT waste time trying curl, webfetch, or parsing raw HTML from JS-rendered sites. Go straight to penguin-browser: navigate with a real browser, dismiss modals, then extract what you need via `page.evaluate()` or network interception.
 
@@ -336,9 +349,9 @@ You can collaborate with the user - they can help with captchas, difficult eleme
 {
   "mcpServers": {
     "penguin-browser": {
-      "command": "pnpm",
-      "args": ["exec", "tsx", "/absolute/path/to/penguin-browser/penguin-browser/src/cli.ts"],
-      "cwd": "/absolute/path/to/penguin-browser",
+      "command": "node",
+      "args": ["/absolute/path/to/travel-agent/packages/browser-cli/dist/cli.js"],
+      "cwd": "/absolute/path/to/travel-agent",
       "env": {
         "PENGUIN_BROWSER_DIRECT": "wss://xxx.cdp.browser-use.com"
       }

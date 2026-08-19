@@ -26,7 +26,7 @@ import type { SystemConfig } from "./default-config.js";
  * pinned-hash test enforces both directions (bump without new hashes, or changed defaults
  * without a bump, both fail).
  */
-export const KERNEL_VERSION = "2026-08-12";
+export const KERNEL_VERSION = "2026-08-19";
 
 /**
  * Identity / user-data fields excluded from kernel management: never hashed, never written
@@ -140,8 +140,10 @@ export function isKernelOutdated(kernelVersion: string | null | undefined): bool
  *   The test suite proves these hashes equal a byte-exact reconstruction of that era's
  *   defaults from the frozen LEGACY_* constants.
  * - `"2026-08-11"` — the toggles generation.
- * - `"2026-08-12"` (current) — travel-agent: the internet-browsing line in the system prompt
- *   now points at the `penguin-browser` Skill instead of Playwright. Pinned by the guard test.
+ * - `"2026-08-12"` — travel-agent: the internet-browsing line in the system prompt points at the
+ *   `penguin-browser` Skill instead of Playwright.
+ * - `"2026-08-19"` (current) — the prompt states the dual-backend product contract: IAB is the
+ *   Desktop default and the user's Chrome is an explicit per-conversation alternative.
  *
  * Generations older than the seeded ones cannot be fully reconstructed; their values match
  * no recorded hash and are conservatively kept by a kernel update (restore-default-config is
@@ -218,6 +220,44 @@ export const KERNEL_HASH_HISTORY: Readonly<Record<string, Readonly<Record<string
   // 改为「用 penguin-browser Skill 驱动用户自己的 Chrome」。其余哈希与 2026-08-11 逐字相同。
   "2026-08-12": {
     system_prompt: "1ec267a390c2a65cc7d98cbf700832e9a8471c363fecdaf40ec461a177fe2669",
+    max_turns: "1bad6b8cf97131fceab8543e81f7757195fbb1d36b376ee994ad1cf17699c464",
+    "model.max_tokens": "492f431bae35265f2e5f4ed49bd8c58dda912431be561504846988d00d05d117",
+    "model.thinking_level": "60d4c90eee5e731df8d3ef2891de541d2e755ff8ee9db358e26bdec49f6e0db9",
+    "model.timeoutMs": "4f9f73b34c5b89879aad65a48025f3187dd9ce6dc3d4e88eecb2fc79227350f1",
+    "compaction.max_context_length":
+      "8eda794b86cb709202a0023fd5273e3de6d24117b7e36b9bdb53c0238dac4785",
+    "compaction.max_session_turns":
+      "1bad6b8cf97131fceab8543e81f7757195fbb1d36b376ee994ad1cf17699c464",
+    "compaction.mode": "e58fac0b4b9c0f29b3d224da119dff5f6517a40d139faf92e309705b98bd410a",
+    "compaction.prompt": "8ed55781e8071083f8246ed70d9e063ee729d3872d5bc6a2bedfa9c99aed6ae5",
+    "vault.enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "vault.prompt": "66e607aa4e205413f1816a677bed31af2d8c24218e71b55adba54aff5aa094ce",
+    "skills.enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "skills.prompt": "42934d17f5dd9c02dfa7c1d37f255dea92bd36905c96a54775c65ef7db713bd9",
+    "memory.enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "memory.prompt": "9380e2382e5dd3d37a6470b0bc0d27c9ed113fa9a54ff78122784c57a16b992c",
+    "memory.workspace_prompt": "76c5a8e18a568f471593ef1da6d75d2596f27619cb877703b2dd28bb0554e0d5",
+    "schedules.enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "schedules.prompt": "3c690ff9bb3e4d423b2d5dfce74f5890d52bf8ae159cfe135a671ac3d46da75a",
+    "tools.builtin.read_file": "858f128945421043f5f373c908a0ee081e93e9413debaa49c8c7af1c1c76db3c",
+    "tools.builtin.edit_file": "165a3e2dabe3d13200a1670f3c23ed2d6561c508439db1972db066719f3549ef",
+    "tools.builtin.write_file": "c98253bd5a3b6ff021accda91af016a809a9b50ce56f38a3ed60eeb673c0b130",
+    "tools.builtin.exec_command":
+      "16b327e5c3617b7c4d21505c9d1a72dd33a74de97cd5c60d6c4538b8ec408421",
+    "tools.builtin.input_command":
+      "4c907500cda145161a9481803cfb57ed814b6793e762fd6284510187e9d781c8",
+    "tools.builtin.run_subagent":
+      "c3f93add8da3032850fb2e1f484e2d6ddf97e57d73639d887549494ce9f15fb2",
+    "tools.builtin.input_subagent":
+      "22cc4648d773e8422e80a12a7a095b00b7f7eb01ab5a9ea080858dcd7517b4e3",
+    "tools.builtin.read_image": "05b797a88df1e6a90fb3da67ec654b206f8d81291f89d160a505620afcea38bb",
+    "tools.builtin.describe_image":
+      "fad6d0cdd483eb53b5d243c0508024ab3b708ce6d3c81933acd291f05d4a265f",
+  },
+  // Chrome 正式开放，但不改变默认选择：system_prompt 要求 agent 遵循每个对话的 Browser
+  // 菜单，Desktop 默认 IAB，用户自己的 Chrome 是显式备选。其余叶子与 2026-08-12 相同。
+  "2026-08-19": {
+    system_prompt: "852c602f80efaf0050bf7883e1af844a3e6dc95588b60449447ec299e25f5237",
     max_turns: "1bad6b8cf97131fceab8543e81f7757195fbb1d36b376ee994ad1cf17699c464",
     "model.max_tokens": "492f431bae35265f2e5f4ed49bd8c58dda912431be561504846988d00d05d117",
     "model.thinking_level": "60d4c90eee5e731df8d3ef2891de541d2e755ff8ee9db358e26bdec49f6e0db9",

@@ -277,7 +277,7 @@
       <section>
         <h2>Getting Started with Penguin Browser</h2>
 
-        <p>Control your browser via Playwright API. Uses extension + CLI. No context bloat.</p>
+        <p>Connect Travel Agent or a local Playwright CLI to task tabs in your Chrome profile.</p>
 
         <h3>Installation</h3>
 
@@ -292,44 +292,41 @@
         <div class="step">
           <span class="step-number">2</span>
           <div class="step-content">
-            <strong>Enable a tab</strong>
-            <p>Click the extension icon on a tab. It joins the cyan Penguin Browser group when connected.</p>
+            <strong>Choose how to connect</strong>
+            <p>In Travel Agent, select “My own Chrome (extension)” in the right-side Browser menu. The agent may create its own task tabs.</p>
           </div>
         </div>
 
         <div class="step">
           <span class="step-number">3</span>
           <div class="step-content">
-            <strong>Build the local CLI and run a command</strong>
-            <pre><code class="language-bash"># from the Penguin Browser source checkout
-pnpm install
-pnpm build
-pnpm exec tsx penguin-browser/src/cli.ts session new
-pnpm exec tsx penguin-browser/src/cli.ts -s 1 -e "await page.goto('https://example.com')"</code></pre>
+            <strong>Authorize an existing tab only when needed</strong>
+            <p>To let the agent use a tab you already opened, click the extension icon on that tab. It joins the cyan Penguin Browser group.</p>
           </div>
         </div>
 
         <div class="step">
           <span class="step-number">4</span>
           <div class="step-content">
-            <strong>Add the skill to your agent</strong>
-            <p>
-              Add <code>skills/penguin-browser/SKILL.md</code> from this source checkout to your coding agent's skill
-              directory.
-            </p>
+            <strong>Standalone development</strong>
+            <pre><code class="language-bash"># from the travel-agent checkout
+pnpm install
+pnpm build
+penguin-browser session new
+penguin-browser -s 1 -e "await page.goto('https://example.com')"</code></pre>
           </div>
         </div>
 
         <h3>CLI Examples</h3>
 
         <pre><code class="language-bash"># create a stateful sandbox, outputs session id (e.g. 1)
-pnpm exec tsx penguin-browser/src/cli.ts session new
+penguin-browser session new
 # navigate to a URL
-pnpm exec tsx penguin-browser/src/cli.ts -s 1 -e "await page.goto('https://example.com')"
+penguin-browser -s 1 -e "await page.goto('https://example.com')"
 # get the accessibility tree of the page
-pnpm exec tsx penguin-browser/src/cli.ts -s 1 -e "console.log(await snapshot({ page }))"
+penguin-browser -s 1 -e "console.log(await snapshot({ page }))"
 # click an element by its accessibility reference
-pnpm exec tsx penguin-browser/src/cli.ts -s 1 -e "await page.locator('aria-ref=e5').click()"</code></pre>
+penguin-browser -s 1 -e "await page.locator('aria-ref=e5').click()"</code></pre>
       </section>
 
       <section>
@@ -366,17 +363,17 @@ pnpm exec tsx penguin-browser/src/cli.ts -s 1 -e "await page.locator('aria-ref=e
       <section>
         <h2>MCP Setup (Optional)</h2>
 
-        <p>The CLI is the recommended way to use Penguin Browser. To start the local stdio MCP server from source:</p>
+        <p>The CLI is the recommended way to use Penguin Browser. To start the local stdio MCP server:</p>
 
-        <pre><code class="language-bash">pnpm exec tsx penguin-browser/src/cli.ts</code></pre>
+        <pre><code class="language-bash">penguin-browser</code></pre>
 
-        <p>For full editor configuration, open <code>MCP.md</code> in the Penguin Browser source checkout.</p>
+        <p>For full editor configuration, open <code>MCP.md</code> in the travel-agent checkout.</p>
       </section>
 
       <section>
         <h2>Need Help?</h2>
 
-        <p>Open <code>README.md</code> in the source checkout for local setup, security notes, and troubleshooting.</p>
+        <p>Open <code>README.md</code> in the travel-agent checkout for local setup, security notes, and troubleshooting.</p>
       </section>
 
       <footer>

@@ -110,14 +110,14 @@ turning the Phase 4 capabilities on, recorded now so the sequence is fixed.
 - 实测: —
 - 修复: —
 
-## MT-05-008 Disconnecting the extension shows a degraded status
+## MT-05-008 Disconnecting the selected extension reports an interruption
 - 状态: PENDING
 - 严重度: major
 - 关联: recovery-status.ts
 - 平台: macOS | Windows | Linux(X11)
 - 前置: 使用扩展后端
 - 步骤: 1. 断开扩展 / 关闭用户 Chrome。2. 观察状态。
-- 预期: 显示「降级但可用」类可读状态，提示可切换后端；不静默挂起。
+- 预期: 明确显示 Chrome 已断开，当前任务中断并等待重连；不得静默切到 IAB。任务结束后，用户可在 Browser 菜单明确改选 IAB。
 - 实测: —
 - 修复: —
 

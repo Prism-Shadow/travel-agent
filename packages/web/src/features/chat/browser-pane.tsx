@@ -13,6 +13,12 @@
  * anonymous buttons would be a regression against the browser it replaces.
  */
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowCounterClockwise";
+import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
+import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
+import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
+import { RadioButtonIcon } from "@phosphor-icons/react/dist/csr/RadioButton";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError, toastSuccess } from "../../components/ui/toast";
@@ -31,10 +37,11 @@ import { BrowserImportDialog } from "./browser-import-dialog";
 import { LoginOfferBar } from "./login-offer-bar";
 import { ariaValueNow, MAX_PANE_FRACTION, MIN_PANE_FRACTION } from "./browser-pane-split";
 import { displayUrl, normalizeUrlInput, originOf } from "./browser-url";
+import { formatBrowserZoom, stepBrowserZoom } from "./browser-zoom";
 import { createRovingFocus, pointerTabAction } from "./tab-focus";
 import type { BrowserPaneState } from "./use-browser-pane";
 import { desktopBrowserBridge } from "../../lib/desktop-bridge";
-import type { DesktopTabState } from "../../lib/desktop-bridge";
+import type { DesktopPageCapture, DesktopTabState } from "../../lib/desktop-bridge";
 
 /**
  * The divider.
@@ -293,7 +300,18 @@ function BrowserTabStrip({ state }: { state: BrowserPaneState }): React.ReactEle
  * agent session, never the current one — switching mid-task would throw away the page state the task
  * is built on (design/002 §6.1, §7.3).
  */
-function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement {
+function BrowserMenu({
+  state,
+  open,
+  setOpen,
+  setBlockingOverlayOpen,
+}: {
+  state: BrowserPaneState;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  /** Keeps the frozen IAB pixels alive while a modal hides the native view. */
+  setBlockingOverlayOpen: (open: boolean) => void;
+}): React.ReactElement {
   const {
     backend,
     backendLocked,
@@ -302,13 +320,35 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
     actions,
     activeTab,
   } = state;
-  const [open, setOpen] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const closeClear = (): void => {
+    setConfirmingClear(false);
+    setBlockingOverlayOpen(false);
+  };
+  const closeImport = (): void => {
+    setImporting(false);
+    setBlockingOverlayOpen(false);
+  };
+
+  useEffect(
+    () => () => {
+      setBlockingOverlayOpen(false);
+    },
+    [setBlockingOverlayOpen],
+  );
 
   const row =
-    "block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-200 dark:hover:bg-gray-800";
+    "flex min-h-9 w-full items-center rounded-lg px-3 text-left text-[13px] text-gray-700 transition-colors hover:bg-gray-100 disabled:pointer-events-none disabled:text-gray-300 dark:text-gray-200 dark:hover:bg-gray-800 dark:disabled:text-gray-600";
+  const zoom = activeTab?.zoomFactor ?? 1;
+  const canZoom = backend === "iab" && activeTab !== null;
+  const applyZoom = (factor: number): void => {
+    if (!activeTab || factor === activeTab.zoomFactor) return;
+    void actions.setZoom(activeTab.id, factor).catch((error: unknown) => {
+      toastError(messageOf(error, S.chat.browserPane.zoomFailed));
+    });
+  };
 
   return (
     <>
@@ -318,7 +358,7 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
         // Portaled and right-aligned: the toolbar sits inside a column with its own overflow, and a
         // menu clipped by it would be unusable at the pane's narrower widths.
         portal={{ direction: "down", align: "right" }}
-        menuClass="w-64 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+        menuClass="w-72 rounded-xl border border-gray-200 bg-white p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.16)] dark:border-gray-700 dark:bg-gray-900"
         button={
           <button
             type="button"
@@ -327,13 +367,15 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
             aria-expanded={open}
             data-testid="iab-menu"
             onClick={() => setOpen(!open)}
-            className="shrink-0 rounded px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${
+              open ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" : ""
+            }`}
           >
-            ⋯
+            <DotsThreeVerticalIcon aria-hidden="true" size={18} weight="bold" />
           </button>
         }
       >
-        <p className="px-3 pb-1 pt-1.5 text-[11px] uppercase tracking-wide text-gray-400">
+        <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-400">
           {S.chat.browserPane.backend}
         </p>
         {(["iab", "extension"] as const).map((option) => (
@@ -350,9 +392,13 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
                 ? S.chat.browserPane.backendLocked
                 : option === "extension" && !extensionBackendAvailable
                   ? S.chat.browserPane.backendUnavailable
-                  : undefined
+                  : option === "extension"
+                    ? S.chat.browserPane.backendExtensionHint
+                    : undefined
             }
-            className={row}
+            className={`${row} gap-2.5 ${
+              backend === option ? "bg-gray-100 font-medium dark:bg-gray-800" : ""
+            }`}
             onClick={() => {
               setOpen(false);
               void actions.setBackend(option).catch((error: unknown) => {
@@ -363,11 +409,87 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
               });
             }}
           >
-            {backend === option ? "● " : "○ "}
-            {option === "iab" ? S.chat.browserPane.backendIab : S.chat.browserPane.backendExtension}
+            <RadioButtonIcon
+              aria-hidden="true"
+              size={17}
+              weight={backend === option ? "fill" : "regular"}
+              className={backend === option ? "text-gray-700 dark:text-gray-100" : "text-gray-400"}
+            />
+            <span>
+              {option === "iab"
+                ? S.chat.browserPane.backendIab
+                : S.chat.browserPane.backendExtension}
+            </span>
           </button>
         ))}
-        <hr className="my-1 border-gray-200 dark:border-gray-800" />
+        {backend === "extension" ? (
+          <p
+            role="status"
+            className={`mx-1 mt-1 rounded-lg px-2.5 py-2 text-[11px] leading-4 ${
+              extensionBackendAvailable
+                ? "bg-gray-50 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400"
+                : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+            }`}
+          >
+            {extensionBackendAvailable
+              ? S.chat.browserPane.backendExtensionSelected
+              : S.chat.browserPane.backendExtensionUnavailableSelected}
+          </p>
+        ) : null}
+        <hr className="my-1.5 border-gray-200 dark:border-gray-800" />
+        <div
+          role="group"
+          aria-label={S.chat.browserPane.zoom}
+          className="flex min-h-10 items-center justify-between gap-3 rounded-lg px-3 text-[13px] text-gray-700 dark:text-gray-200"
+        >
+          <span>{S.chat.browserPane.zoom}</span>
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-8 items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <button
+                type="button"
+                aria-label={S.chat.browserPane.zoomOut}
+                title={S.chat.browserPane.zoomOut}
+                data-testid="iab-zoom-out"
+                disabled={!canZoom || zoom <= 0.5}
+                onClick={() => applyZoom(stepBrowserZoom(zoom, -1))}
+                className="flex h-full w-9 items-center justify-center text-gray-500 hover:bg-white disabled:text-gray-300 dark:text-gray-300 dark:hover:bg-gray-700 dark:disabled:text-gray-600"
+              >
+                <MinusIcon aria-hidden="true" size={15} />
+              </button>
+              <button
+                type="button"
+                title={S.chat.browserPane.zoomReset}
+                disabled={!canZoom}
+                onClick={() => applyZoom(1)}
+                className="h-full min-w-14 border-x border-gray-200 px-2 text-center text-xs font-medium tabular-nums text-gray-800 hover:bg-white disabled:text-gray-300 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-700 dark:disabled:text-gray-600"
+              >
+                {formatBrowserZoom(zoom)}
+              </button>
+              <button
+                type="button"
+                aria-label={S.chat.browserPane.zoomIn}
+                title={S.chat.browserPane.zoomIn}
+                data-testid="iab-zoom-in"
+                disabled={!canZoom || zoom >= 2}
+                onClick={() => applyZoom(stepBrowserZoom(zoom, 1))}
+                className="flex h-full w-9 items-center justify-center text-gray-500 hover:bg-white disabled:text-gray-300 dark:text-gray-300 dark:hover:bg-gray-700 dark:disabled:text-gray-600"
+              >
+                <PlusIcon aria-hidden="true" size={15} />
+              </button>
+            </div>
+            <button
+              type="button"
+              aria-label={S.chat.browserPane.zoomReset}
+              title={S.chat.browserPane.zoomReset}
+              data-testid="iab-zoom-reset"
+              disabled={!canZoom || zoom === 1}
+              onClick={() => applyZoom(1)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:text-gray-200 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200 dark:disabled:text-gray-700"
+            >
+              <ArrowCounterClockwiseIcon aria-hidden="true" size={16} />
+            </button>
+          </div>
+        </div>
         <button
           type="button"
           role="menuitem"
@@ -388,6 +510,10 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
         >
           {S.chat.browserPane.openInDefaultBrowser}
         </button>
+        <hr className="my-1.5 border-gray-200 dark:border-gray-800" />
+        <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-400">
+          {S.chat.browserPane.inAppBrowserData}
+        </p>
         <button
           type="button"
           role="menuitem"
@@ -397,6 +523,7 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
           // anything out, so it cannot pull the ground from under a task the way a reset can.
           onClick={() => {
             setOpen(false);
+            setBlockingOverlayOpen(true);
             setImporting(true);
           }}
         >
@@ -413,6 +540,7 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
           title={profileResetLocked ? S.chat.browserPane.profileResetLocked : undefined}
           onClick={() => {
             setOpen(false);
+            setBlockingOverlayOpen(true);
             setConfirmingClear(true);
           }}
         >
@@ -425,13 +553,13 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
         title={S.chat.browserPane.clearProfile}
         confirmLabel={S.chat.browserPane.clearProfile}
         busy={clearing}
-        onClose={() => setConfirmingClear(false)}
+        onClose={closeClear}
         onConfirm={() => {
           setClearing(true);
           void actions
             .clearProfile()
             .then(() => {
-              setConfirmingClear(false);
+              closeClear();
               toastSuccess(S.chat.browserPane.clearProfileDone);
             })
             .catch((error: unknown) => {
@@ -446,13 +574,23 @@ function BrowserMenu({ state }: { state: BrowserPaneState }): React.ReactElement
         {S.chat.browserPane.clearProfileConfirm}
       </ConfirmModal>
 
-      <BrowserImportDialog open={importing} onClose={() => setImporting(false)} />
+      <BrowserImportDialog open={importing} onClose={closeImport} />
     </>
   );
 }
 
 /** Back, forward, reload/stop, and the address bar. */
-function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElement {
+function BrowserToolbar({
+  state,
+  menuOpen,
+  setMenuOpen,
+  setBlockingOverlayOpen,
+}: {
+  state: BrowserPaneState;
+  menuOpen: boolean;
+  setMenuOpen: (open: boolean) => void;
+  setBlockingOverlayOpen: (open: boolean) => void;
+}): React.ReactElement {
   const { activeTab, actions, addressRef, scopeSettled } = state;
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
@@ -655,7 +793,12 @@ function BrowserToolbar({ state }: { state: BrowserPaneState }): React.ReactElem
           })}
         </ul>
       )}
-      <BrowserMenu state={state} />
+      <BrowserMenu
+        state={state}
+        open={menuOpen}
+        setOpen={setMenuOpen}
+        setBlockingOverlayOpen={setBlockingOverlayOpen}
+      />
     </form>
   );
 }
@@ -695,7 +838,7 @@ function BrowserFailure({ state }: { state: BrowserPaneState }): React.ReactElem
 function BrowserRestorePrompt({ state }: { state: BrowserPaneState }): React.ReactElement {
   const { restorable, actions } = state;
   return (
-    <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
       <p className="text-sm text-gray-700 dark:text-gray-200">
         {S.chat.browserPane.restorePrompt(restorable)}
       </p>
@@ -730,26 +873,185 @@ function BrowserRestorePrompt({ state }: { state: BrowserPaneState }): React.Rea
   );
 }
 
+/**
+ * The native page's measured rectangle.
+ *
+ * The rectangle never changes when the Browser menu opens. Instead, a short-lived frozen capture
+ * occupies the same box while Electron hides the live native surface, so the page neither blanks
+ * nor responsively reflows under the DOM-owned menu.
+ */
+export function BrowserPaneViewport({
+  measureRef,
+  menuOpen,
+  preview,
+}: {
+  measureRef: BrowserPaneState["measureRef"];
+  menuOpen: boolean;
+  preview: DesktopPageCapture | null;
+}): React.ReactElement {
+  const frozenPage =
+    preview === null ? null : (
+      <img
+        src={preview.dataUrl}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        data-testid="iab-menu-preview"
+        style={{
+          left: preview.bounds.x,
+          top: preview.bounds.y,
+          width: preview.bounds.width,
+          height: preview.bounds.height,
+        }}
+        className="pointer-events-none fixed z-40 block select-none"
+      />
+    );
+  return (
+    <div className="relative min-h-0 flex-1">
+      <div
+        ref={measureRef}
+        data-testid="iab-viewport"
+        data-menu-open={menuOpen ? "true" : "false"}
+        data-menu-preview={preview !== null ? "true" : "false"}
+        className="absolute inset-0"
+      />
+      {frozenPage === null
+        ? null
+        : typeof document === "undefined"
+          ? frozenPage
+          : createPortal(frozenPage, document.body)}
+    </div>
+  );
+}
+
 export function BrowserPanePanel({ state }: { state: BrowserPaneState }): React.ReactElement {
   const { measureRef, pane, restorable } = state;
+  const [menuOpen, setMenuOpenState] = useState(false);
+  const [menuPreview, setMenuPreview] = useState<DesktopPageCapture | null>(null);
+  const [blockingOverlayOpen, setBlockingOverlayOpen] = useState(false);
+  const menuRequest = useRef(0);
+
+  /**
+   * Captures before opening so the native page can hide underneath the menu without a blank frame,
+   * responsive reflow, or a permanent empty gutter. Closing is immediate; the preview is kept for
+   * a beat while Electron restores the live native surface above it.
+   */
+  const setMenuOpen = (next: boolean): void => {
+    const request = ++menuRequest.current;
+    if (!next || state.backend !== "iab") {
+      setMenuOpenState(next);
+      return;
+    }
+    void state.actions
+      .captureActivePage()
+      .catch(() => null)
+      .then((preview) => {
+        if (request !== menuRequest.current) return;
+        setMenuPreview(preview);
+        setMenuOpenState(true);
+      });
+  };
+
+  useEffect(() => {
+    menuRequest.current += 1;
+    setMenuOpenState(false);
+    setMenuPreview(null);
+    setBlockingOverlayOpen(false);
+  }, [state.backend, pane.sessionScope]);
+
+  useEffect(() => {
+    if (menuOpen || blockingOverlayOpen || menuPreview === null) return;
+    const timer = window.setTimeout(() => setMenuPreview(null), 120);
+    return () => window.clearTimeout(timer);
+  }, [blockingOverlayOpen, menuOpen, menuPreview]);
+  if (state.backend === "extension") {
+    return (
+      <div className="flex h-full w-full flex-col bg-white dark:bg-gray-950">
+        <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+            {S.chat.browserPane.backendExtension}
+          </span>
+          <BrowserMenu
+            state={state}
+            open={menuOpen}
+            setOpen={setMenuOpen}
+            setBlockingOverlayOpen={setBlockingOverlayOpen}
+          />
+        </div>
+        <div
+          ref={measureRef}
+          data-testid="chrome-backend-status"
+          role="status"
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-8 text-center"
+        >
+          <div
+            aria-hidden="true"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-xl text-blue-600 dark:bg-blue-950 dark:text-blue-300"
+          >
+            ◎
+          </div>
+          <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {S.chat.browserPane.chromePanelTitle}
+          </h2>
+          <p className="max-w-sm text-xs leading-5 text-gray-600 dark:text-gray-300">
+            {state.extensionBackendAvailable
+              ? S.chat.browserPane.chromePanelBody
+              : S.chat.browserPane.chromePanelUnavailable}
+          </p>
+          <p className="max-w-sm text-[11px] leading-4 text-gray-400">
+            {S.chat.browserPane.chromePanelIabSafe}
+          </p>
+          {state.extensionBackendAvailable ? (
+            <button
+              type="button"
+              disabled={state.backendLocked}
+              title={state.backendLocked ? S.chat.browserPane.backendLocked : undefined}
+              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+              onClick={() => {
+                void state.actions.setBackend("extension").catch((error: unknown) => {
+                  toastError(messageOf(error, S.chat.browserPane.backendFailed));
+                });
+              }}
+            >
+              {S.chat.browserPane.chromePanelCheck}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
   const showRestore = restorable > 0 && pane.tabs.length === 0;
+
+  // A restore offer is not a web page. Rendering an empty tab strip, address bar and native-view
+  // hole above and below it made the startup state look like a broken blank browser. Give the
+  // decision the whole pane; accepting or discarding returns to ordinary browser chrome.
+  if (showRestore) {
+    return (
+      <div className="flex h-full w-full bg-white dark:bg-gray-950">
+        <BrowserRestorePrompt state={state} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full flex-col bg-white dark:bg-gray-950">
       <BrowserTabStrip state={state} />
-      <BrowserToolbar state={state} />
+      <BrowserToolbar
+        state={state}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        setBlockingOverlayOpen={setBlockingOverlayOpen}
+      />
       {/* Only ever drawn when the page has a sign-in form and something is stored for its origin. */}
       <LoginOfferBar tab={state.activeTab} />
       <BrowserFailure state={state} />
-      {showRestore ? <BrowserRestorePrompt state={state} /> : null}
-
       {/*
         The hole. The active view is positioned over this element's bounding box by the main
         process, so it must reserve real space and must not be given a background that would flash
-        through during a resize. Nothing may be rendered inside it: a WebContentsView paints above
-        the DOM, so any child would simply be invisible.
+        through during a resize. The only DOM content in its wrapper is the short-lived frozen menu
+        preview, which becomes visible precisely because the native view is occluded at that time.
       */}
-      <div ref={measureRef} className="min-h-0 flex-1" data-testid="iab-viewport" />
+      <BrowserPaneViewport measureRef={measureRef} menuOpen={menuOpen} preview={menuPreview} />
     </div>
   );
 }

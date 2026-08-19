@@ -38,19 +38,22 @@ const ALL_REQUESTED: Partial<Record<FeatureFlag, boolean>> = {
 };
 
 describe("feature flag defaults", () => {
-  it("ships the in-app browser on and every optional capability off", () => {
+  it("ships both browser backends on and every security-sensitive capability off", () => {
     for (const flag of listFeatureFlags()) {
       expect(FLAG_DEFAULTS[flag], `${flag} has the wrong product default`).toBe(
-        flag === "iab.enabled",
+        flag === "iab.enabled" || flag === "chrome.fallback",
       );
     }
   });
 
-  it("resolves to only the in-app browser with no overrides and reports no denials", () => {
+  it("resolves to both browser backends with no overrides and reports no denials", () => {
     const { flags, denials } = resolveFlags();
     expect(flags["iab.enabled"]).toBe(true);
+    expect(flags["chrome.fallback"]).toBe(true);
     expect(
-      Object.entries(flags).every(([flag, enabled]) => flag === "iab.enabled" || !enabled),
+      Object.entries(flags).every(
+        ([flag, enabled]) => flag === "iab.enabled" || flag === "chrome.fallback" || !enabled,
+      ),
     ).toBe(true);
     expect(denials).toEqual([]);
   });
@@ -531,11 +534,14 @@ describe("resolveFlagsFromEnv", () => {
     expect(result.denials.map((d) => d.flag)).toContain("vault.enabled");
   });
 
-  it("enables only the in-app browser for an empty environment", () => {
+  it("enables both browser backends for an empty environment", () => {
     const result = resolveFlagsFromEnv({}, {});
     expect(result.flags["iab.enabled"]).toBe(true);
+    expect(result.flags["chrome.fallback"]).toBe(true);
     expect(
-      Object.entries(result.flags).every(([flag, enabled]) => flag === "iab.enabled" || !enabled),
+      Object.entries(result.flags).every(
+        ([flag, enabled]) => flag === "iab.enabled" || flag === "chrome.fallback" || !enabled,
+      ),
     ).toBe(true);
     expect(result.unknown).toEqual([]);
     expect(result.invalid).toEqual([]);

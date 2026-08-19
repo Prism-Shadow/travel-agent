@@ -3247,8 +3247,9 @@ export async function startPenguinBrowserCDPRelayServer({
       // Creating it here — at the one point that already holds the backend connection — breaks the
       // cycle with a single mechanism rather than a special case inside the executor, and it means
       // `session new --iab` always hands back a session with somewhere to work.
+      let iabBootstrapTargetId: string
       try {
-        await sendToExtension({
+        const bootstrap = await sendToExtension({
           extensionId: iabConn.id,
           method: 'iab-open-tab',
           // The relay session id goes with it, even though the executor does not exist yet. The
@@ -3257,6 +3258,14 @@ export async function startPenguinBrowserCDPRelayServer({
           // start's very first page from arriving unclaimed.
           params: { ...identity, relaySessionId: sessionId },
         })
+        const targetId =
+          bootstrap && typeof bootstrap === 'object'
+            ? (bootstrap as { targetId?: unknown }).targetId
+            : undefined
+        if (typeof targetId !== 'string' || !targetId.trim()) {
+          throw new Error('the desktop app did not return the bootstrap target id')
+        }
+        iabBootstrapTargetId = targetId
       } catch (error) {
         return c.json(
           {
@@ -3276,7 +3285,12 @@ export async function startPenguinBrowserCDPRelayServer({
       const executor = manager.getExecutor({
         sessionId,
         cwd,
-        cdpConfig: { iab: true, extensionId: iabConn.stableKey, iabIdentity: identity },
+        cdpConfig: {
+          iab: true,
+          extensionId: iabConn.stableKey,
+          iabIdentity: identity,
+          iabBootstrapTargetId,
+        },
         sessionMetadata: {
           extensionId: iabConn.stableKey,
           browser: iabConn.info.browser || 'Travel Agent (in-app browser)',

@@ -86,6 +86,16 @@ describe("loadLibrarySkills", () => {
     }
   });
 
+  it("keeps the browser skill aligned with the Desktop backend contract", () => {
+    const content = librarySkill("penguin-browser")!.content;
+    expect(content).toContain("default is the visible in-app browser");
+    expect(content).toContain("penguin-browser session new");
+    expect(content).toContain("never change or rewrite the preference yourself");
+    expect(content).toContain("task may create and control its own new");
+    expect(content).not.toContain("Extension mode (default)");
+    expect(content).not.toContain("use **extension mode only**");
+  });
+
   it("a skill that ships only SKILL.md + icon.svg omits the files field entirely", () => {
     // The library currently has no multi-file skill (the auxiliary-file collection path in
     // readSkillDir is exercised again the moment one adds a reference/ document).

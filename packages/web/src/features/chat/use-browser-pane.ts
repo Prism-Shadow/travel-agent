@@ -16,7 +16,12 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { desktopBrowserBridge } from "../../lib/desktop-bridge";
-import type { DesktopBackend, DesktopPaneState, DesktopTabState } from "../../lib/desktop-bridge";
+import type {
+  DesktopBackend,
+  DesktopPageCapture,
+  DesktopPaneState,
+  DesktopTabState,
+} from "../../lib/desktop-bridge";
 import { computeOcclusion, occludePane, subscribeToOcclusion } from "../../lib/pane-occlusion";
 import { occlusionEntries } from "../../lib/pane-occlusion";
 import { applySessionSwitch, isCurrentAnswer, isScopeSettled } from "./browser-pane-scope";
@@ -120,6 +125,9 @@ export interface BrowserPaneActions {
   closeTab: (tabId: string) => Promise<void>;
   selectTab: (tabId: string) => Promise<void>;
   setRetain: (tabId: string, retain: boolean) => void;
+  setZoom: (tabId: string, factor: number) => Promise<void>;
+  /** Captures the visible IAB viewport before a DOM menu hides the native surface. */
+  captureActivePage: () => Promise<DesktopPageCapture | null>;
   navigate: (tabId: string, url: string) => Promise<void>;
   goBack: (tabId: string) => void;
   goForward: (tabId: string) => void;
@@ -530,6 +538,10 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
         await bridge?.selectTab(tabId);
       },
       setRetain: (tabId, retain) => quiet(bridge?.setRetain(tabId, retain)),
+      setZoom: async (tabId, factor) => {
+        await bridge?.setZoom(tabId, factor);
+      },
+      captureActivePage: async () => (await bridge?.captureActivePage()) ?? null,
       navigate: async (tabId, url) => {
         await bridge?.navigate(tabId, url);
       },

@@ -1,6 +1,6 @@
 # travel-agent
 
-把 [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness)（agent 引擎）和 penguin-browser（控制用户自己的 Chrome）粘起来。携程是演示场景，不是产品。
+把 [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness)（agent 引擎）和 penguin-browser（右侧应用内浏览器，以及可选的用户 Chrome）粘起来。携程是演示场景，不是产品。
 
 用户说一句话。agent 去搜，把选项空间收到几个带理由的代表，等一次同时等于授权的点击，然后填单，停在支付页。**不做**降价监控、自动改签、抢票，以及任何需要长期驻留的事。
 
@@ -38,9 +38,14 @@
 | `packages/web` | travel-agent 持续演进的消费级界面，web / desktop 共用 |
 | `packages/browser-cli`、`browser-extension` | 并入的 penguin-browser |
 | `packages/transaction` | 不可逆动作的语义，含 `submitBooking` 闸门 |
-| `packages/skills/skills/penguin-browser` | 教 agent 怎么开 Chrome |
+| `packages/skills/skills/penguin-browser` | 教 agent 遵循当前对话的浏览器选择 |
 
 ## 浏览器后端
+
+Desktop 右侧 Browser 菜单正式提供两种后端：
+
+- **应用内浏览器（默认）：** 每个新对话都从这里开始。页面在应用内可见，并保留独立的 Cookie 与登录状态。
+- **我自己的 Chrome（扩展）：** 在任务之间选择它，可复用 Chrome 配置文件。扩展未连接时会直接打开安装引导。选择 Chrome 允许 agent 创建任务自己的标签页；若要使用 Chrome 中已经打开的标签页，用户仍需在该页点击扩展图标。
 
 两个后端最终汇合到同一套 Relay 与 Playwright 执行层；区别在于 debugger 桥接方式和被控制的浏览器 profile：
 
@@ -56,6 +61,8 @@ flowchart TB
     Extension <-->|"chrome.debugger"| Chrome["用户真实 Chrome 标签页"]
 ```
 
+选择按对话保存，任务运行时不能切换。在系统默认浏览器中打开当前页面不等于切换 agent 后端。所选后端不可用时不会静默切到另一套登录环境。
+
 ## 开发
 
 需要 Node >= 24、pnpm 11。
@@ -69,7 +76,7 @@ pnpm dev                 # server + web；数据在 ~/.penguin/dev-data
 
 在加入 `penguin-browser` 之前创建的 `default_agent`，下次加载会补上这个 skill。拉代码后请**开一个新对话**——系统提示在创建 session 时组装。
 
-`penguin-browser` CLI 需要在 `PATH` 上（`pnpm build` 会 link）。skill 正文里写的独立仓库路径已经过时。
+`penguin-browser` CLI 需要在 `PATH` 上（`pnpm build` 会 link）。内置 Skill 会解析本仓 CLI，并使用自动后端路由，确保 agent 遵循 Browser 菜单。
 
 ## 这不是什么
 

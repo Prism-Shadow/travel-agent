@@ -8,14 +8,15 @@ The automated suites cover the rules; what they cannot cover is whether a tab st
 browser, whether a screen reader can use one we drew ourselves, and whether killing a renderer for
 real behaves like the crash triage says it should.
 
-The pane is on and opens by default. The Chrome-backend items additionally need `chrome.fallback`:
+The pane is on and opens by default. Both browser choices are offered in a normal run; IAB remains
+selected for every new conversation:
 
 ```bash
 pnpm desktop
-PENGUIN_FLAGS=chrome.fallback pnpm desktop   # for MT-02-014 … MT-02-016
+PENGUIN_FLAGS=chrome.fallback=false pnpm desktop   # diagnostic rollback: hide Chrome
 ```
 
-Only `chrome.fallback` stays **off by default**.
+The explicit false override exists for rollback testing; Chrome no longer needs an opt-in flag.
 
 | ID | Title | Severity | Status |
 | --- | --- | --- | --- |
@@ -28,7 +29,7 @@ Only `chrome.fallback` stays **off by default**.
 | MT-02-007 | Keyboard shortcuts work with focus in the app *and* inside a page | critical | PENDING |
 | MT-02-008 | A screen reader can drive the tab strip | critical | PENDING |
 | MT-02-009 | Switching conversations swaps the whole strip | critical | PENDING |
-| MT-02-010 | A read-only task closes its tabs; a booking's tabs stay | critical | PENDING |
+| MT-02-010 | A read-only task keeps its final result; a booking's tabs stay | critical | PENDING |
 | MT-02-011 | Killing one renderer rebuilds one tab | critical | PENDING |
 | MT-02-012 | Killing the app offers the pages back, and does not reopen them itself | critical | PENDING |
 | MT-02-013 | Every overlay gets out of the browser's way, and only when it should | critical | PENDING |
@@ -123,14 +124,14 @@ Open two conversations, each with its own browsing.
 never appears in the other. With no conversation open, the strip is empty rather than showing
 everything.
 
-## MT-02-010 — A read-only task closes its tabs; a booking's tabs stay
+## MT-02-010 — A read-only task keeps its final result; a booking's tabs stay
 
 Run a search-only task through to the end. Then a task that reaches a payment page. Mark one of the
 search tabs ★ first.
 
-**Pass:** the search's tabs close except the marked one, which stays and loses its owner; the payment
-page stays. Ask the agent to act on a kept page afterwards: it is refused and says why, and does not
-reopen anything.
+**Pass:** the search's selected final result stays and loses its owner; unrelated unmarked
+intermediate tabs close, and the marked tab stays too. The payment page stays. Ask the agent to act
+on a kept page afterwards: it is refused and says why, and does not reopen anything.
 
 ## MT-02-011 — Killing one renderer rebuilds one tab
 
@@ -154,16 +155,27 @@ With the pane open, exercise: a modal, a confirm dialog, a drawer, a mobile shee
 lightbox, a dropdown in the left column, a select inside a modal, and a toast.
 
 **Pass:** every full-screen overlay is fully clickable — none is swallowed by the browser. A dropdown
-in the left column does **not** blink the browser. A select inside a modal closing does not reveal
-the browser over the still-open modal. A toast that does not overlap the pane does not hide it.
+in the left column does **not** blink the browser. The Browser Backend menu shows a frozen preview at
+the native view's exact integer bounds: the page does not blank, shift even one pixel, or responsively
+reflow, and closing the menu restores the live page at the same scroll position. A select inside a
+modal closing does not reveal the browser over the still-open modal. A toast that does not overlap
+the pane does not hide it.
+
+Open **Import into in-app browser** and **Clear browser data and sign out** from that menu.
+
+**Pass:** the same frozen page remains visible and correctly dimmed behind either modal until it
+closes; the native page never becomes a blank rectangle. Every import-dialog label follows the
+current application locale. On startup, a pending **Reopen pages** decision is centred in the whole
+browser pane without an empty tab strip, address bar, or unused native-view hole around it.
 
 ## MT-02-014 — The backend choice is per conversation and cannot move mid-task
 
 In the pane's menu, set one conversation to your own Chrome and leave another on the in-app browser.
 Then start a task and try to switch while it runs.
 
-**Pass:** each conversation keeps its own choice; the agent honours it and says so when it cannot use
-the in-app browser; the control is disabled with a reason while a task is running.
+**Pass:** each conversation keeps its own choice; plain `session new` automatically follows it in
+both directions; direct/headless/cloud flags cannot bypass it; the control is disabled with a
+reason while a task is running.
 
 ## MT-02-015 — Clearing the browser data is a real sign-out
 
@@ -172,13 +184,16 @@ Sign in to a site in the pane. Clear the browser data. Revisit.
 **Pass:** signed out — not merely cookie-less. A cached page does not come back from disk and no
 credential is re-offered. The action is refused with a reason while any task is running.
 
-## MT-02-016 — The extension backend still works, unchanged
+## MT-02-016 — Chrome setup, task tabs, and existing-tab authorization are distinct
 
-With the desktop app closed, run an ordinary extension-mode task. Then with the app open and its
-pane on, do it again.
+With no extension connected, select Chrome and follow the setup prompt. Start a task without first
+authorizing an existing tab. Then open a separate page yourself, click the extension icon there,
+and start another task that explicitly needs that page. Also run the standalone CLI with no Desktop
+preference once.
 
-**Pass:** identical behaviour. `penguin-browser session new` finds the Chrome extension, never the
-in-app browser, and `extensions/status` does not list the in-app browser as one.
+**Pass:** the first task may create its own Chrome tab after the Browser-menu selection; it cannot
+adopt unrelated existing tabs. The icon adds only the clicked existing tab. Standalone auto mode
+still resolves to extension, and `extensions/status` never lists the in-app browser.
 
 ## MT-02-017 — A narrow window gives the browser the whole area
 

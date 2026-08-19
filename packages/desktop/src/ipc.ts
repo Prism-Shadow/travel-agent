@@ -33,6 +33,7 @@ const CHANNELS = [
   "iab:set-bounds",
   "iab:hide-now",
   "iab:set-occluded",
+  "iab:capture-active-page",
   "iab:get-state",
   "iab:set-session",
   "iab:reassign-session",
@@ -41,6 +42,7 @@ const CHANNELS = [
   "iab:close-tab",
   "iab:select-tab",
   "iab:set-retain",
+  "iab:set-zoom",
   "iab:navigate",
   "iab:go-back",
   "iab:go-forward",
@@ -63,6 +65,8 @@ const MAX_DIMENSION = 100_000;
 /** Bounds on the strings the renderer may send. Comfortably above anything real. */
 const MAX_ID_LENGTH = 128;
 const MAX_URL_LENGTH = 4096;
+const MIN_BROWSER_ZOOM_FACTOR = 0.5;
+const MAX_BROWSER_ZOOM_FACTOR = 2;
 
 function assertFiniteNumber(value: unknown, name: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -130,6 +134,17 @@ export function parseBackend(value: unknown): PaneBackend {
     throw new Error(`backend must be one of: ${BACKENDS.join(", ")}`);
   }
   return value as PaneBackend;
+}
+
+/** A bounded page scale. Rejecting rather than clamping keeps renderer and page state identical. */
+export function parseZoomFactor(value: unknown): number {
+  const factor = assertFiniteNumber(value, "zoom factor");
+  if (factor < MIN_BROWSER_ZOOM_FACTOR || factor > MAX_BROWSER_ZOOM_FACTOR) {
+    throw new Error(
+      `zoom factor must be between ${MIN_BROWSER_ZOOM_FACTOR} and ${MAX_BROWSER_ZOOM_FACTOR}`,
+    );
+  }
+  return factor;
 }
 
 const IMPORT_KIND_NAMES: readonly ImportKind[] = ["passwords", "cookies", "history"];
@@ -276,6 +291,7 @@ export function installBrowserIpc({
   on("iab:set-open", (payload) => pane.setRequested(parseBoolean(payload, "open")));
   on("iab:set-bounds", (payload) => pane.setMeasurement(parseMeasurement(payload)));
   on("iab:set-occluded", (payload) => pane.setOccluded(parseBoolean(payload, "occluded")));
+  on("iab:capture-active-page", () => pane.captureActivePage());
   on("iab:get-state", () => pane.state());
   on("iab:set-session", (payload) => {
     // The visible browser scope only: a real conversation id, or an opaque local draft scope before
@@ -304,6 +320,10 @@ export function installBrowserIpc({
   on("iab:set-retain", (payload) => {
     const record = asRecord(payload, "retain");
     pane.setRetain(parseId(record.tabId, "tabId"), parseBoolean(record.retain, "retain"));
+  });
+  on("iab:set-zoom", (payload) => {
+    const record = asRecord(payload, "zoom");
+    pane.setZoom(parseId(record.tabId, "tabId"), parseZoomFactor(record.factor));
   });
   on("iab:navigate", async (payload) => {
     const record = asRecord(payload, "navigation");

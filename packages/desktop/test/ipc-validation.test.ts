@@ -15,6 +15,7 @@ import {
   parseMeasurement,
   parseOutcome,
   parseSourceIdArgument,
+  parseZoomFactor,
 } from "../src/ipc.js";
 
 describe("parseMeasurement", () => {
@@ -128,6 +129,16 @@ describe("parseBackend", () => {
 
   it.each(["firefox", "", null, 2])("rejects %s", (value) => {
     expect(() => parseBackend(value)).toThrow(/backend/);
+  });
+});
+
+describe("parseZoomFactor", () => {
+  it.each([0.5, 0.8, 1, 1.25, 2])("accepts %s", (factor) => {
+    expect(parseZoomFactor(factor)).toBe(factor);
+  });
+
+  it.each([0.49, 2.01, Number.NaN, Number.POSITIVE_INFINITY, "1", null])("rejects %s", (value) => {
+    expect(() => parseZoomFactor(value)).toThrow(/zoom factor/);
   });
 });
 

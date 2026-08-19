@@ -379,6 +379,13 @@ new WebContentsView({
   2. **遮蔽**——打开全屏模态时主进程 `setVisible(false)`，关闭后恢复。这就是 preload 里 `setOccluded` 的用途。
   3. **画进页面里**——必须叠在网页上的提示走页面注入。**既有的 shadow DOM 浮层天生就是这个形态**，改造量极小。按 003 它只保留两种用途：`human_challenge` 与 `browser_takeover`。
 
+浏览器工具栏自己的 Backend 菜单保留全屏模态的 `occluded` 点击安全，但在打开前由
+main 进程对当前可见 WebContentsView 抓取一张短命的冻结画面，并把 Electron 实际使用的
+整数 bounds 与画面一同返回。菜单打开时原生页面隐藏，renderer 按完全相同的窗口坐标和尺寸
+显示这张画面；关闭后原生页面恢复，画面随即丢弃。这样既不会
+让 HTML 菜单被原生层盖住，也不会产生整页白屏、网页水平位移或响应式重排。冻结画面只在信任的
+app renderer 内存中短暂存活，不写日志、trace 或 checkpoint。
+
 第 3 条值得强调：二版方案里页面内浮层是「用户要去另一个窗口点」；IAB 里它就在用户正看着的那半屏上。**这是嵌入方案在体验上真正优于并排的地方，而且是零成本得到的。**
 
 **但按 003，页面内浮层的适用范围大幅收窄**：只服务 `human_challenge`（滑块/图形验证码）与 `browser_takeover`（兜底接管）两类。其余四类都在**左侧卡片**里完成，用户不碰浏览器——其中 `info_request` / `selection` / `commitment_confirmation` 控制权不变，而 `secret_entry` 虽然用户同样只操作卡片，系统仍会进入独立的 `secret_phase`（003 §7.3）。因此 z-order 遮挡问题的压力也随之下降——需要覆盖在页面上的东西变少了。
@@ -453,12 +460,13 @@ interface PaneState {
 
 | 结束情形 | 默认 | 理由 |
 | --- | --- | --- |
-| 只读离场段（搜索、比价） | `close` | 没有需要回看的不可逆结果 |
+| 只读离场段（搜索、比价） | `retain` 当前结果页；`close` 其余未标记中间页 | 用户仍可能查看结果、登录或手动继续；删掉结果页会让最终回复失去操作对象 |
 | 产生了订单或停在支付页 | `retain` | 用户大概率要回看凭证；关掉等于丢证据 |
 | 任务失败 / 被中止 | `retain` | 现场是排查依据 |
 | 用户在该 tab 上手动标记过「保留」 | `retain`，覆盖上面所有 | 用户意图优先于任何自动策略 |
 
 `retain` 的 tab 脱离任务归属（`ownedByTask = null`），留在 tab strip 里由用户自行关闭；不再接受 agent 写入。
+只读任务优先保留当前选中的任务 tab；若当前选择已不属于该任务，则保留该任务最新打开的 tab。
 
 **二 · 会话恢复**
 
@@ -774,7 +782,7 @@ web 侧新增 `browser-pane.tsx` + `use-browser-pane.ts` + `lib/desktop-bridge.t
 | 文件 | 动作 |
 | --- | --- |
 | `002-codex-style-single-window-iab.md` | 本文档 |
-| `001-architecture.md` | **待修订，未在本次改动**：§2.2 与 §3 需要按 §11.1 调整 |
+| `001-architecture.md` | 已于 2026-08-19 修订 §7.6：IAB 是 Desktop 默认，扩展仅在复用既有 Chrome 身份等条件下由用户明确选择 |
 
 ---
 
@@ -790,7 +798,7 @@ web 侧新增 `browser-pane.tsx` + `use-browser-pane.ts` + `lib/desktop-bridge.t
 
 因此 `001` §2.2 的论断应修订为：**IAB 能持有它自己分区内的登录态；扩展模式是唯一携带「用户在自己 Chrome 里已有的」登录态的模式。** 由此，§2.2 中「开场在场检查」的必要性理由不变，但「必须用扩展模式」的结论降级为「默认 IAB，特定条件下切扩展」。
 
-**本次未改 001。** 建议在 P4 完成后一并修订，避免文档描述超前于实现。
+`001` 的对应段落已于 2026-08-19 随 Chrome 正式开放一并修订；当前实现与本文结论一致。
 
 ### 11.2 风险
 

@@ -201,11 +201,10 @@ expect(
 );
 expect(
   "second-tab",
-  // Three: the bootstrap tab the relay opens with the session, plus the two the agent asked for.
-  // Phase 1 answered every tabs.open() with its single view, which made the call idempotent by
-  // accident; the count is the whole point of the assertion.
-  (s) => s.status === 200 && s.tabs === 3,
-  "each tabs.open() mints a new tab rather than handing back the same one",
+  // The first open consumes the session's exact owned bootstrap tab, avoiding a visible blank.
+  // The second open must still mint a distinct page rather than making tabs.open() idempotent.
+  (s) => s.status === 200 && s.tabs === 2,
+  "the first tabs.open() consumes the bootstrap and the next one mints a distinct tab",
 );
 expect(
   "select-tab",
@@ -219,8 +218,12 @@ expect(
 );
 expect(
   "task-end",
-  (s) => s.tabs === 1 && s.retainedUnowned === true,
-  "a read-only task closes its tabs, and the one the user kept survives without an owner",
+  (s) =>
+    s.tabs === 2 &&
+    s.retainedUnowned === true &&
+    s.resultRetained === true &&
+    s.markedRetained === true,
+  "a read-only task keeps its final result and the user-marked page without an owner",
 );
 expect(
   "write-after-end",
