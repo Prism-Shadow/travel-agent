@@ -31,10 +31,12 @@
  *   importing the handful of pre-v20 rows and reporting success would leave them wondering why they
  *   are still signed out everywhere.
  */
-import { createDecipheriv, pbkdf2Sync } from "node:crypto";
+import { createDecipheriv, createHash, pbkdf2Sync } from "node:crypto";
 
 /** Chromium's fixed salt. Not a choice — it is what the file was written with. */
 const SALT = "saltysalt";
+/** Length of the SHA-256 domain hash Chromium prepends to a cookie's plaintext. See below. */
+const COOKIE_DOMAIN_HASH_BYTES = 32;
 /** Chromium's fixed IV for the CBC variants: sixteen spaces. */
 const CBC_IV = Buffer.alloc(16, " ");
 const CBC_KEY_BYTES = 16;
@@ -188,6 +190,27 @@ function decryptGcm(body: Buffer, key: Buffer): Buffer {
  * dropped on arrival — which looks exactly like "the import silently did nothing".
  */
 const WINDOWS_EPOCH_OFFSET_MICROSECONDS = 11_644_473_600_000_000n;
+
+/**
+ * Removes the domain Chromium binds into every cookie value it writes.
+ *
+ * Since cookie-database version 24 the plaintext of `encrypted_value` is not the value: it is
+ * `SHA-256(host_key)` followed by the value. The hash binds a row to its domain, so that copying a
+ * cookie between hosts inside the file is detectable.
+ *
+ * The consequence for a reader that does not know this is not an error — decryption *succeeds* — but
+ * every value comes out with 32 bytes of hash glued to its front. Chromium's own cookie parser then
+ * rejects almost all of them for containing control characters, and the handful whose hash happens
+ * to be free of forbidden bytes are accepted while still being wrong. So this is checked, not
+ * assumed: the prefix is stripped only when it really is this host's hash, which leaves values
+ * written by older Chromium versions (no prefix) untouched in the same file.
+ */
+export function stripCookieDomainHash(plain: Buffer, hostKey: string): Buffer {
+  if (plain.length < COOKIE_DOMAIN_HASH_BYTES) return plain;
+  const expected = createHash("sha256").update(hostKey).digest();
+  if (!plain.subarray(0, COOKIE_DOMAIN_HASH_BYTES).equals(expected)) return plain;
+  return plain.subarray(COOKIE_DOMAIN_HASH_BYTES);
+}
 
 /** Chromium microseconds → Unix seconds. `0` means "no expiry recorded" and comes back as null. */
 export function chromeTimeToUnixSeconds(chromeTime: number | bigint): number | null {

@@ -23,6 +23,7 @@ import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { RadioButtonIcon } from "@phosphor-icons/react/dist/csr/RadioButton";
 import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import { Button } from "../../components/ui/button";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError, toastSuccess } from "../../components/ui/toast";
@@ -878,10 +879,12 @@ function BrowserRestorePrompt({ state }: { state: BrowserPaneState }): React.Rea
         {S.chat.browserPane.restorePrompt(restorable)}
       </p>
       <div className="flex gap-2">
-        <button
-          type="button"
+        {/* The app's own primary — neutral black by default, the chosen accent once there is one.
+            It was a hand-rolled blue, the one control in the pane that ignored the design system. */}
+        <Button
+          variant="primary"
+          size="sm"
           data-testid="iab-restore"
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-500"
           onClick={() => {
             // The offer is kept when this fails, so the prompt stays and the button can be pressed
             // again — but only if the user is told, rather than watching nothing happen.
@@ -891,10 +894,10 @@ function BrowserRestorePrompt({ state }: { state: BrowserPaneState }): React.Rea
           }}
         >
           {S.chat.browserPane.restore}
-        </button>
-        <button
-          type="button"
-          className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => {
             void actions.restore(false).catch(() => {
               // Discarding does not fail for anything the user can act on.
@@ -902,7 +905,7 @@ function BrowserRestorePrompt({ state }: { state: BrowserPaneState }): React.Rea
           }}
         >
           {S.chat.browserPane.discard}
-        </button>
+        </Button>
       </div>
     </div>
   );

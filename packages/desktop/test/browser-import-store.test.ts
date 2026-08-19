@@ -202,10 +202,20 @@ describe("reading cookies", () => {
   it("does not leave a copy of the cookie jar in the temp directory", async () => {
     const file = path.join(dir, "Cookies");
     writeCookiesDb(file, [{ host_key: "a.com", name: "X", encrypted_value: seal("v") }]);
-    const before = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("penguin-import-"));
-    await readCookies(file, { scheme: "cbc", key: KEY }, "linux");
-    const after = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("penguin-import-"));
-    expect(after.length).toBe(before.length);
+    // Point the temp directory somewhere only this test writes. Counting entries in the shared
+    // `os.tmpdir()` made the assertion a race: vitest runs test files in parallel workers, and the
+    // import-service file creates and removes copies under the same prefix while this one counts.
+    // `os.tmpdir()` re-reads TMPDIR on every call, so the code under test follows this override.
+    const privateTmp = fs.mkdtempSync(path.join(dir, "tmp-"));
+    const previous = process.env.TMPDIR;
+    process.env.TMPDIR = privateTmp;
+    try {
+      await readCookies(file, { scheme: "cbc", key: KEY }, "linux");
+    } finally {
+      if (previous === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = previous;
+    }
+    expect(fs.readdirSync(privateTmp)).toEqual([]);
   });
 });
 

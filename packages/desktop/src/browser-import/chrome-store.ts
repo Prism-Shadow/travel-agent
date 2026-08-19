@@ -25,6 +25,7 @@ import {
   chromeTimeToUnixSeconds,
   ChromeDecryptError,
   decryptValue,
+  stripCookieDomainHash,
 } from "./chrome-crypto.js";
 import type { ChromeKey } from "./chrome-crypto.js";
 import type { ImportKind } from "./chrome-profiles.js";
@@ -199,7 +200,12 @@ export async function readCookies(
       try {
         const encrypted = row.encrypted_value;
         if (encrypted instanceof Uint8Array && encrypted.length > 0) {
-          value = decryptValue(Buffer.from(encrypted), key, platform).toString("utf8");
+          // The plaintext of a v24+ cookie is `SHA-256(host_key) ‖ value`; the hash is stripped
+          // here rather than inside `decryptValue`, which has no business knowing about cookies.
+          value = stripCookieDomainHash(
+            decryptValue(Buffer.from(encrypted), key, platform),
+            hostKey,
+          ).toString("utf8");
         } else {
           // Chromium leaves `value` in the clear when os_crypt was unavailable at write time.
           value = String(row.value ?? "");

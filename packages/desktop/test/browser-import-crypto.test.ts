@@ -8,7 +8,7 @@
  * look exactly like "the import quietly did nothing", which is why they are pinned here with
  * round-trips built from the same constants Chromium writes with.
  */
-import { createCipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import { createCipheriv, createHash, pbkdf2Sync, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +18,7 @@ import {
   decryptValue,
   deriveCbcKey,
   LINUX_FALLBACK_PASSWORD,
+  stripCookieDomainHash,
 } from "../src/browser-import/chrome-crypto.js";
 
 /** Encrypts the way Chromium does on Linux/macOS, so the decryptor can be tested against it. */
@@ -181,5 +182,63 @@ describe("Chromium timestamps", () => {
 
   it("reports a timestamp before the Unix epoch as unset rather than negative", () => {
     expect(chromeTimeToUnixSeconds(1_000n)).toBeNull();
+  });
+});
+
+/**
+ * Cookie-database v24 (Chrome ~2024) stopped encrypting the value on its own: the plaintext became
+ * `SHA-256(host_key) ‖ value`, binding a row to its domain.
+ *
+ * This is the failure mode that does not announce itself. Decryption *succeeds* — the key is right,
+ * the padding is right, no error is thrown — and every value simply comes out 32 bytes too long.
+ * Chromium's own parser then refuses nearly all of them for the control characters a hash contains,
+ * which reads as "3342 could not be read" while looking nothing like a format problem; and the few
+ * whose hash happens to hold no forbidden byte are imported *wrong*, which is worse than refused.
+ */
+describe("the domain hash Chromium binds into a cookie value", () => {
+  it("strips exactly the hash of that row's host", () => {
+    const host = ".ctrip.com";
+    const sealed = Buffer.concat([
+      createHash("sha256").update(host).digest(),
+      Buffer.from("session-token-value", "utf8"),
+    ]);
+    expect(stripCookieDomainHash(sealed, host).toString("utf8")).toBe("session-token-value");
+  });
+
+  it("leaves a value written by an older Chromium alone", () => {
+    // Same file, older row: no prefix. Stripping 32 bytes unconditionally would eat the value.
+    const plain = Buffer.from("a-plain-value-longer-than-thirty-two-bytes", "utf8");
+    expect(stripCookieDomainHash(plain, ".ctrip.com")).toEqual(plain);
+  });
+
+  it("does not strip another host's hash", () => {
+    const sealed = Buffer.concat([
+      createHash("sha256").update(".attacker.example").digest(),
+      Buffer.from("value", "utf8"),
+    ]);
+    expect(stripCookieDomainHash(sealed, ".ctrip.com")).toEqual(sealed);
+  });
+
+  it("leaves a value shorter than the hash alone", () => {
+    const short = Buffer.from("1", "utf8");
+    expect(stripCookieDomainHash(short, ".ctrip.com")).toEqual(short);
+  });
+
+  it("recovers the value through a full Chromium-style seal, decrypt and strip", () => {
+    const key = deriveCbcKey("keychain-secret", "darwin");
+    const host = ".hotels.ctrip.com";
+    const plaintext = Buffer.concat([
+      createHash("sha256").update(host).digest(),
+      Buffer.from("SESSIONID=abc123", "utf8"),
+    ]);
+    const iv = Buffer.alloc(16, " ");
+    const cipher = createCipheriv("aes-128-cbc", key, iv);
+    const blob = Buffer.concat([
+      Buffer.from("v10", "latin1"),
+      cipher.update(plaintext),
+      cipher.final(),
+    ]);
+    const decrypted = decryptValue(blob, { scheme: "cbc", key }, "darwin");
+    expect(stripCookieDomainHash(decrypted, host).toString("utf8")).toBe("SESSIONID=abc123");
   });
 });

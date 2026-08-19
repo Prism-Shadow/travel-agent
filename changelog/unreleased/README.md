@@ -1,5 +1,7 @@
 # Unreleased
 
+- [2026-08-19] Cookie import from your own browser works again: Chromium cookie-db v24 binds `SHA-256(domain)` into every value, and the importer was keeping it. ([details](2026-08-19-cookie-import-domain-hash.md))
+- [2026-08-19] The crash prompt's "Reopen them" is the app's own primary button instead of a hand-rolled blue. ([details](2026-08-19-restore-prompt-primary-button.md))
 - [2026-08-19] Dragging the chat/browser split shows a frozen frame of the page instead of a blank hole. ([details](2026-08-19-splitter-drag-frozen-frame.md))
 - [2026-08-19] Codex-style website tabs: real page favicons cross a validated Electron bridge; compact rounded tab pills replace the underline treatment. ([details](2026-08-19-codex-style-website-tabs.md))
 - [2026-08-19] `design-qa.md` deleted; `artifacts/` and `tasks/` are gitignored local agent workspace. ([details](2026-08-19-agent-scratch-out-of-git.md))
