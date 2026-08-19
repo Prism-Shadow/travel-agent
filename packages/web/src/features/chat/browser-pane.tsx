@@ -919,10 +919,17 @@ export function BrowserPaneViewport({
   measureRef,
   menuOpen,
   preview,
+  dragPreview = null,
 }: {
   measureRef: BrowserPaneState["measureRef"];
   menuOpen: boolean;
   preview: DesktopPageCapture | null;
+  /**
+   * Frozen frame pinned to the hole's own origin while a splitter drag hides the native view.
+   * Rendered at its captured pixel size — the live view keeps content anchored to the viewport
+   * origin while resizing, and the stand-in must behave the same instead of stretching.
+   */
+  dragPreview?: DesktopPageCapture | null;
 }): React.ReactElement {
   const frozenPage =
     preview === null ? null : (
@@ -948,8 +955,21 @@ export function BrowserPaneViewport({
         data-testid="iab-viewport"
         data-menu-open={menuOpen ? "true" : "false"}
         data-menu-preview={preview !== null ? "true" : "false"}
-        className="absolute inset-0"
-      />
+        data-drag-preview={dragPreview !== null ? "true" : "false"}
+        className="absolute inset-0 overflow-hidden"
+      >
+        {dragPreview === null ? null : (
+          <img
+            src={dragPreview.dataUrl}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            data-testid="iab-drag-preview"
+            style={{ width: dragPreview.bounds.width, height: dragPreview.bounds.height }}
+            className="pointer-events-none absolute left-0 top-0 max-w-none select-none"
+          />
+        )}
+      </div>
       {frozenPage === null
         ? null
         : typeof document === "undefined"
@@ -1086,7 +1106,12 @@ export function BrowserPanePanel({ state }: { state: BrowserPaneState }): React.
         through during a resize. The only DOM content in its wrapper is the short-lived frozen menu
         preview, which becomes visible precisely because the native view is occluded at that time.
       */}
-      <BrowserPaneViewport measureRef={measureRef} menuOpen={menuOpen} preview={menuPreview} />
+      <BrowserPaneViewport
+        measureRef={measureRef}
+        menuOpen={menuOpen}
+        preview={menuPreview}
+        dragPreview={state.dragPreview}
+      />
     </div>
   );
 }

@@ -67,6 +67,7 @@ function emptyState(scopeSettled: boolean): BrowserPaneState {
     onSplitterPointerDown: () => {},
     onSplitterKeyDown: () => {},
     dragging: false,
+    dragPreview: null,
     pane,
   };
 }

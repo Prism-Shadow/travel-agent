@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] Dragging the chat/browser split shows a frozen frame of the page instead of a blank hole. ([details](2026-08-19-splitter-drag-frozen-frame.md))
 - [2026-08-19] Codex-style website tabs: real page favicons cross a validated Electron bridge; compact rounded tab pills replace the underline treatment. ([details](2026-08-19-codex-style-website-tabs.md))
 - [2026-08-19] `design-qa.md` deleted; `artifacts/` and `tasks/` are gitignored local agent workspace. ([details](2026-08-19-agent-scratch-out-of-git.md))
 - [2026-08-19] The numbered design records moved from repo-root `design/` to `docs/design/`; entry links updated. ([details](2026-08-19-design-docs-into-docs.md))

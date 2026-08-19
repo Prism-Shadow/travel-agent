@@ -112,6 +112,8 @@ export interface BrowserPaneState {
   /** Keyboard on the divider. */
   onSplitterKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
   dragging: boolean;
+  /** Frozen frame of the page, shown in the hole while a splitter drag hides the native view. */
+  dragPreview: DesktopPageCapture | null;
   /** What the view is doing, pushed from the main process. */
   pane: DesktopPaneState;
 }
@@ -165,6 +167,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   const [pane, setPane] = useState<DesktopPaneState>(EMPTY_STATE);
   const [fraction, setFraction] = useState<number>(storedFraction);
   const [dragging, setDragging] = useState(false);
+  const [dragPreview, setDragPreview] = useState<DesktopPageCapture | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
   const containerNode = useRef<HTMLElement | null>(null);
@@ -329,13 +332,24 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
 
   /** Registration held for the duration of a splitter drag; see the note in onSplitterPointerDown. */
   const dragOcclusion = useRef<(() => void) | null>(null);
+  /** Bumped when a drag ends, so its in-flight capture/occlusion callbacks know to stand down. */
+  const dragToken = useRef(0);
+  const dragPreviewClear = useRef<number | null>(null);
 
   const endDrag = useCallback(() => {
+    dragToken.current += 1;
     dragCleanup.current?.();
     dragCleanup.current = null;
     setDragging(false);
     dragOcclusion.current?.();
     dragOcclusion.current = null;
+    // Keep the frozen frame for a beat while the native surface comes back — the same grace the
+    // Browser menu preview takes — so the hole never blanks between the image and the live page.
+    if (dragPreviewClear.current !== null) window.clearTimeout(dragPreviewClear.current);
+    dragPreviewClear.current = window.setTimeout(() => {
+      dragPreviewClear.current = null;
+      setDragPreview(null);
+    }, 120);
   }, []);
 
   const onSplitterPointerDown = useCallback(
@@ -359,8 +373,31 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       // stops dead the moment the cursor enters the browser half. Registered through the same
       // reference-counted store the overlays use, so a drag started while a modal is up does not
       // un-hide the view when it ends.
-      dragOcclusion.current?.();
-      dragOcclusion.current = occludePane(() => null);
+      //
+      // Hiding alone leaves the hole blank for the whole drag, so first freeze the page the way
+      // the Browser menu does. The order is capture → occlude — capture refuses once the view is
+      // already hidden — and the cursor starts on the divider, not over the native surface, so
+      // occlusion may lag by the capture's latency (capped below) without losing the drag.
+      const token = dragToken.current;
+      if (dragPreviewClear.current !== null) {
+        window.clearTimeout(dragPreviewClear.current);
+        dragPreviewClear.current = null;
+      }
+      const capture = bridge
+        ? bridge.captureActivePage().catch(() => null)
+        : Promise.resolve(null);
+      void capture.then((captured) => {
+        if (token === dragToken.current && captured !== null) setDragPreview(captured);
+      });
+      // Occlude when the capture settles or after 80ms, whichever is first: a slow capture must
+      // not leave the native surface swallowing pointer events once the cursor reaches it.
+      const occludeCap = new Promise<null>((resolve) => {
+        window.setTimeout(() => resolve(null), 80);
+      });
+      void Promise.race([capture, occludeCap]).then(() => {
+        if (token !== dragToken.current || dragOcclusion.current !== null) return;
+        dragOcclusion.current = occludePane(() => null);
+      });
 
       const box = container.getBoundingClientRect();
       const move = (moveEvent: PointerEvent): void => {
@@ -391,11 +428,18 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
         }
       };
     },
-    [applyFraction, endDrag],
+    [applyFraction, bridge, endDrag],
   );
 
-  // A drag in progress when the component goes away would leave window listeners behind.
-  useEffect(() => endDrag, [endDrag]);
+  // A drag in progress when the component goes away would leave window listeners behind, and the
+  // preview-clear timer would set state on an unmounted component.
+  useEffect(
+    () => () => {
+      endDrag();
+      if (dragPreviewClear.current !== null) window.clearTimeout(dragPreviewClear.current);
+    },
+    [endDrag],
+  );
 
   const onSplitterKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>) => {
@@ -606,6 +650,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
     onSplitterPointerDown,
     onSplitterKeyDown,
     dragging,
+    dragPreview,
     pane,
     tabs,
     activeTabId,
