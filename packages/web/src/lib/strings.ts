@@ -778,7 +778,7 @@ export const zh = {
     },
   },
 
-  /** The capability panel on the Vault tab (design/004 §5): what is on, and why the rest is off. */
+  /** The capability panel on the Vault tab: what is on, and why the rest is off. */
   capabilities: {
     title: "本机能力",
     on: "已启用",
@@ -788,7 +788,7 @@ export const zh = {
 
   chat: {
     /** In-app browser pane (desktop only): the right-hand column that hosts the real WebContentsView. */
-    /** Cards the agent raises when it needs the person (design/003 §7). */
+    /** Cards the agent raises when it needs the person. */
     interaction: {
       answerPlaceholder: "回答一句就行",
       /** Shown next to the checkbox that grants slack on a payment card. */
@@ -920,7 +920,7 @@ export const zh = {
     draftGreeting: (name: string) => `今天想去哪里${name ? `，${name}` : ""}？`,
     draftSubtitle: "告诉我想去哪里，我会替你搜索、比较，并把关键取舍讲清楚。",
     draftPrompt: "从一个想法开始",
-    // Draft-screen "Jump back in" rail heading (recent resumable conversations, design/005 P0).
+    // Draft-screen "Jump back in" rail heading (recent resumable conversations).
     jumpBackIn: "接着上次继续",
     // Always-available editorial prompts under the recent-session rail. A click starts a
     // real draft task with the currently selected Agent / model / Workspace settings.
@@ -949,7 +949,7 @@ export const zh = {
         },
       },
     },
-    // Trip-constraint chips (design/005 P0): compose copy (TripChipsCopy contract in
+    // Trip-constraint chips: compose copy (TripChipsCopy contract in
     // trip-constraints.ts) + chip/popover UI copy. "预算" here is the trip's price TIER —
     // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
     tripChips: {

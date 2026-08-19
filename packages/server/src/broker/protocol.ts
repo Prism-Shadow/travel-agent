@@ -1,8 +1,8 @@
 /**
- * The wire between the server and the desktop main process (design/003 §11).
+ * The wire between the server and the desktop main process.
  *
  * This channel carries the three operations that touch personal data or money, so it is built on
- * the assumption 003 §11.1 states plainly: **there is a hostile caller on this machine**. Before
+ * a plainly stated assumption: **there is a hostile caller on this machine**. Before
  * isolation that caller is the agent itself; after it, any other process running as the same user.
  * Everything below follows from that:
  *
@@ -14,10 +14,10 @@
  * | minimal surface | exactly three named operations, no generic forwarding, strict parsing |
  * | audit | every call and every refusal is recorded (without values) |
  *
- * What it does **not** buy, stated here so no UI copy overstates it (003 §11.3): while the agent
+ * What it does **not** buy, stated here so no UI copy overstates it: while the agent
  * runtime is not isolated, the token is readable by anything that can read the server process's
  * environment or memory — which includes the agent. The authentication is then a guard against
- * *other* software on the machine, not against the agent, and the real boundary is the one 003 §0.3
+ * *other* software on the machine, not against the agent, and the real boundary is the one the isolation decision (D3)
  * asks for.
  *
  * Shared by both ends on purpose: a protocol described twice is a protocol with two meanings.
@@ -126,7 +126,7 @@ export function parseBrokerRequest(raw: unknown): BrokerRequest {
     throw new BrokerProtocolError(
       "unsupported_op",
       `"${String(op)}" is not one of the three operations this channel carries. There is no ` +
-        `generic forwarding here by design (003 §11.2).`,
+        `generic forwarding here by design.`,
     );
   }
 

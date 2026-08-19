@@ -5,7 +5,10 @@ applies to the next case rather than describing the one that produced it.
 
 This is not the changelog and not the issue list. `changelog/` records **what changed**;
 `docs/issues/` records **what is still broken**; this file records **what to do differently**. A
-lesson that is really an open defect belongs in `docs/issues/` with a link from here.
+lesson that is really an open defect belongs in `docs/issues/` with a link from here. The full
+narrative of an expensive failure belongs in `docs/postmortem/`: the lesson stays one sentence
+here and links its postmortem, so the next agent meets the warning first and the story only when
+needed.
 
 ## Product and behaviour
 
@@ -71,6 +74,11 @@ lesson that is really an open defect belongs in `docs/issues/` with a link from 
   `dist/` and published with the package (`files` lists both `dist` and `src`). Tests belong outside
   the emitted root, with a separate no-emit project so they stay type-checked.
 
+- **Deleting a document is not finished at the doc tree.** Its citations live on in source
+  comments, in user-facing strings, and in tests — one test asserted a denial reason matches
+  `/003/`, pinning the citation itself. A deletion sweep greps for the path, every shorthand form
+  (`design/003`, bare `003 §4.4`), and the section mark, across code and tests — and expects
+  non-UTF-8 files to hide from text grep (two did; byte-level patch).
 - **tsserver auto-loads only files named `tsconfig.json`, walking up until one _includes_ the open
   file.** `tsconfig.test.json` is invisible to editors, so browser-cli tests fell through to the
   repo root config, whose harness baseline (Bundler, no DOM, no chrome types,

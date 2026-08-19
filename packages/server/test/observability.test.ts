@@ -1,5 +1,5 @@
 /**
- * The observability rates (003 §13), tested for the two things a design signal must get right:
+ * The observability rates, tested for the two things a design signal must get right:
  * the arithmetic, and refusing to state a rate off a denominator too small to mean anything.
  */
 import { describe, expect, it } from "vitest";

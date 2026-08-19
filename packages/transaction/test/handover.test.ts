@@ -108,7 +108,7 @@ describe("the ordinary handover", () => {
 describe("the secret phase", () => {
   it("takes reads away too, which is the whole difference from user_control", () => {
     // In user_control the agent watching the page is useful. In a secret phase reading *is* the
-    // attack (003 §1.3): the value is in the DOM and `page.evaluate` would return it.
+    // attack: the value is in the DOM and `page.evaluate` would return it.
     const secret = applyHandoverEvent(start(), { type: "enter_secret_phase", field: "cvv" });
     expect(secret.state).toBe("secret_phase");
     expect(mayWrite(secret)).toBe(false);
@@ -127,7 +127,7 @@ describe("the secret phase", () => {
   });
 
   it("leaves the page with the person when it cannot be proven", () => {
-    // Exit (b) of 003 §7.3. Not an error state — a decision: we could not show the value is gone,
+    // Exit (b). Not an error state — a decision: we could not show the value is gone,
     // so the agent does not get this page back.
     const unproven = run([
       { type: "enter_secret_phase", field: "cvv" },

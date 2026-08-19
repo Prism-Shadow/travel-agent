@@ -1,7 +1,7 @@
 /**
  * Payment confirmation: the digest, the commitment, and the reading of a spoken "yes".
  *
- * The natural-language cases are the ones worth reading. They encode 003 §8.4, and the rule behind
+ * The natural-language cases are the ones worth reading. They encode the confirmation rules, and the rule behind
  * every one of them is the same: a false negative costs one more card, a false positive spends
  * somebody's money on something they did not read. So the judge errs towards the card, and the
  * vague-agreement table below is a specification rather than a sample.
@@ -60,7 +60,7 @@ describe("the digest", () => {
 
 describe("the commitment a confirmation produces", () => {
   it("has no tolerance at all unless the person chose some", () => {
-    // 003 §8.5: the exact amount is the hard ceiling by default. A price that moves by one yuan
+    // The exact amount is the hard ceiling by default. A price that moves by one yuan
     // goes back to the person, and that is the intended behaviour, not an oversight.
     const commitment = commitmentFromConfirmation({ summary: summary(), channel: "card" });
     expect(commitment.tolerance).toEqual({});
@@ -115,7 +115,7 @@ describe("the commitment a confirmation produces", () => {
 
 describe("classifying drift", () => {
   it("marks a merchant change as the one with no way back", () => {
-    // 003 §8.3: a payment page that moved to another domain is the shape of a hijack, and offering
+    // A payment page that moved to another domain is the shape of a hijack, and offering
     // "confirm the new one?" would be offering to walk into it.
     const commitment = commitmentFromConfirmation({ summary: summary(), channel: "card" });
     const drift = checkDrift(

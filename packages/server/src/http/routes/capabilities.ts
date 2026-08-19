@@ -1,10 +1,10 @@
 /**
  * What this build may do, and why it may not do the rest.
  *
- * design/004 §5 gates every privacy and payment capability behind a flag whose value is decided by
+ * Every privacy and payment capability sits behind a flag whose value is decided by
  * a runtime probe, and requires the disabled state to be **visible**: a vault that refused to start
  * because the Linux keyring is missing must say so, or the person is left believing their data is
- * protected by something that never ran (003 §4.4).
+ * protected by something that never ran.
  *
  * So this route reports the resolved flags together with the denial reasons `resolveFlags` produced
  * — the same sentences, unedited, because they were written to be read by a person. It reports no

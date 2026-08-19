@@ -1,15 +1,15 @@
 /**
- * The one place that types a protected value into a page (design/003 §6.1).
+ * The one place that types a protected value into a page.
  *
  * Implemented over the Chrome debugger protocol in an **isolated world**: a separate execution
  * context that shares the page's DOM but none of its JavaScript. That choice is the point of the
  * file. Setting `element.value` from the page's own world would expose the write to every script
  * the site runs (a keylogger shim over the setter, a MutationObserver, a framework's own
  * bookkeeping); the isolated world keeps the *write path* out of the page's reach, even though the
- * written value is necessarily in the DOM afterwards — §6.4 owns that residual, not this file.
+ * written value is necessarily in the DOM afterwards — that residual is accepted by design, not owned by this file.
  *
  * The write dispatches `input` and `change` events because framework-controlled inputs ignore a
- * bare value assignment (003 §13-3 records this as the known-fragile part; `fillWithSuggestion`
+ * bare value assignment (recorded as the known-fragile part; `fillWithSuggestion`
  * in the browser CLI hit the same wall). React needs the native setter trick — calling the
  * prototype's `value` setter rather than the instance property — and that is what is done.
  *

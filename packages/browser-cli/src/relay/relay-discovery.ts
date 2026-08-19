@@ -200,9 +200,9 @@ export async function resolveRelayEndpoint(options: {
 /**
  * Which browser the user wants the agent to drive, **per conversation**.
  *
- * Design/002 §6.1 makes this a decision taken at the start of a task and never during one: the two
+ * The design makes this a decision taken at the start of a task and never during one: the two
  * backends have different logins, different cookies and different fingerprints, and switching
- * halfway through discards the page state the task was built on. §7.3 goes further — the switch has
+ * halfway through discards the page state the task was built on. The design goes further — the switch has
  * to be a *visible* choice, because it changes whose browser an order is placed in.
  *
  * Keyed by Session, not global. Two conversations can legitimately want different browsers — one

@@ -94,7 +94,7 @@ export interface BrowserPaneState {
   /**
    * The pane is open but the window is too narrow to split, so the browser takes the whole area.
    *
-   * Design/002 §6.2's third visibility state, and the reason it is not optional: without it a
+   * The third visibility state, and the reason it is not optional: without it a
    * narrow window left the pane "open" with nowhere to draw it — main was told the hole was gone,
    * the toggle disappeared, and the agent went on driving a browser nobody could see or close.
    */
@@ -142,7 +142,7 @@ export interface BrowserPaneActions {
    * one the extension is connected to, and nothing of the in-app session travels with it. It is a
    * convenience for a user who wants the page in their own browser; the real handoff is choosing
    * the extension backend for the conversation, which is what makes the next agent session run
-   * there (design/002 §7.2).
+   * there.
    */
   openInDefaultBrowser: () => Promise<boolean>;
 }
@@ -380,9 +380,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
         window.clearTimeout(dragPreviewClear.current);
         dragPreviewClear.current = null;
       }
-      const capture = bridge
-        ? bridge.captureActivePage().catch(() => null)
-        : Promise.resolve(null);
+      const capture = bridge ? bridge.captureActivePage().catch(() => null) : Promise.resolve(null);
       void capture.then((captured) => {
         if (token === dragToken.current && captured !== null) setDragPreview(captured);
       });

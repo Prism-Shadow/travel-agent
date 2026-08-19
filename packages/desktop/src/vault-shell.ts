@@ -1,5 +1,5 @@
 /**
- * The vault side of the desktop shell, assembled in one place (design/003 §4–§11, 004 Phase 4).
+ * The vault side of the desktop shell, assembled in one place.
  *
  * Everything the main process holds for privacy and payment — the vault, the grants, the sensitive
  * element registry, the secret phase, the payment authority, the broker — is constructed here, and
@@ -11,13 +11,13 @@
  * 1. **Whether to start at all.** The flags are resolved *with the storage probe folded in*:
  *    `vault.enabled` off (or refused by the probe) means none of this is constructed — not
  *    constructed-but-disabled, absent. The refusal reasons are kept and served to the settings
- *    page, because 004 §5's fail-closed rule ends at a screen.
+ *    page, because the fail-closed rule ends at a screen.
  * 2. **What the person is asked, and how.** A grant request surfaces as a native dialog naming the
  *    site, the purpose and the fields. It is deliberately modal and deliberately in the shell's
  *    own chrome: a page cannot draw over it, and an agent cannot answer it.
  *
  * What is *not* here: the agent-isolation probe. `agentRuntimeIsolated` is never reported true in
- * this phase — the isolation work is Phase 5 (003 §0.3) — so `vault.l2l3`, `secret_entry.live` and
+ * this phase — the isolation work is Phase 5 — so `vault.l2l3`, `secret_entry.live` and
  * `payments.execute` resolve off through the ordinary dependency chain, with reasons, however the
  * environment is configured. That single absence is what keeps every gated capability gated.
  */
@@ -87,7 +87,7 @@ export async function startVaultShell(input: {
   const availability = judgeStorage(facts);
   const resolved = resolveFlagsFromEnv(process.env, {
     encryptedStorageAvailable: availability.usable,
-    // Never true in this phase: the isolation of 003 §0.3 is Phase 5 work, and reporting it
+    // Never true in this phase: the isolation decision (D3) is future work, and reporting it
     // without measuring it is exactly what the probe's contract forbids.
   });
   lastStatus = { started: false, availability, denials: resolved.denials };
@@ -204,7 +204,7 @@ export interface GrantQuestion {
  * All-or-nothing in this phase — the card-based per-field version belongs with the interaction
  * cards, and a coarse dialog that a person actually decides beats a fine-grained one that is not
  * wired. The wording names the site, the purpose and every field, because those are the three
- * things 003 §5.1 makes the grant *about*.
+ * things the grant is *about*.
  */
 async function dialogGrantAsk(question: GrantQuestion): Promise<GrantDecision> {
   const { response } = await dialog.showMessageBox({

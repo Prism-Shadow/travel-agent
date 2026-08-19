@@ -22,7 +22,7 @@
  * **A card that matters writes a checkpoint.** The selection and the payment confirmation are the
  * two points where a task's progress is worth more than the conversation: if nobody answers and the
  * turn lapses, the checkpoint is what lets the next turn resume from "we were at the payment page"
- * rather than re-running the search (001 §4.4, 004 Phase 3).
+ * rather than re-running the search.
  */
 import path from "node:path";
 import {
@@ -62,7 +62,7 @@ export interface InteractionServiceDeps {
   /** Resolves a Session's scratchpad directory (injected so tests need no app data root). */
   scratchpadDir: (locator: SessionLocator) => string;
   /**
-   * Observability hook (003 §13): told the kind of every card raised, so the takeover and
+   * Observability hook: told the kind of every card raised, so the takeover and
    * secret-phase rates have a denominator. Optional — absent in tests that do not care.
    */
   onInteractionRaised?: (kind: string) => void;
@@ -298,7 +298,7 @@ export class InteractionService {
    * The transaction layer's escalation channel, backed by these cards.
    *
    * This is what makes `submitBooking`'s drift question and any future escalation land in the
-   * conversation instead of in a messaging app. The mapping is 003 §7.2 read backwards: a
+   * conversation instead of in a messaging app. The mapping is the kind table read backwards: a
    * knowledge gap is a selection when it carries options and a question when it does not, an
    * authority gap is a yes/no, and a capability gap is something only the person can do in the
    * page.
@@ -328,7 +328,7 @@ export class InteractionService {
    * The expiry a confirmation card will carry, given what the agent asked for.
    *
    * The agent may ask for a **shorter** window than the product's — a card raised seconds before a
-   * fare hold lapses should say so — but never a longer one: the ten minutes of 003 §8.1 is a
+   * fare hold lapses should say so — but never a longer one: the ten-minute default is a
    * ceiling, and a confirmation that stayed valid for a day would be consent to a purchase whose
    * page nobody has looked at since. So the requested value is clamped rather than trusted.
    *
@@ -377,7 +377,7 @@ export class InvalidExpiryError extends Error {
 }
 
 /**
- * 003 §7.2, read backwards: which card an escalation becomes.
+ * The kind mapping, read backwards: which card an escalation becomes.
  *
  * A knowledge gap is a selection when it carries options and a question when it does not. An
  * authority gap is a yes/no — it has no purchase summary of its own, and building a seven-field

@@ -119,7 +119,7 @@ export class BrokerClient {
  * Builds a client from the environment the shell forked this process with, or returns null.
  *
  * Null is the ordinary case for a standalone server: no shell, no vault, no broker. The variables
- * are read once at startup and never logged — the token is a credential, and 003 §4.6 keeps
+ * are read once at startup and never logged — the token is a credential, and the no-values rule keeps
  * credentials out of every log line.
  */
 export function brokerFromEnv(

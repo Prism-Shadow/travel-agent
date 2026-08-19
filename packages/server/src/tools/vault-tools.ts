@@ -1,5 +1,5 @@
 /**
- * The three things an agent may ask the main process to do (design/003 §6.1, §8.6, §11).
+ * The three things an agent may ask the main process to do.
  *
  * Each is a thin, strictly-shaped tool call that turns into one broker request. What makes them
  * safe is not what happens here — it is what *cannot* happen here:
@@ -12,7 +12,7 @@
  * - `execute_payment` spends a one-shot capability by **id**. An id is not a permission: every
  *   check runs in main, against the object main holds.
  *
- * Trace safety is a property of the argument shapes, not of a redaction pass (003 §4.6): the
+ * Trace safety is a property of the argument shapes, not of a redaction pass: the
  * arguments a model writes contain handles, ids and selectors, and the outputs contain outcomes
  * and refusals. There is no path here that can carry a value into a trace, because no value ever
  * reaches this process.

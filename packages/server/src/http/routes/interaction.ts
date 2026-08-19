@@ -149,7 +149,7 @@ function readInteractionInput(
       const summaryInput = readPaymentSummary(record, taskId);
       // Validated and clamped rather than taken: an agent may shorten the window, never lengthen
       // it, and a malformed or already-past expiry is a 400 rather than a card that lies about
-      // how long the person has (003 §8.1).
+      // how long the person has.
       const expiresAt = deps.interactions.confirmationExpiry(summaryInput.expiresAt || undefined);
       const tolerance = record.offeredTolerance
         ? asRecord(record.offeredTolerance, "offeredTolerance")

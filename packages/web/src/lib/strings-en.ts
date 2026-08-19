@@ -969,7 +969,7 @@ export const en: Strings = {
     draftSubtitle:
       "Tell me where you want to go. I’ll search, compare, and make the trade-offs clear.",
     draftPrompt: "Start with an idea",
-    // Draft-screen "Jump back in" rail heading (recent resumable conversations, design/005 P0).
+    // Draft-screen "Jump back in" rail heading (recent resumable conversations).
     jumpBackIn: "Jump back in",
     // Always-available editorial prompts under the recent-session rail. A click starts a
     // real draft task with the currently selected Agent / model / Workspace settings.
@@ -998,7 +998,7 @@ export const en: Strings = {
         },
       },
     },
-    // Trip-constraint chips (design/005 P0): compose copy (TripChipsCopy contract in
+    // Trip-constraint chips: compose copy (TripChipsCopy contract in
     // trip-constraints.ts) + chip/popover UI copy. "Budget" is the trip's price TIER —
     // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
     tripChips: {

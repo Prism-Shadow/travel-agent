@@ -1,7 +1,7 @@
 /**
  * The desktop shell's side of the relay's `/iab` socket.
  *
- * Design/002 §4.2 weighed three ways to let the agent drive an in-app `WebContentsView` and picked
+ * The design weighed three ways to let the agent drive an in-app `WebContentsView` and picked
  * this one. The rejected alternative is worth remembering: opening Chromium's own
  * `--remote-debugging-port` would have worked with zero relay changes, but Phase 0 confirmed that
  * the port exposes **every** target in the process — including the window holding the user's
@@ -357,7 +357,7 @@ export class IabTransport {
 
       if (message.method === "iab-end-task") {
         // The agent closing its browser session, saying how the task went. It is the only party
-        // that knows whether a turn merely searched or left an order behind (design/002 §6.4) — but
+        // that knows whether a turn merely searched or left an order behind — but
         // it is saying so *before* the turn is over, so this only records the claim. The rules run
         // at the harness's own end-of-task boundary, where an abort can still override it.
         const params = message.params as { taskId?: unknown; outcome?: unknown } | undefined;
@@ -394,7 +394,7 @@ export class IabTransport {
     switch (route.kind) {
       case "closed":
         // A tab the user closed is a different situation from a backend that is not there, and the
-        // agent can only replan if it is told which one happened (002 §6.4 四). Nothing reopens the
+        // agent can only replan if it is told which one happened. Nothing reopens the
         // tab: the user closed it on purpose.
         throw new Error(
           `IAB_TAB_CLOSED: the user closed the in-app browser tab this session was using ` +

@@ -1631,7 +1631,7 @@ cli
   })
 
 cli
-  .command('interaction request', 'Ask the person for one thing, and wait (design/003 §7)')
+  .command('interaction request', 'Ask the person for one thing, and wait')
   .option('--host <host>', 'Remote relay server host')
   .option('--token <token>', 'Authentication token (or use PENGUIN_BROWSER_TOKEN env var)')
   .option('-s, --session <id>', 'Session ID')

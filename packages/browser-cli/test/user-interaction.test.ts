@@ -1,7 +1,7 @@
 /**
  * `requestUserInteraction`: where each of the six kinds goes, and what comes back.
  *
- * The dispatch is the design (003 §0.2): four kinds are cards in the conversation and leave the
+ * The dispatch is the design: four kinds are cards in the conversation and leave the
  * agent working, two hand the page over. The tests that matter are the ones about *not* falling
  * back — with no conversation to ask in, a payment confirmation must not quietly become an overlay
  * drawn on the booking page, because that would be asking somebody to trust the page to describe

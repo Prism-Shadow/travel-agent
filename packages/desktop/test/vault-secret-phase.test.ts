@@ -6,7 +6,7 @@
  * still read. The first block below asserts the ordering directly, and asserts that a port which
  * cannot detach produces a refusal rather than a fill.
  *
- * **Coming back requires a proof.** design/003 §7.3 gives exactly three exits, and only one of them
+ * **Coming back requires a proof.** The secret phase gives exactly three exits, and only one of them
  * hands the page back. The second block walks each of them, including the case where the field
  * still holds the code and the case where the page cannot be asked at all — both of which end with
  * the agent *not* getting the target back.

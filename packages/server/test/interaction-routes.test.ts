@@ -169,7 +169,7 @@ describe("interaction round trip", () => {
     });
     const confirmed = guard.confirmationFor(taskId);
     expect(confirmed?.summary.merchant.domain).toBe("ctrip.com");
-    // No slack unless the person picked some: the exact amount is the ceiling (003 §8.5).
+    // No slack unless the person picked some: the exact amount is the ceiling.
     expect(confirmed?.commitment.tolerance).toEqual({});
   });
 
@@ -259,7 +259,7 @@ describe("interaction round trip", () => {
 
   it("refuses anything coming back from a secret card", async () => {
     // Whatever the person typed went into the site's own field. A code arriving here would be
-    // published over SSE and replayed on reconnect before anybody noticed (003 §4.6).
+    // published over SSE and replayed on reconnect before anybody noticed.
     const created = await agent().post("/api/agent/interactions", {
       sessionId: SID,
       kind: "secret_entry",

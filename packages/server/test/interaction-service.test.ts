@@ -121,7 +121,7 @@ describe("checkpoints", () => {
 
 describe("the escalation channel", () => {
   it("turns a knowledge gap with options into a selection card", async () => {
-    // 003 §7.2 read backwards. This is what makes anything in the transaction layer able to reach
+    // The kind mapping read backwards. This is what makes anything in the transaction layer able to reach
     // the person without knowing what a card is.
     const { service } = await serviceWith();
     const channel = service.escalationChannel(LOCATOR, payment.taskId);
@@ -292,7 +292,7 @@ describe("an answer that does not match its card", () => {
 
   it("lets a secret card carry nothing back — not a value, not a note", async () => {
     // The outcome is published over SSE and replayed from a ring buffer on reconnect. A code that
-    // reached this object would be in three places before anybody noticed (003 §4.6).
+    // reached this object would be in three places before anybody noticed.
     const { service, published, card } = await raise({
       kind: "secret_entry",
       ask: "请在页面上输入验证码",
@@ -367,7 +367,7 @@ describe("how long a confirmation is worth anything", () => {
 
   it("lets an agent shorten the window but never lengthen it", async () => {
     // A fare hold that lapses in two minutes is a real reason to ask for less. A day is not a
-    // proposal, it is consent to a purchase whose page nobody has looked at since (003 §8.1).
+    // proposal, it is consent to a purchase whose page nobody has looked at since.
     const service = await serviceAt("2026-08-15T10:00:00.000Z");
     expect(service.confirmationExpiry("2026-08-15T10:02:00.000Z")).toBe("2026-08-15T10:02:00.000Z");
     expect(service.confirmationExpiry("2026-08-16T10:00:00.000Z")).toBe("2026-08-15T10:10:00.000Z");

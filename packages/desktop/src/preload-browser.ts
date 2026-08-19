@@ -6,8 +6,7 @@
  * is the first thing that cannot be built that way — a `WebContentsView` is positioned by the main
  * process, so the renderer has to be able to say where it goes.
  *
- * Breaking that line narrowly rather than generally is the whole design of this file (design/002
- * §5.1):
+ * Breaking that line narrowly rather than generally is the whole design of this file:
  *
  *   - **No generic `invoke(channel, ...args)`.** Each capability is its own named function. A
  *     renderer compromise cannot reach a channel that is not listed here.
@@ -153,7 +152,7 @@ export interface BridgeHistoryEntry {
  * Whether the shell actually wired a pane this run.
  *
  * Passed down as an `additionalArguments` switch rather than assumed, because the capability is
- * behind the `iab.enabled` feature flag (design/004 §5). A preload always runs; what it may
+ * behind the `iab.enabled` feature flag. A preload always runs; what it may
  * *offer* depends on what main decided, so the flag is read here rather than re-derived.
  */
 const enabled = process.argv.includes(IAB_ENABLED_SWITCH);
@@ -218,7 +217,7 @@ const api = {
   reassignSession: (sessionId: string): Promise<string> =>
     ipcRenderer.invoke("iab:reassign-session", sessionId),
 
-  /** Which browser the next agent session should use (002 §6.1). */
+  /** Which browser the next agent session should use. */
   setBackend: (backend: "iab" | "extension"): Promise<void> =>
     ipcRenderer.invoke("iab:set-backend", backend),
 
@@ -257,7 +256,6 @@ const api = {
    * trying to reuse.
    */
   tasksChanged: (): Promise<void> => ipcRenderer.invoke("iab:tasks-changed"),
-
 
   /** Sign out of everything: clear the pane's cookies and storage, and close its tabs. */
   clearProfile: (): Promise<void> => ipcRenderer.invoke("iab:clear-profile"),
@@ -306,7 +304,7 @@ const api = {
   loginFill: (request: { tabId: string; credentialId: string }): Promise<BridgeLoginFillResult> =>
     ipcRenderer.invoke("iab:login-fill", request),
 
-  /** What would move to the user's own browser (002 §7.2). Null when there is no page to hand over. */
+  /** What would move to the user's own browser. Null when there is no page to hand over. */
   handoff: (): Promise<BridgeHandoff | null> => ipcRenderer.invoke("iab:handoff"),
 
   /**

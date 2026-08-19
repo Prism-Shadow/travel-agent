@@ -1,8 +1,8 @@
 /**
  * The fifth check: a purchase may only be paid for with a permission somebody actually issued.
  *
- * design/003 §10.2 puts the capability gate *before* the four checks that were already here, and
- * §10.3 takes the execution itself away from the agent. What that means in practice is tested from
+ * The design puts the capability gate *before* the four checks that were already here, and
+ * takes the execution itself away from the agent. What that means in practice is tested from
  * the outside in: for every way a permission can fail to authorise this payment, `submit` must not
  * run — and for the one case where a payment is interrupted, it must run exactly once across the
  * restart, never twice.
@@ -111,7 +111,7 @@ describe("the capability gate", () => {
   });
 
   it("refuses a payment with no permission at all, and journals nothing", async () => {
-    // 003 §10.3: there is no way to authorise a payment from inside the agent's own run.
+    // There is no way to authorise a payment from inside the agent's own run.
     const submit = vi.fn(async () => "should not run");
     const result = await pay({ submit, requireCapability: true });
     expect(result).toMatchObject({ status: "refused", reason: "capability_missing" });
@@ -120,7 +120,7 @@ describe("the capability gate", () => {
   });
 
   it("still books an order that needs no payment credential", async () => {
-    // Pay-at-the-counter is the residual case 003 §10.3 names: the same guarded path, no money
+    // Pay-at-the-counter is the named residual case: the same guarded path, no money
     // moving through us, so no permission to demand.
     const submit = vi.fn(async () => ({ orderId: "ORD-9" }));
     const result = await pay({ submit });
@@ -184,7 +184,7 @@ describe("the capability gate", () => {
 
   it("refuses a rise nobody approved, even when a drift confirmation is on offer", async () => {
     // The capability gate runs before drift, so the "ask them about it" path is never reached:
-    // 003 §8.5 makes the exact amount the ceiling, and raising it is a new confirmation.
+    // The exact amount is the ceiling, and raising it is a new confirmation.
     const { capability } = confirmed();
     const submit = vi.fn(async () => "no");
     const confirmDrift = vi.fn(async () => true);
@@ -285,7 +285,7 @@ describe("paying at most once, across a restart", () => {
   });
 
   it("treats a payment killed mid-flight as dangling: one side effect, and no retry", async () => {
-    // The SIGKILL row of 003 §12's P4 matrix, without a real signal: the intent is fsynced before
+    // The SIGKILL row of the P4 matrix, without a real signal: the intent is fsynced before
     // the action runs, so a process that dies inside `submit` leaves exactly that on disk. The
     // count that matters is the number of times the outside world was touched — one.
     const { capability } = confirmed();

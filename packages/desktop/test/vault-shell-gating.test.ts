@@ -72,7 +72,7 @@ describe("on a Linux box with no keyring — attack A9", () => {
 
 describe("the ordering that keeps secret_entry.live gated", () => {
   it("cannot be turned on without vault.l2l3, which cannot be turned on without isolation", () => {
-    // 004 §5: secret_entry.live depends on vault.l2l3 (real L3 material), which depends on the
+    // secret_entry.live depends on vault.l2l3 (real L3 material), which depends on the
     // isolation probe. So there is no environment in this phase where the live fill is reachable —
     // exactly the sequence a test is asked to pin.
     const resolved = resolveFlags(

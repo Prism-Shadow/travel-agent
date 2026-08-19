@@ -10,7 +10,7 @@
  *
  * The scripts run in an isolated world (see `debugger-fill-port.ts` for why): the page's own
  * JavaScript cannot see the write path, though it can of course read the DOM afterwards. That
- * residual is the same one design/003 §6.4 records for vault fills, and it is why a saved password
+ * residual is the same one recorded for vault fills, and it is why a saved password
  * is treated as L2 rather than as something the page can never learn.
  *
  * What is deliberately *not* here: any way for the agent to ask for this. See `login-service.ts`.

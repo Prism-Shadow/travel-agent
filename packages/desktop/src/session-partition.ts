@@ -3,7 +3,7 @@
  *
  * Everything here exists because the pane renders **untrusted third-party pages inside the
  * application window** — a booking site, its ad network, whatever it embeds — a few hundred pixels
- * from the user's orders and, later, their payment details. Design/002 §5.2 lists these settings as
+ * from the user's orders and, later, their payment details. The design lists these settings as
  * non-negotiable; this module is where that list is enforced rather than restated.
  *
  * The partition is `persist:` because a booking flow that made the user sign in again on every
@@ -75,7 +75,7 @@ export function iabSession(): Session {
   partition.setPermissionCheckHandler((_contents, permission) => isPermissionAllowed(permission));
 
   // Downloads land in the **Session's own scratchpad** — `<agentDir>/scratchpad/<sessionId>/downloads`
-  // — never in the user's Downloads folder (design/002 §5.2). That directory is the one the agent
+  // — never in the user's Downloads folder. That directory is the one the agent
   // and the server already read, and it is deleted with the Session, so a downloaded file has the
   // same lifetime as the conversation that fetched it.
   //

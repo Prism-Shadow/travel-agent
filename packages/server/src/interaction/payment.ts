@@ -16,7 +16,7 @@
  * The last one is deliberately last. Everything above it is the *decision* — is this purchase the
  * one that was agreed to — and it is worth computing, and testing, even in a build where the answer
  * to "may the agent press the button" is always no. Phase 3 ships with that flag off and its
- * dependencies unreachable (004 §5), so the shipped behaviour is: the agent stops at the payment
+ * dependencies unreachable, so the shipped behaviour is: the agent stops at the payment
  * page, the person completes it. That is not a stub; it is the phase's terminal state (004 Phase 3).
  *
  * **The journal brackets the authorization, not the click**, and the seam is where it has to be.
@@ -46,9 +46,9 @@ import type { FeatureFlagsShape } from "./transaction-imports.js";
 export type PaymentRefusal =
   /** No confirmation card was answered for this turn. */
   | "not_confirmed"
-  /** The confirmation lapsed (003 §8.1 default: ten minutes). */
+  /** The confirmation lapsed (default: ten minutes). */
   | "confirmation_expired"
-  /** The page is on a different merchant domain — no re-confirmation offered (003 §8.3). */
+  /** The page is on a different merchant domain — no re-confirmation offered. */
   | "merchant_mismatch"
   /** Price, dates, terms or a new fee moved outside what was approved. */
   | "plan_drifted"
@@ -81,7 +81,7 @@ export interface ConfirmedPurchase {
   approvedTolerance?: ApprovedTolerance;
   /** Which channel carried the confirmation: the card, or a message the judge accepted. */
   channel: string;
-  /** Set when a natural-language reply was accepted: the message that did it (003 §8.4). */
+  /** Set when a natural-language reply was accepted: the message that did it. */
   confirmingMessageId?: string;
   confirmedAt: string;
 }

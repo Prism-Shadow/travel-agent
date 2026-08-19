@@ -4,7 +4,7 @@
 
 用户说一句话。agent 去搜，把选项空间收到几个带理由的代表，等一次同时等于授权的点击，然后填单，停在支付页。**不做**降价监控、自动改签、抢票，以及任何需要长期驻留的事。
 
-设计见 [docs/design/001-architecture.md](docs/design/001-architecture.md)。
+架构现状见 [docs/architecture/iab-in-app-browser.md](docs/architecture/iab-in-app-browser.md)。
 
 ## 现状
 
@@ -19,7 +19,7 @@
 
 原先排在后面的开放里程碑（M3 一句话验收闭环、M5 机票）已于 2026-08-18 撤出规划。2026-08-19
 正式解冻产品 UI：引擎基线继续锁定，web 与 desktop 界面则作为 travel-agent 自己的消费级产品面持续演进。
-基于 Mindtrip 的方向与边界记录在 [设计 005](docs/design/005-mindtrip-benchmark-ui-refactor.md)。
+方向参考 Mindtrip 调研快照（[docs/research/mindtrip.md](docs/research/mindtrip.md)）。
 
 `@travel-agent/transaction` 已接入：`packages/server` 与 `packages/desktop` 的付款路径都走它的
 `submitBooking` 闸门。

@@ -1,7 +1,7 @@
 /**
  * Who is driving the browser right now, as a state machine rather than a boolean.
  *
- * Design/002 §6.5, as revised by 003 §0.2. The naive version is `userControl: boolean`, and it is
+ * The naive version is `userControl: boolean`, and it is
  * wrong in two directions at once:
  *
  * - **Handing over is not instantaneous.** At the moment the person takes the page, the executor
@@ -10,7 +10,7 @@
  *   deadline, during which writes are refused and the in-flight ones are allowed to drain.
  * - **"The agent is not writing" is not one situation.** In `user_control` the agent is refused;
  *   in `secret_phase` its debugging channel is *gone*, reads included, because the page holds a
- *   value it must not be able to read back (003 §1.3, §7.3). Modelling those as the same state
+ *   value it must not be able to read back. Modelling those as the same state
  *   would have let a read through at the one moment reads are the risk.
  *
  * The machine is a pure reducer: states, events, and a table saying which pairs are legal. Nothing
@@ -41,12 +41,12 @@ export type ControlState =
 /**
  * How long the agent's in-flight writes get to finish before a handover is complete.
  *
- * Three seconds, from 002 §6.5. Long enough for a click that has already been dispatched, short
+ * Three seconds. Long enough for a click that has already been dispatched, short
  * enough that a person who pressed "take over" does not sit watching a dead button.
  */
 export const HANDOVER_DRAIN_MS = 3_000;
 
-/** How a secret phase ended — the three exits of 003 §7.3, which are not interchangeable. */
+/** How a secret phase ended — the three exits, which are not interchangeable. */
 export type SecretExit =
   /** The field is provably empty, or gone, or the page navigated away. The channel comes back. */
   | "cleared"
@@ -100,7 +100,7 @@ export function mayWrite(snapshot: HandoverSnapshot): boolean {
  *
  * True everywhere except `secret_phase`, and that exception is the whole reason the state exists:
  * during a handover the agent watching the page is useful — it is how it knows the person finished
- * — while during a secret phase reading *is* the attack (003 §1.3).
+ * — while during a secret phase reading *is* the attack.
  */
 export function mayRead(snapshot: HandoverSnapshot): boolean {
   return snapshot.state !== "secret_phase";
@@ -193,11 +193,7 @@ export function applyHandoverEvent(
         );
       }
       if (event.kind === "browser_takeover" && !event.reason?.trim()) {
-        throw new HandoverTransitionError(
-          snapshot.state,
-          event.type,
-          "a takeover needs a reason (003 §7.4)",
-        );
+        throw new HandoverTransitionError(snapshot.state, event.type, "a takeover needs a reason");
       }
       return {
         state: "handing_over",
@@ -252,7 +248,7 @@ export function applyHandoverEvent(
           snapshot.state,
           event.type,
           "the previous secret phase could not prove the field was cleared, so this page stays " +
-            "with the person (003 §7.3 exit b)",
+            "with the person (exit b)",
         );
       }
       return { state: "secret_phase", secretField: event.field };

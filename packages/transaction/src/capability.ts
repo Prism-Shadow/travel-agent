@@ -1,5 +1,5 @@
 /**
- * The one-shot permission to spend money (design/003 §8.2).
+ * The one-shot permission to spend money.
  *
  * A confirmation is a moment: somebody read a summary and pressed a button. Everything after that
  * moment — the agent walking to the payment page, the page re-rendering, a fee appearing — happens
@@ -15,7 +15,7 @@
  *    saw. Without the binding, "they confirmed" is a boolean floating free of its subject and a
  *    later price can be attached to an earlier yes.
  * 2. **It never carries a payment credential.** `paymentMethodRef` is a vault handle or a wallet
- *    alias — never a token, never a card number (003 §9.2). A merchant token can itself be able to
+ *    alias — never a token, never a card number. A merchant token can itself be able to
  *    charge the card, so an object that travels to a tool call, a trace and an audit record must
  *    not contain one.
  * 3. **It is consumed, not merely checked.** `usedAt` plus a journal key derived from the purchase
@@ -50,15 +50,15 @@ export interface PaymentCapability {
   taskId: string;
   /** What the person authorised, in the form the drift check understands. */
   commitment: Commitment;
-  /** Canonical hash of the summary as displayed. Immutable once shown (003 §8.2). */
+  /** Canonical hash of the summary as displayed. Immutable once shown. */
   commitmentDigest: string;
   /** eTLD+1 of the merchant. The judging field — a display name is what a phishing page controls. */
   merchantDomain: string;
-  /** Vault handle or wallet alias. **Never** a token or a card number (003 §9.2). */
+  /** Vault handle or wallet alias. **Never** a token or a card number. */
   paymentMethodRef: string;
   /** The hard bound, tolerance already folded in when — and only when — it was approved. */
   maxAmount: { value: number; currency: string };
-  /** Whether the person explicitly accepted slack on the card (003 §8.5). */
+  /** Whether the person explicitly accepted slack on the card. */
   toleranceApproved: boolean;
   /** Journal key for the payment. Derived from the purchase, not from this object — see below. */
   idempotencyKey: string;
@@ -66,7 +66,7 @@ export interface PaymentCapability {
   /** Set when the capability has been spent. A capability with this set authorises nothing. */
   usedAt?: string;
   approvedVia: ApprovalChannel;
-  /** Required when `approvedVia` is `natural_language`: the message that confirmed (003 §8.4). */
+  /** Required when `approvedVia` is `natural_language`: the message that confirmed. */
   confirmingMessageId?: string;
   /** The audit entry that recorded the issuance, so a refusal can be traced to its origin. */
   auditRef: string;
@@ -79,11 +79,11 @@ export type CapabilityRefusal =
   | "capability_expired"
   /** Already spent. The journal — not this check — decides what the first attempt achieved. */
   | "capability_used"
-  /** The page is on another domain. 003 §8.3: no re-confirmation path, by design. */
+  /** The page is on another domain. No re-confirmation path, by design. */
   | "merchant_mismatch"
   /** Over the ceiling. Checked before tolerance, because `maxAmount` is not negotiable. */
   | "amount_over_max"
-  /** Price rose and nobody approved slack. The default path (003 §8.5). */
+  /** Price rose and nobody approved slack. The default path. */
   | "tolerance_not_approved";
 
 export type CapabilityCheck =
@@ -93,7 +93,7 @@ export type CapabilityCheck =
  * Shapes a `paymentMethodRef` may take.
  *
  * An allowlist, because the failure being prevented is a *token* arriving in a field meant for a
- * reference: `pv:` handles come from the vault's grant machinery (003 §5.2), and the other three
+ * reference: `pv:` handles come from the vault's grant machinery, and the other three
  * name a credential held somewhere we never see. Anything else is refused at issue time, where the
  * stack still says who built it.
  *
@@ -141,7 +141,7 @@ export interface IssueCapabilityInput {
   approvedVia: ApprovalChannel;
   /** Required for `natural_language`, so the exact message that confirmed can be recovered. */
   confirmingMessageId?: string;
-  /** Only when the card offered slack **and** the person ticked it (003 §8.5). */
+  /** Only when the card offered slack **and** the person ticked it. */
   approvedTolerance?: ApprovedTolerance;
   /** The audit entry recording the issuance. */
   auditRef: string;
@@ -178,13 +178,13 @@ export function issuePaymentCapability(
   if (!isOpaqueMethodRef(input.paymentMethodRef)) {
     throw new Error(
       `paymentMethodRef must be an opaque reference (pv:/wallet:/merchant_saved:/psp:), never a ` +
-        `token or a card number: a merchant token may itself be able to charge the card ` +
-        `(003 §9.2), and this object travels to a tool call, a trace and an audit record.`,
+        `token or a card number: a merchant token may itself be able to charge the card, ` +
+        `and this object travels to a tool call, a trace and an audit record.`,
     );
   }
   if (input.approvedVia === "natural_language" && !input.confirmingMessageId?.trim()) {
     throw new Error(
-      "A capability approved in words needs the id of the message that approved it (003 §8.4), " +
+      "A capability approved in words needs the id of the message that approved it, " +
         "so it can be shown afterwards exactly what was said and what was on screen at the time.",
     );
   }
@@ -197,7 +197,7 @@ export function issuePaymentCapability(
   if (commitmentIncrease > approvedIncrease) {
     throw new Error(
       `The commitment carries ${commitmentIncrease} of slack but only ${approvedIncrease} was ` +
-        `approved on the card. An unapproved tolerance is zero (003 §8.5); it is never inferred ` +
+        `approved on the card. An unapproved tolerance is zero; it is never inferred ` +
         `from the conversation and never carried over from a previous task.`,
     );
   }
@@ -255,7 +255,7 @@ export interface CheckCapabilityInput {
 /**
  * Judges whether a capability authorises the payment about to happen.
  *
- * The order of the checks is part of the contract, and it is the order of 003 §8.3 read from
+ * The order of the checks is part of the contract, and it is the order of the payment checks read from
  * cheapest-and-hardest to most contextual:
  *
  * 1. **Structure and turn.** A malformed capability, or one from another turn, is not evidence of
@@ -263,7 +263,7 @@ export interface CheckCapabilityInput {
  * 2. **Used**, then **expired** — both mean "this one is spent" and neither depends on the page.
  * 3. **Domain.** Before any amount comparison, because a matching price on the wrong domain is the
  *    shape of a redirect hijack, and there is deliberately no re-confirmation path for it.
- * 4. **A rise with no approved slack** — 003 §8.3's default row. Reported as
+ * 4. **A rise with no approved slack** — the default row. Reported as
  *    `tolerance_not_approved` rather than as a ceiling breach, because that is what it is: the
  *    exact amount shown was the ceiling, and the answer is to ask again.
  * 5. **The ceiling**, for the case where slack *was* approved. `maxAmount` already has that slack
@@ -341,7 +341,7 @@ export function checkPaymentCapability(input: CheckCapabilityInput): CapabilityC
   if (!capability.toleranceApproved && confirmed !== null && amount > confirmed + 0.004) {
     return refuse("tolerance_not_approved", [
       `The price moved from ${confirmed} to ${amount} ${capability.maxAmount.currency} and no ` +
-        `slack was approved. The exact amount shown is the hard ceiling by default (003 §8.5), ` +
+        `slack was approved. The exact amount shown is the hard ceiling by default, ` +
         `so this goes back to the person.`,
     ]);
   }

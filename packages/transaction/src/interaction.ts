@@ -15,7 +15,7 @@
  * | `human_challenge` | the page itself | handed over, briefly |
  * | `browser_takeover` | the page itself | handed over, **last resort** |
  *
- * The first three leave the agent working. That is the point of the whole design (003 §0.2): the
+ * The first three leave the agent working. That is the point of the whole design: the
  * default used to be "give the user the browser", and everything here exists to make that the
  * exception. `browser_takeover` therefore carries a mandatory `reason` — not as bureaucracy, but
  * so that falling back to "you do it" is a decision somebody can read afterwards and argue with,
@@ -24,17 +24,17 @@
  * Two rules are enforced here rather than left to callers, because both are the kind of thing that
  * is remembered until the one time it is not:
  *
- * - **A payment confirmation names the whole purchase.** All seven fields of 003 §8.1, or the
+ * - **A payment confirmation names the whole purchase.** All seven fields of the purchase summary, or the
  *   interaction is not built. A card missing its cancellation terms is a card that got the user to
  *   agree to something they were not shown.
  * - **A secret interaction never carries a secret.** The request says which field is wanted and
  *   why; the value travels a different way and never through this object, which is serialized into
- *   SSE, replayed from a ring buffer on reconnect, and written to traces (003 §4.6).
+ *   SSE, replayed from a ring buffer on reconnect, and written to traces.
  */
 
 import type { EscalationKind, EscalationOption, TimeoutPolicy } from "./escalation.js";
 
-/** The six kinds of 003 §7.1. */
+/** The six interaction kinds. */
 export type InteractionKind =
   | "info_request"
   | "selection"
@@ -58,13 +58,13 @@ export function touchesBrowser(kind: InteractionKind): boolean {
  * What the person is being asked to type, for `secret_entry`.
  *
  * A closed set, because two members of it are never fillable by the app under any flag: a payment
- * password and a passkey are human-only by construction (003 §7.3), and naming them here is what
+ * password and a passkey are human-only by construction, and naming them here is what
  * lets that be checked rather than remembered.
  */
 export type SecretField =
   "cvv" | "otp" | "three_d_secure" | "card_number" | "payment_password" | "passkey";
 
-/** Secret fields the app must never fill, whatever the flags say (003 §3 L3, §7.3). */
+/** Secret fields the app must never fill, whatever the flags say. */
 const NEVER_FILLABLE: ReadonlySet<SecretField> = new Set<SecretField>([
   "payment_password",
   "passkey",
@@ -75,7 +75,7 @@ export function isNeverFillable(field: SecretField): boolean {
 }
 
 /**
- * The purchase, exactly as the person is shown it (003 §8.1).
+ * The purchase, exactly as the person is shown it.
  *
  * Every field is required. `merchant.domain` is the eTLD+1 and is the *judging* field — the display
  * name is what a phishing page controls, the domain is what it cannot fake — and `amount.currency`
@@ -88,7 +88,7 @@ export interface PaymentSummary {
   amount: { value: number; currency: string };
   /** The site's own cancellation terms, quoted, with a link back to where they were read. */
   cancellation: { summary: string; url?: string };
-  /** Alias, brand and last four — never a token, never a card number (003 §9.2). */
+  /** Alias, brand and last four — never a token, never a card number. */
   paymentMethod: { alias: string; brand?: string; last4?: string };
   /** When this confirmation stops meaning anything. Default ten minutes; the card shows it. */
   expiresAt: string;
@@ -96,7 +96,7 @@ export interface PaymentSummary {
   taskId: string;
 }
 
-/** Slack the person explicitly approved on the card. Absent means **none** (003 §8.5). */
+/** Slack the person explicitly approved on the card. Absent means **none**. */
 export interface ApprovedTolerance {
   /** How far the price may rise before the confirmation is void, in the same currency. */
   amountIncrease: number;
@@ -164,7 +164,7 @@ export interface SecretEntryInteraction extends InteractionBase {
    *
    * False is the shipped behaviour: the card explains what is needed and the person completes it
    * in the site's own field or their bank's app, with the agent paused. True requires
-   * `secret_entry.live`, which requires the scoped secret phase of 003 §7.3 — the detach, the
+   * `secret_entry.live`, which requires the scoped secret phase — the detach, the
    * proof the field was cleared, and the three exits. Building this with `live: true` for a field
    * that is never fillable is refused outright.
    */
@@ -183,7 +183,7 @@ export interface BrowserTakeoverInteraction extends InteractionBase {
    * Why the other five kinds were not enough. Required and non-empty.
    *
    * This is the whole difference between a last resort and a habit: a takeover with no stated
-   * reason cannot be reviewed, and 003 §13-8 asks for the trigger rate precisely because a high
+   * reason cannot be reviewed, and the observability design asks for the trigger rate precisely because a high
    * one means the design is failing somewhere upstream.
    */
   reason: string;
@@ -214,7 +214,7 @@ export type InteractionOutcome =
       optionId?: string;
       /** `commitment_confirmation`: true only when the person confirmed the purchase. */
       approved?: boolean;
-      /** Set only when the person explicitly accepted the offered slack on the card (003 §8.5). */
+      /** Set only when the person explicitly accepted the offered slack on the card. */
       toleranceApproved?: ApprovedTolerance;
       /** Free text the person left; the host forwards it as steering. */
       message?: string;
@@ -223,7 +223,7 @@ export type InteractionOutcome =
   | { status: "timeout"; policy: TimeoutPolicy }
   | { status: "aborted" };
 
-/** 003 §7.2: the six kinds are a refinement of the transaction layer's three gaps. */
+/** The six kinds are a refinement of the transaction layer's three gaps. */
 export function escalationKindFor(kind: InteractionKind): EscalationKind {
   switch (kind) {
     case "info_request":
@@ -239,7 +239,7 @@ export function escalationKindFor(kind: InteractionKind): EscalationKind {
 /** Default budget for an interaction: long enough to read a card and answer it. */
 export const DEFAULT_INTERACTION_TIMEOUT_MS = 120_000;
 
-/** What a payment confirmation is worth after this long. Ten minutes, per 003 §8.1. */
+/** What a payment confirmation is worth after this long. Ten minutes. */
 export const DEFAULT_CONFIRMATION_TTL_MS = 10 * 60_000;
 
 let counter = 0;
@@ -357,12 +357,12 @@ export function buildInteraction(
       if (live && isNeverFillable(field)) {
         throw new Error(
           `A ${field} is never filled by this application, under any flag: it is entered by the ` +
-            `person, in the site's own field or their bank's app (003 §7.3).`,
+            `person, in the site's own field or their bank's app.`,
         );
       }
       // The request describes a want. Anything that looks like an answer is refused here rather
       // than filtered later: this object is published over SSE, replayed on reconnect and written
-      // to traces (003 §4.6), and "we strip it downstream" is a promise made in four places.
+      // to traces, and "we strip it downstream" is a promise made in four places.
       assertCarriesNoValue(input as unknown as Record<string, unknown>);
       return {
         ...base,
@@ -409,13 +409,13 @@ export function assertCarriesNoValue(record: Record<string, unknown>): void {
       throw new Error(
         `A secret_entry request must not carry "${key}". The request says which field is wanted ` +
           `and why; the value never travels through an object that is published over SSE, ` +
-          `replayed on reconnect and written to traces (003 §4.6).`,
+          `replayed on reconnect and written to traces.`,
       );
     }
   }
 }
 
-/** Checks all seven fields of 003 §8.1, naming the one that is missing. */
+/** Checks all seven fields, naming the one that is missing. */
 export function assertCompleteSummary(summary: PaymentSummary | undefined): PaymentSummary {
   if (!summary) throw new Error("A payment confirmation needs a summary of what is being bought.");
   requireText(summary.merchant?.name, "merchant.name");
@@ -436,7 +436,7 @@ export function assertCompleteSummary(summary: PaymentSummary | undefined): Paym
   if (summary.paymentMethod && "token" in summary.paymentMethod) {
     throw new Error(
       "paymentMethod must carry only an alias, brand and last four. A token may itself be able " +
-        "to charge the card (003 §9.2) and never appears on a card or in an event.",
+        "to charge the card and never appears on a card or in an event.",
     );
   }
   return summary;

@@ -1,5 +1,5 @@
 /**
- * Where a payment is actually authorised and executed (design/003 §8.6, §10.3).
+ * Where a payment is actually authorised and executed.
  *
  * This is the piece that takes the execution away from the agent. The agent can ask — it calls
  * `execute_payment` with a capability id and the plan it can see — but the capability, the
@@ -44,7 +44,7 @@ import { parseHandle } from "./grants.js";
 import type { ProfileVault } from "./store.js";
 
 export interface PaymentFlags {
-  /** 004 §5: off until the vault holds real L2 material on an isolated runtime. */
+  /** Off until the vault holds real L2 material on an isolated runtime. */
   "payments.execute": boolean;
 }
 

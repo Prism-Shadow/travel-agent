@@ -1,5 +1,5 @@
 /**
- * The capability panel's rules: the end of design/004 §5's fail-closed chain.
+ * The capability panel's rules: the end of the fail-closed capability chain.
  *
  * The chain is probe → flag off → **UI states why**, and the last link is the one a screenshot
  * review would miss: a denied capability that renders exactly like a quietly-off one has silently
@@ -42,7 +42,7 @@ describe("the three states", () => {
         denials: [
           {
             flag: "vault.enabled",
-            reason: "encrypted storage is unavailable … see design/003 §4.4",
+            reason: "encrypted storage is unavailable … the vault refuses to start",
           },
         ],
       }),
@@ -51,7 +51,7 @@ describe("the three states", () => {
     const audit = rows.find((row) => row.flag === "audit.chain")!;
 
     expect(vault.state).toBe("denied");
-    expect(vault.reason).toMatch(/003 §4.4/);
+    expect(vault.reason).toMatch(/the vault refuses to start/);
     expect(audit.state).toBe("off");
     expect(audit.reason).toBeUndefined();
   });

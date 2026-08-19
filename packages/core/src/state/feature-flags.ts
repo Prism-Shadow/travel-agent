@@ -1,7 +1,7 @@
 /**
  * Feature flags for the browser-workspace and privacy/payment work.
  *
- * Every capability that design/004 §5 puts behind a gate is declared here, defaults
+ * Every gated capability is declared here, defaults
  * included, so that "what is on by default" is one readable table rather than a property
  * scattered across call sites. Nothing in this module reads a browser, a vault or a
  * payment path — it only answers *whether* a capability may be attempted.
@@ -11,11 +11,11 @@
  * 1. **Explicit, conservative product defaults.** Both user-visible browser backends ship on:
  *    the in-app browser is the default selection, while Chrome is an explicitly chosen alternative
  *    for an existing signed-in profile. Security-sensitive capabilities stay off until their own
- *    rollout criteria are met, keeping those paths independently revertible (004 §3).
+ *    rollout criteria are met, keeping those paths independently revertible.
  *
  * 2. **Dependencies are declared, not remembered.** `secret_entry.live` must never be on
  *    while the vault is unavailable, and `payments.execute` must never be on while
- *    `vault.l2l3` is off (003 §0.3, §5). Encoding that here means a mis-set override
+ *    `vault.l2l3` is off. Encoding that here means a mis-set override
  *    degrades to "off" instead of to an unsafe combination — `resolveFlags` recomputes the
  *    closure every time rather than trusting the caller.
  *
@@ -35,7 +35,7 @@
  * module is the single source for them.
  */
 
-/** Every gated capability. Keep in sync with design/004 §5. */
+/** Every gated capability. */
 export type FeatureFlag =
   /** Phase 1: render the in-app browser (WebContentsView) and route sessions to it. */
   | "iab.enabled"
@@ -47,11 +47,11 @@ export type FeatureFlag =
   | "secret_entry.live"
   /** Phase 4: the private profile vault, holding L1 projections. */
   | "vault.enabled"
-  /** Phase 4/5: real L2/L3 fields. Requires OS-level agent isolation (003 §0.3). */
+  /** Phase 4/5: real L2/L3 fields. Requires OS-level agent isolation. */
   | "vault.l2l3"
   /** Phase 4/5: the agent may trigger a real payment through a one-shot capability. */
   | "payments.execute"
-  /** Phase 3: the agent may click the site's own "pay" button. Off until 003 §8's machinery lands. */
+  /** Phase 3: the agent may click the site's own "pay" button. Off until the payment machinery lands. */
   | "payments.agent_click_pay"
   /** Phase 4: hash-chained local audit log. */
   | "audit.chain"
@@ -109,19 +109,19 @@ export function listFeatureFlags(): FeatureFlag[] {
  */
 const FLAG_REQUIRES: Partial<Record<FeatureFlag, FeatureFlag[]>> = {
   // A live secret fill handles real L3 material — a CVV, an OTP, a 3DS code — through the
-  // scoped secret phase of 003 §7.3, which detaches the agent's CDP capability and refuses to
+  // scoped secret phase, which detaches the agent's CDP capability and refuses to
   // restore it until the field is proven clear. That machinery is part of the same protected
   // tier as L2 storage, so it depends on `vault.l2l3` rather than merely on a vault existing:
   // requiring the weaker `vault.enabled` would have let real secrets be filled on a host where
-  // the agent runtime is not isolated, which is exactly what 003 §0.3 forbids.
+  // the agent runtime is not isolated, which is exactly what the isolation decision forbids.
   "secret_entry.live": ["secret_entry.contract", "vault.l2l3"],
   // L2/L3 are vault fields; there is no L2 without a vault.
   "vault.l2l3": ["vault.enabled"],
-  // Paying needs a stored, decryptable payment credential, which is an L2 field (003 §9.2).
+  // Paying needs a stored, decryptable payment credential, which is an L2 field.
   "payments.execute": ["vault.l2l3"],
-  // Clicking "pay" without the execute path would be the bypass 003 §10.3 exists to prevent.
+  // Clicking "pay" without the execute path would be the bypass the execute path exists to prevent.
   "payments.agent_click_pay": ["payments.execute"],
-  // The audit chain's key is protected by the same keychain the vault uses (003 §5.3).
+  // The audit chain's key is protected by the same keychain the vault uses.
   "audit.chain": ["vault.enabled"],
 };
 
@@ -129,12 +129,12 @@ const FLAG_REQUIRES: Partial<Record<FeatureFlag, FeatureFlag[]>> = {
 export interface CapabilityProbe {
   /**
    * `safeStorage.isEncryptionAvailable()` and, on Linux, a backend other than `basic_text`.
-   * See 003 §4.4 — a `basic_text` backend stores plaintext, so the vault must not start.
+   * A `basic_text` backend stores plaintext, so the vault must not start.
    */
   encryptedStorageAvailable?: boolean;
   /**
    * Whether the agent runtime is confined away from `userData`, the keychain and the main
-   * process (003 §0.3). Without it the vault is a guard against accidents, not an attacker,
+   * process. Without it the vault is a guard against accidents, not an attacker,
    * so real L2/L3 must stay off.
    */
   agentRuntimeIsolated?: boolean;
@@ -282,7 +282,7 @@ export function applyCapabilityProbe(flags: FeatureFlags, probe: CapabilityProbe
   if (probe.encryptedStorageAvailable !== true) {
     const reason =
       "encrypted storage is unavailable (safeStorage off, or a basic_text backend on Linux); " +
-      "the vault refuses to start rather than persisting plaintext — see design/003 §4.4";
+      "the vault refuses to start rather than persisting plaintext";
     deny("vault.enabled", reason);
     deny("vault.l2l3", reason);
     deny("audit.chain", reason);
@@ -294,11 +294,10 @@ export function applyCapabilityProbe(flags: FeatureFlags, probe: CapabilityProbe
   if (probe.agentRuntimeIsolated !== true) {
     const reason =
       "the agent runtime is not isolated from userData, the keychain and the main process, " +
-      "so real personal data, live secret fills and stored payment credentials stay off — " +
-      "see design/003 §0.3";
+      "so real personal data, live secret fills and stored payment credentials stay off";
     deny("vault.l2l3", reason);
     // Filling a real CVV/OTP puts L3 material into a page the agent can reach the moment its
-    // CDP capability comes back (003 §1.3, §7.3). Denied explicitly rather than left to the
+    // CDP capability comes back. Denied explicitly rather than left to the
     // dependency closure, so the reason a reader sees names the isolation gap.
     deny("secret_entry.live", reason);
     deny("payments.execute", reason);

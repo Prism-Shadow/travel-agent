@@ -1,5 +1,5 @@
 /**
- * The main process's end of the broker channel (design/003 §11).
+ * The main process's end of the broker channel.
  *
  * It listens on a Unix domain socket (or a Windows named pipe), and every connection has to prove
  * three separate things before anything happens:
@@ -15,9 +15,9 @@
  * application's own data directory with mode 0600, so another user cannot connect at all. Node
  * exposes no portable peer-credential API (`SO_PEERCRED` / `getpeereid` are not surfaced), so this
  * implementation does **not** claim a UID check — the file mode is the enforcement, and the token
- * is what distinguishes the forked server from anything else running as the same user. 003 §11.3 is
- * explicit that this last distinction is not a defence against the agent until the isolation of
- * §0.3 lands, and no code here pretends otherwise.
+ * is what distinguishes the forked server from anything else running as the same user. The design is
+ * explicit that this last distinction is not a defence against the agent until the isolation
+ * decision (D3) lands, and no code here pretends otherwise.
  *
  * Rate limiting is per turn rather than per connection, because a connection is free to make and a
  * turn is the thing a runaway loop belongs to.

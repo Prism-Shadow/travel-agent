@@ -1,8 +1,8 @@
 /**
- * What has been typed into a page that must not come back out of it (design/003 §6.5).
+ * What has been typed into a page that must not come back out of it.
  *
  * Once the main process fills an identity number into a form, that value exists in a DOM the agent
- * can read. §1.3 is blunt that this cannot be prevented — a page can echo a value anywhere, and an
+ * can read. The threat model is blunt that this cannot be prevented — a page can echo a value anywhere, and an
  * agent with a CDP channel can read the page. So the defence is layered and honest about its
  * layers:
  *
@@ -61,7 +61,7 @@ export interface SensitiveElement extends SensitiveFingerprint {
   selector?: string;
   box?: BoundingBox;
   registeredAt: string;
-  /** Set once the value is known to be gone from the page (proof of clearing, 003 §7.3). */
+  /** Set once the value is known to be gone from the page (proof of clearing). */
   clearedAt?: string;
 }
 
@@ -135,7 +135,7 @@ export class SensitiveElementRegistry {
     if (element) element.box = box;
   }
 
-  /** Marks a value as gone from the page. Only a proof should call this (003 §7.3 exit (a)). */
+  /** Marks a value as gone from the page. Only a proof should call this (exit (a)). */
   markCleared(id: string): void {
     const element = this.elements.get(id);
     if (element) element.clearedAt = this.now().toISOString();

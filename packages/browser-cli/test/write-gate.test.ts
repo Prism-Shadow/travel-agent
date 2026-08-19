@@ -1,7 +1,7 @@
 /**
  * The write gate (write-gate.ts, payment-gate.ts, handover-state.ts).
  *
- * Design/002 §6.5 asks for an enumeration rather than a sample, so the first test here walks the
+ * The write gate is an enumeration rather than a sample, so the first test here walks the
  * whole enumerated surface — every method on the list, on a page double — and checks each one is
  * refused while somebody else holds the page. A gate that covered eight of nine would be a gate
  * with one way around it, and the one that was missed is the one that gets used.
@@ -149,7 +149,7 @@ describe("the enumerated surface, while the person holds the page", () => {
 
   it("refuses reads too during a secret phase", async () => {
     // The difference between user_control and secret_phase: here the value is in the page, and
-    // reading it is the thing being prevented (003 §1.3).
+    // reading it is the thing being prevented.
     const page = fakePage()
     const guarded = guardPage(page as unknown as Record<string, unknown>, SESSION) as {
       content: () => Promise<string>
@@ -270,7 +270,7 @@ describe("the payment gate", () => {
 
   it('blocks a submit helper that would commit the order', async () => {
     // `submitAndClassify` reaches the page by its own route, so gating the page object would have
-    // missed it — the sampling failure 002 §6.5 warns about.
+    // missed it — the sampling failure the rule warns about.
     const submit = guardHelper(async (_opts: { submit: string }) => 'submitted', {
       sessionId: SESSION,
       name: 'submitAndClassify',

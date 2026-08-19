@@ -7,9 +7,9 @@
  * `payments.agent_click_pay`, off by default and with dependencies that cannot be met in this
  * phase, so in every shipped configuration the answer here is no.
  *
- * **What it is and is not.** It is a guardrail on the enumerated write surface (002 §6.5), matching
+ * **What it is and is not.** It is a guardrail on the enumerated write surface, matching
  * a control's own words against a curated list. It is not a security boundary: the executor's vm is
- * explicitly not one (003 §1.2), and an agent determined to route around a wrapper can. What it
+ * explicitly not one, and an agent determined to route around a wrapper can. What it
  * buys is that the *ordinary* path — read the page, find the button, click it — stops, with a
  * message saying what to do instead. Phase 4 replaces the policy switch with a capability the agent
  * cannot forge.

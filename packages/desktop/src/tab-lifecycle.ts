@@ -1,7 +1,7 @@
 /**
  * When a tab closes, what survives a crash, and what the user is asked on the way back.
  *
- * Design/002 §6.4 makes the point that moving the browser inside the app does not remove the tab
+ * The design makes the point that moving the browser inside the app does not remove the tab
  * lifecycle problem, it only changes its character: the tabs are now ours to create and destroy, so
  * the risk of trampling something the user opened in their own Chrome is gone, but *who closes what
  * and when* still has to be written down. This module is that policy, kept pure so it can be
@@ -59,7 +59,7 @@ export interface LifecycleTab {
 export type TabDisposition = "close" | "retain";
 
 /**
- * Close or keep one tab (002 §6.4, table one).
+ * Close or keep one tab.
  *
  * The retain mark is checked first and returns immediately, which is the whole point of the rule:
  * a user who said "keep this" must not have that overturned by a policy that thinks the task was
@@ -146,7 +146,7 @@ export interface CrashRecovery {
 }
 
 /**
- * What to do when one tab's renderer goes away (002 §6.4, three).
+ * What to do when one tab's renderer goes away.
  *
  * Scoped to the tab on purpose. The window's own `render-process-gone` handler reloads the whole
  * app (`main.ts`), and an IAB view must never reach it — rebuilding one page is recovery, reloading
@@ -204,7 +204,7 @@ export const TAB_CHECKPOINT_VERSION = 1;
  * died, so every task it mentions is gone; restoring an owner would hand a fresh agent write access
  * to a page on the strength of a dead run's say-so, and would do it before any `tabRegistry` claim
  * had been made. Restored tabs come back unowned and an agent must claim one the ordinary way
- * (002 §6.4 二, "重新走一次归属认领"). Leaving the field out of the format, rather than ignoring it
+ * (re-run the ownership claim). Leaving the field out of the format, rather than ignoring it
  * on read, is what makes that unable to regress.
  */
 export interface TabCheckpointEntry {

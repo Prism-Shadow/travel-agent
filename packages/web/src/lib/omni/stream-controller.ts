@@ -137,7 +137,7 @@ export interface StreamControllerDeps {
   onModelChange: () => void;
   /** Pending-approvals table changed. */
   onPendingChange: () => void;
-  /** Pending user-interaction cards changed (design/003 §7). */
+  /** Pending user-interaction cards changed. */
   onInteractionsChange?: () => void;
   /** Auto-generated title pushed by the server (for updating the Session list in place). */
   onSessionTitle?: (sessionId: string, title: string) => void;

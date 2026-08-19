@@ -2,7 +2,7 @@
  * Who the browser is working for.
  *
  * The in-app browser attributes every tab to two things: the **conversation** whose strip shows it,
- * and the **task** allowed to write to it (design/002 §6.4). Neither can be guessed from inside this
+ * and the **task** allowed to write to it. Neither can be guessed from inside this
  * process — the CLI is a child of whatever ran it — so the harness passes them in the environment
  * of every command it spawns, and this reads them back out.
  *

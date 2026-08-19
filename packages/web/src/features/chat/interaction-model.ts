@@ -51,7 +51,7 @@ const TAGS: Record<UserInteraction["kind"], string> = {
 /**
  * The purchase, as lines a person reads top to bottom. Never a token, never a card number.
  *
- * All seven fields of 003 §8.1, and the last two are not bookkeeping. The expiry is what makes
+ * All seven fields, and the last two are not bookkeeping. The expiry is what makes
  * "confirm" a decision with a shelf life — a person who leaves the card open for an hour and comes
  * back should be able to see that it lapsed, rather than press a button that quietly refuses. The
  * task is what ties this consent to one turn: the same summary confirmed in a later turn is a
@@ -199,7 +199,7 @@ function secretFieldLabel(field: string): string {
 /**
  * Whether this application will ever type the requested secret. It will not, in this phase.
  *
- * Two of the six fields are never filled under any flag (003 §7.3), and the rest wait on the scoped
+ * Two of the six fields are never filled under any flag, and the rest wait on the scoped
  * secret phase, which is Phase 4. The card says so plainly rather than implying a capability that
  * is switched off — a person told "type it here" who then finds nothing happens has been misled
  * about who is doing what.
@@ -230,7 +230,7 @@ export function outcomeFor(input: {
         status: "answered",
         approved: true,
         // Sent only when the card offered slack *and* the person accepted it. An unapproved
-        // tolerance is zero, and there is no path here that invents one (003 §8.5).
+        // tolerance is zero, and there is no path here that invents one.
         ...(input.toleranceAccepted && input.offeredTolerance
           ? { toleranceApproved: input.offeredTolerance }
           : {}),

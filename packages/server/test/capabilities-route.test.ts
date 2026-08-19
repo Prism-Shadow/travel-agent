@@ -1,7 +1,7 @@
 /**
  * The capabilities report: the UI's only source for "what is on, and why the rest is off".
  *
- * design/004 Phase 4's exit criteria include a test proving the gating chain end to end: a probe
+ * The gating chain needs proving end to end: a probe
  * that fails → the flag resolves off → the UI has a reason to show. The route is the middle of
  * that chain, so what is pinned here is that a *requested* capability whose prerequisites are not
  * met comes back `false` **with its reason**, not merely false — and that the report never carries
@@ -49,7 +49,7 @@ describe("the capability report", () => {
     expect(seen.denials).toEqual([]);
   });
 
-  it("explains a requested capability that failed its probe — the chain 004 §5 requires", async () => {
+  it("explains a requested capability that failed its probe — the chain the fail-closed rule requires", async () => {
     // The person asked for the whole payment stack. No probe reported an isolated runtime or
     // usable encrypted storage, so all of it resolves off — and each flag carries a sentence the
     // settings page can show, which is what stops "off" from looking like a bug.

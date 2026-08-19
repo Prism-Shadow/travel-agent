@@ -56,7 +56,7 @@ export interface DesktopPaneState {
   /** Which conversation those tabs belong to; lets the renderer spot a frame it has outrun. */
   sessionScope: string | null;
   backend: DesktopBackend;
-  /** Whether that choice is held shut by a running task (design/002 §7.3: no mid-task switch). */
+  /** Whether that choice is held shut by a running task (no mid-task switch). */
   backendLocked: boolean;
   /** False when this run's relay is not the one a Chrome extension can connect to. */
   extensionBackendAvailable: boolean;
@@ -67,7 +67,7 @@ export interface DesktopPaneState {
 
 export type DesktopBackend = "iab" | "extension";
 
-/** How a task ended, as far as its tabs are concerned (design/002 §6.4). */
+/** How a task ended, as far as its tabs are concerned. */
 export type DesktopTaskOutcome = "read_only" | "committed" | "failed" | "unknown";
 
 export interface DesktopRect {

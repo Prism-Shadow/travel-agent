@@ -1,7 +1,7 @@
 /**
  * What an executed snippet can see of the process it runs in.
  *
- * This is 003 §12's A8 and its neighbours, as unit tests: the dynamic-import escape is gone, and
+ * This is attack A8 and its neighbours, as unit tests: the dynamic-import escape is gone, and
  * `process` is an allowlist rather than three intercepted methods. Neither turns the vm into a
  * security boundary — Node says it is not one, and the agent has a shell elsewhere — but the
  * *sanctioned* path no longer hands out the environment, and the module allowlist means what it

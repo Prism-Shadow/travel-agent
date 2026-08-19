@@ -64,7 +64,7 @@ describe("which kinds touch the browser", () => {
 
 describe("browser_takeover", () => {
   it("refuses to be built without a reason", () => {
-    // 003 §7.4. The point is not paperwork: an unexplained takeover cannot be reviewed, and the
+    // The point is not paperwork: an unexplained takeover cannot be reviewed, and the
     // rate of them is the metric that says whether the other five kinds are covering enough.
     expect(() =>
       buildInteraction({ kind: "browser_takeover", ask: "请接管", summary: "", reason: "" }),
@@ -151,7 +151,7 @@ describe("commitment_confirmation", () => {
   });
 
   it("refuses a payment method that carries a token", () => {
-    // A merchant token may itself be able to charge the card (003 §9.2), so it never appears on a
+    // A merchant token may itself be able to charge the card, so it never appears on a
     // card, in an event, or in a trace — only an alias, a brand and four digits.
     expect(() =>
       assertCompleteSummary(
@@ -210,7 +210,7 @@ describe("secret_entry", () => {
 
   it("refuses a request that carries anything shaped like the answer", () => {
     // This object is published over SSE, replayed from a ring buffer on reconnect and written to
-    // traces (003 §4.6). "We strip it downstream" is a promise made in four places; refusing it
+    // traces. "We strip it downstream" is a promise made in four places; refusing it
     // here is one.
     expect(() =>
       buildInteraction({

@@ -1,7 +1,7 @@
 /**
  * Human handoff: the page, briefly, for the two things only a person can do *in it*.
  *
- * Narrowed deliberately (design/003 §0.2, 004 Phase 3). This used to be the way an agent asked for
+ * Narrowed deliberately. This used to be the way an agent asked for
  * anything at all — a code, a choice, a payment confirmation — and that made "give the user the
  * browser" the default path. It is now the browser half of `requestUserInteraction`, reached by
  * exactly two kinds:

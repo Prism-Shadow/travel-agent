@@ -229,7 +229,7 @@ describe("what a fill refuses", () => {
   });
 
   it("reports a control that ignored the write, rather than claiming success", async () => {
-    // 003 §13-3: a framework-controlled input often ignores a direct value assignment.
+    // Known-fragile part: a framework-controlled input often ignores a direct value assignment.
     const grant = await grantFor();
     const page = fakePage({ fillField: vi.fn(async () => ({ filled: false })) });
     const result = await fillerWith(page.port).fill({

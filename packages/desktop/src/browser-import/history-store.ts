@@ -16,8 +16,8 @@
  * the file lives in the app's own userData directory with the same protection as every other thing
  * there; the entire feature exists to serve keystroke-latency prefix queries, which an encrypted
  * store cannot do without decrypting the whole index; and — decisively — the thing a history would
- * be encrypted *against* is another process running as the same user, which is the threat 003 §4.3
- * already states the vault does not defend against either. What would be gained is the appearance
+ * be encrypted *against* is another process running as the same user, a threat the vault already
+ * does not defend against either. What would be gained is the appearance
  * of protection. Passwords are different, are in `credential-store.ts`, and are encrypted.
  *
  * What the agent may see: **nothing here, by default**. History is for the person's address bar.

@@ -2524,7 +2524,7 @@ export async function startPenguinBrowserCDPRelayServer({
   }
 
   /**
-   * In-app browser transport (design/002 §4.2 candidate C).
+   * In-app browser transport.
    *
    * The desktop shell connects here and bridges to `webContents.debugger`, so the agent drives a
    * WebContentsView through exactly the machinery that already drives a Chrome tab. Deliberately
@@ -3081,7 +3081,7 @@ export async function startPenguinBrowserCDPRelayServer({
       cdpEndpoint?: string
       /** Launch a headless Chrome via chromium.launch() — no extension or relay CDP routing */
       headless?: boolean
-      /** Drive the desktop shell's in-app WebContentsView (design/002 §4.2) */
+      /** Drive the desktop shell's in-app WebContentsView */
       iab?: boolean
       /**
        * Who the tabs this session opens belong to (--iab only).
@@ -3089,7 +3089,7 @@ export async function startPenguinBrowserCDPRelayServer({
        * `sessionId` is the harness conversation whose tab strip shows them; `taskId` is the turn
        * allowed to write to them. Both are required in IAB mode and neither is defaulted — the
        * relay has no way to know either, and a tab attributed to something invented can never be
-       * released by the thing that owns it (design/002 §6.4).
+       * released by the thing that owns it.
        */
       sessionId?: string
       taskId?: string
@@ -3370,7 +3370,7 @@ export async function startPenguinBrowserCDPRelayServer({
         /** The caller's current task; checked against the session's owner for IAB sessions. */
         taskId?: string
         /**
-         * How the task ended, as far as its tabs are concerned (design/002 §6.4).
+         * How the task ended, as far as its tabs are concerned.
          *
          * The agent is the only party that knows whether it merely searched, left an order behind,
          * or failed — so closing the browser session is where it says so, and the shell applies the

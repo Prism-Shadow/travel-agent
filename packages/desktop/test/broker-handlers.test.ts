@@ -1,7 +1,7 @@
 /**
  * Where the wire's claims meet main's own view of the page.
  *
- * The rows here are attack A4 of design/003 §12 at the layer that can actually answer it: a
+ * The rows here are attack A4 at the layer that can actually answer it: a
  * well-formed call, correctly signed, whose `domain` or `targetId` is not where the agent really
  * is. The refusal has to come from comparing the claim against the page main reads for itself —
  * not from believing either side — and the mismatch has to reach the audit log, because a redirect

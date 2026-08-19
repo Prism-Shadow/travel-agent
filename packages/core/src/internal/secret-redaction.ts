@@ -1,5 +1,5 @@
 /**
- * Scrubbing secret-shaped strings out of anything that gets written down (design/003 §4.6).
+ * Scrubbing secret-shaped strings out of anything that gets written down.
  *
  * The vault has its own redaction — fingerprint-matching a *known* value out of a page snapshot.
  * This is the other kind: a log line, a crash payload, an error message that was *not* supposed to

@@ -82,7 +82,7 @@ let iabTransport: IabTransport | null = null;
 let disposeBrowserIpc: (() => void) | null = null;
 let taskSupervisor: TaskSupervisor | null = null;
 /**
- * The vault side of the shell (design/004 Phase 4), when this build's flags and this machine's
+ * The vault side of the shell, when this build's flags and this machine's
  * keychain allow it. Null everywhere it is off — the tools that depend on it are then simply not
  * offered to the agent, which is the honest shape of a disabled capability.
  */
@@ -99,7 +99,7 @@ let browserImporter: BrowserImporter | null = null;
 /**
  * Whether the in-app browser pane is wired this run.
  *
- * Resolved once at startup from the feature flags (design/004 §5). The pane is a product default,
+ * Resolved once at startup from the feature flags. The pane is a product default,
  * so `pnpm desktop` wires it without an environment override; `PENGUIN_FLAGS=iab.enabled=false`
  * remains an explicit diagnostic opt-out. When it is off, no view, IPC handlers or IAB transport
  * are constructed, so the capability is genuinely absent rather than merely hidden.
@@ -247,13 +247,13 @@ function createWindow(url: string): void {
       onTabClosedByUser: (notice) => transport?.noteUserClosed(notice),
       // The choice of backend is read by a different process — the CLI, when the agent asks for an
       // in-app browser session — so it is persisted where that process looks. Per conversation,
-      // because two chats can legitimately want different browsers (design/002 §6.1).
+      // because two chats can legitimately want different browsers.
       initialBackends: readAllBackendPreferences(),
       // The extension connects to the conventional relay port, which this run may not own. Every
       // command the agent runs resolves *this* relay, so offering a backend that lives on another
       // one would produce a conversation whose browser sessions cannot be created.
       // Two conditions, both real. The flag is the product decision that the Chrome backend is
-      // offered at all (design/004 §5); the port is whether it could work in this run.
+      // offered at all; the port is whether it could work in this run.
       extensionBackendAvailable: chromeFallbackEnabled && !relayMovedOffConventionalPort(),
       onBackendChange: (sessionId, backend) => writeBackendPreference(sessionId, backend),
       onBackendSelected: (backend) => {
@@ -354,7 +354,7 @@ function createWindow(url: string): void {
     pane.setViewCreatedHandler((contents) => {
       transport?.attach(contents);
       // Keyboard focus can be inside a page as easily as inside the app, and the shortcuts have to
-      // work either way (design/004 M9). Same table, both paths.
+      // work either way. Same table, both paths.
       attachShortcutRouter(contents, shortcuts);
     });
     attachShortcutRouter(win.webContents, shortcuts);
@@ -416,7 +416,7 @@ function createWindow(url: string): void {
 async function startServerAndWindow(dataRoot: string): Promise<void> {
   appDataRoot = dataRoot;
   // The vault comes up before the server, because the server is forked with the broker's socket
-  // and token in its environment and there is no second channel to hand them over (003 §11.2).
+  // and token in its environment and there is no second channel to hand them over.
   // A failure here is not fatal: the vault stays off, its reason is on the settings page, and the
   // rest of the app runs. Only started once — a server restart reuses the running broker.
   if (vaultShell === null && browserPane !== null) {
@@ -554,7 +554,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() =>
     (async () => {
       // Record crashes in all three processes to a local, value-free log before anything else can
-      // crash (design/004 Phase 5, 003 §4.6). The payload is scrubbed through the shared secret
+      // crash. The payload is scrubbed through the shared secret
       // redaction; nothing user-identifying or secret is written. Best-effort and non-fatal.
       installCrashReporting({
         // Electron's `App` and Node's `Process` carry these methods; the port names just the

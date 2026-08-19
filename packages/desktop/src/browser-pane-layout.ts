@@ -107,7 +107,7 @@ export interface LayoutInput {
   /**
    * Something is drawn over the pane area — a modal, a drawer — and the view has to get out of the
    * way. HTML cannot paint above a `WebContentsView`, so "hide it briefly" is the only answer
-   * available (design/002 §5.3).
+   * available.
    */
   occluded: boolean;
 }

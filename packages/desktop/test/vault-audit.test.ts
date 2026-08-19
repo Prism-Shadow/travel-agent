@@ -2,7 +2,7 @@
  * The audit log's two claims, tested as the claims they are.
  *
  * "No values" is checked the way an incident review would check it — by grepping the file for the
- * secrets that passed through the operations being logged (003 §12's "审计 grep 无值" row). "Tamper
+ * secrets that passed through the operations being logged (the "audit greps no values" requirement). "Tamper
  * evident" is checked by doing the tampering: editing an entry, deleting one from the middle,
  * truncating the end, and swapping two — each must be *reported*, and the report must name where.
  * A9/A10 of the attack matrix live here.
@@ -72,7 +72,7 @@ describe("what an entry may say", () => {
   });
 
   it("holds nothing a grep would find, after a whole fill flow", async () => {
-    // 003 §12: the audit file is grepped for the values that moved through the operations it
+    // The audit file is grepped for the values that moved through the operations it
     // recorded. The number, the token and the code must appear nowhere.
     const secrets = ["310101199001011234", "tok_1P4kJ2abcdef", "482913", "13800005678"];
     await audit.append("grant_requested", { field: "id_number", domain: "ctrip.com" });
@@ -148,7 +148,7 @@ describe("the chain", () => {
 
   it("reports a truncated log against the tail the vault remembers", async () => {
     // Internally consistent after truncation — this is exactly the case that needs the remembered
-    // digest, and the reason 003 §5.3 keeps one outside the file.
+    // digest, and the reason one is kept outside the file.
     const remembered = audit.tailMac();
     const rows = await lines();
     await rewrite(rows.slice(0, 2));

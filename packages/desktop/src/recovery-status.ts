@@ -3,7 +3,7 @@
  *
  * The shell already recovers from each of these — the relay crashing, the extension disconnecting,
  * an in-app browser view's renderer dying — but each path grew its own ad-hoc handling, and 002
- * §11.2 lists "every recovery path has a user-readable status" as a hardening item precisely because
+ * "Every recovery path has a user-readable status" is a hardening item precisely because
  * a silent recovery is indistinguishable from a hang. This maps each failure to a single, honest
  * status: what happened, whether it fixes itself, and what (if anything) the person should do.
  *

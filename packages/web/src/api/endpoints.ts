@@ -446,7 +446,7 @@ export const postApproval = (
   );
 
 /**
- * Answers a card the agent raised (design/003 §7).
+ * Answers a card the agent raised.
  *
  * The same privilege as reading the conversation: the ordinary session cookie, the ordinary
  * project check. There is no separate authority for saying yes to a purchase — if you can see the
@@ -463,7 +463,7 @@ export const postInteractionOutcome = (
   );
 
 /**
- * What this build may do, and why the rest is off (design/004 §5).
+ * What this build may do, and why the rest is off.
  *
  * Read-only and secret-free: the report carries flags, denial sentences and a shell-present
  * boolean, so any logged-in user may see it — the point is precisely that a refused capability is

@@ -9,11 +9,11 @@
  * - **`process.env` was the whole environment.** The harness puts this turn's credential in there
  *   (see the server's `interaction/tokens.ts`), the user's vault entries are there, and a page
  *   whose script the agent happened to evaluate could read all of it. Handing that to code
- *   assembled from a web page is exactly the accidental exposure 003 §4.6 is about.
+ *   assembled from a web page is exactly the accidental exposure the no-values rule is about.
  *
  * So this is an allowlist of the properties a browser-automation snippet has any business reading,
  * with `env` reduced to a small, boring subset. It is a **guardrail, not a boundary** — the vm is
- * not one (003 §1.2), and the agent has a shell elsewhere — but the sanctioned path no longer hands
+ * not one, and the agent has a shell elsewhere — but the sanctioned path no longer hands
  * out secrets by default, which is the difference between a mistake and a design.
  */
 

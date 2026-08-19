@@ -2,7 +2,7 @@
  * The execute path, from the outside: what has to be true before money moves, and what happens when
  * the process dies in the middle.
  *
- * This is design/003 §12's P4 matrix at the layer that actually spends: the capability checks are
+ * This is the payment (P4) rejection matrix at the layer that actually spends: the capability checks are
  * exercised again here (they run in two places on purpose — against main's own view of the domain,
  * and inside the guarded booking path), plus the two rows that only exist here — the flag gate, and
  * a payment interrupted between the journal's intent and its result. That last one is the whole

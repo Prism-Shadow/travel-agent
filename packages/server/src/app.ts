@@ -144,11 +144,11 @@ export interface AppDeps {
   /** Desktop mode (PENGUIN_DESKTOP_TOKEN): one-shot login + shutdown token holder; null outside desktop mode. */
   desktop: DesktopService | null;
   /**
-   * Cards the agent raises and the person answers (design/003 §7), plus the payment guard behind
+   * Cards the agent raises and the person answers, plus the payment guard behind
    * the confirmation card.
    */
   interactions: InteractionService;
-  /** Live observability rates for the admin surface (003 §13). */
+  /** Live observability rates for the admin surface. */
   metrics: ObservabilityMetrics;
   /** Request log output (minimal one-liner); tests inject a noop. */
   log: (line: string) => void;
@@ -246,7 +246,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
   // Interaction cards, the payment guard, and this Session's journal/checkpoint files. Built
   // before the manager because the manager tells it when a turn ends; it needs only the channel
   // hub, which already exists.
-  // Live observability gauge (003 §13): the interaction service feeds it the kind of every card
+  // Live observability gauge: the interaction service feeds it the kind of every card
   // raised, so the takeover / secret-phase / card-fallback rates have a denominator.
   const metrics = new ObservabilityMetrics(overrides.now ? { now: overrides.now } : {});
   const interactions = new InteractionService({
@@ -515,7 +515,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.use("/api/*", auth);
   app.route("/api/me", meRoutes(deps));
   app.route("/api/version", versionRoutes(deps));
-  // What this build may do, and the reason for everything it may not (004 §5): read by the
+  // What this build may do, and the reason for everything it may not: read by the
   // settings panel so a capability that failed its probe is visible rather than merely absent.
   app.route("/api/capabilities", capabilitiesRoutes(deps));
   app.route("/api/metrics", metricsRoutes(deps));

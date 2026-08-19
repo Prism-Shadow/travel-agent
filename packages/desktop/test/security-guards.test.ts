@@ -1,5 +1,5 @@
 /**
- * The build-time security guards of design/002 §11.2, tested at their decision points.
+ * The build-time security guards, tested at their decision points.
  *
  * These are the two leaks that "a code reviewer will notice" does not actually prevent: a debug
  * switch left in shipped source, and a packaged binary missing the fuses that keep it from being

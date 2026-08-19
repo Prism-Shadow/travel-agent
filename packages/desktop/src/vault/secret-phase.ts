@@ -1,8 +1,8 @@
 /**
- * The scoped secret phase: the agent's channel is taken away, not asked to look away (003 §7.3).
+ * The scoped secret phase: the agent's channel is taken away, not asked to look away.
  *
  * An earlier design had the main process fill a one-time code and the agent simply carry on. That
- * contradicts §1.3 — once a CVV or an OTP is in an ordinary DOM input, anything with a debugger
+ * contradicts the threat model — once a CVV or an OTP is in an ordinary DOM input, anything with a debugger
  * channel to that page can read it. So the phase is built the other way round:
  *
  * ```
@@ -31,7 +31,7 @@ import type { FillPort } from "./secure-fill.js";
 import type { SensitiveElementRegistry } from "./sensitive-elements.js";
 import { isNeverFilled } from "./tiers.js";
 
-/** The three exits of 003 §7.3. Mirrors `SecretExit` in the transaction layer. */
+/** The three exits of the secret phase. Mirrors `SecretExit` in the transaction layer. */
 export type SecretExitReason = "cleared" | "unproven" | "target_destroyed";
 
 /** What the phase needs from the browser, beyond what a fill needs. */
@@ -47,7 +47,7 @@ export interface SecretPhasePort extends FillPort {
 }
 
 export interface SecretPhaseFlags {
-  /** Whether main may type a real one-time code at all (004 §5; off until this phase is accepted). */
+  /** Whether main may type a real one-time code at all (off until this phase is accepted). */
   "secret_entry.live": boolean;
 }
 
@@ -170,7 +170,7 @@ export class SecretPhaseController {
     };
     this.deps.onStateChange?.({ type: "enter", field: target.field });
 
-    // Two fields are human-only whatever the flags say (003 §3, §7.3); the phase still applies,
+    // Two fields are human-only whatever the flags say; the phase still applies,
     // because the agent must be detached while they are typed.
     const live = this.deps.flags["secret_entry.live"] && !isNeverFilled(target.field);
     return { ok: true, mode: live ? "live_fill" : "person_types" };
@@ -180,7 +180,7 @@ export class SecretPhaseController {
    * Types the value the person entered on the card, and submits in the same breath.
    *
    * The value arrives here from the card's own channel — preload to main, never through the server,
-   * the SSE stream or the agent (003 §7.3 step 2) — and leaves in the `finally`.
+   * the SSE stream or the agent — and leaves in the `finally`.
    */
   async fillFromPerson(input: { value: string }): Promise<SecretFillResult> {
     const active = this.active;
@@ -193,7 +193,7 @@ export class SecretPhaseController {
         reason: "never_filled",
         detail:
           `A ${active.field} is never typed by this application, under any flag. The person ` +
-          `enters it in the site's own field or their bank's app (003 §7.3).`,
+          `enters it in the site's own field or their bank's app.`,
       };
     }
     if (!this.deps.flags["secret_entry.live"]) {

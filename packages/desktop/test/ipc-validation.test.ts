@@ -4,7 +4,7 @@
  * The preload declares which capabilities exist; these functions decide whether a given call may do
  * anything. They are tested apart from Electron because the rule under test is not "does IPC work"
  * but "does a malformed payload get rejected rather than coerced" — a renderer bug that quietly
- * becomes a view in the wrong place is exactly what this is meant to prevent (design/002 §5.1).
+ * becomes a view in the wrong place is exactly what this is meant to prevent.
  */
 import { describe, expect, it } from "vitest";
 import {

@@ -110,7 +110,7 @@ describe("resolveSessionDownloadDir", () => {
   const ids = { projectId: "proj", agentId: "default_agent", sessionId: "session-1" };
 
   it("is the Session's own scratchpad, which is what the agent reads and what is deleted with it", () => {
-    // design/002 §5.2: a download belongs to the conversation that fetched it and lives exactly as
+    // A download belongs to the conversation that fetched it and lives exactly as
     // long. The shape is asserted literally because "somewhere under the data root" is not the
     // promise — `<agentDir>/scratchpad/<sessionId>` is.
     expect(resolveSessionDownloadDir("/data", ids)).toBe(

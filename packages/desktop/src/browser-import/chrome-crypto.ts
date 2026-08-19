@@ -49,7 +49,7 @@ const ITERATIONS: Partial<Record<NodeJS.Platform, number>> = { linux: 1, darwin:
  *
  * It is a real, hardcoded, upstream constant, and it is why a `v10` blob on Linux is not meaningfully
  * encrypted at all. Worth knowing in both directions: it lets this import work on a machine with no
- * keyring, and it is the reason 003 §4.4 refuses to let *our* vault run on such a machine.
+ * keyring, and it is the reason the fail-closed storage rule refuses to let *our* vault run on such a machine.
  */
 export const LINUX_FALLBACK_PASSWORD = "peanuts";
 

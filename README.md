@@ -4,7 +4,7 @@ Glue between [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness) (
 
 A user says one sentence. The agent searches, reduces the option space to a few representatives with a reason each, waits for a click that is also authorization, then fills the form and stops on the payment page. It does **not** do price watching, auto rebooking, ticket-sniping, or anything that needs a long-lived process.
 
-Design: [docs/design/001-architecture.md](docs/design/001-architecture.md).
+Architecture, as built: [docs/architecture/iab-in-app-browser.md](docs/architecture/iab-in-app-browser.md).
 
 ## Status
 
@@ -20,8 +20,8 @@ This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not me
 The open milestones that used to follow (M3, the one-sentence acceptance run; M5, flights)
 were withdrawn on 2026-08-18. On 2026-08-19 the product UI was formally unfrozen: the engine
 baseline remains pinned, while the web and desktop experience now evolves as travel-agent's own
-consumer product surface. [Design 005](docs/design/005-mindtrip-benchmark-ui-refactor.md) records the
-Mindtrip-informed direction and its boundaries.
+consumer product surface, informed by the Mindtrip research snapshot
+([docs/research/mindtrip.md](docs/research/mindtrip.md)).
 
 `@travel-agent/transaction` is wired in: the payment paths in `packages/server` and
 `packages/desktop` go through its `submitBooking` gates.

@@ -1,7 +1,7 @@
 /**
  * Where a broker call meets the vault — and where the caller's claims meet the truth.
  *
- * The wire carries a `domain` and a `targetId` because design/003 §11.2 requires every call to be
+ * The wire carries a `domain` and a `targetId` because the broker contract requires every call to be
  * bound to one. This module is the reason those bindings are worth anything: it does not *trust*
  * them, it **compares** them. Main resolves the tab the turn is actually working in, reads the page
  * that tab is actually on, and refuses when either differs from what the caller said.

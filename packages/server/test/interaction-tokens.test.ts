@@ -2,7 +2,7 @@
  * The credential an agent's commands carry, and what it is not.
  *
  * It authenticates *this turn's agent* to *this conversation*, over loopback. It is not a defence
- * against the agent — design/003 §0.3 is explicit that pre-isolation the agent runtime and the app
+ * against the agent — pre-isolation the agent runtime and the app
  * share a user, so anything the agent can run can read its own environment, and the agent is the
  * intended holder anyway. What is tested here is the part that does hold: another conversation's
  * token is refused, a token whose turn has ended is refused, and between turns the environment

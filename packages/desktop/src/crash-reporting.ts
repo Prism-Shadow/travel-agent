@@ -1,5 +1,5 @@
 /**
- * Local crash reporting for the three processes the shell runs (design/004 Phase 5, 003 §4.6).
+ * Local crash reporting for the three processes the shell runs.
  *
  * The desktop app is really three processes — the Electron main process, each renderer (the window
  * and every in-app browser view), and the utilityProcess the server is forked into — and a crash in
@@ -8,7 +8,7 @@
  * writes a **local, structured, value-free** report instead: what crashed, where, and why, scrubbed
  * through the same secret-redaction the logs use, and nothing more.
  *
- * The invariant is 003 §4.6's, unchanged: **no values**. A crash payload is exactly where a stray
+ * The invariant is unchanged: **no values**. A crash payload is exactly where a stray
  * secret would otherwise end up — an exception message quoting a request, a stack frame with an
  * argument, an environment dump — so every string that goes into a report passes `redactSecrets`
  * first, and the report shape carries only metadata fields, never a captured object.

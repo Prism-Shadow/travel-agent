@@ -1,5 +1,5 @@
 /**
- * The secret-shape redactor (design/003 §4.6), tested with the shapes it exists to catch.
+ * The secret-shape redactor, tested with the shapes it exists to catch.
  *
  * This is the last line before a log or a crash report is written, so the cases that matter are the
  * ones a developer would carelessly interpolate: an environment dump, a caught exception whose

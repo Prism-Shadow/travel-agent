@@ -1,6 +1,6 @@
 /**
  * Which personal fields may be shown to a model, which may only be typed into a form, and which
- * are never written down at all (design/003 §3).
+ * are never written down at all.
  *
  * The three tiers are not degrees of secrecy — they are three different *paths*:
  *
@@ -15,12 +15,12 @@
  * 1. **L3 is always L3.** There is no override, no flag, and no settings entry that can move a CVV
  *    or a payment password into storage. PCI SSC FAQ 1574 forbids storing a card verification code
  *    even with the cardholder's consent, and a passkey or payment password must never be filled by
- *    this application at all (003 §7.3).
+ *    this application at all.
  * 2. **Loosening is explicit; tightening is free.** Moving a field from L2 to L1 hands it to a
  *    model, so it requires a confirmed decision and leaves an audit entry. Moving L1 to L2 only
  *    narrows what may happen to it, so it needs neither.
  *
- * The default table below is a *design inference*, not measured practice (003 §13-7 asks for a real
+ * The default table below is a *design inference*, not measured practice (the design asks for a real
  * pass over a booking form). It is written as data so that correcting it is a one-line change with
  * a test, rather than an archaeology exercise across call sites.
  */
@@ -83,7 +83,7 @@ const SPECS: FieldSpec[] = [
   { field: "id_document_type", tier: "L1", label: "证件类型" },
   { field: "city", tier: "L1", label: "城市" },
   { field: "district", tier: "L1", label: "区县" },
-  // Projected masked by default (003 §3): a booking form needs it, a model rarely needs to read it.
+  // Projected masked by default: a booking form needs it, a model rarely needs to read it.
   { field: "contact_email", tier: "L1", label: "联系邮箱", mask: maskEmail },
 
   // ---- L2 · fill-only --------------------------------------------------------------------
@@ -97,7 +97,7 @@ const SPECS: FieldSpec[] = [
   { field: "street_address", tier: "L2", label: "详细地址", mask: maskStreet },
   { field: "loyalty_number", tier: "L2", label: "常旅客卡号", mask: tail(4) },
   { field: "membership_number", tier: "L2", label: "会员号", mask: tail(4) },
-  // 003 §9.2: a merchant token may itself be able to charge the card. It is an encrypted L2 field
+  // A merchant token may itself be able to charge the card. It is an encrypted L2 field
   // that only the main process ever resolves — never a "safe public identifier".
   { field: "payment_token", tier: "L2", label: "商户支付凭证", mask: () => "••••" },
 
@@ -112,7 +112,7 @@ const SPECS: FieldSpec[] = [
 
 const BY_FIELD = new Map(SPECS.map((spec) => [spec.field, spec]));
 
-/** Fields this application must never fill, whatever any flag says (003 §3, §7.3). */
+/** Fields this application must never fill, whatever any flag says. */
 const NEVER_FILLED = new Set(["payment_password", "passkey"]);
 
 export function knownFields(): FieldSpec[] {
@@ -176,7 +176,7 @@ export type TierChange =
   | { allowed: false; reason: string };
 
 /**
- * Judges a reclassification request (003 §3 "分类的可调整性").
+ * Judges a reclassification request.
  *
  * Loosening — L2 to L1 — is allowed but never silent: it is the step that lets a model read an
  * identifier, so the caller must carry a confirmation and write an audit entry. Tightening is
@@ -196,7 +196,7 @@ export function judgeTierChange(input: {
       allowed: false,
       reason:
         `"${input.field}" is never stored, under any setting: a card code, a one-time password ` +
-        `or a payment secret is entered by the person each time (003 §3, PCI SSC FAQ 1574).`,
+        `or a payment secret is entered by the person each time (PCI SSC FAQ 1574).`,
     };
   }
   if (input.to === "L3") {

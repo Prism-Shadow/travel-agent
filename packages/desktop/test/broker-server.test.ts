@@ -1,8 +1,8 @@
 /**
- * The broker channel, tested from the position design/003 §11.1 assumes: a hostile caller on the
+ * The broker channel, tested from the position it is designed for: a hostile caller on the
  * same machine, dialling the same socket.
  *
- * Attacks A3 and A4 of §12 are the two blocks below — connecting without a token or with a forged
+ * Attacks A3 and A4 are the two blocks below — connecting without a token or with a forged
  * one, and calling with a well-formed request whose turn, domain or target is not the one the
  * capability was issued for. Both must be refused *and recorded*, because a refusal nobody can see
  * afterwards is indistinguishable from a call that never happened.

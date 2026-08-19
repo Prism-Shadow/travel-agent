@@ -1,5 +1,5 @@
 /**
- * The observability rates, read-only, for the admin/settings surface (003 §13, 004 Phase 5).
+ * The observability rates, read-only, for the admin/settings surface.
  *
  * A snapshot of the three design signals — takeover, secret-phase, card-fallback — plus the raw
  * interaction counts behind them. It carries no session content, no user data and no value: only

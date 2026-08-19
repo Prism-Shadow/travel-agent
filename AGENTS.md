@@ -49,8 +49,8 @@ browser-automation platform or a scraping tool.
    six phases. The third — `submitBooking` — survived precisely because it must hold *even when the
    agent is wrong*, and it moved to `packages/transaction`.
 5. **PenguinHarness must not know penguin-browser exists.** The engine provides transaction semantics;
-   penguin-browser provides browser control; travel-agent is the only place that joins them
-   (`docs/design/001-architecture.md` §3). Do not add a dependency in that direction.
+   penguin-browser provides browser control; travel-agent is the only place that joins them.
+   Do not add a dependency in that direction.
 6. **No silent fallback between browser backends.** The choice is per conversation and cannot change
    while a task runs. An unavailable persisted choice stays visible as unavailable; showing the other
    backend would be a false state.
@@ -73,6 +73,10 @@ packages/transaction         Irreversible-action semantics: WAL, commitments, ch
 packages/skills              Built-in skill library, incl. skills/penguin-browser
 ```
 
+`browser-cli` and `browser-extension` are a snapshot of upstream `penguin-browser` at `ba9e13b`
+(2026-08-12): upstream history stays in the upstream repo; post-import changes are recorded in
+`changelog/`.
+
 Both browser backends converge on the same relay and Playwright execution layer; they differ only in
 the debugger bridge and the profile being driven. See `docs/architecture/iab-in-app-browser.md`.
 
@@ -82,24 +86,21 @@ Read the project's own documents before inferring behavior from code.
 
 | Topic | Document |
 | --- | --- |
-| Architecture, repo strategy, layer boundaries | [`docs/design/001-architecture.md`](docs/design/001-architecture.md) |
-| Single-window in-app browser | [`docs/design/002-codex-style-single-window-iab.md`](docs/design/002-codex-style-single-window-iab.md) |
-| Private profile, payment confirmation, redaction | [`docs/design/003-agent-first-private-profile-and-payment-confirmation.md`](docs/design/003-agent-first-private-profile-and-payment-confirmation.md) |
-| Production roadmap, capability gates | [`docs/design/004-codex-parity-production-roadmap.md`](docs/design/004-codex-parity-production-roadmap.md) |
-| Consumer UI direction (Mindtrip-informed) | [`docs/design/005-mindtrip-benchmark-ui-refactor.md`](docs/design/005-mindtrip-benchmark-ui-refactor.md) |
+| Where any piece of prose belongs (the tier table) | [`docs/AGENTS.md`](docs/AGENTS.md) |
+| Project architecture, as built | [`docs/architecture/README.md`](docs/architecture/README.md) |
 | In-app browser architecture, as built | [`docs/architecture/iab-in-app-browser.md`](docs/architecture/iab-in-app-browser.md) |
-| Phase-by-phase verification evidence | [`docs/verification/`](docs/verification/) |
-| Manual QA checklists | [`docs/manual-testing/`](docs/manual-testing/) |
+| Decision records: the why and what was given up | [`docs/decisions/`](docs/decisions/README.md) |
+| Full incident stories | [`docs/postmortem/`](docs/postmortem/README.md) |
 | Known open problems | [`docs/issues/`](docs/issues/) |
-| Vendored browser stack history and plans | [`docs/browser/`](docs/browser/) |
-| Directory tree with per-path responsibilities | [`docs/project-structure/directory-tree.md`](docs/project-structure/directory-tree.md) |
+| Competitor and product research snapshots | [`docs/research/`](docs/research/) |
 | Lessons that must not be learned twice | [`tasks/lessons.md`](tasks/lessons.md) |
 | Contribution rules, quality gates, release process | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
-Records versus living docs: `changelog/`, `docs/verification/` and the numbered design docs are
-**dated records** — do not rewrite them to match today's code. READMEs, `CONTRIBUTING.md`,
-`docs/architecture/`, `docs/project-structure/` and source comments are **living** — update them in
-the same change that makes them wrong.
+Records versus living docs: `changelog/`, `docs/research/` and `docs/postmortem/` are
+**dated records** — do not rewrite them to match today's code. READMEs,
+`CONTRIBUTING.md`, `docs/architecture/`, `docs/decisions/` and source comments are **living** —
+update them in the same change that makes them wrong (an implemented decision note keeps its facts
+current; the decision itself is superseded by a new note, never rewritten).
 
 ## Commands
 
@@ -130,24 +131,27 @@ saved.** It is organized as:
 | Build, workspace and layout | Package-relative paths, injected-dependency sync, compiler rules as directories, what a `tsconfig` include actually emits |
 | Testing and verification | Cold-start boundaries, establishing a baseline, a suite that fails differently each run, dynamic imports defeating a dead-code search |
 
-Do not restate a lesson in this file. The three documents divide the work: **Hard Rules** above are
+Do not restate a lesson in this file. The four documents divide the work: **Hard Rules** above are
 absolute and non-negotiable; `tasks/lessons.md` is judgement that has to be applied; `docs/issues/`
-is what is still broken.
+is what is still broken; `docs/postmortem/` is the full story a lesson compresses — a lesson links
+its postmortem when one exists.
 
 ## Open Issues
 
 | # | Problem |
 | --- | --- |
 | [0001](docs/issues/0001-extension-open-window-blocked.md) | Extension backend opens a blocked/blank window on Ctrip |
-| [0002](docs/issues/0002-browser-cli-redaction-never-wired.md) | design/003 §6.5 redaction is built, tested, and never called — **must be closed before secret entry goes live** |
+| [0002](docs/issues/0002-browser-cli-redaction-never-wired.md) | Relay text redaction is built, tested, and never called — **must be closed before secret entry goes live** |
 | [0003](docs/issues/0003-browser-cli-flaky-browser-tests.md) | Two browser-backed tests fail intermittently |
 | [0004](docs/issues/0004-browser-cli-scripts-not-typechecked.md) | `browser-cli/scripts/` is unchecked; several files do not compile |
 | [0005](docs/issues/0005-injected-workspace-deps-sync-deadlock.md) | Layout changes deadlock the extension build |
+| [0006](docs/issues/0006-core-exec-session-env-pollution.md) | A core exec-session test fails on machines whose npm config prints a startup warning |
 
 ## Editing Workflow
 
-1. Gather evidence before writing code — read the existing implementation, the design doc that
-   governs it, and the tests that pin it. Search the repo before searching the web.
+1. Gather evidence before writing code — read the existing implementation, the decision note that
+   governs it (`docs/decisions/`), and the tests that pin it. Search the repo before searching the
+   web.
 2. For a simple fix, proceed. For anything crossing packages or touching a gate, write the plan first.
 3. Prefer the smallest change that makes the invariant hold. When a change spans layers (schema,
    helper, route; or relay, executor, UI), update them in the same commit.
@@ -159,10 +163,11 @@ is what is still broken.
 
 - Milestones M0–M2 and M4 are done. M3 (one-sentence acceptance run) and M5 (flights) were withdrawn
   on 2026-08-18; the product UI was unfrozen on 2026-08-19 and now evolves as travel-agent's own
-  consumer surface under design/005.
+  consumer surface.
 - `packages/transaction` is wired: the payment paths in `server` and `desktop` go through
   `submitBooking`.
 - Capability gates `vault.l2l3`, `secret_entry.live` and `payments.execute` are **fail-closed**,
-  behind the unresolved isolation decision D3 (`docs/verification/isolation.md`). Code may be written
+  behind the unresolved isolation decision D3
+  (`docs/decisions/proposed/2026-08-16-agent-runtime-isolation.md`). Code may be written
   ahead of them, but issue 0002 must be closed before any of them opens.
 - Nothing in this repo publishes to a registry today.

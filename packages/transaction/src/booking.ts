@@ -22,7 +22,7 @@
  *   submit      …only now, bracketed by write-ahead records
  * ```
  *
- * The order is not arbitrary. The capability is first (design/003 §10.2) because it is the only
+ * The order is not arbitrary. The capability is first because it is the only
  * check that can say "nobody authorised this at all", and because it is the one that catches a
  * payment page that has moved domain — a question worth answering before reading anything else on
  * it. Authority is next: cheap, and it rejects hardest. Drift needs the live plan, so it comes
@@ -35,7 +35,7 @@
  * set. That is deliberate rather than lax: an order that needs no payment credential (pay at the
  * counter) is still submitted through this path, and the execute path in the desktop main process
  * — the only caller that actually moves money — sets the flag, so the permission is mandatory
- * exactly where 003 §10.3 requires it.
+ * exactly where the design requires it.
  */
 import { checkPaymentCapability, type PaymentCapability } from "./capability.js";
 import {
@@ -50,7 +50,7 @@ import { type Journal } from "./journal.js";
 /**
  * Why a booking did not go through. Every one of these is a normal outcome, not an error.
  *
- * The last six come from the capability gate. 003 §10.2 names four of them; `capability_used` and
+ * The last six come from the capability gate. The design names four of them; `capability_used` and
  * `amount_over_max` are split out rather than folded into `capability_invalid` because they are
  * the two a person can act on differently — one means "ask the merchant what happened, do not pay
  * again", the other means "the price is above what was authorised".
@@ -84,7 +84,7 @@ export interface SubmitBookingOptions<T> {
   /** Stable action name for the journal, e.g. `ctrip.submitHotelOrder`. */
   action: string;
   /**
-   * The one-shot permission for this purchase (003 §8.2), when there is one.
+   * The one-shot permission for this purchase, when there is one.
    *
    * Supplying it also pins the journal key to the *purchase* rather than to the action and its
    * params, so a capability reissued for the same displayed summary cannot pay twice.
@@ -97,7 +97,7 @@ export interface SubmitBookingOptions<T> {
   taskId?: string;
   /**
    * Whether a capability is mandatory. Set by the execute path, which is the only caller that
-   * moves money; left off for orders that need no payment credential (003 §10.3's residual case).
+   * moves money; left off for orders that need no payment credential (the residual case).
    */
   requireCapability?: boolean;
   /** Injected in tests; the capability checks are the only clock-dependent part of this path. */
@@ -159,7 +159,7 @@ export async function submitBooking<T>(
       reason: "capability_missing",
       detail: [
         "This path may only be taken with a one-shot permission issued from a confirmation the " +
-          "person actually saw (003 §8.2). There is no way to authorise a payment from inside " +
+          "person actually saw. There is no way to authorise a payment from inside " +
           "the agent's own run.",
       ],
     };

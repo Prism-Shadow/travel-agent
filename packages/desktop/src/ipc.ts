@@ -5,7 +5,7 @@
  * do anything. All validation lives here because the preload shares a process with the renderer
  * and cannot be trusted to have run.
  *
- * Three rules, the first two from design/002 §5.1:
+ * Three rules:
  *
  *   - **Reject, do not coerce.** A bad rectangle is a bug in the renderer, and silently rounding it
  *     into range would hide that bug behind a view that is subtly in the wrong place.

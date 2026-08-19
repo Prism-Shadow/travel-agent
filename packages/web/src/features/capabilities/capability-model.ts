@@ -1,7 +1,7 @@
 /**
  * How the build's capability report becomes something a person can act on.
  *
- * design/004 §5's fail-closed rule ends at a screen: a capability that failed its probe resolves
+ * The fail-closed capability rule ends at a screen: a capability that failed its probe resolves
  * off, and *the person must be able to see that and why* — otherwise "the vault refused to start
  * because Linux has no keyring" is indistinguishable from "there is no vault feature". This module
  * turns the raw report into rows with exactly three states:

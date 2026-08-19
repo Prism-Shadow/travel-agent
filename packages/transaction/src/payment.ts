@@ -7,12 +7,12 @@
  *    exact summary that was on screen, "they confirmed" is a boolean floating free of the thing it
  *    was about, and a later "yes" can be attached to a different price.
  * 2. **A commitment, with no tolerance unless it was chosen.** The exact amount is the hard
- *    ceiling by default (003 §8.5). Slack is only real when the card offered it in words and the
+ *    ceiling by default. Slack is only real when the card offered it in words and the
  *    person selected it — never inferred from the conversation, never carried over from last time.
  * 3. **A deterministic reading of a natural-language confirmation.** People say "好" and "付吧",
  *    and a model asked "did they confirm?" will happily say yes. So the judgement is a pure
  *    function over the reply and the summary, it errs towards refusal, and falling back to the
- *    card is a normal outcome rather than a failure (003 §8.4).
+ *    card is a normal outcome rather than a failure.
  *
  * Nothing here performs a payment or knows how one is performed. It produces the values the guarded
  * path in `booking.ts` consumes, and the card the person actually reads.
@@ -102,7 +102,7 @@ export interface DriftVerdict {
   /**
    * The merchant domain changed.
    *
-   * There is deliberately no re-confirmation path for this one (003 §8.3). A payment page that is
+   * There is deliberately no re-confirmation path for this one. A payment page that is
    * suddenly on another domain is the shape of a redirect hijack or a phishing hand-off, and
    * offering "confirm the new one?" would be offering to walk into it.
    */
@@ -121,7 +121,7 @@ export function classifyDrift(drifts: readonly Drift[]): DriftVerdict {
 }
 
 // ---------------------------------------------------------------------------
-// Natural-language confirmation (003 §8.4)
+// Natural-language confirmation
 // ---------------------------------------------------------------------------
 
 export interface ConfirmationJudgement {
@@ -304,7 +304,7 @@ function isVagueOnly(reply: string): boolean {
 /**
  * Decides whether a chat reply confirms *this* purchase.
  *
- * Two cases, from 003 §8.4, and the difference is whether the person has already been shown the
+ * Two cases, and the difference is whether the person has already been shown the
  * whole summary:
  *
  * - **A summary was shown** (`digestShown`): the reply must refer to it *and* name the amount and

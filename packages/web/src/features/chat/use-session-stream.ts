@@ -84,7 +84,7 @@ export interface SessionStreamState {
   /** approvalKey(origin, toolCallId) → pending approval. */
   pendingApprovals: ReadonlyMap<string, PendingApproval>;
   /**
-   * Cards the agent is waiting behind (design/003 §7), oldest first.
+   * Cards the agent is waiting behind, oldest first.
    *
    * Replayed by the server on every new subscription, so a reload finds the question again rather
    * than a conversation that appears to have stopped for no reason.
@@ -248,7 +248,7 @@ export function useSessionStream(
       onTaskState: setTaskState,
       onQueuedFollowUps: setQueuedFollowUps,
       onPendingSteering: setPendingSteering,
-      // A Task ending is what runs the in-app browser's tab rules (design/002 §6.4): its tabs are
+      // A Task ending is what runs the in-app browser's tab rules: its tabs are
       // closed or handed to the user, and the agent loses the right to write to them. Relayed here
       // because this is where the harness's own account of the turn arrives; it is a no-op outside
       // the desktop shell, and outcome-blind — the shell treats an unexplained ending as one to

@@ -24,7 +24,7 @@
  * - **A secret card carries nothing back.** Not a value, not a note. In this phase the person types
  *   the code into the site's own field and the card only tells us they did; anything else in the
  *   body is either a secret in transit or a place for one to hide, and both are refused before the
- *   outcome is published over SSE and replayed from a ring buffer (003 §4.6).
+ *   outcome is published over SSE and replayed from a ring buffer.
  */
 import type {
   ApprovedTolerance,
@@ -69,8 +69,8 @@ function refuseExcept(outcome: InteractionOutcome, allowed: PayloadKey[], what: 
 function assertTolerance(tolerance: ApprovedTolerance, offered?: ApprovedTolerance): void {
   if (!offered) {
     throw new InvalidOutcomeError(
-      "That card offered no slack, so there is none to accept. An unapproved tolerance is zero " +
-        "(003 §8.5), and a purchase is confirmed at the amount that was shown.",
+      "That card offered no slack, so there is none to accept. An unapproved tolerance is zero, " +
+        "and a purchase is confirmed at the amount that was shown.",
     );
   }
   const accepted = tolerance.amountIncrease;
@@ -106,7 +106,7 @@ export function assertOutcomeMatches(
       outcome,
       [],
       "A secret_entry answer carries nothing back — this application never receives the code, and " +
-        "an outcome is published over SSE and replayed on reconnect (003 §4.6). It",
+        "an outcome is published over SSE and replayed on reconnect. It",
     );
     return;
   }

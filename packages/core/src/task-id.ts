@@ -8,7 +8,7 @@
  * a turn.
  *
  * The in-app browser needs to. A tab is opened *by a task* and must stop being writable when that
- * task ends, while remaining visible in the conversation it belongs to (design/002 §6.4). Those are
+ * task ends, while remaining visible in the conversation it belongs to. Those are
  * two different lifetimes, so they need two different identifiers, and the task one has to be real:
  * a constant, the working directory, or the session id standing in for a task would each make
  * "which task owns this tab" unanswerable the moment a second turn ran.

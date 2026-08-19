@@ -1,5 +1,5 @@
 /**
- * Crash reporting, tested for the one property that matters: no values (003 §4.6).
+ * Crash reporting, tested for the one property that matters: no values.
  *
  * A crash payload is the classic place a secret leaks — an exception message that quoted a request,
  * a stack frame carrying an argument, an env dump. So the report builder is fed exactly that kind of

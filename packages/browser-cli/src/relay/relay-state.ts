@@ -7,7 +7,8 @@
  * - Runtime resources (WebSocket/timers/pending callbacks) are co-located on
  *   each extension entry in the same map
  *
- * See docs/browser/plan-centralize-relay-state.md (repo root) for the full refactor plan.
+ * See docs/decisions/implemented/2026-08-12-centralize-relay-state.md (repo root) for the
+ * decision record: rationale, alternatives, and the deviations from the original plan.
  */
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { WSContext } from 'hono/ws'

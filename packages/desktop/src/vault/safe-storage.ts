@@ -1,7 +1,7 @@
 /**
  * Whether this machine may hold a vault at all, and the one API it is held with.
  *
- * design/003 §4.4 makes this a fail-closed decision rather than a preference. Electron's
+ * This is a fail-closed decision rather than a preference. Electron's
  * `safeStorage` falls back to a `basic_text` backend on Linux when no keyring is reachable, and
  * that backend does not encrypt — it obfuscates. A vault that started anyway would write personal
  * data as recoverable plaintext while telling the person it was protected, which is worse than
@@ -10,7 +10,7 @@
  *
  * Two smaller decisions are recorded here because they are easy to get wrong later:
  *
- * - **The async API is preferred.** 003 §4.2 follows Electron's own advice: the synchronous calls
+ * - **The async API is preferred.** This follows Electron's own advice: the synchronous calls
  *   block the main process and may reach the OS keyring, which on some desktops shows a prompt.
  *   The port is therefore async even where the adapter has to fall back to the sync call.
  * - **An unreadable backend fails closed too.** If `getSelectedStorageBackend` is missing or throws
@@ -20,7 +20,7 @@
 
 /** The subset of Electron's `safeStorage` the vault uses, as a port so it can be tested. */
 export interface SafeStoragePort {
-  /** Encrypts with the OS keychain / DPAPI / libsecret. Async per 003 §4.2. */
+  /** Encrypts with the OS keychain / DPAPI / libsecret. Async by design. */
   encryptString(plaintext: string): Promise<Buffer>;
   decryptString(ciphertext: Buffer): Promise<string>;
 }
@@ -50,10 +50,10 @@ export interface StorageAvailability {
 const PLAINTEXT_BACKENDS = new Set(["basic_text", "basic"]);
 
 /**
- * The fail-closed rule of 003 §4.4, as a pure function.
+ * The fail-closed storage rule, as a pure function.
  *
  * Kept apart from Electron so the decision itself can be exercised — including the Linux
- * no-keyring case (attack A9 of 003 §12), which is otherwise only reachable on a machine
+ * no-keyring case (attack A9), which is otherwise only reachable on a machine
  * deliberately built without one.
  */
 export function judgeStorage(facts: StorageFacts): StorageAvailability {
@@ -135,7 +135,7 @@ export function readStorageFacts(
 }
 
 /**
- * Adapts Electron's `safeStorage` to the port, preferring the async API (003 §4.2).
+ * Adapts Electron's `safeStorage` to the port, preferring the async API.
  *
  * The sync fallback exists because the async methods were added later than the versions this
  * project has to keep loading on; it is wrapped so callers never learn which one ran.

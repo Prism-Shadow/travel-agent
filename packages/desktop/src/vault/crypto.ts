@@ -1,7 +1,7 @@
 /**
  * The vault's encryption, and the reason it is per field rather than per file.
  *
- * design/003 §4.2 asks for a master key wrapped by the OS keychain and a **separate data key for
+ * The vault design asks for a master key wrapped by the OS keychain and a **separate data key for
  * every field**. The obvious cheaper design — one key, one encrypted blob — fails three ways that
  * matter here: deleting a field would mean rewriting everything, rotating a key would mean
  * decrypting everything at once, and reading a passport number would mean holding every other field
@@ -15,7 +15,7 @@
  * it, the move fails authentication and the read refuses.
  *
  * What this module does **not** claim: it protects data at rest. The master key is handed to the OS
- * keychain by the caller (`safe-storage.ts`), and 003 §4.3 is explicit that this defends against a
+ * keychain by the caller (`safe-storage.ts`), and the design is explicit that this defends against a
  * stolen disk, not against another process running as the same user while the app is unlocked.
  */
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
@@ -51,7 +51,7 @@ export function generateKey(): Buffer {
  * Worth exactly what it is worth: it shortens the window in which a key sits in this process's
  * heap, and it does nothing about copies the runtime may have made (a `Buffer.from`, a GC move, a
  * core dump). It is here because `lock()` promising to clear the master key should do something
- * real, not because it makes memory-reading attacks fail — 003 §0.3 is where that is addressed.
+ * real, not because it makes memory-reading attacks fail — the isolation decision (D3) is where that is addressed.
  */
 export function wipe(key: Buffer | null | undefined): void {
   if (key) key.fill(0);

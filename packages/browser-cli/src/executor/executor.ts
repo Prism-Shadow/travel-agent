@@ -325,12 +325,12 @@ export interface CdpConfig {
    *  Uses direct Playwright browser management, no extension or relay CDP routing needed. */
   headless?: boolean
   /**
-   * Drive the desktop shell's in-app WebContentsView (design/002 §4.2).
+   * Drive the desktop shell's in-app WebContentsView.
    *
    * The connection is identical to extension mode — the relay routes to whichever backend is
    * registered — so this flag exists for the one place the two genuinely differ: creating a tab.
-   * Electron refuses `Target.createTarget` (Phase 0, docs/verification/phase-00.md §3), so the
-   * shell has to build the view and hand back its target id.
+   * Electron refuses `Target.createTarget`, so the shell has to build the view and hand back
+   * its target id.
    */
   iab?: boolean
   /**
@@ -1820,8 +1820,8 @@ export class PlaywrightExecutor {
 
       // Everything a snippet can write through goes through the gate: the page it is handed, the
       // locators that page produces, and the four helpers that reach the page by their own route
-      // (002 §6.5 — enumerate, do not sample). `context` is deliberately *not* wrapped: it is the
-      // escape hatch the design already acknowledges (003 §1.2), and wrapping it would make the
+      // (enumerate, do not sample). `context` is deliberately *not* wrapped: it is the
+      // escape hatch the design already acknowledges, and wrapping it would make the
       // guardrail read like a boundary.
       const gatedPage = guardPage(page, this.sessionId)
       let vmContextObj: any = {
@@ -1845,7 +1845,7 @@ export class PlaywrightExecutor {
         requestHelp: (options: Omit<RequestHelpOptions, 'page'> & { page?: Page }) =>
           requestHelp({ ...options, page: unguard(options.page) ?? page }),
         /**
-         * The six-kind interaction primitive (design/003 §7).
+         * The six-kind interaction primitive.
          *
          * Where `requestHelp` draws on the page, this one dispatches: a question, a choice or a
          * payment confirmation becomes a card in the conversation and the agent keeps working; only
@@ -1917,7 +1917,7 @@ export class PlaywrightExecutor {
            * extension mode, an unclaimed about:blank left by AUTO_ENABLE; otherwise creates a new
            * tab. Safe replacement for the racy `context.pages().find(idle) ?? context.newPage()`.
            */
-          // Opening a tab is a write: it is on 002 §6.5's list because a new page appearing under
+          // Opening a tab is a write: it is on the write gate's list because a new page appearing under
           // somebody who is mid-form is as disruptive as clicking in the one they are using.
           open: guardHelper((url?: string) => this.openOwnedTab(url), {
             sessionId: this.sessionId,
@@ -1974,7 +1974,7 @@ export class PlaywrightExecutor {
          *
          * That one line made `ALLOWED_MODULES` decorative: `await import('child_process')` walked
          * straight past the allowlist `require` enforces, which is how a page-authored snippet could
-         * reach the shell (003 §1.2, §12 A8). Removing it does not make this vm a security boundary
+         * reach the shell. Removing it does not make this vm a security boundary
          * — Node's own documentation says it is not one, and the agent has an unrestricted shell
          * elsewhere — but it stops the *sanctioned* path from being a hole, and it makes the
          * allowlist mean what it says.
@@ -2002,7 +2002,7 @@ export class PlaywrightExecutor {
         // `chdir` and passed everything else through, which meant `process.env` handed the whole
         // environment to snippet code — including the credential the harness mints for this turn —
         // and `process.binding`/`process.dlopen` were reachable besides. Listing what is allowed
-        // keeps the surface from growing every time Node adds a property (003 §1.2, §6.3).
+        // keeps the surface from growing every time Node adds a property.
         process: sandboxedProcess({ cwd: () => self.sessionCwd || process.cwd() }),
       }
 

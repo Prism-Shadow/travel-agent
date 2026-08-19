@@ -3,7 +3,7 @@
 > Mermaid diagrams explaining how the "browser inside the app" actually operates. Open this file in
 > VS Code with a Mermaid preview extension, or on GitHub, to see them rendered.
 >
-> Design: `docs/design/002-codex-style-single-window-iab.md`. Code:
+> Code:
 > `packages/desktop/src/browser-pane.ts`, `iab-transport.ts`,
 > `packages/browser-cli/src/relay/cdp-relay.ts`, `src/executor/executor.ts`.
 

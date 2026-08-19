@@ -29,7 +29,7 @@ describe("the default classification", () => {
   });
 
   it("treats a merchant payment token as an encrypted identifier, not a public one", () => {
-    // 003 §9.2: the token may itself be able to charge the card.
+    // The token may itself be able to charge the card.
     expect(tierOf("payment_token")).toBe("L2");
     expect(maskFor("payment_token", "tok_1P4kJ2abcdef")).toBe("••••");
   });
@@ -159,7 +159,7 @@ describe("whether this machine may hold a vault at all", () => {
     expect(verdict.remedy.join(" ")).toMatch(/keyring|password-store/);
   });
 
-  it("refuses the Linux plaintext backend — attack A9 of 003 §12", () => {
+  it("refuses the Linux plaintext backend — attack A9", () => {
     // `basic_text` is what Electron falls back to with no keyring, and it does not encrypt.
     const verdict = judgeStorage({
       platform: "linux",

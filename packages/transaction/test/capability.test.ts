@@ -1,7 +1,7 @@
 /**
  * The one-shot permission to spend money, and every way it fails to authorise one.
  *
- * This is design/003 §12's P4 matrix as executable rows: expiry, replay, a domain that moved, an
+ * This is the payment (P4) rejection matrix as executable rows: expiry, replay, a domain that moved, an
  * amount over the ceiling, a rise nobody approved. Each row is written from the attacker's or the
  * accident's side — what would have to be true for the wrong payment to go through — because a
  * capability that only passes its happy path is a data structure, not a control.
@@ -91,7 +91,7 @@ describe("what a capability is bound to", () => {
     expect(isOpaqueMethodRef("merchant_saved:main card")).toBe(true);
     // …but a card number is one whatever prefix is put in front of it.
     expect(isOpaqueMethodRef("merchant_saved:4242 4242 4242 4242")).toBe(false);
-    // A merchant token may itself be able to charge the card (003 §9.2), and a PAN certainly can.
+    // A merchant token may itself be able to charge the card, and a PAN certainly can.
     expect(isOpaqueMethodRef("tok_1P4kJ2abcdef")).toBe(false);
     expect(isOpaqueMethodRef("4242424242424242")).toBe(false);
     expect(() => issue({ methodRef: "4242 4242 4242 4242" })).toThrow(/never a\s*token/i);
@@ -221,7 +221,7 @@ describe("the checks a payment must pass", () => {
   });
 
   it("refuses a payment page on another domain, with no way to re-confirm", () => {
-    // 003 §8.3: this is the shape of a redirect hijack. The refusal deliberately offers nothing.
+    // This is the shape of a redirect hijack. The refusal deliberately offers nothing.
     const verdict = checkPaymentCapability({
       capability: issue({}),
       ...ok,
@@ -235,7 +235,7 @@ describe("the checks a payment must pass", () => {
   });
 
   it("refuses a rise over an approved ceiling as a ceiling breach, not as missing slack", () => {
-    // Both rows of 003 §8.3 exist and they mean different things: with slack approved the ceiling
+    // Both rows exist and they mean different things: with slack approved the ceiling
     // already includes it, so exceeding it is not something more slack could fix.
     const verdict = checkPaymentCapability({
       capability: issue({ tolerance: 50 }),

@@ -3,7 +3,7 @@
  * the runtime probe. All pure functions — no filesystem, no Electron, no network.
  *
  * The cases worth having are the ones that assert a *refusal*: an override that asks for a
- * capability whose prerequisites are missing must come back off, because design/003's
+ * capability whose prerequisites are missing must come back off, because the
  * fail-closed rules are only real if the combination cannot be expressed.
  */
 import { describe, expect, it } from "vitest";
@@ -399,7 +399,7 @@ describe("dependency closure", () => {
     expect(withContractOnly.flags["secret_entry.live"]).toBe(false);
 
     // A plain vault is not enough: a live fill handles real L3 material, so it sits behind the
-    // same gate as L2 storage (003 §7.3).
+    // same gate as L2 storage.
     const withPlainVault = resolveFlags({
       "secret_entry.contract": true,
       "vault.enabled": true,
@@ -472,7 +472,7 @@ describe("capability probe", () => {
     expect(flags["payments.execute"]).toBe(false);
     expect(flags["audit.chain"]).toBe(false);
     expect(denials.length).toBeGreaterThan(0);
-    // The browser itself is untouched: 004 §5 keeps phases 0-3 out of the security gate.
+    // The browser itself is untouched: the browser phases stay out of the security gate.
     expect(flags["iab.enabled"]).toBe(true);
     expect(flags["chrome.fallback"]).toBe(true);
   });
@@ -487,10 +487,10 @@ describe("capability probe", () => {
     expect(flags["payments.execute"]).toBe(false);
     expect(flags["payments.agent_click_pay"]).toBe(false);
     // A live fill puts a real CVV/OTP into a page the agent can read once its CDP capability
-    // returns (003 §1.3, §7.3), so an unisolated runtime must take it down too.
+    // returns, so an unisolated runtime must take it down too.
     expect(flags["secret_entry.live"]).toBe(false);
     expect(denials.find((d) => d.flag === "secret_entry.live")?.reason).toMatch(/isolat/i);
-    // An L1-only vault survives: that is the "guards against accidents" mode of 003 §0.3.
+    // An L1-only vault survives: that is the "guards against accidents" mode.
     expect(flags["vault.enabled"]).toBe(true);
     // The contract itself is synthetic-only, so it is unaffected.
     expect(flags["secret_entry.contract"]).toBe(true);
@@ -518,7 +518,7 @@ describe("capability probe", () => {
     const { denials } = applyCapabilityProbe(granted, { encryptedStorageAvailable: false });
     const vault = denials.find((d) => d.flag === "vault.enabled");
     expect(vault?.reason).toMatch(/encrypted storage/i);
-    expect(vault?.reason).toMatch(/003/);
+    expect(vault?.reason).toMatch(/refuses to start/);
   });
 });
 

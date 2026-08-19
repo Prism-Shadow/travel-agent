@@ -1,7 +1,7 @@
 /**
  * Getting the in-app browser out of the way of anything the DOM draws over it.
  *
- * A `WebContentsView` is a native surface composited **above** the page (design/002 §5.3). No
+ * A `WebContentsView` is a native surface composited **above** the page. No
  * z-index reaches it, so a modal does not cover the browser — it is covered *by* it, and a click
  * meant for the dialog lands on a booking site instead. The only remedy Electron offers is to hide
  * the view while something is on top of it, and the only place that knows something is on top is

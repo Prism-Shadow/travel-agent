@@ -93,7 +93,7 @@ describe("identifying a credential", () => {
 describe("the credential store", () => {
   it("refuses to start on a machine with no real encryption", async () => {
     // The alternative — writing passwords in the clear while the settings page says they are
-    // protected — is the invisible broken promise 003 §4.4 exists to prevent.
+    // protected — is the invisible broken promise the fail-closed storage rule exists to prevent.
     const store = makeStore({ availability: UNUSABLE });
     await expect(store.unlock()).rejects.toBeInstanceOf(CredentialStoreLockedError);
     expect(fs.existsSync(path.join(dir, "logins.json"))).toBe(false);

@@ -18,7 +18,7 @@
  *   environment and nowhere else.
  *
  * What this does **not** claim: protection from the agent itself, or from anything that can read
- * the agent's environment. Design/003 §0.3 is explicit that pre-isolation the agent runtime and the
+ * the agent's environment. Pre-isolation the agent runtime and the
  * app share a user, so a token in its environment is readable by anything that user can run. The
  * agent is the intended holder here, so that is not a downgrade — but it is the reason this is a
  * task-scoped capability rather than a standing credential, and the reason the UI treats a card as

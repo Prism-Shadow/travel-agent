@@ -93,7 +93,7 @@ describe("opening a vault", () => {
     expect(vault.unlocked).toBe(true);
   });
 
-  it("refuses to start where the platform cannot encrypt — 003 §4.4", async () => {
+  it("refuses to start where the platform cannot encrypt", async () => {
     // The Linux no-keyring case. Nothing is created: a vault here would be plaintext wearing the
     // word "vault".
     const refused = build({
@@ -275,7 +275,7 @@ describe("changing and removing", () => {
   it("loosens with one, and the field then projects", async () => {
     await vault.reclassify("loyalty_number", "L1", { confirmed: true });
     // Still masked once projected: loosening the tier lets a model *see* the field, and the
-    // table's own mask decides how much of it (003 §3 — the model gets `138****5678`, not the
+    // table's own mask decides how much of it (the model gets `138****5678`, not the
     // whole number).
     expect(await vault.project(["loyalty_number"])).toEqual({ loyalty_number: "MU-****1234" });
   });

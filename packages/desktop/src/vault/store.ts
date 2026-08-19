@@ -1,13 +1,13 @@
 /**
  * The private profile vault: the only place personal data is stored, and the only process that can
- * read it (design/003 §4).
+ * read it.
  *
  * The file is one JSON document under `userData`, written 0600 with write-then-rename. It holds
  * two keys wrapped by the OS keychain — the master key and the audit key — and, per field, a data
  * key wrapped under the master key plus the value sealed under that data key. Reading one field
  * therefore decrypts exactly one field, and deleting one rewrites nothing else.
  *
- * What this buys and what it does not, stated once so no UI copy has to guess (003 §4.1, §4.3):
+ * What this buys and what it does not, stated once so no UI copy has to guess:
  *
  * | Defended | Not defended |
  * | --- | --- |
@@ -18,7 +18,7 @@
  * Five behaviours are deliberate and each one is the opposite of the convenient default:
  *
  * 1. **A vault that cannot be encrypted does not open.** `judgeStorage` decides; a `basic_text`
- *    Linux backend means no vault, not a plaintext one (003 §4.4).
+ *    Linux backend means no vault, not a plaintext one.
  * 2. **L3 cannot be written.** Not "is not written by callers" — `put` refuses, so a CVV has no
  *    path into the file at all (PCI SSC FAQ 1574).
  * 3. **A damaged or unknown-version file refuses to load.** Recreating it would destroy whatever a
@@ -92,7 +92,7 @@ interface VaultFile {
   masterKey: string;
   /** Audit HMAC key, wrapped by the OS keychain, base64. */
   auditKey: string;
-  /** The audit chain's last MAC, so a deleted or truncated log is detectable (003 §5.3). */
+  /** The audit chain's last MAC, so a deleted or truncated log is detectable. */
   auditTailMac: string;
   fields: Record<string, VaultRecord>;
   /** Per-field reclassifications the person made. L3 never appears here. */
@@ -109,7 +109,7 @@ export interface FieldSummary {
 }
 
 export interface VaultStatus {
-  /** Whether this machine may hold a vault at all (003 §4.4). */
+  /** Whether this machine may hold a vault at all. */
   storageUsable: boolean;
   /** Why, in one line, for the settings page. */
   storageReason: string;
@@ -129,7 +129,7 @@ export interface ProfileVaultOptions {
   /**
    * Called when the vault locks, so grants issued against it stop resolving. Separated because the
    * grant table belongs to the session layer, not to storage — but a lock that left grants live
-   * would be a lock in name only (003 §4.5).
+   * would be a lock in name only.
    */
   onLock?: () => void;
 }
@@ -260,7 +260,7 @@ export class ProfileVault {
     if (isNeverPersisted(field)) {
       throw new VaultError(
         `"${field}" is never stored, by construction: a card code, a one-time password or a ` +
-          `payment secret is entered by the person each time (003 §3). This is not a setting.`,
+          `payment secret is entered by the person each time. This is not a setting.`,
       );
     }
     if (options.tier === "L3") {
@@ -324,7 +324,7 @@ export class ProfileVault {
    * The projection a grant may hand to a model: L1 only, masked where the table says so.
    *
    * L2 fields are silently absent rather than refused — a grant that asked for a mix gets what it
-   * is allowed, and the handle machinery covers the rest (003 §5.2).
+   * is allowed, and the handle machinery covers the rest.
    */
   async project(
     fields: readonly string[],
@@ -386,7 +386,7 @@ export class ProfileVault {
   }
 
   /**
-   * Moves a field between tiers (003 §3).
+   * Moves a field between tiers.
    *
    * Loosening — L2 to L1 — refuses without `confirmed`, because it is the step that lets a model
    * read an identifier. Anything touching L3 is refused outright.
@@ -402,7 +402,7 @@ export class ProfileVault {
     if (verdict.requiresConfirmation && !options.confirmed) {
       throw new VaultError(
         `Moving "${field}" to L1 lets a model read it. That needs an explicit confirmation, and ` +
-          `it is written to the audit log (003 §3).`,
+          `it is written to the audit log.`,
       );
     }
     const target = to as Exclude<SensitivityTier, "L3">;
@@ -424,7 +424,7 @@ export class ProfileVault {
    * `reauthenticated` is the OS-level re-authentication the caller performed (Touch ID, Windows
    * Hello, password). It is a parameter rather than something this class performs because the
    * prompt belongs to the shell — but the export refuses without it, so the check cannot be
-   * forgotten by a caller that only wanted the data (003 §4.5).
+   * forgotten by a caller that only wanted the data.
    */
   async exportAll(options: { reauthenticated: boolean }): Promise<Record<string, string>> {
     const file = this.assertUnlocked();

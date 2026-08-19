@@ -44,8 +44,7 @@ page.
 3. **Chrome's own debugger banner** ("Penguin Browser started debugging this browser") — not a bug,
    but sometimes read as a block.
 4. **Ctrip anti-automation block/captcha** — the site detects the CDP/debugger session and serves
-   its own block page. Environmental (see design/002 §11.2, which flags Ctrip anti-bot as the top
-   product risk).
+   its own block page. Environmental — Ctrip anti-bot was flagged early as the top product risk.
 
 ## Information needed to pin it down
 

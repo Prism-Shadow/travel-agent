@@ -31,7 +31,7 @@
  *     now the user's.
  *
  * `tabRegistry` in the relay is the third, orthogonal one: it stops two concurrent agent sessions
- * from writing to the same page. Nothing here touches it. Design/002 §6.4 is explicit that these
+ * from writing to the same page. Nothing here touches it. The design is explicit that these
  * layers must not be merged, and each of the three answers a question the others cannot.
  */
 import { WebContentsView } from "electron";
@@ -50,11 +50,7 @@ import {
   planCrashRecovery,
   planTaskEnd,
 } from "./tab-lifecycle.js";
-import type {
-  RenderProcessGoneReason,
-  TabCheckpointEntry,
-  TaskOutcome,
-} from "./tab-lifecycle.js";
+import type { RenderProcessGoneReason, TabCheckpointEntry, TaskOutcome } from "./tab-lifecycle.js";
 import { reconcileTasks } from "./task-supervisor.js";
 import type { SessionTaskState } from "./task-supervisor.js";
 
@@ -102,7 +98,7 @@ const MAX_ENDED_TASKS = 256;
 /** How many conversations' download directories are remembered. */
 const MAX_DOWNLOAD_DIRS = 200;
 
-/** Which browser is driving this conversation (002 §6.1). */
+/** Which browser is driving this conversation. */
 export type PaneBackend = "iab" | "extension";
 
 /** Exact native-view pixels and the integer Electron rectangle they came from. */
@@ -148,8 +144,8 @@ export interface PaneTabState {
 /**
  * What the renderer needs to draw the pane.
  *
- * Design/002 §6.3 also lists `control: ControlMode`. That is the control-handover state machine
- * (§6.5), which is Phase 3's subject and has no producer here; adding the field now with a constant
+ * The design also lists `control: ControlMode`. That is the control-handover state machine
+ *, which is Phase 3's subject and has no producer here; adding the field now with a constant
  * value would be a promise the code does not keep. `backend` is included because it is real in this
  * phase — the user picks it, and it decides which browser the next session gets.
  */
@@ -174,7 +170,7 @@ export interface PaneState {
   sessionScope: string | null;
   /** The browser this conversation's next agent session will use. */
   backend: PaneBackend;
-  /** Whether that choice is currently held shut by a running task (002 §7.3: no mid-task switch). */
+  /** Whether that choice is currently held shut by a running task (no mid-task switch). */
   backendLocked: boolean;
   /** Whether the Chrome extension backend is reachable at all this run (see the option of the same name). */
   extensionBackendAvailable: boolean;
@@ -369,7 +365,7 @@ export class BrowserPane {
    * route-driven `setActiveSession` confirmation commits (clears) the promotion.
    */
   private pendingDraftPromotion: { draftScope: string; sessionId: string } | null = null;
-  /** Backend per conversation. Two chats can legitimately want different browsers (002 §6.1). */
+  /** Backend per conversation. Two chats can legitimately want different browsers. */
   private readonly backendBySession = new Map<string, PaneBackend>();
   /**
    * The turns the **server** says are running, by task id, mapped to their conversation.
@@ -378,7 +374,7 @@ export class BrowserPane {
    * renderer, which has no way to name a task at all. This is the authority for two different
    * things: which turn may open or drive a tab, and whether the backend switch is held shut
    * (changing browsers discards the page state a running turn is built on, so it is a decision
-   * taken between turns and never during one — 002 §7.3).
+   * taken between turns and never during one).
    */
   private readonly runningTasks = new Map<string, string>();
   /** Outcomes the agent has declared, awaiting the authoritative end-of-task boundary. */
@@ -431,7 +427,7 @@ export class BrowserPane {
     options.window.on("resize", this.onWindowResize);
     this.extensionBackendAvailable = options.extensionBackendAvailable ?? true;
     // A download belongs to the conversation whose tab started it, and lands in that Session's own
-    // scratchpad (design/002 §5.2). The session cannot work either out on its own — it is shared by
+    // scratchpad. The session cannot work either out on its own — it is shared by
     // every tab — so the tab model answers, and main supplies the directory it resolved.
     setDownloadDirectoryResolver((contents: WebContents) => {
       const scope = this.tabForContents(contents)?.sessionScope;
@@ -1073,7 +1069,7 @@ export class BrowserPane {
    * Closes a tab the user is looking at.
    *
    * A tab the user closed out from under a working agent has to produce a structured error on that
-   * agent's next write, rather than a bare CDP failure it cannot act on (002 §6.4 四). The agent
+   * agent's next write, rather than a bare CDP failure it cannot act on. The agent
    * replans; nothing reopens the tab behind the user's back.
    */
   closeTab(tabId: string): void {
@@ -1414,12 +1410,12 @@ export class BrowserPane {
     return nextSessionId;
   }
 
-  /** Which browser the next agent session should use (002 §6.1). A task-level decision. */
+  /** Which browser the next agent session should use. A task-level decision. */
   setBackend(backend: PaneBackend): void {
     const sessionId = this.requireActiveSession();
     // Refused, not merely discouraged in the UI. Switching browsers changes whose login an order is
     // placed under and throws away the page state the running task is built on, so it happens
-    // between tasks (002 §6.1, §7.3) — and a check that lives only in the renderer is one a stale
+    // between tasks — and a check that lives only in the renderer is one a stale
     // frame, or a second window, walks straight past.
     if (this.hasRunningTask(sessionId)) {
       throw new Error(
@@ -1609,7 +1605,7 @@ export class BrowserPane {
   }
 
   /**
-   * A task finished; apply the four end-of-task rules (002 §6.4 一).
+   * A task finished; apply the four end-of-task rules.
    *
    * Retained tabs lose their owner and stay in the strip — same session scope as before, now the
    * user's to close. Closed ones go. Tabs belonging to other tasks are not considered at all.
@@ -1746,7 +1742,7 @@ export class BrowserPane {
   }
 
   /**
-   * What to hand to the user's own browser when a task moves there (002 §7.2).
+   * What to hand to the user's own browser when a task moves there.
    *
    * **Not browser state.** Migrating cookies crosses a security boundary and is the most
    * recognisable anti-fraud signal there is: the same session suddenly arriving with a different
@@ -1813,7 +1809,7 @@ export class BrowserPane {
     const tab = this.tabForContents(contents);
     if (!tab) return { allowed: false, reason: "gone" };
     // A secret phase revokes the agent's channel to one target while the person types a code into
-    // it (003 §7.3): the check is here so it covers every route the agent could drive by, not just
+    // it: the check is here so it covers every route the agent could drive by, not just
     // the one the fill uses.
     if (tab.targetId && this.secretPhaseTargets.has(tab.targetId)) {
       return { allowed: false, reason: "released", tabId: tab.id };
@@ -1859,7 +1855,7 @@ export class BrowserPane {
    * Turns the agent's ability to drive a target off (secret-phase enter) or on (exit).
    *
    * Returns whether the target is live: the vault's detach must fail closed on a target that has
-   * gone rather than believe it revoked a channel that no longer exists (003 §7.3).
+   * gone rather than believe it revoked a channel that no longer exists.
    */
   setAgentDrivable(input: { targetId: string; drivable: boolean }): boolean {
     if (this.contentsForTarget(input.targetId) === null) return false;
@@ -2161,11 +2157,10 @@ export class BrowserPane {
     // on the way out. What is on disk stays on disk.
     for (const tab of [...this.tabs.values()]) this.destroyTab(tab);
   }
-
 }
 
 /**
- * What moves to the other backend (002 §7.2).
+ * What moves to the other backend.
  *
  * `url` is the whole of what Phase 2 can honestly transfer. The design also names the candidate
  * set, the Intent and the Commitment — those are structures the離场 pipeline produces, and no

@@ -1150,12 +1150,12 @@ export type ServerEvent =
       source: SessionSource;
     }
   /**
-   * The agent is asking the person something (design/003 §7): one of the six interaction kinds,
+   * The agent is asking the person something: one of the six interaction kinds,
    * rendered as a card in the conversation.
    *
    * Resent on reconnect, like a pending approval, because a card is worthless if a reload makes it
    * disappear while the agent is still waiting behind it. The payload never carries a value the
-   * person is being asked to type — see `UserInteraction` and 003 §4.6: this event lands in a ring
+   * person is being asked to type — see `UserInteraction`: this event lands in a ring
    * buffer that is replayed to whoever attaches next.
    */
   | { type: "interaction_request"; interaction: UserInteraction }

@@ -1,4 +1,4 @@
-# The text redaction of design/003 §6.5 is built, tested, and never called
+# Relay text redaction is built, tested, and never called
 
 - **Status:** open, deliberate for now — must be closed *before* secret entry goes live
 - **Area:** `packages/browser-cli/src/shared/redaction.ts`, and the three render paths in `src/page/`
@@ -6,7 +6,7 @@
 
 ## Summary
 
-`redaction.ts` implements the relay half of design/003 §6.5: the values the main process types into
+`redaction.ts` implements the relay half of the private-profile redaction contract: the values the main process types into
 a page must not come back out through what the agent reads. It exports `redactText`,
 `judgeScreenshot`, `fingerprintOf`, `shapeOf`, `redactionLabel` — all unit-tested.
 
@@ -25,8 +25,8 @@ ends, with no wire between them.
 
 ## Why this is not currently a leak
 
-`secret_entry.live`, `vault.l2l3` and `payments.execute` are fail-closed (design/001, and
-design/004 §5 gates them behind the unresolved isolation decision D3). Nothing is typed into a page,
+`secret_entry.live`, `vault.l2l3` and `payments.execute` are fail-closed, gated behind the
+unresolved isolation decision D3 (`../decisions/proposed/2026-08-16-agent-runtime-isolation.md`). Nothing is typed into a page,
 so there is nothing to redact. The code is ahead of the gate, not broken behind it.
 
 ## Why it still needs recording

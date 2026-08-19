@@ -1,7 +1,7 @@
 /**
  * The gate every write to a page goes through.
  *
- * Design/002 §6.5 is blunt about the shape this has to take: *enumerate, do not sample*. A gate
+ * The design is blunt about the shape this has to take: *enumerate, do not sample*. A gate
  * that covers `clickThrough` but not `page.click` is not a gate — it is a suggestion, and the one
  * call site that skipped it is the one that will be reached while somebody is typing a card number.
  * So the enumerated surface is wrapped at the object the agent actually holds: the `Page`, the
@@ -10,12 +10,12 @@
  * Two questions are asked before a write:
  *
  * 1. **Who has the page?** During a handover the agent is refused with a code it can act on; during
- *    a secret phase even reads are refused, because reading is the risk (003 §1.3).
+ *    a secret phase even reads are refused, because reading is the risk.
  * 2. **Is this the button that takes the money?** See `payment-gate.ts`. This build does not press
  *    it, and the refusal says what to do instead.
  *
  * **This is a guardrail, not a boundary.** The executor's vm is explicitly not a security boundary
- * (003 §1.2), and an agent that wants to reach around a wrapper — through `context.pages()`, a raw
+ *, and an agent that wants to reach around a wrapper — through `context.pages()`, a raw
  * CDP session, its own `import` — can. What the wrapper buys is that the ordinary path stops, in a
  * way that is visible in the transcript, rather than a payment happening because nobody wired the
  * check into the fifth method that can click something.
@@ -42,7 +42,7 @@ export function unguard<T>(value: T): T {
 }
 
 /**
- * Methods that change the page (002 §6.5's list, plus the aliases Playwright has grown since).
+ * Methods that change the page (the enumerated list, plus the aliases Playwright has grown since).
  *
  * `goto` is a write because navigating away from a page somebody is working in is exactly as
  * disruptive as clicking in it.
@@ -250,7 +250,7 @@ export function guardPage<T extends object>(
  *
  * `clickThrough`, `fillWithSuggestion`, `pickDate` and `submitAndClassify` reach the page through
  * their own code rather than through the wrapped `page`, so gating the object would have missed
- * them — which is exactly the "enumerate, do not sample" failure 002 §6.5 warns about. The target
+ * them — which is exactly the "enumerate, do not sample" failure the enumerate-do-not-sample rule warns about. The target
  * description they carry is whatever the caller named.
  */
 export function guardHelper<TArgs extends unknown[], TResult>(

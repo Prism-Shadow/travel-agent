@@ -1,5 +1,5 @@
 /**
- * The bridge from the vault's `TargetResolver` port to the browser pane (design/003 §6.1, §7.3).
+ * The bridge from the vault's `TargetResolver` port to the browser pane.
  *
  * The vault side speaks in `targetId`s; the pane speaks in `WebContents` and tabs. This adapter is
  * the translation, and it is kept apart from `main.ts` for the one reason worth the file: the
@@ -7,7 +7,7 @@
  * grabbed — and those are testable against a fake pane here, where they would not be behind
  * Electron in `main.ts`.
  *
- * Detaching the *agent's* channel (secret phase, 003 §7.3) is expressed as revoking the relay's
+ * Detaching the *agent's* channel (secret phase) is expressed as revoking the relay's
  * ability to drive the target, not as tearing down our own debugger: the two are different clients
  * of the same page, and the phase must remove the agent's while keeping ours for the fill and the
  * proof-of-clearing read. The pane exposes that as a per-target drive gate; this adapter drives it.

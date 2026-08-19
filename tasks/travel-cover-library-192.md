@@ -162,8 +162,8 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 
 - [ ] Keep each 36-image batch in its own reviewable commit with its manifest and tests.
 - [ ] Do not mix Browser/Core/Desktop work or unrelated documentation into these commits.
-- [ ] Update `design/006-generated-travel-cover-library.md` after each accepted batch with the actual
-      counts, prompt version, footprint, and QA results.
+- [ ] Record the actual counts, prompt version, footprint, and QA results of each accepted batch
+      in a `docs/decisions/` note for the cover library.
 - [ ] After Batch D, run the repository's full blocking CI before merging or pushing the completed
       192-asset library.
 - [ ] Preserve rollback by ensuring removal of one batch restores the previous valid catalog count

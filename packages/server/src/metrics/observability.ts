@@ -1,22 +1,22 @@
 /**
- * The three product rates design/003 §13 asks to be watched (004 Phase 5's observability item).
+ * The three product rates worth watching.
  *
  * They are not performance counters — they are *design* signals, each one a way the agent-first
  * intent could be failing quietly:
  *
  * - **takeover rate** — how often the agent falls back to handing the person the whole browser
- *   (`browser_takeover`). 003 §13-8: a high rate means the six interaction kinds are not covering
+ *   (`browser_takeover`). A high rate means the six interaction kinds are not covering
  *   what really happens, and the fix is upstream, not another takeover.
  * - **secret-phase rate** — how often a flow reaches a scoped secret phase (`secret_entry`). Useful
  *   against the payment volume: rising means more flows are hitting real one-time-code steps.
  * - **card-fallback rate** — how often a natural-language "yes" was *not* accepted and the payment
- *   card was shown instead (003 §8.4). The judge errs toward the card on purpose; this says whether
+ *   card was shown instead. The judge errs toward the card on purpose; this says whether
  *   "on purpose" has become "annoyingly often" and the language matcher needs real-corpus tuning.
  *
  * A rate with a tiny denominator lies, so each is reported with its raw counts and a `rate` that is
  * `null` until the denominator crosses a floor — a caller shows "—", not "100%", after one event.
  * In-memory and per-process: these are a live gauge for the settings/admin surface, not a durable
- * analytics store (that is the remote sink 003 §5.3 leaves to later). Pure and dependency-free so
+ * analytics store (the remote sink is deliberately left to later). Pure and dependency-free so
  * the arithmetic is unit-tested.
  */
 
@@ -79,7 +79,7 @@ export class ObservabilityMetrics {
   }
 
   /**
-   * A natural-language confirmation was judged (003 §8.4).
+   * A natural-language confirmation was judged.
    *
    * `fellBack` is true when the reply was not accepted and the card was shown. Both the total and
    * the fallback move, because the rate is fallbacks over *attempts*, not over cards shown.

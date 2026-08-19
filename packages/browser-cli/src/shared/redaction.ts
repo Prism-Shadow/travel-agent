@@ -1,5 +1,5 @@
 /**
- * Text-side redaction: replacing a filled value everywhere it surfaces as text (design/003 §6.5).
+ * Text-side redaction: replacing a filled value everywhere it surfaces as text.
  *
  * The relay renders what the agent reads — snapshots, cleaned HTML, page markdown — and the values
  * the main process has typed into the page must not ride out through them. Main cannot do that
@@ -9,7 +9,7 @@
  * shape, and shares the salt over the relay's own control channel. The relay can then test any
  * candidate substring for equality without ever being told what it is looking for.
  *
- * Honesty about strength, straight from 003 §6.5's table: **text matching is strong and exact**
+ * Honesty about strength, straight from the redaction design's table: **text matching is strong and exact**
  * — a value that appears verbatim is found, whatever element it is in. What it cannot catch is a
  * value the page re-rendered in a different *form* (grouped digits, masked middles the page did
  * itself, an image). The pixel side is handled separately by bounding-box masks, and the OCR
@@ -103,7 +103,7 @@ function sameClass(a: string | undefined, b: string): boolean {
 }
 
 /**
- * The screenshot decision (003 §6.5's last row, made executable).
+ * The screenshot decision (the last row of the redaction table, made executable).
  *
  * Pixels cannot be fingerprint-matched, so a screenshot is safe only where every live sensitive
  * value has a known box to cover. The rule errs the same way everything else in this design errs:

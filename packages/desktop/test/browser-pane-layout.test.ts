@@ -168,7 +168,7 @@ describe("computePaneLayout", () => {
 
   it("hides the view while something in the DOM covers it", () => {
     // A WebContentsView paints above the DOM, so a modal cannot be drawn over it — the view has to
-    // step aside instead (design/002 §5.3).
+    // step aside instead.
     const layout = computePaneLayout({
       measurement,
       content: CONTENT,

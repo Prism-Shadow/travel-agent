@@ -1,13 +1,13 @@
 /**
  * Trip-constraint chips: the draft screen's Where / When / Who / Budget scaffolding
- * (design/005 P0, patterned on Mindtrip's four constraint dialogs), reduced to what this
+ * (patterned on Mindtrip's four constraint dialogs), reduced to what this
  * product can honestly do.
  *
  * The constraints are **prompt scaffolding, not protocol**: composing them produces plain
  * text lines prepended to the first message, visible in the sent bubble exactly as the
  * model receives them (the same what-you-see-is-what-was-sent pattern as skill-block
  * injection). Nothing here reaches the server as structured data, and deliberately so —
- * 001 §2.1: preferences are constructed while choosing, the model judges, code only
+ * preferences are constructed while choosing, the model judges, code only
  * enforces where the model is in the threat model. Two boundaries follow:
  *
  * - **Budget is a tier, not a number.** Mindtrip's own Budget dialog offers only price

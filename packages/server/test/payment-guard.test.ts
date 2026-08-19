@@ -2,7 +2,7 @@
  * The payment guard (src/interaction/payment.ts) — the deterministic half of "did they agree to
  * this?".
  *
- * This is 003 §12's P4 matrix, run against what Phase 3 actually ships. Two properties are the
+ * This is the P4 rejection matrix, run against what actually ships. Two properties are the
  * point of the whole file:
  *
  * - **Nothing is authorised that was not confirmed, unchanged, and still valid.** Every refusal
@@ -117,7 +117,7 @@ describe("before anything can be paid", () => {
 
 describe("what counts as the same purchase", () => {
   it("refuses a different merchant outright, with no way to re-confirm", async () => {
-    // 003 §8.3. Everything else on this page may be identical; a payment form that moved to
+    // The domain rule: everything else on this page may be identical; a payment form that moved to
     // another domain is the shape of a hijack, and offering "confirm the new one?" is the trap.
     const { guard } = await guardWith({ clickPay: true });
     guard.confirm({ taskId: TASK, summary: summary(), channel: "card" });
@@ -131,7 +131,7 @@ describe("what counts as the same purchase", () => {
   });
 
   it("refuses any price rise when no slack was approved", async () => {
-    // The default of 003 §8.5: the exact amount is the hard ceiling. One yuan is drift.
+    // The default: the exact amount is the hard ceiling. One yuan is drift.
     const { guard } = await guardWith({ clickPay: true });
     guard.confirm({ taskId: TASK, summary: summary(), channel: "card" });
     const decision = await guard.authorize({

@@ -53,7 +53,7 @@ describe("the payment card", () => {
     // The display name is what a phishing page controls; the domain is what it cannot. A card that
     // showed only "携程" would be exactly as convincing on the wrong site.
     //
-    // Seven lines, counted: 003 §8.1 lists seven fields, and a card that renders five of them while
+    // Seven lines, counted: the purchase summary lists seven fields, and a card that renders five of them while
     // the comment above it says seven is the exact defect this counts.
     const lines = paymentLines(payment);
     expect(lines).toHaveLength(7);
@@ -105,7 +105,7 @@ describe("the payment card", () => {
 
 describe("the slack a person may grant", () => {
   it("is not sent when the box was not ticked", () => {
-    // 003 §8.5: an unapproved tolerance is zero, and no path here invents one.
+    // An unapproved tolerance is zero, and no path here invents one.
     const outcome = outcomeFor({
       action: { kind: "approve", label: "确认", tone: "primary" },
       offeredTolerance: { amountIncrease: 50 },

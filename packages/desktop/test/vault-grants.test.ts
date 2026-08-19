@@ -1,5 +1,5 @@
 /**
- * Grants, and the rejection matrix design/004 Phase 4 asks for by name.
+ * Grants, and their rejection matrix.
  *
  * Every row below is a way a handle could be redeemed that it should not be: a grant that never
  * existed, one that was revoked, one that lapsed, one from another turn, one for another site, one

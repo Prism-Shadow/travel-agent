@@ -1,22 +1,22 @@
 /**
- * Typing a value into a page without ever handing it to the agent (design/003 §6).
+ * Typing a value into a page without ever handing it to the agent.
  *
  * The agent asks for a fill by **handle** — `pv:<grantId>:<field>` — and the main process does the
  * rest: check the grant against the page that is open *now*, decrypt exactly one field, write it
  * into the form through the debugger, register the element so snapshots and screenshots can cover
  * it, wipe the plaintext, and record what happened without recording what it was.
  *
- * Why the fill does not go through the executor's `vm` (003 §6.2): that sandbox is a guardrail, not
+ * Why the fill does not go through the executor's `vm`: that sandbox is a guardrail, not
  * a boundary, and it lives in a process the agent can reach. Any design that passes the value into
  * it has handed the value to the agent by a longer route.
  *
  * The honest limits, both of which are recorded rather than papered over:
  *
- * - **The value is in the DOM afterwards, and the agent can read the DOM** (§1.3). Registration and
+ * - **The value is in the DOM afterwards, and the agent can read the DOM**. Registration and
  *   redaction reduce the accidental paths — a snapshot, a screenshot — not the deliberate one. That
  *   is what the tier system is really for: L2 is "acceptable to be readable by the agent once
  *   typed", and anything that is not acceptable is L3 and is never filled from storage at all.
- * - **The trust in "only main holds the plaintext" is exactly the trust in §0.3.** Without OS-level
+ * - **The trust in "only main holds the plaintext" is exactly the unresolved isolation assumption (D3).** Without OS-level
  *   isolation, main's memory is readable by anything running as the same user.
  */
 import { wipe } from "./crypto.js";
@@ -46,7 +46,7 @@ export interface FillTarget {
 export interface FillPort {
   /**
    * Writes `value` into the element in an isolated world, dispatching the input/change events a
-   * framework-controlled input needs (003 §13-3 flags this as the known-fragile part).
+   * framework-controlled input needs (flagged as the known-fragile part).
    *
    * Returns where the element ended up, so the screenshot mask can cover it.
    */
@@ -105,7 +105,7 @@ export class SecureFiller {
     if (isNeverFilled(verdict.field) || isNeverPersisted(verdict.field)) {
       const detail =
         `"${verdict.field}" is never filled by this application: it is entered by the person, in ` +
-        `the site's own field or their bank's app (003 §3, §7.3).`;
+        `the site's own field or their bank's app.`;
       await this.reject(verdict.field, input, "never_filled", detail);
       return { ok: false, reason: "never_filled", detail };
     }

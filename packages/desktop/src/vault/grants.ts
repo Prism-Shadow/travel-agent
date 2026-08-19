@@ -1,5 +1,5 @@
 /**
- * Permission to use one person's data, for one purpose, on one site, for a while (design/003 §5).
+ * Permission to use one person's data, for one purpose, on one site, for a while.
  *
  * There is deliberately no "allow this app to use my profile" switch. A grant names a **turn**, a
  * **domain**, a **purpose** and an **exact set of fields**, and it expires. Changing any of those
@@ -7,7 +7,7 @@
  * blanket version cannot be reasoned about after the fact, and it is the shape every "the assistant
  * filled in something I did not expect" story starts with.
  *
- * What the agent receives depends on the tier of what it asked for (003 §5.2):
+ * What the agent receives depends on the tier of what it asked for:
  *
  * - **projection** — L1 values, masked where the table says so, in the model's context.
  * - **handle** — `pv:<grantId>:<field>`, an opaque string that is worth nothing on its own. It can
@@ -30,7 +30,7 @@ export interface ProfileGrant {
   grantId: string;
   /** The turn it was approved for. It dies with that turn, whatever its expiry says. */
   taskId: string;
-  /** eTLD+1, matched exactly. No wildcards, no subdomain matching (003 §5.1). */
+  /** eTLD+1, matched exactly. No wildcards, no subdomain matching. */
   domain: string;
   /** Human-readable, shown on the card and written to the audit. */
   purpose: string;
@@ -47,7 +47,7 @@ export interface ProfileGrant {
 /**
  * Why a grant does not authorise this use.
  *
- * The first six are 003 §5.2's checks, one refusal each. `wrong_mode` is the seventh, and it exists
+ * The first six are the grant checks, one refusal each. `wrong_mode` is the seventh, and it exists
  * because the two modes are not interchangeable: a projection grant hands values to a model and
  * issues no handles, so a handle presented against one is not a near-miss to be repaired but a sign
  * that something built a reference it was never given.
@@ -69,7 +69,7 @@ export class GrantError extends Error {
   override readonly name = "GrantError";
 }
 
-/** L2 material gets a short window; L1 lives as long as the turn (003 §5.1). */
+/** L2 material gets a short window; L1 lives as long as the turn. */
 export const L2_GRANT_TTL_MS = 15 * 60_000;
 export const L1_GRANT_TTL_MS = 8 * 60 * 60_000;
 
@@ -180,7 +180,7 @@ export class GrantRegistry {
       if (tierOf(field) === "L3") {
         throw new GrantError(
           `"${field}" is never stored and never filled from storage, so there is nothing to ` +
-            `grant access to (003 §3).`,
+            `grant access to.`,
         );
       }
     }

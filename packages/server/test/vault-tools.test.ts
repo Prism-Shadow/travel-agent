@@ -4,7 +4,7 @@
  * What is pinned here is mostly what the tools *do not* do: they do not read the turn, the
  * conversation or the domain from the model's arguments, they do not turn a refusal into a
  * transport error (or the reverse), and they carry nothing but handles and ids — so a trace of a
- * whole booking contains no personal value, which is the invariant 003 §4.6 asks for at the
+ * whole booking contains no personal value, which is the no-values invariant at the
  * `builtin tool` row.
  */
 import { describe, expect, it, vi } from "vitest";

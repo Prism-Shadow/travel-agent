@@ -6,7 +6,7 @@
  * everything else, and "everything else" is most of it. Confirming a price, choosing between three
  * flights, answering "how many passengers?" — none of those needs the browser, and putting them
  * there is what made *hand the user the browser* the default path the whole design is trying to
- * undo (003 §0.2).
+ * undo.
  *
  * So the primitive dispatches on where the person has to act:
  *
@@ -44,7 +44,7 @@ export interface InteractionOption {
   plan?: Record<string, unknown>
 }
 
-/** The seven fields of a purchase (003 §8.1). Missing any of them refuses the card. */
+/** The seven fields of a purchase. Missing any of them refuses the card. */
 export interface PaymentSummaryInput {
   merchant: { name: string; domain: string }
   item: string
@@ -306,7 +306,7 @@ async function requestPageHandover(
   if (kind === 'browser_takeover' && !options.reason?.trim()) {
     throw new Error(
       'A browser takeover needs a reason: it is the last resort, and an unexplained one cannot ' +
-        'be reviewed. Say what the other five kinds could not do (003 §7.4).',
+        'be reviewed. Say what the other five kinds could not do.',
     )
   }
 

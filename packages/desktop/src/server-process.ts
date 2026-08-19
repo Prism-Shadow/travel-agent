@@ -120,7 +120,7 @@ export async function startEmbeddedServer(opts: {
   log: (chunk: string) => void;
   /**
    * Extra environment for the fork, used to hand the server the broker socket and token when the
-   * vault is on (design/003 §11.2: the token reaches the server *only* through the fork
+   * vault is on (the token reaches the server *only* through the fork
    * environment — never a file, never a log). Empty when there is no vault this run.
    */
   extraEnv?: Record<string, string>;
