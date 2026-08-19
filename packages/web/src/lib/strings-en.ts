@@ -891,6 +891,8 @@ export const en: Strings = {
       backend: "Browser backend",
       backendIab: "In-app browser",
       backendExtension: "My own Chrome (extension)",
+      backendExtensionHint:
+        "Uses your existing signed-in Chrome profile; setup opens if the extension is not connected",
       openInDefaultBrowser: "Open this page in my default browser",
       openInDefaultBrowserHint:
         "Opens a separate copy in whichever browser your system uses. It does not carry your in-app sign-in across.",
@@ -914,8 +916,8 @@ export const en: Strings = {
       },
       /** Bringing cookies, saved logins and history over from the user's own Chrome. */
       import: {
-        open: "Import from browser",
-        title: "Import from your browser",
+        open: "Import into in-app browser",
+        title: "Import from your browser into the in-app browser",
         subtitle: "Choose data to bring over to the built-in browser",
         from: "From",
         /** The "Close Google Chrome completely before importing" line, per browser. */
@@ -973,6 +975,33 @@ export const en: Strings = {
     draftPrompt: "Start with an idea",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations, design/005 P0).
     jumpBackIn: "Jump back in",
+    // Always-available editorial prompts under the recent-session rail. A click starts a
+    // real draft task with the currently selected Agent / model / Workspace settings.
+    getInspired: {
+      title: "Get inspired",
+      previous: "Scroll travel inspiration left",
+      next: "Scroll travel inspiration right",
+      cards: {
+        kyotoAutumn: {
+          title: "Chase autumn in Kyoto",
+          tag: "Seasonal escape",
+          prompt:
+            "Design a five-day Kyoto trip centered on autumn foliage. First compare the scenery, crowd levels, and price trade-offs across the middle and end of November, then build a daily route combining temples, gardens, evening illuminations, and quieter neighborhoods. Keep stays and transport to a few representative options, explain why each made the cut, and wait for my confirmation before any booking.",
+        },
+        bangkokFood: {
+          title: "Taste your way through Bangkok",
+          tag: "Food journey",
+          prompt:
+            "Design a four-day Bangkok food trip balancing street food, traditional markets, neighborhood restaurants, and one dinner worth reserving. Organize each day by area so we do not cross the city just to collect stops, and explain hygiene, queues, opening hours, and transport trade-offs. Start with the plan and a few representative restaurants, and do not book anything until I confirm.",
+        },
+        northernLights: {
+          title: "Sleep beneath the northern lights",
+          tag: "Nature escape",
+          prompt:
+            "Plan a six-day trip centered on seeing the northern lights. First compare northern Iceland, northern Norway, and Finnish Lapland for weather reliability, transport, budget, and variety of activities. Recommend one destination and build an itinerary with weather buffer nights. Keep stays and activities to a few representative options, and wait for my confirmation before any booking.",
+        },
+      },
+    },
     // Trip-constraint chips (design/005 P0): compose copy (TripChipsCopy contract in
     // trip-constraints.ts) + chip/popover UI copy. "Budget" is the trip's price TIER —
     // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
@@ -1185,6 +1214,8 @@ Scenarios:
     },
     sessionList: "Sessions",
     defaultSessionTitle: "New chat",
+    /** Session header navigation back to the New task welcome screen. */
+    backHome: "Back home",
     model: "Model",
     workspace: "Workspace",
     workspaceHint:

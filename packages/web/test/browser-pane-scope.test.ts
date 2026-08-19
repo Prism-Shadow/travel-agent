@@ -8,9 +8,18 @@
 import { describe, expect, it } from "vitest";
 import {
   applySessionSwitch,
+  browserPaneOpenForRoute,
   isCurrentAnswer,
   isScopeSettled,
 } from "../src/features/chat/browser-pane-scope";
+
+describe("browserPaneOpenForRoute", () => {
+  it("hides an already-open pane on a draft without changing real Session behavior", () => {
+    expect(browserPaneOpenForRoute(true, true)).toBe(false);
+    expect(browserPaneOpenForRoute(true, false)).toBe(true);
+    expect(browserPaneOpenForRoute(false, false)).toBe(false);
+  });
+});
 
 describe("isScopeSettled", () => {
   it("is true only when all three agree", () => {
@@ -39,7 +48,7 @@ describe("isScopeSettled", () => {
   });
 
   it("is false with no conversation open", () => {
-    // A draft, or the session list. There is no strip to show.
+    // The session list. There is no strip to show.
     expect(isScopeSettled({ requested: null, confirmed: null, published: null })).toBe(false);
     expect(isScopeSettled({ requested: null, confirmed: "A", published: "A" })).toBe(false);
   });

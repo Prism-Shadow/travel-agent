@@ -1,73 +1,104 @@
 /**
- * "Jump back in" rail on the draft screen (design/005 P0, patterned on Mindtrip's welcome
- * screen): the right-hand column that pulls the traveller back into ongoing conversations
- * instead of leaving the welcome screen a dead end. Shows the three most recent active
- * Sessions (user-created, non-archived — the sidebar's "active" category) as image-first
- * cards in Mindtrip's card grammar: a full-bleed cover, a dark scrim, the title and
- * "Agent · date" line in white on top of it, and at most one status badge floating on the
- * cover (pending-approval count outranks the running pulse — the booking waiting on a human
- * is exactly the session worth resuming). A card click resumes the conversation.
+ * Image-first discovery column on the draft screen: recent Sessions live in "Jump back
+ * in", while "Get inspired" is always available for first-time and returning users. It
+ * reuses the Sessions context already loaded for the sidebar and the local generated cover
+ * catalog, so neither rail adds a fetch to the welcome screen.
  *
- * The cover is a deterministic decorative gradient + travel-icon watermark derived from the
- * sessionId — deliberately NOT a destination photo. Mindtrip's covers come from its 11M-POI
- * photo library; this product has no image source for a conversation today, and a stock
- * photo of the wrong city on a booking card would be worse than decoration. The honest
- * upgrade documented in design/005 P2 is a screenshot of the real page the agent is working
- * on (the evidence layer), which no stock library can fake.
- *
- * Renders nothing when there are no active Sessions, so a first run keeps the centered
- * greeting composition. The rail is xl-only: below that the draft page keeps its
- * single-column layout and the sidebar remains the session list. Data comes straight from
- * the sessions context (already loaded for the sidebar), so the rail costs no extra fetch —
- * which also means it shows the loaded first pages, plenty for a three-card recency rail.
+ * The layout follows the image-first grammar of the Mindtrip reference: nearly-square
+ * covers, a quiet readability scrim, bottom-aligned copy, and a visible slice of the next
+ * card. The generated travel photographs are matched from the local cover catalog and
+ * deduplicated across the visible cards; they never pretend to be evidence from the
+ * conversation itself.
  */
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { AirplaneTiltIcon } from "@phosphor-icons/react/dist/csr/AirplaneTilt";
-import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
-import { CompassIcon } from "@phosphor-icons/react/dist/csr/Compass";
-import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
+import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
+import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import type { AgentSummary, SessionInfo } from "@prismshadow/penguin-server/api";
 import { S } from "../../lib/strings";
 import { formatMonthDay } from "../../lib/format";
 import { sessionCategory } from "../../lib/session-grouping";
+import {
+  selectTravelCovers,
+  TRAVEL_COVER_CATALOG,
+  type TravelCoverAsset,
+} from "../../lib/travel-cover-library";
 import { useLocale } from "../../state/locale";
 import { agentDisplayName, useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 
-/** How many cards the rail shows — Mindtrip's welcome rail shows three; more is a list, not a nudge. */
+/** Three cards keep the rail useful without duplicating the sidebar as another long list. */
 const RAIL_SIZE = 3;
 
-/**
- * Decorative cover palette (Tailwind gradient stops, spelled out in full so the JIT scanner
- * sees them) and the matching watermark icons. Muted, dusk-leaning travel tones — the card
- * must stay a backdrop for white text, not compete with it.
- */
-const COVERS = [
-  "from-sky-500 via-blue-600 to-indigo-700",
-  "from-amber-400 via-orange-500 to-rose-600",
-  "from-emerald-500 via-teal-600 to-cyan-700",
-  "from-purple-500 via-violet-600 to-indigo-600",
-  "from-rose-400 via-pink-500 to-fuchsia-600",
-  "from-cyan-500 via-sky-600 to-blue-700",
+export const INSPIRATION_CARDS = [
+  { id: "kyotoAutumn", coverId: "kyoto-temple" },
+  { id: "bangkokFood", coverId: "food-market" },
+  { id: "northernLights", coverId: "northern-lights" },
 ] as const;
-const COVER_ICONS = [AirplaneTiltIcon, BuildingsIcon, CompassIcon, MapPinIcon] as const;
 
-/** Tiny stable hash (djb2) — the same Session always gets the same cover across visits. */
-function hashId(id: string): number {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = (h * 33) ^ id.charCodeAt(i);
-  return h >>> 0;
+const INSPIRATION_COVER_IDS: ReadonlySet<string> = new Set(
+  INSPIRATION_CARDS.map((card) => card.coverId),
+);
+
+export type InspirationCardId = (typeof INSPIRATION_CARDS)[number]["id"];
+
+/** Shared resize-aware behavior for both horizontal card rails. */
+function useHorizontalRail(itemCount: number) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [canScrollBack, setCanScrollBack] = useState(false);
+  const [canScrollForward, setCanScrollForward] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    setCanScrollBack(scroller.scrollLeft > 4);
+    setCanScrollForward(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    updateScrollState();
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
+    observer?.observe(scroller);
+    window.addEventListener("resize", updateScrollState);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [itemCount, updateScrollState]);
+
+  const scrollCards = useCallback((direction: -1 | 1) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const firstCard = scroller.querySelector<HTMLElement>("[data-rail-card]");
+    const gap = Number.parseFloat(getComputedStyle(scroller).columnGap) || 12;
+    scroller.scrollBy({
+      left: direction * ((firstCard?.offsetWidth ?? scroller.clientWidth * 0.75) + gap),
+      behavior: "smooth",
+    });
+  }, []);
+
+  return { scrollerRef, canScrollBack, canScrollForward, updateScrollState, scrollCards };
 }
 
-export function JumpBackIn() {
+export function JumpBackIn({
+  onStartInspiration,
+  inspirationBusy,
+  inspirationDisabled,
+}: {
+  onStartInspiration: (id: InspirationCardId, prompt: string) => void;
+  inspirationBusy: InspirationCardId | null;
+  inspirationDisabled: boolean;
+}) {
   const navigate = useNavigate();
   const { locale } = useLocale();
   const { sessions } = useSessions();
   const { agents } = useProject();
 
-  // Newest-first across all Agents (the context's flat list interleaves per-Agent pages);
-  // ISO-8601 strings order lexicographically, so plain string compare is the date sort.
+  // Newest-first across all Agents (the context's flat list interleaves per-Agent pages).
+  // ISO-8601 strings order lexicographically, so a string compare is the date sort.
   const recent = useMemo(
     () =>
       sessions
@@ -76,87 +107,254 @@ export function JumpBackIn() {
         .slice(0, RAIL_SIZE),
     [sessions],
   );
-  if (recent.length === 0) return null;
+  const covers = useMemo(
+    () =>
+      selectTravelCovers(
+        recent.map((session) => ({
+          sessionId: session.sessionId,
+          title: session.title,
+        })),
+        TRAVEL_COVER_CATALOG,
+        { excludedIds: INSPIRATION_COVER_IDS },
+      ),
+    [recent],
+  );
+  const recentRail = useHorizontalRail(recent.length);
+  const inspirationRail = useHorizontalRail(INSPIRATION_CARDS.length);
 
   return (
-    <aside className="hidden w-[21rem] shrink-0 flex-col justify-center gap-3 pb-14 xl:flex">
-      <h3 className="mb-0.5 px-1 text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
-        {S.chat.jumpBackIn}
-      </h3>
-      {recent.map((s) => (
-        <SessionCard
-          key={s.sessionId}
-          session={s}
-          agentName={resolveAgentName(agents, s.agentId)}
-          date={formatMonthDay(s.createdAt, locale)}
-          onOpen={() => navigate(`/chat/${s.sessionId}`)}
-        />
-      ))}
+    <aside className="draft-jump-back-in hidden w-[21rem] shrink-0 flex-col justify-center pb-14 xl:flex">
+      <div className="flex flex-col gap-8">
+        {recent.length > 0 && (
+          <section aria-labelledby="jump-back-in-heading">
+            <h3
+              id="jump-back-in-heading"
+              className="mb-3 px-1 text-xl font-semibold tracking-[-0.02em] text-gray-950 dark:text-white"
+            >
+              {S.chat.jumpBackIn}
+            </h3>
+
+            <div className="relative -mx-1">
+              <div
+                ref={recentRail.scrollerRef}
+                onScroll={recentRail.updateScrollState}
+                className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 py-1.5"
+              >
+                {recent.map((session, index) => (
+                  <SessionCard
+                    key={session.sessionId}
+                    session={session}
+                    agentName={resolveAgentName(agents, session.agentId)}
+                    date={formatMonthDay(session.createdAt, locale)}
+                    cover={covers[index]!}
+                    onOpen={() => navigate(`/chat/${session.sessionId}`)}
+                  />
+                ))}
+              </div>
+              <RailNavigation
+                canScrollBack={recentRail.canScrollBack}
+                canScrollForward={recentRail.canScrollForward}
+                previousLabel={S.chat.jumpBackInPrevious}
+                nextLabel={S.chat.jumpBackInNext}
+                onPrevious={() => recentRail.scrollCards(-1)}
+                onNext={() => recentRail.scrollCards(1)}
+              />
+            </div>
+          </section>
+        )}
+
+        <section aria-labelledby="get-inspired-heading">
+          <h3
+            id="get-inspired-heading"
+            className="mb-3 px-1 text-xl font-semibold tracking-[-0.02em] text-gray-950 dark:text-white"
+          >
+            {S.chat.getInspired.title}
+          </h3>
+
+          <div className="relative -mx-1">
+            <div
+              ref={inspirationRail.scrollerRef}
+              onScroll={inspirationRail.updateScrollState}
+              className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 py-1.5"
+            >
+              {INSPIRATION_CARDS.map((card) => {
+                const copy = S.chat.getInspired.cards[card.id];
+                const cover = TRAVEL_COVER_CATALOG.find((asset) => asset.id === card.coverId)!;
+                return (
+                  <InspirationCard
+                    key={card.id}
+                    title={copy.title}
+                    tag={copy.tag}
+                    cover={cover}
+                    busy={inspirationBusy === card.id}
+                    disabled={inspirationDisabled || inspirationBusy !== null}
+                    onOpen={() => onStartInspiration(card.id, copy.prompt)}
+                  />
+                );
+              })}
+            </div>
+            <RailNavigation
+              canScrollBack={inspirationRail.canScrollBack}
+              canScrollForward={inspirationRail.canScrollForward}
+              previousLabel={S.chat.getInspired.previous}
+              nextLabel={S.chat.getInspired.next}
+              onPrevious={() => inspirationRail.scrollCards(-1)}
+              onNext={() => inspirationRail.scrollCards(1)}
+            />
+          </div>
+        </section>
+      </div>
     </aside>
   );
 }
 
-/** Display name of the Session's Agent; a Session may outlive its Agent, then the raw id is shown. */
+function RailNavigation({
+  canScrollBack,
+  canScrollForward,
+  previousLabel,
+  nextLabel,
+  onPrevious,
+  onNext,
+}: {
+  canScrollBack: boolean;
+  canScrollForward: boolean;
+  previousLabel: string;
+  nextLabel: string;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      {canScrollBack && (
+        <button
+          type="button"
+          aria-label={previousLabel}
+          onClick={onPrevious}
+          className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-white text-gray-950 shadow-[0_8px_24px_rgb(0_0_0/0.16)] transition-transform duration-150 hover:scale-105 dark:border-white/15 dark:bg-gray-900 dark:text-white"
+        >
+          <CaretLeftIcon size={20} weight="bold" aria-hidden />
+        </button>
+      )}
+      {canScrollForward && (
+        <button
+          type="button"
+          aria-label={nextLabel}
+          onClick={onNext}
+          className="absolute right-0 top-1/2 z-10 flex h-10 w-10 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-white text-gray-950 shadow-[0_8px_24px_rgb(0_0_0/0.16)] transition-transform duration-150 hover:scale-105 dark:border-white/15 dark:bg-gray-900 dark:text-white"
+        >
+          <CaretRightIcon size={20} weight="bold" aria-hidden />
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Display name of the Session's Agent; a Session may outlive its Agent. */
 function resolveAgentName(agents: readonly AgentSummary[], agentId: string): string {
   const agent = agents.find((a) => a.agentId === agentId);
   return agent ? agentDisplayName(agent) : agentId;
 }
 
-/**
- * One resumable conversation as an image-first card: gradient cover, big soft watermark
- * icon, bottom scrim carrying the white title/meta, one optional status pill top-left
- * (where Mindtrip puts its Trip/Chat/Guide type badge). Hover lifts the card and gently
- * scales the cover — the whole card is one button.
- */
 function SessionCard({
   session,
   agentName,
   date,
+  cover,
   onOpen,
 }: {
   session: SessionInfo;
   agentName: string;
   date: string;
+  cover: TravelCoverAsset;
   onOpen: () => void;
 }) {
-  const hash = hashId(session.sessionId);
-  const cover = COVERS[hash % COVERS.length];
-  const Watermark = COVER_ICONS[hash % COVER_ICONS.length]!;
   return (
     <button
       type="button"
+      data-session-card
+      data-rail-card
       onClick={onOpen}
-      className="group relative flex h-28 w-full flex-col justify-end overflow-hidden rounded-2xl text-left shadow-[0_1px_2px_rgb(0_0_0/0.06)] transition-transform duration-150 hover:-translate-y-px"
+      className="draft-discovery-card group relative h-52 w-52 shrink-0 snap-start overflow-hidden rounded-[1.75rem] bg-gray-900 text-left shadow-[0_2px_8px_rgb(0_0_0/0.08)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(0_0_0/0.16)]"
     >
-      <span
+      <img
+        src={cover.src}
+        alt=""
         aria-hidden
-        className={`absolute inset-0 bg-gradient-to-br ${cover} transition-transform duration-300 group-hover:scale-[1.03]`}
-      />
-      <Watermark
-        aria-hidden
-        size={64}
-        weight="fill"
-        className="absolute -right-2 -top-3 rotate-12 text-white/15"
+        draggable={false}
+        className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035]"
+        style={{ objectPosition: cover.focalPoint }}
       />
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 via-black/25 to-transparent"
+        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/5"
       />
+
       {session.pendingApprovalCount > 0 ? (
-        <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-amber-400/95 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
+        <span className="absolute left-4 top-4 inline-flex items-center rounded-full bg-amber-300 px-2.5 py-1 text-[11px] font-semibold text-amber-950 shadow-sm">
           {S.chat.pendingApprovals(session.pendingApprovalCount)}
         </span>
       ) : session.status === "running" ? (
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+        <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-900 shadow-sm backdrop-blur-sm">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
           {S.chat.statusRunning}
         </span>
       ) : null}
-      <span className="relative px-4 pb-3">
-        <span className="block truncate text-sm font-semibold text-white">
+
+      <span className="absolute inset-x-0 bottom-0 px-5 pb-5">
+        <span className="block line-clamp-2 text-base font-semibold leading-5 text-white">
           {session.title ?? S.chat.defaultSessionTitle}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-white/75">{`${agentName} · ${date}`}</span>
+        <span className="mt-1.5 block truncate text-xs text-white/75">{`${agentName} · ${date}`}</span>
+      </span>
+    </button>
+  );
+}
+
+function InspirationCard({
+  title,
+  tag,
+  cover,
+  busy,
+  disabled,
+  onOpen,
+}: {
+  title: string;
+  tag: string;
+  cover: TravelCoverAsset;
+  busy: boolean;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-rail-card
+      title={title}
+      aria-label={title}
+      aria-busy={busy}
+      disabled={disabled}
+      onClick={onOpen}
+      className="draft-discovery-card group relative h-52 w-52 shrink-0 snap-start overflow-hidden rounded-[1.75rem] bg-gray-900 text-left shadow-[0_2px_8px_rgb(0_0_0/0.08)] transition-[transform,box-shadow,opacity] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(0_0_0/0.16)] disabled:cursor-default disabled:opacity-60 disabled:hover:translate-y-0"
+    >
+      <img
+        src={cover.src}
+        alt=""
+        aria-hidden
+        draggable={false}
+        className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+        style={{ objectPosition: cover.focalPoint }}
+      />
+      <span
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/10"
+      />
+      <span className="absolute left-4 top-4 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-900 shadow-sm backdrop-blur-sm">
+        {busy ? S.common.loading : tag}
+      </span>
+      <span className="absolute inset-x-0 bottom-0 px-5 pb-5">
+        <span className="block line-clamp-2 text-base font-semibold leading-5 text-white">
+          {title}
+        </span>
       </span>
     </button>
   );

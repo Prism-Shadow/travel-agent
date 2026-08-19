@@ -72,7 +72,7 @@ import { ChatInput } from "./chat-input";
 import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
 import type { ExampleTask, ExampleTaskId } from "./example-tasks";
-import { JumpBackIn } from "./jump-back-in";
+import { JumpBackIn, type InspirationCardId } from "./jump-back-in";
 import { TripConstraintChips } from "./trip-constraint-chips";
 import { EMPTY_TRIP_CONSTRAINTS, applyTripPrefix } from "./trip-constraints";
 import type { TripConstraints } from "./trip-constraints";
@@ -730,6 +730,23 @@ export function DraftView({
     [exampleBusy, agentSkills, onSend],
   );
 
+  // Editorial inspiration cards use the same one-click first-task path as examples. They do
+  // not consume the composer's current text, so a partially written draft survives when the
+  // user explores an idea and returns later.
+  const [inspirationBusy, setInspirationBusy] = useState<InspirationCardId | null>(null);
+  const runInspiration = useCallback(
+    async (id: InspirationCardId, prompt: string) => {
+      if (inspirationBusy !== null) return;
+      setInspirationBusy(id);
+      try {
+        await onSend([{ type: "text", text: prompt }], true);
+      } finally {
+        setInspirationBusy(null);
+      }
+    },
+    [inspirationBusy, onSend],
+  );
+
   const selectedAgent = agents.find((a) => a.agentId === agentId) ?? null;
   const travellerName = (userId ?? "").split("@")[0]?.trim() ?? "";
 
@@ -753,8 +770,8 @@ export function DraftView({
         <VersionLine />
       </header>
 
-      <div className="flex min-h-[36rem] flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
-        <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
+      <div className="draft-welcome-layout flex min-h-[36rem] flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
+        <section className="draft-welcome-primary mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
           <img
             src="/travel-collage.png"
             alt=""
@@ -843,7 +860,11 @@ export function DraftView({
             </div>
           </div>
         </section>
-        <JumpBackIn />
+        <JumpBackIn
+          onStartInspiration={(id, prompt) => void runInspiration(id, prompt)}
+          inspirationBusy={inspirationBusy}
+          inspirationDisabled={sending || !agentId || !models}
+        />
       </div>
     </div>
   );

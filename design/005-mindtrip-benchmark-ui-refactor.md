@@ -67,7 +67,10 @@ packages/web 是 PenguinHarness 控制台的冻结快照。逐层看：
 | 截图区域 | 内容 | 采纳 |
 | --- | --- | --- |
 | 左栏（半屏） | 拼贴插画 + 个性化问候「Where to today, 名字?」+ 一句介绍 + 底部 composer | ✅ 已落地（`1362ea4`） |
-| 右栏「Jump back in」 | 最近对象的**图片优先卡片**（满幅封面 + 底部深色渐变压字 + 类型徽章 Trip/Chat/Guide） | ✅ 已落地（jump-back-in.tsx）：最近 3 个活跃 Session，卡片几何对齐 Mindtrip；封面是 **sessionId 哈希→确定性装饰渐变+图标水纹**，不是目的地照片——我们没有 POI 图库，错城市的库存照比装饰更糟；真封面的诚实升级路径见 P2.2 |
+| 右栏「Jump back in」 | 最近对象的**图片优先卡片**（满幅封面 + 底部深色渐变压字 + 类型徽章 Trip/Chat/Guide） | ✅ 已落地（jump-back-in.tsx）：最近 3 个活跃 Session，使用更紧凑的 `200–240px` 响应式正方形卡片横向浏览；封面从 48 张生成旅行素材中按标题语义匹配，无法识别时只用通用图并避免相邻重复，同时排除当前 Get inspired 已占用的封面。桌面双栏出现后，无论导航侧边栏展开还是收起，欢迎页都保持左右严格 1:1。生成图仅作装饰，真封面的诚实升级路径仍见 P2.2；素材边界与实现见 006。 |
+| 右栏「Get inspired」 | Jump back in 下方的常驻图片灵感卡 | ✅ 已落地（jump-back-in.tsx）：京都红叶、曼谷美食、极光旅行三个编辑主题复用 48 图素材库；与 Jump back in 共用同一套 `200–240px` 正方形卡片、圆角与文字内边距。首次使用、没有历史 Session 时也显示。点击沿用当前 Agent / 模型 / Workspace / 审批模式直接创建旅行规划，并保留 composer 中尚未发送的草稿。 |
+| New task 的 Browser 窗格 | 尚未创建 Session 时的空白欢迎画布 | ✅ 已落地（chat-page.tsx）：draft/New task 路由强制隐藏并关闭 Browser，让欢迎页使用完整工作区；仅隐藏窗格，不清空 Browser tabs，首次发送后仍可把 draft scope 安全迁移到新 Session。已有 Session 的 Browser 开关与证据层行为不变。 |
+| Session 返回主页 | 从 Jump back in 进入历史对话后的返回路径 | ✅ 已落地（chat-page.tsx）：会话标题左侧提供常驻纯图标返回按钮，使用 Phosphor 左箭头与现有 toolbar 视觉语言；点击回到 `/chat/new` 欢迎页，不删除或归档当前 Session，也不把用户离开主页前尚未发送的 draft 另行停放或清空，运行中的任务继续由 Session 生命周期管理。按钮无可见文案，但保留 tooltip 与可访问名称。 |
 | 顶栏 Where/When/Who/Budget 约束 chips | 结构化约束预填对话 | ⏳ 待做，方案已定：**纯 prompt 脚手架**（填写值编排成首条消息里可见的结构化文本行，零协议改动）。两条红线：① Budget chip 是旅行预算偏好信号，**不进交易闸门**（transaction/commitment.ts 已否决数字上限模型：授权=对具体方案的承诺）；② 与 composer 既有的 goal **token 预算**同名不同物，互不触碰 |
 | 右栏 AI nudge 卡（接着上次话题的建议） | 可关闭的建议卡 + 动作 chips | ⏳ 候选（需要最近会话的摘要数据，后置） |
 | 「For you in Tokyo」POI 推荐流 / Map / Explore | 目的地 discovery | ❌ 不采（§2 不做清单：discovery 面） |

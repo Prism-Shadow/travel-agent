@@ -14,9 +14,10 @@
  * chosen before sending, and everything except approval mode is locked once the Session is
  * created. The Session list and the new-chat entry point live in the global sidebar.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
+import { ArrowLeftIcon } from "@phosphor-icons/react/dist/csr/ArrowLeft";
 import type {
   AgentSummary,
   ApprovalMode,
@@ -78,6 +79,7 @@ import { FilesPanel } from "./files-panel";
 import { useFilesPanel } from "./use-files-panel";
 import type { FilesPanelState } from "./use-files-panel";
 import { BrowserPanePanel, BrowserPaneSplitter } from "./browser-pane";
+import { browserPaneOpenForRoute } from "./browser-pane-scope";
 import { useBrowserPane } from "./use-browser-pane";
 import { SubagentsPanel } from "./subagents-panel";
 import {
@@ -384,10 +386,11 @@ export function ChatPage() {
   const selected = draft ? null : (sessions.find((s) => s.sessionId === routeSessionId) ?? null);
   const userId = user?.userId ?? null;
 
-  // A draft has no server Session id yet, but it still owns a real desktop browser strip. Read the
-  // opaque id that moves with its cache (including into a parked draft), or mint one for an older
-  // cache/new draft. location.key deliberately remints only when `/chat/new` was entered as a new
-  // history entry and the active cache was cleared by parking the previous typed draft.
+  // A draft has no server Session id yet, but it keeps a desktop browser scope so existing tabs can
+  // survive until the first send. Read the opaque id that moves with its cache (including into a
+  // parked draft), or mint one for an older cache/new draft. location.key deliberately remints only
+  // when `/chat/new` was entered as a new history entry and the active cache was cleared by parking
+  // the previous typed draft.
   const draftBrowserScopeId = useMemo(() => {
     if (!draft || !userId || !projectId) return null;
     const cached =
@@ -402,10 +405,16 @@ export function ChatPage() {
 
   // Desktop only: `supported` is false in a browser tab, and the column is not rendered at all.
   //
-  // A real route uses its Session id; a not-yet-sent draft uses the persisted scope above. Switching
-  // either swaps the whole strip. On first send DraftView promotes the draft scope to the freshly
-  // created Session before it starts the task, so prepared pages remain available to user and agent.
+  // A real route uses its Session id; a not-yet-sent draft uses the persisted scope above. Drafts
+  // keep that scope for first-send promotion, but deliberately close and do not render the pane:
+  // New task should use the whole workspace until a real Session exists. Closing does not clear its
+  // tabs. The render gate is synchronous so an already-open native pane cannot flash for one frame
+  // while the close IPC catches up.
   const browserPane = useBrowserPane(browserScope);
+  const browserPaneOpen = browserPaneOpenForRoute(browserPane.open, draft);
+  useLayoutEffect(() => {
+    if (draft && browserPane.open) browserPane.setOpen(false);
+  }, [browserPane.open, browserPane.setOpen, draft]);
   // Currently effective model (session state, the model reference comes from the Session DTO): model selection in draft state is handled internally by DraftView.
   const activeModelRef = selected
     ? { provider: selected.provider, modelId: selected.modelId }
@@ -1129,6 +1138,13 @@ export function ChatPage() {
     navigate(`/chat/${DRAFT_SESSION_ID}`);
   }, [user, projectId, navigate]);
 
+  // "Back home" returns to the existing welcome draft rather than starting another one. Unlike
+  // New Chat, it must not park or clear text the user left on the home screen before opening a
+  // recent Session from Jump back in.
+  const backHome = useCallback(() => {
+    navigate(`/chat/${DRAFT_SESSION_ID}`);
+  }, [navigate]);
+
   // Auth-dead notice primary CTA: the Models page is where the credential is actually fixed.
   const openModels = useCallback(() => {
     navigate("/models");
@@ -1302,7 +1318,16 @@ export function ChatPage() {
       {/* Thin top toolbar */}
       {selected && (
         <div className="flex shrink-0 items-center gap-2.5 border-b border-gray-200 px-3 py-2 md:px-4 dark:border-gray-800">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button
+              type="button"
+              onClick={backHome}
+              title={S.chat.backHome}
+              aria-label={S.chat.backHome}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white dark:focus-visible:ring-gray-500"
+            >
+              <ArrowLeftIcon size={14} weight="bold" aria-hidden />
+            </button>
             <h1 className="flex min-w-0 text-[15px] font-semibold">
               <Truncated text={selected.title ?? S.chat.defaultSessionTitle} />
             </h1>
@@ -1655,7 +1680,7 @@ export function ChatPage() {
       {/* The splitter converts a pointer x into a fraction of *this* row, so it needs the row's box. */}
       <div className="flex min-h-0 flex-1" ref={browserPane.containerRef}>
         <div
-          className={`flex min-h-0 min-w-0 flex-1 flex-col ${browserPane.fullscreen ? "hidden" : ""}`}
+          className={`flex min-h-0 min-w-0 flex-1 flex-col ${browserPaneOpen && browserPane.fullscreen ? "hidden" : ""}`}
         >
           {draft ? (
             // Draft state: DraftView's vertically centered input card + Agent / Workspace
@@ -1774,7 +1799,7 @@ export function ChatPage() {
         </div>
 
         {/* Suppressed, not closed, while the browser column is up — see the note by `filesPanel`. */}
-        {selected && !browserPane.open && (
+        {selected && !browserPaneOpen && (
           <SubagentsPanel
             session={selected}
             panel={subagentsPanel}
@@ -1786,8 +1811,8 @@ export function ChatPage() {
             ctx={ctx}
           />
         )}
-        {selected && !browserPane.open && <FilesPanel session={selected} panel={filesPanel} />}
-        {browserPane.supported && browserPane.open && !browserPane.fullscreen && (
+        {selected && !browserPaneOpen && <FilesPanel session={selected} panel={filesPanel} />}
+        {browserPane.supported && browserPaneOpen && !browserPane.fullscreen && (
           <>
             <BrowserPaneSplitter state={browserPane} />
             <div
@@ -1801,7 +1826,7 @@ export function ChatPage() {
         )}
         {/* Too narrow to split: the browser takes the whole area rather than being open with
             nowhere to draw it (design/002 §6.2). The toolbar toggle is still there to close it. */}
-        {browserPane.supported && browserPane.fullscreen && (
+        {browserPane.supported && browserPaneOpen && browserPane.fullscreen && (
           <div className="flex min-h-0 min-w-0 flex-1" data-testid="iab-column">
             <BrowserPanePanel state={browserPane} />
           </div>

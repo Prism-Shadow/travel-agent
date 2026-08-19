@@ -20,12 +20,24 @@
  */
 
 export interface ScopeInput {
-  /** The conversation the renderer is on. Null on a draft or the session list. */
+  /** The browser scope the renderer is on. Null on the session list. */
   requested: string | null;
   /** The scope main confirmed for the most recent request, or null while one is in flight. */
   confirmed: string | null;
   /** The scope main's latest state push says it is showing. */
   published: string | null;
+}
+
+/**
+ * Whether a requested browser pane belongs on the current route.
+ *
+ * Drafts keep their browser scope alive so any existing tabs can be promoted to the Session made
+ * by the first send, but the empty New task surface must stay focused and use the full workspace.
+ * This synchronous render gate prevents an already-open pane from flashing before the close IPC
+ * reaches main.
+ */
+export function browserPaneOpenForRoute(requestedOpen: boolean, isDraft: boolean): boolean {
+  return requestedOpen && !isDraft;
 }
 
 /**

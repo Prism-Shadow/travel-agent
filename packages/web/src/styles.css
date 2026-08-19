@@ -155,6 +155,35 @@
   }
 }
 
+/* Welcome-page desktop composition. Once both discovery columns are visible, the available
+   page width is always shared evenly between trip creation and the image-first right rail —
+   independent of whether the navigation sidebar is expanded or collapsed. */
+@media (min-width: 80rem) {
+  .draft-welcome-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(2rem, 2vw, 2.5rem);
+    padding-inline: clamp(1.5rem, 2vw, 2.5rem);
+  }
+
+  .draft-welcome-primary,
+  .draft-jump-back-in {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .draft-welcome-primary {
+    padding-inline: 0;
+  }
+
+  .draft-discovery-card {
+    width: clamp(12.5rem, 12vw, 15rem);
+    height: clamp(12.5rem, 12vw, 15rem);
+  }
+}
+
 /* ---------- Animations (EmaPowerbank style: 160-280ms ease, slight entrance offset + subtle scale) ---------- */
 
 @keyframes rise-in {

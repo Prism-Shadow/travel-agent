@@ -850,6 +850,7 @@ export const zh = {
       backend: "浏览器后端",
       backendIab: "应用内浏览器",
       backendExtension: "我自己的 Chrome（扩展）",
+      backendExtensionHint: "使用 Chrome 中已有的登录状态；若扩展尚未连接，将打开安装引导",
       /** Deliberately says "default browser": this opens the OS handler, which may not be the
           browser the extension is connected to. The real backend handoff is the extension. */
       openInDefaultBrowser: "在系统默认浏览器中打开此页",
@@ -873,8 +874,8 @@ export const zh = {
       },
       /** Bringing cookies, saved logins and history over from the user's own Chrome. */
       import: {
-        open: "从浏览器导入",
-        title: "从你的浏览器导入",
+        open: "导入到应用内浏览器",
+        title: "从你的浏览器导入到应用内浏览器",
         subtitle: "选择要带到内置浏览器的数据",
         from: "来源",
         /** The "Close Google Chrome completely before importing" line, per browser. */
@@ -929,6 +930,33 @@ export const zh = {
     draftPrompt: "从一个想法开始",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations, design/005 P0).
     jumpBackIn: "接着上次继续",
+    // Always-available editorial prompts under the recent-session rail. A click starts a
+    // real draft task with the currently selected Agent / model / Workspace settings.
+    getInspired: {
+      title: "寻找旅行灵感",
+      previous: "向左浏览旅行灵感",
+      next: "向右浏览旅行灵感",
+      cards: {
+        kyotoAutumn: {
+          title: "追一场京都红叶",
+          tag: "季节灵感",
+          prompt:
+            "帮我设计一趟以京都红叶为主题的五日旅行。先比较 11 月中下旬不同时间段的景色、拥挤程度和价格取舍，再给出寺院、庭园、夜间点灯与安静街区相结合的每日路线；住宿和交通只筛选少数代表选项，说明为什么入选，任何预订都等我确认。",
+        },
+        bangkokFood: {
+          title: "用味蕾逛遍曼谷",
+          tag: "美食灵感",
+          prompt:
+            "帮我设计一趟四天的曼谷美食旅行，兼顾街头小吃、传统市场、社区餐馆和一顿值得预约的晚餐。按街区组织路线，避免为了打卡来回奔波，并说明卫生、排队、营业时间与交通取舍；先给规划和少数代表餐厅，未经我确认不要预订。",
+        },
+        northernLights: {
+          title: "睡在极光之下",
+          tag: "自然灵感",
+          prompt:
+            "帮我规划一趟以观赏极光为核心的六日旅行。先比较冰岛北部、挪威北部和芬兰拉普兰在天气稳定性、交通、预算与活动丰富度上的差异，再推荐一个目的地并给出保留天气缓冲的行程；住宿和活动只列少数代表选项，任何预订都等我确认。",
+        },
+      },
+    },
     // Trip-constraint chips (design/005 P0): compose copy (TripChipsCopy contract in
     // trip-constraints.ts) + chip/popover UI copy. "预算" here is the trip's price TIER —
     // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
@@ -1142,6 +1170,8 @@ Benchmark：
     },
     sessionList: "Session",
     defaultSessionTitle: "新对话",
+    /** Session header navigation back to the New task welcome screen. */
+    backHome: "返回主页",
     model: "Model",
     workspace: "Workspace",
     workspaceHint: "留空自动创建临时工作区；指定时必须是服务器上已存在的目录",
