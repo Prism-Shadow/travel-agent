@@ -22,7 +22,8 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 │   ├── architecture/ # Architecture explanations for current product subsystems
 │   │   └── iab-in-app-browser.md # In-app browser architecture notes
 │   ├── browser/ # Vendored browser stack (penguin-browser) reference docs
-│   │   ├── CHANGELOG.md # Frozen upstream penguin-browser changelog (history before the 2026-08-12 import)
+│   │   ├── cli-changelog.md # Frozen upstream CLI/relay changelog (history before the 2026-08-12 import)
+│   │   ├── extension-changelog.md # Frozen upstream extension changelog (entries end at 0.0.97)
 │   │   └── plan-centralize-relay-state.md # Relay-state centralization design for packages/browser-cli
 │   ├── design/ # Numbered design/decision records, formerly repo-root design/
 │   │   ├── 001-architecture.md # Baseline architecture overview
@@ -146,7 +147,6 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 │   │   ├── vitest.config.ts # Vitest configuration
 │   │   └── vitest.setup.ts # Vitest setup file
 │   ├── browser-extension/ # `penguin-browser-extension`: Chrome extension bridge using `chrome.debugger`
-│   │   ├── CHANGELOG.md # Package-level extension changelog
 │   │   ├── README.md # Extension package documentation
 │   │   ├── dist-*/ # Numbered generated extension build outputs; not source of truth
 │   │   ├── dist-packaged/ # Packaged extension build output; generated artifact

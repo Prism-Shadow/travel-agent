@@ -1,5 +1,7 @@
 # Changelog
 
+> Frozen history of the upstream Penguin Browser Chrome extension. Entries end at 0.0.97 — upstream's later builds (through 0.0.107, the version imported on 2026-08-12) shipped without entries. Changes made after the import are recorded through the repo-root `changelog/` process, not here.
+
 ## 0.0.97
 
 ### Changes
