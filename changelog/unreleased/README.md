@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] Browser CLI sources grouped by concern; tests moved to `test/` and out of the published package, where 185 build artifacts of them were shipping. ([details](2026-08-19-browser-cli-src-layout.md))
 - [2026-08-19] Cookie import from your own browser works again: Chromium cookie-db v24 binds `SHA-256(domain)` into every value, and the importer was keeping it. ([details](2026-08-19-cookie-import-domain-hash.md))
 - [2026-08-19] The crash prompt's "Reopen them" is the app's own primary button instead of a hand-rolled blue. ([details](2026-08-19-restore-prompt-primary-button.md))
 - [2026-08-19] Dragging the chat/browser split shows a frozen frame of the page instead of a blank hole. ([details](2026-08-19-splitter-drag-frozen-frame.md))

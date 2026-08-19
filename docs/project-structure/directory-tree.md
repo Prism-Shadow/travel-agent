@@ -72,76 +72,22 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 │   │   │   ├── extension-new-page.ts # Utility to open pages through the extension flow
 │   │   │   ├── extension-server.ts # Local extension server helper
 │   │   │   └── long-running-stability-test.ts # Long-running browser stability utility
-│   │   ├── src/ # Main browser automation implementation
-│   │   │   ├── __snapshots__/ # Vitest snapshots for source-level tests
-│   │   │   ├── assets/ # Runtime/static assets bundled into browser CLI resources
-│   │   │   ├── a11y-client.ts # Accessibility/client-side inspection helpers
-│   │   │   ├── agent-identity.ts # Agent/session identity handling for browser control
-│   │   │   ├── aria-snapshot.ts # ARIA snapshot extraction for page understanding
-│   │   │   ├── browser-config.ts # Browser CLI configuration resolution
-│   │   │   ├── browser-install.ts # Browser/extension installation helpers
-│   │   │   ├── browser-launch.ts # Chrome/browser process launch helpers
-│   │   │   ├── cdp-log.ts # Chrome DevTools Protocol logging utilities
-│   │   │   ├── cdp-relay.ts # Local CDP relay server implementation
-│   │   │   ├── cdp-session.ts # CDP session lifecycle abstractions
-│   │   │   ├── cdp-types.ts # Shared CDP type definitions
-│   │   │   ├── chrome-discovery.ts # Chrome instance discovery
-│   │   │   ├── clean-html.ts # HTML cleanup before markdown/snapshot conversion
-│   │   │   ├── cli.ts # CLI command parser and command dispatch
-│   │   │   ├── cloud-client.ts # Cloud/backend client helpers where browser CLI needs them
-│   │   │   ├── create-logger.ts # Logging factory for browser tooling
-│   │   │   ├── debugger.ts # Debugger protocol integration helpers
-│   │   │   ├── debugger-examples.ts # Debugger usage examples
-│   │   │   ├── diff-utils.ts # Diff helpers used by browser output comparisons
-│   │   │   ├── editor.ts # Editor integration helpers
-│   │   │   ├── executor.ts # Playwright-based action executor
-│   │   │   ├── extension-errors.ts # Error types/messages for extension communication
-│   │   │   ├── ffmpeg.ts # Screen/video recording support helpers
-│   │   │   ├── ghost-browser.ts # Ghost browser backend integration
-│   │   │   ├── ghost-cursor*.ts # Ghost-cursor visual interaction helpers
-│   │   │   ├── handover-state.ts # State for human/agent handover flows
-│   │   │   ├── help-overlay-client.ts # Client for in-page help overlay requests
-│   │   │   ├── htmlrewrite.ts # HTML rewrite utilities
-│   │   │   ├── iab-key.ts # In-app browser key/authorization handling
-│   │   │   ├── index.ts # Public source entry point
-│   │   │   ├── interaction.ts # Browser interaction primitives
-│   │   │   ├── kill-port.ts # Utility for clearing occupied local ports
-│   │   │   ├── kitty-graphics.ts # Terminal image/graphics rendering helper
-│   │   │   ├── mcp.ts # MCP server/tool integration for browser automation
-│   │   │   ├── mcp-client.ts # MCP client helpers
-│   │   │   ├── mcp-resources.ts # MCP resource definitions
-│   │   │   ├── package-paths.ts # Resolves package-relative resource paths
-│   │   │   ├── page-markdown.ts # Converts pages into markdown-like content
-│   │   │   ├── payment-gate.ts # Payment-sensitive action gate; uses transaction safety concepts
-│   │   │   ├── playwright-import.ts # Playwright import/runtime resolution
-│   │   │   ├── protocol.ts # Extension/relay protocol definitions
-│   │   │   ├── react-source.ts # React source inspection helpers
-│   │   │   ├── recording-relay.ts # Browser recording relay
-│   │   │   ├── redaction.ts # Sensitive-data redaction utilities
-│   │   │   ├── relay-client.ts # Client for relay communication
-│   │   │   ├── relay-discovery.ts # Relay discovery and selection
-│   │   │   ├── relay-state.ts # Relay state management
-│   │   │   ├── request-help.ts # Human help/request escalation flow
-│   │   │   ├── resource.md # Browser CLI resource documentation bundled for agents
-│   │   │   ├── sandboxed-process.ts # Sandboxed process execution helper
-│   │   │   ├── scoped-fs.ts # Scoped filesystem access helper
-│   │   │   ├── screen-recording.ts # Screen recording support
-│   │   │   ├── session-lifecycle.ts # Browser session lifecycle management
-│   │   │   ├── skill.md # Browser automation skill instructions bundled with the package
-│   │   │   ├── start-relay-server.ts # Relay server startup entry/helper
-│   │   │   ├── storage-cookie-routing.ts # Cookie/storage routing behavior
-│   │   │   ├── stream-relay.ts # Streaming relay support
-│   │   │   ├── styles.ts # Styling helpers for injected/browser UI
-│   │   │   ├── tab-ownership.ts # Tab ownership and task authorization model
-│   │   │   ├── test-*.ts and *.test.ts # Source-local tests for browser behavior
-│   │   │   ├── test-utils.ts # Shared browser CLI test helpers
-│   │   │   ├── user-interaction.ts # Human interaction and confirmation flow helpers
-│   │   │   ├── utils.ts # General browser CLI utilities
-│   │   │   ├── wait-for-page-load.ts # Page-load waiting heuristics
-│   │   │   └── write-gate.ts # Write-action safety gate before mutating pages
-│   │   ├── test/ # Package-level tests outside `src/`
-│   │   │   ├── kill-port.test.ts # Port-kill utility tests
-│   │   │   └── security.test.ts # Security guard tests
+│   │   ├── src/ # Main browser automation implementation, grouped by concern
+│   │   │   ├── cli.ts · mcp.ts · index.ts · start-relay-server.ts # The four entry points, kept at the root
+│   │   │   ├── skill.md · resource.md # Agent-facing instructions, shipped with the package
+│   │   │   ├── relay/ # CDP relay, its state, the wire protocol, sessions and tab ownership
+│   │   │   ├── executor/ # Running agent code against a page, and the gates every write passes
+│   │   │   ├── page/ # Reading a page: ARIA snapshot, markdown, cleaned HTML, styles, editor, debugger
+│   │   │   ├── browser/ # Finding, installing and launching a browser; Playwright import
+│   │   │   ├── media/ # Screen recording, RTMP streaming, ffmpeg, terminal graphics
+│   │   │   ├── cursor/ # Human-like cursor movement
+│   │   │   ├── client/ # Page-context bundles built by esbuild; excluded from this package's tsc
+│   │   │   ├── examples/ # Documentation examples read by scripts/build-resources.ts; never executed
+│   │   │   ├── mcp/ # MCP resource definitions
+│   │   │   ├── shared/ # utils, logger, package paths, diff, redaction, ambient declarations
+│   │   │   └── assets/ # Static assets bundled into browser CLI resources
+│   │   ├── test/ # Every test, plus its fixtures and vitest snapshots
+│   │   ├── tsconfig.test.json # Type-checks src + test without emitting; see its header
 │   │   ├── tsconfig.json # TypeScript config for browser CLI
 │   │   ├── tsconfig.tsbuildinfo # Generated TypeScript incremental-build metadata
 │   │   ├── vitest.config.ts # Vitest configuration

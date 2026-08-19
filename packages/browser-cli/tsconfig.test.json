@@ -1,0 +1,25 @@
+{
+  // 测试的类型检查。
+  //
+  // 主 tsconfig 的 `include` 只有 `src`，因为它要 emit 到 `dist/`：测试留在 src 里时会被一起
+  // 编译并随包发布（`files` 含 `dist` 与 `src`），一次构建产出 88 个 `.test.js`。把测试移到
+  // `test/` 解决了那个问题，但也把它们移出了 tsc 的视野——vitest 不做类型检查，测试里的类型
+  // 错误会静默通过。
+  //
+  // 所以类型检查分两趟：主配置负责 `src` 并产出 `dist`，这一份只检查不产出，覆盖两者。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    // 不产出，所以 rootDir 只是程序边界，放开到包根才能覆盖 test/ 与 scripts/。
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  // `scripts/` 刻意不在内：那些是开发期一次性工具（其中一个还需要 bun 类型），把它们
+  // 拉进来只会用无关的既有报错淹没真问题。
+  "include": ["src", "test", "vitest.setup.ts", "vitest.config.ts"],
+  "exclude": ["src/client/**", "**/node_modules", "**/.*/"]
+}

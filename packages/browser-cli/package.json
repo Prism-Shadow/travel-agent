@@ -13,7 +13,7 @@
     "build": "rm -rf dist *.tsbuildinfo && mkdir dist && tsx scripts/build-client-bundles.ts && tsc && tsx scripts/build-extension-bundle.ts && tsx scripts/build-resources.ts",
     "watch": "tsc -w",
     "cli": "vite-node src/cli.ts",
-    "typecheck": "tsc",
+    "typecheck": "tsc && tsc -p tsconfig.test.json",
     "mcp": "vite-node src/cli.ts",
     "test": "vitest run --no-file-parallelism",
     "test:update": "vitest run -u",

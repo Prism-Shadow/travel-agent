@@ -13,12 +13,13 @@ Buffer.prototype[util.inspect.custom] = function () {
 }
 
 import dedent from 'string-dedent'
-import { LOG_FILE_PATH, VERSION, parseRelayHost } from './utils.js'
-import { ensureRelayServer, RELAY_PORT } from './relay-client.js'
-import { PlaywrightExecutor, CodeExecutionTimeoutError } from './executor.js'
-import { discoverChromeInstances, resolveDirectInput, appendSessionToWsUrl } from './chrome-discovery.js'
+import { LOG_FILE_PATH, VERSION, parseRelayHost } from './shared/utils.js'
+import { distPath } from './shared/package-paths.js'
+import { ensureRelayServer, RELAY_PORT } from './relay/relay-client.js'
+import { PlaywrightExecutor, CodeExecutionTimeoutError } from './executor/executor.js'
+import { discoverChromeInstances, resolveDirectInput, appendSessionToWsUrl } from './browser/chrome-discovery.js'
 import crypto from 'node:crypto'
-import { BUNDLED_MCP_RESOURCES, readBundledMcpResource } from './mcp-resources.js'
+import { BUNDLED_MCP_RESOURCES, readBundledMcpResource } from './mcp/mcp-resources.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -190,7 +191,7 @@ const server = new McpServer({
 })
 
 const promptContent =
-  fs.readFileSync(path.join(__dirname, '..', 'dist', 'prompt.md'), 'utf-8') +
+  fs.readFileSync(distPath('prompt.md'), 'utf-8') +
   `\n\nfor debugging internal penguin-browser errors, check penguin-browser relay server logs at: ${LOG_FILE_PATH}`
 
 for (const resource of BUNDLED_MCP_RESOURCES) {

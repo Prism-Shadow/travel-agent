@@ -1,4 +1,4 @@
-import { startPenguinBrowserCDPRelayServer } from '../src/cdp-relay.js'
+import { startPenguinBrowserCDPRelayServer } from '../src/relay/cdp-relay.js'
 
 async function main() {
   const server = await startPenguinBrowserCDPRelayServer({ port: 19989 })

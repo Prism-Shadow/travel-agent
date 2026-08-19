@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { startPenguinBrowserCDPRelayServer } from '../src/cdp-relay.js'
+import { startPenguinBrowserCDPRelayServer } from '../src/relay/cdp-relay.js'
 import { WebSocket } from 'ws'
-import { createFileLogger } from '../src/create-logger.js'
-import { killPortProcess } from '../src/kill-port.js'
-import { EXTENSION_IDS } from '../src/utils.js'
+import { createFileLogger } from '../src/shared/create-logger.js'
+import { killPortProcess } from '../src/browser/kill-port.js'
+import { EXTENSION_IDS } from '../src/shared/utils.js'
 
 const TEST_PORT = 19999
 
@@ -142,9 +142,9 @@ describe('Security Tests', () => {
         `http://127.0.0.1:${TEST_PORT}/extension/status?browser=Chrome&installId=profile-c`,
       ).then((response) => response.json())
 
-      expect(firstStatus.connected).toBe(true)
-      expect(secondStatus.connected).toBe(true)
-      expect(missingStatus.connected).toBe(false)
+      expect((firstStatus as { connected: boolean }).connected).toBe(true)
+      expect((secondStatus as { connected: boolean }).connected).toBe(true)
+      expect((missingStatus as { connected: boolean }).connected).toBe(false)
     } finally {
       first.close()
       second.close()

@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { spawn } from 'node:child_process'
 import net from 'node:net'
-import { getListeningPidsForPort, killPortProcess } from '../src/kill-port.js'
+import { getListeningPidsForPort, killPortProcess } from '../src/browser/kill-port.js'
 
 async function getFreeTcpPort(): Promise<number> {
   return await new Promise<number>((resolve, reject) => {

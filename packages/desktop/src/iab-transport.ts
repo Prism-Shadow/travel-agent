@@ -36,7 +36,7 @@ const RECONNECT_DELAYS_MS = [250, 500, 1000, 2000, 4000, 8000];
  */
 const ANNOUNCE_RETRY_DELAYS_MS = [200, 500, 1500, 3000];
 
-/** Wire messages, matching `packages/browser-cli/src/protocol.ts`. */
+/** Wire messages, matching `packages/browser-cli/src/relay/protocol.ts`. */
 interface InboundMessage {
   id?: number;
   method?: string;

@@ -13,7 +13,7 @@ import type {
   ExtensionStopRecordingResult,
   IsRecordingResult,
   CancelRecordingResult,
-} from 'penguin-browser/src/protocol'
+} from 'penguin-browser/src/relay/protocol'
 import type {
   OffscreenStartRecordingResult,
   OffscreenStopRecordingResult,

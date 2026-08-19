@@ -12,10 +12,16 @@ import { createStore } from 'zustand/vanilla'
 import { resolvePersistentInstallId } from './install-identity.js'
 import type { ExtensionState, ConnectionState, TabState, TabInfo } from './types'
 import { initPenguinBrowserToolbar } from './toolbar/toolbar'
-import type { CDPEvent, Protocol } from 'penguin-browser/src/cdp-types'
-import type { ExtensionCommandMessage, ExtensionResponseMessage } from 'penguin-browser/src/protocol'
-import { handleGhostBrowserCommand, type GhostBrowserCommandParams } from 'penguin-browser/src/ghost-browser'
-// Inlined at build time via vite ?raw. Source: penguin-browser/src/ghost-cursor-client.ts
+import type { CDPEvent, Protocol } from 'penguin-browser/src/relay/cdp-types'
+import type {
+  ExtensionCommandMessage,
+  ExtensionResponseMessage,
+} from 'penguin-browser/src/relay/protocol'
+import {
+  handleGhostBrowserCommand,
+  type GhostBrowserCommandParams,
+} from 'penguin-browser/src/browser/ghost-browser'
+// Inlined at build time via vite ?raw. Source: penguin-browser/src/client/ghost-cursor-client.ts
 import ghostCursorBundleCode from '../../browser-cli/dist/ghost-cursor-client.js?raw'
 // Bippy: React fiber introspection library, used for "Copy React Source Path" context menu.
 // Built by penguin-browser/scripts/build-client-bundles.ts, exposes globalThis.__bippy

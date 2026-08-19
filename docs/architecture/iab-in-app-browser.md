@@ -4,7 +4,7 @@
 > 在 GitHub 上打开本文件即可看到渲染后的图。
 >
 > 参考:`docs/design/002-codex-style-single-window-iab.md`;代码:`packages/desktop/src/browser-pane.ts`、
-> `iab-transport.ts`、`packages/browser-cli/src/cdp-relay.ts`、`executor.ts`。
+> `iab-transport.ts`、`packages/browser-cli/src/relay/cdp-relay.ts`、`src/executor/executor.ts`。
 
 ## 一句话
 

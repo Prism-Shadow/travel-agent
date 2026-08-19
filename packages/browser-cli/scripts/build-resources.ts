@@ -49,8 +49,8 @@ function cleanTypes(typesContent: string): string {
 }
 
 function buildDebuggerApi() {
-  const debuggerTypes = cleanTypes(readFile('dist/debugger.d.ts'))
-  const debuggerExamples = readFile('src/debugger-examples.ts')
+  const debuggerTypes = cleanTypes(readFile('dist/page/debugger.d.ts'))
+  const debuggerExamples = readFile('src/examples/debugger-examples.ts')
 
   const content = dedent`
     # Debugger API Reference
@@ -72,8 +72,8 @@ function buildDebuggerApi() {
 }
 
 function buildEditorApi() {
-  const editorTypes = cleanTypes(readFile('dist/editor.d.ts'))
-  const editorExamples = readFile('src/editor-examples.ts')
+  const editorTypes = cleanTypes(readFile('dist/page/editor.d.ts'))
+  const editorExamples = readFile('src/examples/editor-examples.ts')
 
   const content = dedent`
     # Editor API Reference
@@ -97,8 +97,8 @@ function buildEditorApi() {
 }
 
 function buildStylesApi() {
-  const stylesTypes = cleanTypes(readFile('dist/styles.d.ts'))
-  const stylesExamples = readFile('src/styles-examples.ts')
+  const stylesTypes = cleanTypes(readFile('dist/page/styles.d.ts'))
+  const stylesExamples = readFile('src/examples/styles-examples.ts')
 
   const content = dedent`
     # Styles API Reference
@@ -122,7 +122,7 @@ function buildStylesApi() {
 }
 
 function buildPerformanceProfiling() {
-  const performanceExamples = readFile('src/performance-examples.ts')
+  const performanceExamples = readFile('src/examples/performance-examples.ts')
 
   const content = dedent`
     # Profile Website Performance with Penguin Browser

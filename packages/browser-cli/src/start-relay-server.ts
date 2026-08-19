@@ -1,8 +1,8 @@
-import { startPenguinBrowserCDPRelayServer } from './cdp-relay.js'
-import { createFileLogger } from './create-logger.js'
-import { iabKeyFromEnv } from './iab-key.js'
-import { waitForRelayVersion } from './relay-client.js'
-import { LOG_CDP_FILE_PATH } from './utils.js'
+import { startPenguinBrowserCDPRelayServer } from './relay/cdp-relay.js'
+import { createFileLogger } from './shared/create-logger.js'
+import { iabKeyFromEnv } from './relay/iab-key.js'
+import { waitForRelayVersion } from './relay/relay-client.js'
+import { LOG_CDP_FILE_PATH } from './shared/utils.js'
 
 process.title = 'penguin-browser-ws-server'
 

@@ -13,9 +13,10 @@ import pc from 'picocolors'
 Buffer.prototype[util.inspect.custom] = function () {
   return `<Buffer ${this.length} bytes>`
 }
-import { killPortProcess } from './kill-port.js'
-import { canEmitKittyGraphics, emitKittyImage } from './kitty-graphics.js'
-import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './utils.js'
+import { killPortProcess } from './browser/kill-port.js'
+import { canEmitKittyGraphics, emitKittyImage } from './media/kitty-graphics.js'
+import { VERSION, LOG_FILE_PATH, LOG_CDP_FILE_PATH, parseRelayHost } from './shared/utils.js'
+import { packageRoot } from './shared/package-paths.js'
 import {
   assertStandaloneBrowserModeAllowed,
   readBackendPreference,
@@ -23,14 +24,14 @@ import {
   resolveRelayEndpoint,
   type BrowserBackendRequest,
   type StandaloneBrowserMode,
-} from './relay-discovery.js'
-import { MISSING_IDENTITY_MESSAGE, readAgentIdentity } from './agent-identity.js'
-import { iabKeyFromEnv } from './iab-key.js'
+} from './relay/relay-discovery.js'
+import { MISSING_IDENTITY_MESSAGE, readAgentIdentity } from './relay/agent-identity.js'
+import { iabKeyFromEnv } from './relay/iab-key.js'
 import {
   harnessChannel,
   requestUserInteraction,
   type RequestInteractionOptions,
-} from './user-interaction.js'
+} from './executor/user-interaction.js'
 import {
   ensureRelayServer,
   RELAY_PORT,
@@ -38,10 +39,10 @@ import {
   getExtensionOutdatedWarning,
   getExtensionStatus,
   type ExtensionStatus,
-} from './relay-client.js'
-import { discoverChromeInstances, resolveDirectInput, type DiscoveredInstance } from './chrome-discovery.js'
-import { getCloudClient, loadCloudAuth, saveCloudAuth, CloudClient, buildLiveUrl } from './cloud-client.js'
-import type { SessionConnectionStatus } from './session-lifecycle.js'
+} from './relay/relay-client.js'
+import { discoverChromeInstances, resolveDirectInput, type DiscoveredInstance } from './browser/chrome-discovery.js'
+import { getCloudClient, loadCloudAuth, saveCloudAuth, CloudClient, buildLiveUrl } from './browser/cloud-client.js'
+import type { SessionConnectionStatus } from './relay/session-lifecycle.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -94,9 +95,9 @@ cli
         { resolveBrowserExecutablePath, shouldUseHeadlessByDefault },
         { getBundledExtensionPath },
       ] = await Promise.all([
-        import('./browser-launch.js'),
-        import('./browser-config.js'),
-        import('./package-paths.js'),
+        import('./browser/browser-launch.js'),
+        import('./browser/browser-config.js'),
+        import('./shared/package-paths.js'),
       ])
 
       await ensureRelayServer({ logger: console })
@@ -146,7 +147,7 @@ cli
 
 cli.command('browser install', 'Download Chrome for Testing for headless browser automation').action(async () => {
   try {
-    const { installChrome } = await import('./browser-install.js')
+    const { installChrome } = await import('./browser/browser-install.js')
     await installChrome()
   } catch (error: any) {
     console.error(`Error: ${error.message}`)
@@ -1915,8 +1916,8 @@ cli
     }
 
     // Lazy-load heavy dependencies only when serve command is used
-    const { createFileLogger } = await import('./create-logger.js')
-    const { startPenguinBrowserCDPRelayServer } = await import('./cdp-relay.js')
+    const { createFileLogger } = await import('./shared/create-logger.js')
+    const { startPenguinBrowserCDPRelayServer } = await import('./relay/cdp-relay.js')
 
     const logger = createFileLogger()
     // The desktop shell passes this per-launch secret through the environment, never argv. The
@@ -1993,7 +1994,7 @@ cli
     // Check if a Chrome binary is available for headless mode
     const headlessOption: BrowserOption[] = await (async () => {
       try {
-        const { resolveBrowserExecutablePath } = await import('./browser-config.js')
+        const { resolveBrowserExecutablePath } = await import('./browser/browser-config.js')
         resolveBrowserExecutablePath()
         return [
           {
@@ -2297,7 +2298,7 @@ cli.command('logfile', 'Print the path to the relay server log file').action(() 
 })
 
 cli.command('skill', 'Print the full penguin-browser usage instructions').action(() => {
-  const skillPath = path.join(__dirname, '..', 'src', 'skill.md')
+  const skillPath = path.join(packageRoot(), 'src', 'skill.md')
   const content = fs.readFileSync(skillPath, 'utf-8')
   console.log(content)
 })

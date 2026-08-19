@@ -50,17 +50,17 @@ const BUNDLES: BundleConfig[] = [
   {
     name: 'a11y-client',
     type: 'source',
-    entry: 'a11y-client.ts',
+    entry: 'client/a11y-client.ts',
   },
   {
     name: 'ghost-cursor-client',
     type: 'source',
-    entry: 'ghost-cursor-client.ts',
+    entry: 'client/ghost-cursor-client.ts',
   },
   {
     name: 'help-overlay-client',
     type: 'source',
-    entry: 'help-overlay-client.ts',
+    entry: 'client/help-overlay-client.ts',
   },
 
   // Wrapper bundles (npm packages → globalThis)

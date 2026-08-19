@@ -29,10 +29,9 @@
   "include": ["src"],
   "exclude": [
     // 浏览器上下文的客户端 bundle：由 esbuild 单独打成 IIFE 注入页面，不参与本包的 tsc
-    // 编译（它们用 DOM 全局，而本包刻意不含 dom lib）。
-    "src/a11y-client.ts",
-    "src/ghost-cursor-client.ts",
-    "src/help-overlay-client.ts",
+    // 编译（它们用 DOM 全局，而本包刻意不含 dom lib）。目录即规则：放进 src/client/
+    // 的东西就是页面侧代码，不再需要逐个点名。
+    "src/client/**",
     "**/node_modules",
     "**/.*/"
   ]
