@@ -1848,8 +1848,9 @@ export class PlaywrightExecutor {
          * The six-kind interaction primitive.
          *
          * Where `requestHelp` draws on the page, this one dispatches: a question, a choice or a
-         * payment confirmation becomes a card in the conversation and the agent keeps working; only
-         * a challenge or a takeover hands the page over. `caller` says where this is running — the
+         * payment review becomes a card in the conversation and the command waits without handing
+         * over the page; only a challenge or a takeover does that. `caller` says where this is
+         * running — the
          * relay holds no conversation's credential, so a card asked for here is told where to ask.
          */
         requestUserInteraction: (

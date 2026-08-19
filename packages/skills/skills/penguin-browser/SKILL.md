@@ -259,15 +259,15 @@ For an irreversible confirmation, stop after printing the message and ask the us
 
 ## Asking the person for something
 
-Six kinds, and the choice between them is not about politeness — it decides **whether you keep
-working**. Four of them are cards in the conversation and leave you driving the browser; two hand
-the page over and are the ones to avoid.
+Six kinds, and the choice between them is not about politeness — it decides **where the person
+acts**. Four are cards in the conversation and do not hand over the page; two give the person direct
+browser control and are the ones to avoid.
 
 | kind | Use it for | While it is open |
 | --- | --- | --- |
-| `info_request` | a fact only they have: how many passengers, which airport | you keep working |
-| `selection` | two to four real options, each with a reason to be on the list | you keep working |
-| `commitment_confirmation` | **any payment or final order** — see below | you keep working |
+| `info_request` | a fact only they have: how many passengers, which airport | you wait and retain page control |
+| `selection` | two to four real options, each with a reason to be on the list | you wait and retain page control |
+| `commitment_confirmation` | review before **any payment or final order** — see below | you wait, then stop for human payment |
 | `secret_entry` | a CVV, an SMS code, a 3DS prompt | you pause; they type it into the site's own field |
 | `human_challenge` | a slider, a captcha, a bank page that needs a real click | they hold the page briefly |
 | `browser_takeover` | nothing the other five cover — **last resort**, needs a `--reason` | they hold the page |
@@ -309,7 +309,7 @@ and do not click a final payment button because a question timed out.
 ## Payment: stop, ask, and do not press the button
 
 **Before any payment or final order, raise a `commitment_confirmation` card and wait.** This is not
-a style rule; the browser refuses the click, and the harness refuses the payment.
+a style rule: the browser refuses the click, and the harness exposes no agent-payment command.
 
 The card carries seven fields, all required. A card missing any of them is refused, because a
 purchase shown without (say) its cancellation terms is one the person was not really shown:
@@ -340,26 +340,6 @@ IAB_PAYMENT_CLICK_BLOCKED: "立即支付" looks like the control that takes the 
 That is the intended end of your turn. Tell the person the page is ready and that they can complete
 the payment (or the wallet / OTP step) themselves, declare the task `committed` when you delete the
 session so the tab is kept, and stop. Do not hunt for another element that does the same thing.
-
-If a build does allow it (`payments.agent_click_pay`, off by default), ask first and report after:
-
-```bash
-penguin-browser payment authorize --action ctrip.payFlightOrder \
-  --plan-json '{"merchantDomain":"ctrip.com","item":"MU5137 2026-09-02 经济舱 1 成人",
-                "amount":1280,"currency":"CNY","cancellation":"起飞前 24 小时可退，收 200 元手续费"}'
-# → {"status":"refused","reason":"agent_pay_disabled","detail":[…]}   ← the default
-# → {"status":"authorized","authorization":{"authorizationId":"pay-…"}}
-penguin-browser payment report --authorization pay-… --outcome-json '{"orderId":"E123456"}'
-```
-
-`plan-json` is what the page says **now**. Anything that moved since the card — the price, the
-dates, the cancellation terms, a new fee, a different merchant domain — is refused, and a different
-domain is refused outright with no way to re-confirm. Report the refusal to the person; do not
-retry it, and never ask them to confirm a domain they did not choose.
-
-If an authorised payment is interrupted before you report its outcome, the next attempt is refused
-with `dangling_intent`: the payment may already have gone through. Check the order with the merchant
-and tell the person what you find. Do not pay again.
 
 ## When the person is holding the page
 

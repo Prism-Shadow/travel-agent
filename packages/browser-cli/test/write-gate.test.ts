@@ -20,7 +20,7 @@ import {
   resetControlForTests,
   trackWrite,
 } from '../src/executor/handover-state.js'
-import { agentMayClickPay, assertClickAllowed, looksLikePayment } from '../src/executor/payment-gate.js'
+import { assertClickAllowed, looksLikePayment } from '../src/executor/payment-gate.js'
 import { guardHelper, guardPage, guardPlaywrightObject, unguard } from '../src/executor/write-gate.js'
 
 const SESSION = 'session-under-test'
@@ -230,28 +230,18 @@ describe("the payment gate", () => {
   )
 
   it('refuses the click, with a message that says what to do instead', () => {
-    expect(() => assertClickAllowed('立即支付', {})).toThrow(/IAB_PAYMENT_CLICK_BLOCKED/)
+    expect(() => assertClickAllowed('立即支付')).toThrow(/IAB_PAYMENT_CLICK_BLOCKED/)
     try {
-      assertClickAllowed('立即支付', {})
+      assertClickAllowed('立即支付')
     } catch (error) {
       expect((error as Error).message).toMatch(/commitment_confirmation/)
       expect((error as Error).message).toMatch(/let them complete the payment/i)
     }
   })
 
-  it('is closed unless the flag says otherwise, in every spelling that is not clearly yes', () => {
-    expect(agentMayClickPay({})).toBe(false)
-    expect(agentMayClickPay({ PENGUIN_FLAGS: 'iab.enabled' })).toBe(false)
-    expect(agentMayClickPay({ PENGUIN_FLAGS: 'payments.agent_click_pay=false' })).toBe(false)
-    // A typo must never be the reason a payment goes through.
-    expect(agentMayClickPay({ PENGUIN_FLAGS: 'payments.agent_click_pay=ture' })).toBe(false)
-    expect(agentMayClickPay({ PENGUIN_FLAGS: 'payments.agent_click_pay' })).toBe(true)
-    expect(agentMayClickPay({ PENGUIN_FLAGS: 'payments.agent_click_pay=on' })).toBe(true)
-  })
-
   it('blocks a pay button reached through a locator', async () => {
     const page = fakePage()
-    const guarded = guardPage(page as unknown as Record<string, unknown>, SESSION, {}) as {
+    const guarded = guardPage(page as unknown as Record<string, unknown>, SESSION) as {
       getByRole: (role: string, options?: { name?: string }) => { click: () => Promise<void> }
     }
     await expect(guarded.getByRole('button', { name: '立即支付' }).click()).rejects.toThrow(
@@ -262,7 +252,7 @@ describe("the payment gate", () => {
 
   it('blocks a pay button named only in the selector', async () => {
     const page = fakePage()
-    const guarded = guardPage(page as unknown as Record<string, unknown>, SESSION, {}) as {
+    const guarded = guardPage(page as unknown as Record<string, unknown>, SESSION) as {
       click: (selector: string) => Promise<void>
     }
     await expect(guarded.click('text=确认支付')).rejects.toThrow(/IAB_PAYMENT_CLICK_BLOCKED/)
@@ -276,20 +266,11 @@ describe("the payment gate", () => {
       name: 'submitAndClassify',
       clicks: true,
       describe: (opts) => opts.submit,
-      env: {},
     })
     await expect(submit({ submit: '提交订单' })).rejects.toThrow(/IAB_PAYMENT_CLICK_BLOCKED/)
     await expect(submit({ submit: '搜索' })).resolves.toBe('submitted')
   })
 
-  it('lets the click through when the build allows it', async () => {
-    const page = fakePage()
-    const guarded = guardPage(page as unknown as Record<string, unknown>, SESSION, {
-      PENGUIN_FLAGS: 'payments.agent_click_pay',
-    }) as { click: (selector: string) => Promise<void> }
-    await guarded.click('text=立即支付')
-    expect(page.calls).toEqual(['page.click:text=立即支付'])
-  })
 })
 
 describe("control state is per session", () => {

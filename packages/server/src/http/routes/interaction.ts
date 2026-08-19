@@ -15,8 +15,8 @@
  * the ordinary cookie-authenticated surface the chat UI already uses, with the ordinary project
  * access check. Answering a card is exactly as privileged as reading the conversation it is in.
  *
- * Nothing here decides anything: the routes validate shapes and hand off to `InteractionService`
- * and `SessionPaymentGuard`, which hold the rules worth testing.
+ * Nothing here decides anything: the routes validate shapes and hand off to `InteractionService`,
+ * which holds the rules worth testing.
  */
 import { Hono } from "hono";
 import type { Context } from "hono";
@@ -25,12 +25,11 @@ import { readJson, requireEnum, requireString } from "../validate.js";
 import type { AppDeps } from "../../app.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import type {
-  ApprovedTolerance,
   InteractionInput,
   InteractionOutcome,
   PaymentSummary,
   SecretField,
-} from "../../interaction/transaction-imports.js";
+} from "../../api/types.js";
 
 /** How long a waiting agent's request is held open before it is told to ask again. */
 const MAX_WAIT_MS = 120_000;
@@ -151,18 +150,10 @@ function readInteractionInput(
       // it, and a malformed or already-past expiry is a 400 rather than a card that lies about
       // how long the person has.
       const expiresAt = deps.interactions.confirmationExpiry(summaryInput.expiresAt || undefined);
-      const tolerance = record.offeredTolerance
-        ? asRecord(record.offeredTolerance, "offeredTolerance")
-        : null;
-      const offered: ApprovedTolerance | null =
-        tolerance && typeof tolerance.amountIncrease === "number"
-          ? { amountIncrease: tolerance.amountIncrease }
-          : null;
       return {
         ...base,
         kind,
         payment: { ...summaryInput, expiresAt },
-        ...(offered ? { offeredTolerance: offered } : {}),
       };
     }
     case "secret_entry": {
@@ -214,9 +205,6 @@ export function readInteractionOutcome(body: unknown): InteractionOutcome {
     return { status, ...(message ? { message } : {}) };
   }
   const values = record.values ? asRecord(record.values, "values") : null;
-  const tolerance = record.toleranceApproved
-    ? asRecord(record.toleranceApproved, "toleranceApproved")
-    : null;
   return {
     status: "answered",
     ...(optionalString(record, "value") ? { value: optionalString(record, "value")! } : {}),
@@ -227,9 +215,6 @@ export function readInteractionOutcome(body: unknown): InteractionOutcome {
       ? { optionId: optionalString(record, "optionId")! }
       : {}),
     ...(typeof record.approved === "boolean" ? { approved: record.approved } : {}),
-    ...(tolerance && typeof tolerance.amountIncrease === "number"
-      ? { toleranceApproved: { amountIncrease: tolerance.amountIncrease } }
-      : {}),
     ...(optionalString(record, "message") ? { message: optionalString(record, "message")! } : {}),
   };
 }
@@ -260,12 +245,11 @@ export function agentInteractionRoutes(deps: AppDeps): Hono<AppEnv> {
     }
 
     try {
-      const interaction = await deps.interactions.request(locator, input);
+      const interaction = deps.interactions.request(locator, input);
       return c.json({
         interactionId: interaction.id,
         kind: interaction.kind,
         expiresInMs: interaction.timeoutMs,
-        ...(interaction.kind === "commitment_confirmation" ? { digest: interaction.digest } : {}),
       });
     } catch (error) {
       // The builder's refusals are contract violations by the caller — a takeover with no reason,
@@ -306,48 +290,6 @@ export function agentInteractionRoutes(deps: AppDeps): Hono<AppEnv> {
     } finally {
       clearTimeout(timer);
     }
-  });
-
-  /** Ask whether this payment may proceed. */
-  app.post("/payments/authorize", async (c) => {
-    const body = asRecord(await readJson(c), "body");
-    const sessionId = requireString(body, "sessionId", { maxLen: 120 });
-    const { taskId } = authorizeAgent(deps, c, sessionId);
-    const locator = deps.manager.locate(sessionId);
-    if (!locator) throw new HttpError(404, "session_not_found", "Session does not exist.");
-
-    const guard = await deps.interactions.paymentGuard(locator);
-    const decision = await guard.authorize({
-      taskId,
-      actualPlan: asRecord(body.actualPlan, "actualPlan"),
-      action: requireString(body, "action", { maxLen: 200 }),
-    });
-    return c.json(decision);
-  });
-
-  /** Report what the click did, closing the journal's bracket. */
-  app.post("/payments/:authorizationId/outcome", async (c) => {
-    const body = asRecord(await readJson(c), "body");
-    const sessionId = requireString(body, "sessionId", { maxLen: 120 });
-    authorizeAgent(deps, c, sessionId);
-    const locator = deps.manager.locate(sessionId);
-    if (!locator) throw new HttpError(404, "session_not_found", "Session does not exist.");
-
-    const guard = await deps.interactions.paymentGuard(locator);
-    const recorded = guard.reportOutcome(
-      c.req.param("authorizationId"),
-      asRecord(body.outcome, "outcome"),
-    );
-    if (!recorded) {
-      throw new HttpError(
-        404,
-        "authorization_not_found",
-        "That authorization is not waiting for an outcome. If the process restarted, its journal " +
-          "entry is now a dangling intent: check the order with the merchant rather than paying " +
-          "again.",
-      );
-    }
-    return c.body(null, 204);
   });
 
   return app;

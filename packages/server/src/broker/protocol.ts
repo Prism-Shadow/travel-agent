@@ -1,7 +1,7 @@
 /**
  * The wire between the server and the desktop main process.
  *
- * This channel carries the three operations that touch personal data or money, so it is built on
+ * This channel carries the two operations that touch personal data, so it is built on
  * a plainly stated assumption: **there is a hostile caller on this machine**. Before
  * isolation that caller is the agent itself; after it, any other process running as the same user.
  * Everything below follows from that:
@@ -9,9 +9,9 @@
  * | Requirement | How |
  * | --- | --- |
  * | authentication | a one-shot token minted by main at launch, handed to the server only through its fork environment |
- * | capability | every call carries a `grantId` / `capabilityId`; there is no "I am the server, therefore I may" |
+ * | capability | every fill carries a grant handle; there is no "I am the server, therefore I may" |
  * | binding | every call names its turn, its domain and its target, and main re-checks each |
- * | minimal surface | exactly three named operations, no generic forwarding, strict parsing |
+ * | minimal surface | exactly two named operations, no generic forwarding, strict parsing |
  * | audit | every call and every refusal is recorded (without values) |
  *
  * What it does **not** buy, stated here so no UI copy overstates it: while the agent
@@ -30,8 +30,8 @@ export const BROKER_TOKEN_ENV = "PENGUIN_BROKER_TOKEN";
 /** Newline-delimited JSON, one request per line. Frames are capped so a peer cannot exhaust main. */
 export const BROKER_MAX_FRAME_BYTES = 64 * 1024;
 
-/** The only three operations. Adding a fourth is a design decision, not a convenience. */
-export type BrokerOp = "request_grant" | "secure_fill" | "execute_payment";
+/** The only two operations. Adding another is a design decision, not a convenience. */
+export type BrokerOp = "request_grant" | "secure_fill";
 
 interface BrokerCallBase {
   /** The turn on whose behalf this call is made. Checked against the capability being presented. */
@@ -59,17 +59,7 @@ export interface SecureFillCall extends BrokerCallBase {
   selector: string;
 }
 
-/** Spend a one-shot payment permission. The agent never holds the credential it spends. */
-export interface ExecutePaymentCall extends BrokerCallBase {
-  op: "execute_payment";
-  capabilityId: string;
-  /** Stable action name for the journal, e.g. `ctrip.payFlightOrder`. */
-  action: string;
-  /** The plan as read from the page right now. Compared against the confirmed one. */
-  actualPlan: Record<string, unknown>;
-}
-
-export type BrokerRequest = RequestGrantCall | SecureFillCall | ExecutePaymentCall;
+export type BrokerRequest = RequestGrantCall | SecureFillCall;
 
 export type BrokerResponse<T = unknown> =
   | { ok: true; result: T }
@@ -122,10 +112,10 @@ export function parseBrokerRequest(raw: unknown): BrokerRequest {
   }
   const record = raw as Record<string, unknown>;
   const op = record["op"];
-  if (op !== "request_grant" && op !== "secure_fill" && op !== "execute_payment") {
+  if (op !== "request_grant" && op !== "secure_fill") {
     throw new BrokerProtocolError(
       "unsupported_op",
-      `"${String(op)}" is not one of the three operations this channel carries. There is no ` +
+      `"${String(op)}" is not one of the two operations this channel carries. There is no ` +
         `generic forwarding here by design.`,
     );
   }
@@ -196,32 +186,6 @@ export function parseBrokerRequest(raw: unknown): BrokerRequest {
         handle,
         targetId: str(record, "targetId", 200),
         selector: str(record, "selector", 500),
-      };
-    }
-
-    case "execute_payment": {
-      assertNoExtraKeys(record, [
-        "op",
-        "taskId",
-        "sessionId",
-        "domain",
-        "capabilityId",
-        "action",
-        "actualPlan",
-      ]);
-      const plan = record["actualPlan"];
-      if (!plan || typeof plan !== "object" || Array.isArray(plan)) {
-        throw new BrokerProtocolError(
-          "malformed",
-          "actualPlan must be an object read from the page.",
-        );
-      }
-      return {
-        op,
-        ...base,
-        capabilityId: str(record, "capabilityId", 120),
-        action: str(record, "action", 200),
-        actualPlan: plan as Record<string, unknown>,
       };
     }
   }

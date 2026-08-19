@@ -18,7 +18,7 @@
  * Nothing here knows what a card looks like or how the answer travels back. It holds questions,
  * hands out answers, and guarantees that every question ends exactly once.
  */
-import type { InteractionOutcome, UserInteraction } from "@travel-agent/transaction";
+import type { InteractionOutcome, UserInteraction } from "../api/types.js";
 
 /** How many settled outcomes are kept for a reconnecting waiter. */
 const REMEMBERED_OUTCOMES = 32;
@@ -52,8 +52,8 @@ export class InteractionRegistry {
    * Registers a question and starts its clock.
    *
    * The timeout resolves the interaction rather than rejecting it: a lapsed question is a state the
-   * caller has to handle (usually by suspending the task and leaving the checkpoint), not an
-   * exception to be caught alongside genuine faults. `onTimeout` rides along so the agent can tell
+   * caller has to handle (usually by suspending or ending the task), not an exception to be caught
+   * alongside genuine faults. `onTimeout` rides along so the agent can tell
    * "nobody answered, keep the page" from "nobody answered, give up".
    */
   create(interaction: UserInteraction): void {

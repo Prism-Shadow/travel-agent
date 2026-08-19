@@ -103,35 +103,7 @@ describe("the payment card", () => {
   });
 });
 
-describe("the slack a person may grant", () => {
-  it("is not sent when the box was not ticked", () => {
-    // An unapproved tolerance is zero, and no path here invents one.
-    const outcome = outcomeFor({
-      action: { kind: "approve", label: "确认", tone: "primary" },
-      offeredTolerance: { amountIncrease: 50 },
-      toleranceAccepted: false,
-    });
-    expect(outcome).toEqual({ status: "answered", approved: true });
-  });
-
-  it("is sent only when it was both offered and accepted", () => {
-    expect(
-      outcomeFor({
-        action: { kind: "approve", label: "确认", tone: "primary" },
-        offeredTolerance: { amountIncrease: 50 },
-        toleranceAccepted: true,
-      }),
-    ).toEqual({ status: "answered", approved: true, toleranceApproved: { amountIncrease: 50 } });
-
-    // Ticked with nothing offered cannot happen through the UI, and does nothing if it does.
-    expect(
-      outcomeFor({
-        action: { kind: "approve", label: "确认", tone: "primary" },
-        toleranceAccepted: true,
-      }),
-    ).toEqual({ status: "answered", approved: true });
-  });
-
+describe("payment handoff outcomes", () => {
   it("turns a decline into a declined outcome, not an unapproved answer", () => {
     // The difference matters downstream: "declined" is a decision, while an answer with
     // `approved: false` would still look like an answer to a question that was never asked.

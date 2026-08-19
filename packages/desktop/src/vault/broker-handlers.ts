@@ -18,7 +18,6 @@ import type { BrokerRequest, BrokerResponse } from "@prismshadow/penguin-server/
 import type { VaultAudit } from "./audit.js";
 import type { GrantMode, GrantRegistry, ProfileGrant } from "./grants.js";
 import { normaliseDomain } from "./grants.js";
-import type { PaymentAuthority } from "./payment-authority.js";
 import type { SecureFiller } from "./secure-fill.js";
 import type { ProfileVault } from "./store.js";
 import { tierOf } from "./tiers.js";
@@ -31,7 +30,6 @@ export interface BrokerHandlerDeps {
   vault: ProfileVault;
   grants: GrantRegistry;
   filler: SecureFiller;
-  payments: PaymentAuthority;
   audit?: VaultAudit | null;
   /** The tab this turn is working in, when the call says "current". */
   currentTarget: (input: { sessionId: string; taskId: string }) => Promise<string | null>;
@@ -59,8 +57,6 @@ export function createBrokerHandlers(deps: BrokerHandlerDeps) {
     request_grant: (call: Extract<BrokerRequest, { op: "request_grant" }>) =>
       requestGrant(deps, call),
     secure_fill: (call: Extract<BrokerRequest, { op: "secure_fill" }>) => secureFill(deps, call),
-    execute_payment: (call: Extract<BrokerRequest, { op: "execute_payment" }>) =>
-      executePayment(deps, call),
   };
 }
 
@@ -245,29 +241,4 @@ async function secureFill(
   if (!result.ok) return refuse(`${result.reason}: ${result.detail}`);
   // Deliberately says only that it worked, and for which field name.
   return { ok: true, result: { filled: true, field: result.field } };
-}
-
-async function executePayment(
-  deps: BrokerHandlerDeps,
-  call: Extract<BrokerRequest, { op: "execute_payment" }>,
-): Promise<BrokerResponse> {
-  const resolved = await resolveTarget(deps, call);
-  if (!resolved.ok) return resolved.response;
-
-  const outcome = await deps.payments.execute({
-    capabilityId: call.capabilityId,
-    taskId: call.taskId,
-    sessionId: call.sessionId,
-    domain: resolved.domain,
-    action: call.action,
-    actualPlan: call.actualPlan,
-  });
-
-  if (outcome.status === "refused") {
-    return { ok: false, code: "refused", message: outcome.reason, detail: outcome.detail };
-  }
-  return {
-    ok: true,
-    result: { paid: true, replayed: outcome.replayed, outcome: outcome.outcome },
-  };
 }

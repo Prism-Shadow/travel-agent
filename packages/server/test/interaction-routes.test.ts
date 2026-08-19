@@ -143,60 +143,26 @@ describe("interaction round trip", () => {
     expect(((await late.json()) as { outcome: { value: string } }).outcome.value).toBe("两位成人");
   });
 
-  it("records what was confirmed when a payment card is approved", async () => {
+  it("shows and resolves a complete payment summary before human payment", async () => {
     const created = await agent().post("/api/agent/interactions", {
       sessionId: SID,
       kind: "commitment_confirmation",
       ask: "确认这笔付款",
       payment: payment(),
-    });
-    const { interactionId, digest } = (await created.json()) as {
-      interactionId: string;
-      digest: string;
-    };
-    expect(digest).toHaveLength(32);
-
-    await api().post(`/api/sessions/${SID}/interactions/${interactionId}`, {
-      status: "answered",
-      approved: true,
-    });
-
-    const taskId = t.deps.manager.browserTaskState(SID).running!;
-    const guard = await t.deps.interactions.paymentGuard({
-      sessionId: SID,
-      projectId: row.projectId,
-      agentId: row.agentId,
-    });
-    const confirmed = guard.confirmationFor(taskId);
-    expect(confirmed?.summary.merchant.domain).toBe("ctrip.com");
-    // No slack unless the person picked some: the exact amount is the ceiling.
-    expect(confirmed?.commitment.tolerance).toEqual({});
-  });
-
-  it("records the slack the person actually chose", async () => {
-    const created = await agent().post("/api/agent/interactions", {
-      sessionId: SID,
-      kind: "commitment_confirmation",
-      ask: "确认这笔付款",
-      payment: payment(),
-      offeredTolerance: { amountIncrease: 50 },
     });
     const { interactionId } = (await created.json()) as { interactionId: string };
+    const card = t.deps.interactions.pending(SID).find((item) => item.id === interactionId);
+    expect(card).toMatchObject({
+      kind: "commitment_confirmation",
+      payment: { merchant: { domain: "ctrip.com" }, amount: { value: 1280 } },
+    });
+
     await api().post(`/api/sessions/${SID}/interactions/${interactionId}`, {
       status: "answered",
       approved: true,
-      toleranceApproved: { amountIncrease: 50 },
     });
 
-    const taskId = t.deps.manager.browserTaskState(SID).running!;
-    const guard = await t.deps.interactions.paymentGuard({
-      sessionId: SID,
-      projectId: row.projectId,
-      agentId: row.agentId,
-    });
-    expect(guard.confirmationFor(taskId)?.commitment.tolerance).toEqual({
-      amount: { increase: 50 },
-    });
+    expect(t.deps.interactions.pending(SID)).toEqual([]);
   });
 
   it("refuses an answer that does not match the card, and keeps the card up", async () => {
@@ -229,7 +195,7 @@ describe("interaction round trip", () => {
     expect(right.status).toBe(204);
   });
 
-  it("refuses a payment answered without an explicit approval, and records nothing", async () => {
+  it("refuses a payment answered without an explicit approval", async () => {
     const created = await agent().post("/api/agent/interactions", {
       sessionId: SID,
       kind: "commitment_confirmation",
@@ -238,22 +204,11 @@ describe("interaction round trip", () => {
     });
     const { interactionId } = (await created.json()) as { interactionId: string };
 
-    for (const body of [
-      { status: "answered" },
-      { status: "answered", approved: false },
-      { status: "answered", approved: true, toleranceApproved: { amountIncrease: 100 } },
-    ]) {
+    for (const body of [{ status: "answered" }, { status: "answered", approved: false }]) {
       const res = await api().post(`/api/sessions/${SID}/interactions/${interactionId}`, body);
       expect(res.status).toBe(400);
     }
 
-    const taskId = t.deps.manager.browserTaskState(SID).running!;
-    const guard = await t.deps.interactions.paymentGuard({
-      sessionId: SID,
-      projectId: row.projectId,
-      agentId: row.agentId,
-    });
-    expect(guard.confirmationFor(taskId)).toBeNull();
     expect(t.deps.interactions.pending(SID).map((i) => i.id)).toEqual([interactionId]);
   });
 
@@ -317,7 +272,7 @@ describe("interaction round trip", () => {
     expect(Date.parse(expiresAt) - Date.now()).toBeGreaterThan(9 * 60_000);
   });
 
-  it("records nothing when the person declines", async () => {
+  it("resolves the card when the person declines", async () => {
     const created = await agent().post("/api/agent/interactions", {
       sessionId: SID,
       kind: "commitment_confirmation",
@@ -330,13 +285,7 @@ describe("interaction round trip", () => {
       message: "太贵了，看看别的",
     });
 
-    const taskId = t.deps.manager.browserTaskState(SID).running!;
-    const guard = await t.deps.interactions.paymentGuard({
-      sessionId: SID,
-      projectId: row.projectId,
-      agentId: row.agentId,
-    });
-    expect(guard.confirmationFor(taskId)).toBeNull();
+    expect(t.deps.interactions.pending(SID)).toEqual([]);
   });
 });
 

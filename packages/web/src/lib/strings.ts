@@ -791,8 +791,6 @@ export const zh = {
     /** Cards the agent raises when it needs the person. */
     interaction: {
       answerPlaceholder: "回答一句就行",
-      /** Shown next to the checkbox that grants slack on a payment card. */
-      toleranceLabel: (amount: string) => `如果到付款时涨价，${amount} 以内我不用再问`,
       failed: "没能把你的回答发出去，请再试一次",
     },
     browserPane: {

@@ -1930,7 +1930,7 @@ export class BrowserPane {
    * The CDP target id a task's untargeted vault call should land on.
    *
    * The same selection `taskContents` makes — the tab the task is looking at, else the most recent
-   * one it owns — expressed as a target id, so the vault's `secure_fill`/`execute_payment` can
+   * one it owns — expressed as a target id, so the vault's `secure_fill` can
    * resolve `"current"` to a page rather than being refused (see `broker-handlers.ts`). Null when
    * the task owns no live tab, or its live tab has not yet been assigned a target id: both are the
    * fail-closed "no page open" the handlers already handle, never a wrong guess.

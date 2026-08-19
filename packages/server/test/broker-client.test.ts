@@ -157,7 +157,7 @@ describe("the socket path", () => {
 });
 
 describe("parsing, from the side that has to be strict", () => {
-  it("accepts each of the three operations", () => {
+  it("accepts each of the two operations", () => {
     expect(parseBrokerRequest(FILL).op).toBe("secure_fill");
     expect(
       parseBrokerRequest({
@@ -170,38 +170,16 @@ describe("parsing, from the side that has to be strict", () => {
         mode: "handle",
       }).op,
     ).toBe("request_grant");
-    expect(
-      parseBrokerRequest({
-        op: "execute_payment",
-        taskId: "t",
-        sessionId: "s",
-        domain: "ctrip.com",
-        capabilityId: "cap-1",
-        action: "ctrip.pay",
-        actualPlan: { amount: 1280 },
-      }).op,
-    ).toBe("execute_payment");
   });
 
   it("refuses anything else, by code", () => {
     expect(() => parseBrokerRequest(null)).toThrow(BrokerProtocolError);
-    expect(() => parseBrokerRequest({ op: "read_vault" })).toThrow(/not one of the three/);
+    expect(() => parseBrokerRequest({ op: "read_vault" })).toThrow(/not one of the two/);
     expect(() => parseBrokerRequest({ ...FILL, extra: 1 })).toThrow(/not part of this operation/);
     expect(() => parseBrokerRequest({ ...FILL, taskId: 7 })).toThrow(/taskId/);
     expect(() => parseBrokerRequest({ ...FILL, handle: "310101199001011234" })).toThrow(
       /vault handle/,
     );
-    expect(() =>
-      parseBrokerRequest({
-        op: "execute_payment",
-        taskId: "t",
-        sessionId: "s",
-        domain: "d.com",
-        capabilityId: "c",
-        action: "a",
-        actualPlan: "not an object",
-      }),
-    ).toThrow(/actualPlan/);
   });
 
   it("caps every string it accepts", () => {

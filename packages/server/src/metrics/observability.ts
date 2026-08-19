@@ -40,7 +40,7 @@ export interface ObservabilitySnapshot {
   updatedAt: string | null;
 }
 
-/** The interaction kinds this recorder counts. Mirrors the transaction layer's `InteractionKind`. */
+/** The interaction kinds this recorder counts. Mirrors the server API's `InteractionKind`. */
 const KINDS = [
   "info_request",
   "selection",

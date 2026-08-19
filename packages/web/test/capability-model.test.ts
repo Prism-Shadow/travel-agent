@@ -22,8 +22,6 @@ function reportOf(overrides: Partial<CapabilityReport> = {}): CapabilityReport {
       "vault.l2l3": false,
       "secret_entry.contract": false,
       "secret_entry.live": false,
-      "payments.execute": false,
-      "payments.agent_click_pay": false,
       "audit.chain": false,
       "redaction.ocr": false,
     },
@@ -110,13 +108,13 @@ describe("misconfiguration", () => {
       reportOf({
         misconfigured: {
           unknown: ["vautl.enabled"],
-          invalid: [{ flag: "payments.execute", value: "flase" }],
+          invalid: [{ flag: "vault.l2l3", value: "flase" }],
         },
       }),
     );
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain("vautl.enabled");
-    expect(lines[1]).toContain("payments.execute=flase");
+    expect(lines[1]).toContain("vault.l2l3=flase");
     expect(lines[1]).toContain("已按关闭处理");
   });
 

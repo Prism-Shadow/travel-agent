@@ -254,7 +254,7 @@ export interface SessionManagerDeps {
    * travel product's interaction layer.
    */
   interactions?: {
-    endTask(sessionId: string, taskId: string | null): void;
+    endTask(sessionId: string): void;
     forgetSession(sessionId: string): void;
   };
 }
@@ -1506,10 +1506,9 @@ export class SessionManager {
       const endedTaskId = entry.currentTaskId;
       entry.currentTaskId = null;
       // The turn's own credential dies with it, and so do its cards: a question left on screen with
-      // no turn behind it would be answered into a void, and a confirmation that outlived its turn
-      // would be consent given to something else.
+      // no turn behind it would be answered into a void.
       this.interactionTokens.revoke(entry.sessionId);
-      this.deps.interactions?.endTask(entry.sessionId, endedTaskId);
+      this.deps.interactions?.endTask(entry.sessionId);
       // Held so a client that connects after this point still learns which turn ended, and how.
       // Outside the entry, because the entry is evicted after 30 idle minutes and a renderer that
       // reconnects past that point would otherwise see a bare "idle" — leaving a consumer holding
@@ -1658,17 +1657,15 @@ export class SessionManager {
   }
 
   /**
-   * Where a Session lives, for anything that needs its directories.
+   * Resolves an externally supplied Session id to an existing conversation.
    *
-   * From the index rather than from a caller: the project and agent a conversation belongs to
-   * decide which scratchpad its journal and checkpoints are written into, and a caller-supplied
-   * triple is a relationship nobody has checked (the same rule the in-app browser's download
-   * directory follows).
+   * The interaction route uses this lookup instead of trusting that a valid turn token necessarily
+   * names a Session that still exists.
    */
-  locate(sessionId: string): { sessionId: string; projectId: string; agentId: string } | null {
+  locate(sessionId: string): { sessionId: string } | null {
     const row = this.deps.sessions.findById(sessionId);
     if (!row) return null;
-    return { sessionId: row.sessionId, projectId: row.projectId, agentId: row.agentId };
+    return { sessionId: row.sessionId };
   }
 
   /**

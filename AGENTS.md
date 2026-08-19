@@ -46,18 +46,19 @@ browser-automation platform or a scraping tool.
 4. **The model judges; code only enforces.** Write enforcement code only where the model is itself
    inside the threat model. `@travel-agent/domain` was deleted for violating this: two of its three
    pieces were judgements a model makes better than a rule table, and had sat with no caller through
-   six phases. The third — `submitBooking` — survived precisely because it must hold *even when the
-   agent is wrong*, and it moved to `packages/transaction`.
-5. **PenguinHarness must not know penguin-browser exists.** The engine provides transaction semantics;
+   six phases. The later `packages/transaction` experiment was retired for the same reason: its
+   active interaction contract belongs to the server, browser handover belongs to browser-cli, and
+   its payment execution machinery had no reachable production executor.
+5. **PenguinHarness must not know penguin-browser exists.** The engine provides the agent runtime;
    penguin-browser provides browser control; travel-agent is the only place that joins them.
    Do not add a dependency in that direction.
 6. **No silent fallback between browser backends.** The choice is per conversation and cannot change
    while a task runs. An unavailable persisted choice stays visible as unavailable; showing the other
    backend would be a false state.
-7. **Payment stops at the gate.** The agent does not press the button that takes the money. Gates
-   live in `packages/transaction` (`submitBooking`) and
-   `packages/browser-cli/src/executor/payment-gate.ts`. When adding a surface that can click, wire it
-   through the gate — *enumerate, do not sample* (`write-gate.ts` states the rule).
+7. **Payment stops at the gate.** The agent does not press the button that takes the money. The
+   enforced production gate lives in `packages/browser-cli/src/executor/payment-gate.ts` and has no
+   enable flag. When adding a surface that can click, wire it through the gate — *enumerate, do not
+   sample* (`write-gate.ts` states the rule).
 8. **Read the current file before editing it.** Keep changes scoped to the request; prefer existing
    repo patterns over a new abstraction.
 
@@ -69,7 +70,6 @@ packages/web                 The active consumer UI, shared by web and desktop
 packages/desktop             Electron shell: in-app browser, vault, packaging
 packages/browser-cli         penguin-browser: CLI, CDP relay, Playwright executor (vendored)
 packages/browser-extension   Chrome extension bridging the relay to the user's Chrome (vendored)
-packages/transaction         Irreversible-action semantics: WAL, commitments, checkpoints, escalation
 packages/skills              Built-in skill library, incl. skills/penguin-browser
 ```
 
@@ -164,9 +164,9 @@ its postmortem when one exists.
 - Milestones M0–M2 and M4 are done. M3 (one-sentence acceptance run) and M5 (flights) were withdrawn
   on 2026-08-18; the product UI was unfrozen on 2026-08-19 and now evolves as travel-agent's own
   consumer surface.
-- `packages/transaction` is wired: the payment paths in `server` and `desktop` go through
-  `submitBooking`.
-- Capability gates `vault.l2l3`, `secret_entry.live` and `payments.execute` are **fail-closed**,
+- Interaction cards are owned by `packages/server`; browser handover and the unconditional payment
+  stop are owned by `packages/browser-cli`. There is no agent-triggered payment execution path.
+- Capability gates `vault.l2l3` and `secret_entry.live` are **fail-closed**,
   behind the unresolved isolation decision D3
   (`docs/decisions/proposed/2026-08-16-agent-runtime-isolation.md`). Code may be written
   ahead of them, but issue 0002 must be closed before any of them opens.

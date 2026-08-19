@@ -12,7 +12,8 @@
  *
  * | kind | Where it goes | What happens to the agent |
  * | --- | --- | --- |
- * | `info_request` / `selection` / `commitment_confirmation` | a card in the conversation | keeps working |
+ * | `info_request` / `selection` | a card in the conversation | waits without handing over the page |
+ * | `commitment_confirmation` | a review card in the conversation | waits, then stops for human payment |
  * | `secret_entry` | a card, and the person types the code into the page or their bank's app | pauses |
  * | `human_challenge` | the overlay, on the page | hands the page over, briefly |
  * | `browser_takeover` | the overlay, with a stated reason | hands the page over — last resort |
@@ -36,7 +37,7 @@ export type InteractionKind =
   | 'human_challenge'
   | 'browser_takeover'
 
-/** One option on a selection card. `rationale` is required — see the transaction layer. */
+/** One option on a selection card. `rationale` is required by the server interaction contract. */
 export interface InteractionOption {
   id: string
   label: string
@@ -68,7 +69,6 @@ export interface RequestInteractionOptions {
   options?: InteractionOption[]
   /** `commitment_confirmation` */
   payment?: PaymentSummaryInput
-  offeredTolerance?: { amountIncrease: number }
   /** `secret_entry` */
   field?: 'cvv' | 'otp' | 'three_d_secure' | 'card_number' | 'payment_password' | 'passkey'
   purpose?: string
@@ -98,7 +98,7 @@ export interface InteractionResult {
   values?: Record<string, string>
   /** `selection`: which option. */
   optionId?: string
-  /** `commitment_confirmation`: whether they approved the purchase. */
+  /** `commitment_confirmation`: whether they are ready to take over and pay. */
   approved?: boolean
   message?: string
   /** The card's id, for logs and for a second look at the outcome. */
@@ -198,7 +198,6 @@ async function requestCard(
   if (options.kind === 'selection') payload.options = options.options ?? []
   if (options.kind === 'commitment_confirmation') {
     payload.payment = options.payment
-    if (options.offeredTolerance) payload.offeredTolerance = options.offeredTolerance
   }
   if (options.kind === 'secret_entry') {
     payload.field = options.field

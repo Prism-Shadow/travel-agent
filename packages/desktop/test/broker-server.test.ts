@@ -4,7 +4,7 @@
  *
  * Attacks A3 and A4 are the two blocks below — connecting without a token or with a forged
  * one, and calling with a well-formed request whose turn, domain or target is not the one the
- * capability was issued for. Both must be refused *and recorded*, because a refusal nobody can see
+ * grant was issued for. Both must be refused *and recorded*, because a refusal nobody can see
  * afterwards is indistinguishable from a call that never happened.
  */
 import fs from "node:fs/promises";
@@ -30,7 +30,6 @@ beforeEach(async () => {
   handlers = {
     request_grant: vi.fn(async () => ({ ok: true as const, result: { grantId: "g-test001" } })),
     secure_fill: vi.fn(async () => ({ ok: true as const, result: { filled: true } })),
-    execute_payment: vi.fn(async () => ({ ok: true as const, result: { orderId: "E1" } })),
   };
 });
 
@@ -253,19 +252,11 @@ describe("what the handlers do with a bound call — attack A4", () => {
   });
 
   it("turns a handler that throws into a refusal that says nothing changed", async () => {
-    handlers.execute_payment = vi.fn(async () => {
+    handlers.secure_fill = vi.fn(async () => {
       throw new Error("vault exploded: token=tok_1P4kJ2");
     });
     const started = await start();
-    const response = await clientWith(started.token).call({
-      op: "execute_payment",
-      taskId: TASK,
-      sessionId: "s-1",
-      domain: "ctrip.com",
-      capabilityId: "cap-1",
-      action: "ctrip.payFlightOrder",
-      actualPlan: { amount: 1280 },
-    });
+    const response = await clientWith(started.token).call(fill);
     expect(response).toMatchObject({ ok: false, code: "internal" });
     // The internal message never reaches the caller: it could quote anything main was holding.
     expect(JSON.stringify(response)).not.toContain("tok_1P4kJ2");

@@ -894,7 +894,7 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
    * into the shape the agent will receive — an unknown status is rejected rather than coerced,
    * because "declined" and "answered with approved: false" mean different things downstream — and
    * then checked against the card it answers, which is where an option that is not on the card or
-   * an approval on a question that was never a purchase is refused. That refusal is a 400 and the
+   * a payment-handoff answer on an unrelated question is refused. That refusal is a 400 and the
    * card stays pending: the person's next attempt has something to answer.
    */
   app.post("/:sessionId/interactions/:interactionId", async (c) => {
@@ -903,7 +903,7 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
     let resolved: boolean;
     try {
       resolved = await deps.interactions.resolve(
-        { sessionId: row.sessionId, projectId: row.projectId, agentId: row.agentId },
+        { sessionId: row.sessionId },
         pathParam(c, "interactionId"),
         outcome,
       );

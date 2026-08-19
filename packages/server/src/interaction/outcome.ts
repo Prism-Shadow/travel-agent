@@ -6,31 +6,22 @@
  * the two to agree — a body naming an option that is not on the card, or approving a purchase on a
  * question that was never a purchase, is well-formed JSON and would previously have been recorded.
  *
- * That matters most in one direction. `InteractionService.resolve` reads `approved` and
- * `toleranceApproved` and turns them into a `Commitment` the payment guard will later authorise
- * against, so an answer whose shape was never checked is consent assembled out of whatever was
- * posted. The checks here run **before** the guard is told anything and before the resolution is
- * published, so an invalid answer leaves the card exactly where it was: still pending, still
- * answerable, with a 400 explaining what was wrong.
+ * The checks run before the resolution is published, so an invalid answer leaves the card exactly
+ * where it was: still pending, still answerable, with a 400 explaining what was wrong.
  *
  * Two rules are worth stating in words, because they are the ones that look like pedantry until
  * they are not:
  *
- * - **A purchase is confirmed explicitly or not at all.** `answered` with `approved` missing or
- *   false is refused rather than read as a "no", because a refusal has its own status (`declined`)
- *   and the difference is what the transaction layer records. An answer that means "no" arriving in
- *   the shape of an answer that means "yes, with a missing field" is precisely the ambiguity a
- *   payment must not have.
+ * - **A payment handoff is accepted explicitly or not at all.** `answered` with `approved` missing
+ *   or false is refused rather than read as a "no", because a refusal has its own status
+ *   (`declined`). This records whether the person is ready to take over; it never authorizes the
+ *   agent to press a payment control.
  * - **A secret card carries nothing back.** Not a value, not a note. In this phase the person types
  *   the code into the site's own field and the card only tells us they did; anything else in the
  *   body is either a secret in transit or a place for one to hide, and both are refused before the
  *   outcome is published over SSE and replayed from a ring buffer.
  */
-import type {
-  ApprovedTolerance,
-  InteractionOutcome,
-  UserInteraction,
-} from "./transaction-imports.js";
+import type { InteractionOutcome, UserInteraction } from "../api/types.js";
 
 /** An answer that does not match the question. The card stays pending; the caller gets a 400. */
 export class InvalidOutcomeError extends Error {
@@ -38,14 +29,7 @@ export class InvalidOutcomeError extends Error {
 }
 
 /** Everything a person's answer may carry, in the order a message names them. */
-const PAYLOAD_KEYS = [
-  "value",
-  "values",
-  "optionId",
-  "approved",
-  "toleranceApproved",
-  "message",
-] as const;
+const PAYLOAD_KEYS = ["value", "values", "optionId", "approved", "message"] as const;
 
 type PayloadKey = (typeof PAYLOAD_KEYS)[number];
 
@@ -62,27 +46,6 @@ function refuseExcept(outcome: InteractionOutcome, allowed: PayloadKey[], what: 
       `${what} does not carry ${extra.join(", ")}. An answer is read by the kind of card it ` +
         `answers, and a field that card never offered is either a mistake or somebody else's ` +
         `answer.`,
-    );
-  }
-}
-
-function assertTolerance(tolerance: ApprovedTolerance, offered?: ApprovedTolerance): void {
-  if (!offered) {
-    throw new InvalidOutcomeError(
-      "That card offered no slack, so there is none to accept. An unapproved tolerance is zero, " +
-        "and a purchase is confirmed at the amount that was shown.",
-    );
-  }
-  const accepted = tolerance.amountIncrease;
-  if (typeof accepted !== "number" || !Number.isFinite(accepted) || accepted <= 0) {
-    throw new InvalidOutcomeError(
-      "toleranceApproved.amountIncrease must be a positive number, in the currency of the card.",
-    );
-  }
-  if (accepted > offered.amountIncrease) {
-    throw new InvalidOutcomeError(
-      `The card offered ${offered.amountIncrease} of slack and the answer accepted ${accepted}. ` +
-        `A person can only agree to what they were shown; anything more has to be asked again.`,
     );
   }
 }
@@ -138,20 +101,13 @@ export function assertOutcomeMatches(
     }
 
     case "commitment_confirmation": {
-      refuseExcept(
-        outcome,
-        ["approved", "toleranceApproved", "message"],
-        "A payment confirmation is a yes, optionally with the slack the card offered. It",
-      );
+      refuseExcept(outcome, ["approved", "message"], "A payment handoff is a yes or a decline. It");
       if (outcome.approved !== true) {
         throw new InvalidOutcomeError(
-          "A purchase is confirmed explicitly: send `approved: true`, or send `declined` for a " +
-            "no. An answered card with no approval is neither, and this is the one place where " +
-            "reading an ambiguous answer generously spends somebody's money.",
+          "A payment handoff is accepted explicitly: send `approved: true`, or send `declined` " +
+            "for a no. This answer only records that the person is ready to complete payment on " +
+            "the merchant page; it does not authorize an agent payment.",
         );
-      }
-      if (outcome.toleranceApproved) {
-        assertTolerance(outcome.toleranceApproved, interaction.offeredTolerance);
       }
       return;
     }

@@ -25,7 +25,7 @@ ends, with no wire between them.
 
 ## Why this is not currently a leak
 
-`secret_entry.live`, `vault.l2l3` and `payments.execute` are fail-closed, gated behind the
+`secret_entry.live` and `vault.l2l3` are fail-closed, gated behind the
 unresolved isolation decision D3 (`../decisions/proposed/2026-08-16-agent-runtime-isolation.md`). Nothing is typed into a page,
 so there is nothing to redact. The code is ahead of the gate, not broken behind it.
 

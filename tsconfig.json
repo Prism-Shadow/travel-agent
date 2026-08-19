@@ -21,8 +21,6 @@
     { "path": "packages/web" },
     { "path": "packages/desktop" },
     { "path": "packages/skills" },
-    { "path": "packages/transaction" },
-    { "path": "packages/transaction/tsconfig.test.json" },
     { "path": "packages/browser-extension" },
     { "path": "packages/browser-extension/tsconfig.test.json" },
     { "path": "packages/browser-cli" },

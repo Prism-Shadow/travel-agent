@@ -34,8 +34,8 @@ export interface CapabilityRow {
 }
 
 /**
- * Labels, in the order the panel reads best: storage first, then what storage enables, then
- * payment. A flag the server reports that is not named here still renders, under its own spelling,
+ * Labels, in the order the panel reads best: storage first, then what storage enables. A flag the
+ * server reports that is not named here still renders, under its own spelling,
  * because hiding an unknown capability would be the opposite of this panel's job.
  */
 const LABELS: Array<{ flag: string; label: string }> = [
@@ -44,8 +44,6 @@ const LABELS: Array<{ flag: string; label: string }> = [
   { flag: "audit.chain", label: "防篡改审计链" },
   { flag: "secret_entry.contract", label: "验证码卡片（演示形态）" },
   { flag: "secret_entry.live", label: "代填真实验证码（需要隔离达标）" },
-  { flag: "payments.execute", label: "应用内代付（需要隔离达标）" },
-  { flag: "payments.agent_click_pay", label: "允许点击站点付款按钮" },
   { flag: "redaction.ocr", label: "截图脱敏 OCR 兜底" },
 ];
 

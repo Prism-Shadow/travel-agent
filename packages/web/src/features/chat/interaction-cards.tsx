@@ -9,17 +9,16 @@
  * itself, because that is where the person has to act, and a card in the conversation saying "go
  * and look over there" would be one indirection too many.
  *
- * The payment card is the one to read closely. It shows all seven fields, it puts the merchant's
+ * The payment card is the one to read closely. It shows all seven fields and puts the merchant's
  * *domain* next to its name (the display name is what a phishing page controls; the domain is what
- * it cannot), and the slack checkbox is unticked and explicit — an unapproved tolerance is zero,
- * and there is no path here that infers one (003 §8.5).
+ * it cannot). Its primary action hands payment to the person; it does not authorize an agent click.
  */
 import { useState } from "react";
 import type { InteractionOutcome, UserInteraction } from "@prismshadow/penguin-server/api";
 import { Button } from "../../components/ui/button";
 import { toastError } from "../../components/ui/toast";
 import { S } from "../../lib/strings";
-import { canSubmit, cardCopy, formatAmount, outcomeFor } from "./interaction-model";
+import { canSubmit, cardCopy, outcomeFor } from "./interaction-model";
 
 function messageOf(error: unknown, fallback: string): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
@@ -56,11 +55,7 @@ function InteractionCard({
 }): React.ReactElement {
   const copy = cardCopy(interaction);
   const [text, setText] = useState("");
-  const [toleranceAccepted, setToleranceAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const offered =
-    interaction.kind === "commitment_confirmation" ? interaction.offeredTolerance : undefined;
 
   const answer = async (action: Parameters<typeof outcomeFor>[0]["action"]): Promise<void> => {
     setBusy(true);
@@ -70,8 +65,6 @@ function InteractionCard({
         outcomeFor({
           action,
           text,
-          toleranceAccepted,
-          ...(offered ? { offeredTolerance: offered } : {}),
         }),
       );
     } catch (error) {
@@ -117,29 +110,6 @@ function InteractionCard({
           placeholder={S.chat.interaction.answerPlaceholder}
           className="mb-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900"
         />
-      ) : null}
-
-      {offered ? (
-        <label className="mb-2 flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
-          <input
-            type="checkbox"
-            checked={toleranceAccepted}
-            onChange={(event) => setToleranceAccepted(event.target.checked)}
-            className="mt-0.5"
-          />
-          {/* Spelled out in money, not as a percentage: "5%" of an amount nobody re-computed is not
-              something a person can weigh in the moment. */}
-          <span>
-            {S.chat.interaction.toleranceLabel(
-              formatAmount(
-                offered.amountIncrease,
-                interaction.kind === "commitment_confirmation"
-                  ? interaction.payment.amount.currency
-                  : "",
-              ),
-            )}
-          </span>
-        </label>
       ) : null}
 
       <div className="flex flex-wrap gap-2">

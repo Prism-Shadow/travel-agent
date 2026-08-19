@@ -59,7 +59,6 @@ single data directory (`~/.penguin/data`) and a single message protocol (OmniMes
 | [`packages/skills`](packages/skills) | `@prismshadow/penguin-skills` | Built-in skill library (includes `penguin-browser`)                                                     |
 | [`packages/browser-cli`](packages/browser-cli) | `penguin-browser`     | Browser CLI, CDP relay, Playwright executor                                                             |
 | [`packages/browser-extension`](packages/browser-extension) | `penguin-browser-extension` | Chrome extension that attaches the relay to the user's Chrome                          |
-| [`packages/transaction`](packages/transaction) | `@travel-agent/transaction` | WAL journal, commitments, checkpoints, escalation, the `submitBooking` gates              |
 
 Responsibilities split by source of truth: the **SDK** owns protocol and execution
 (message parsing, the agent loop, tools), the **Server** owns the multi-user runtime

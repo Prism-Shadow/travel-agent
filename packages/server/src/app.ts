@@ -13,7 +13,6 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DatabaseSync } from "node:sqlite";
-import { resolveFlagsFromEnv, sessionScratchpadDir } from "@prismshadow/penguin-core";
 import type { HostTool, ProxyEnvPolicy } from "@prismshadow/penguin-core";
 import type { ServerConfig } from "./config.js";
 import { mergedNoProxy } from "./net/proxy.js";
@@ -144,8 +143,7 @@ export interface AppDeps {
   /** Desktop mode (PENGUIN_DESKTOP_TOKEN): one-shot login + shutdown token holder; null outside desktop mode. */
   desktop: DesktopService | null;
   /**
-   * Cards the agent raises and the person answers, plus the payment guard behind
-   * the confirmation card.
+   * Cards the agent raises and the person answers.
    */
   interactions: InteractionService;
   /** Live observability rates for the admin surface. */
@@ -243,21 +241,15 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
   const titles =
     overrides.titles ??
     new TitleGenerator({ sessions: sessionsRepo, channels, recorder, errors, log });
-  // Interaction cards, the payment guard, and this Session's journal/checkpoint files. Built
-  // before the manager because the manager tells it when a turn ends; it needs only the channel
-  // hub, which already exists.
+  // Interaction cards are built before the manager because the manager tells them when a turn
+  // ends; they need only the channel hub, which already exists.
   // Live observability gauge: the interaction service feeds it the kind of every card
   // raised, so the takeover / secret-phase / card-fallback rates have a denominator.
   const metrics = new ObservabilityMetrics(overrides.now ? { now: overrides.now } : {});
   const interactions = new InteractionService({
-    root: config.root,
-    flags: resolveFlagsFromEnv().flags,
     publish: (sessionId, event) => channels.get(sessionId).publish(event, "server_event"),
     onInteractionRaised: (kind) => metrics.recordInteraction(kind),
-    scratchpadDir: (locator) =>
-      sessionScratchpadDir(config.root, locator.projectId, locator.agentId, locator.sessionId),
     ...(overrides.now ? { now: overrides.now } : {}),
-    log,
   });
 
   /**
@@ -277,7 +269,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     });
 
   /**
-   * The vault and payment tools, when there is a desktop shell holding a vault to talk to.
+   * The vault tools, when there is a desktop shell holding a vault to talk to.
    *
    * Absent everywhere else — `penguin web`, the CLI, tests — and absent is the honest state: these
    * three operations are meaningless without a main process that holds the keys, and offering a

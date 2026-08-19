@@ -1,18 +1,15 @@
 /**
  * The one click this build will not make.
  *
- * Everything else about payment lives on the harness side — the card with the seven fields, the
- * commitment, the drift check. This is the browser half, and it exists because none of that helps
- * if the agent can simply press the site's own "pay" button. Design/004 puts the switch behind
- * `payments.agent_click_pay`, off by default and with dependencies that cannot be met in this
- * phase, so in every shipped configuration the answer here is no.
+ * The person may review a seven-field summary in the conversation, but the agent still stops at
+ * the site's payment control. This browser-side check exists because a card alone cannot prevent
+ * the ordinary automation path from pressing the button that takes the money.
  *
  * **What it is and is not.** It is a guardrail on the enumerated write surface, matching
  * a control's own words against a curated list. It is not a security boundary: the executor's vm is
  * explicitly not one, and an agent determined to route around a wrapper can. What it
  * buys is that the *ordinary* path — read the page, find the button, click it — stops, with a
- * message saying what to do instead. Phase 4 replaces the policy switch with a capability the agent
- * cannot forge.
+ * message saying what to do instead.
  *
  * **False positives are cheap here.** Refusing a click that merely looked like a payment costs one
  * card asking the person to finish; missing a real one costs their money. The list therefore leans
@@ -66,46 +63,13 @@ export class PaymentClickBlockedError extends Error {
 }
 
 /**
- * Whether this build lets the agent press pay.
- *
- * Read from `PENGUIN_FLAGS` in the relay's own environment, with the same spelling the rest of the
- * product uses. Parsed here rather than imported from core because this package ships standalone;
- * the shape is small and the failure direction is what matters — anything unrecognised, missing or
- * malformed leaves the gate closed.
- */
-export function agentMayClickPay(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.PENGUIN_FLAGS
-  if (!raw) return false
-  let enabled = false
-  for (const part of raw.split(',')) {
-    const entry = part.trim()
-    if (entry === '') continue
-    const eq = entry.indexOf('=')
-    const name = (eq === -1 ? entry : entry.slice(0, eq)).trim()
-    if (name !== 'payments.agent_click_pay') continue
-    if (eq === -1) {
-      enabled = true
-      continue
-    }
-    const value = entry.slice(eq + 1).trim().toLowerCase()
-    // Only the spellings that unambiguously mean yes. A typo is not a reason to allow a payment.
-    enabled = value === 'true' || value === '1' || value === 'on' || value === 'yes'
-  }
-  return enabled
-}
-
-/**
- * Refuses a click on a control that reads as a payment, unless this build allows it.
+ * Refuses a click on a control that reads as a payment.
  *
  * `label` is whatever the caller could learn about the target cheaply — an accessible name, the
  * link text, the selector's own words. A caller that cannot determine one passes null, and the
  * click goes through: guessing from nothing would refuse half the page.
  */
-export function assertClickAllowed(
-  label: string | null | undefined,
-  env: NodeJS.ProcessEnv = process.env,
-): void {
+export function assertClickAllowed(label: string | null | undefined): void {
   if (!looksLikePayment(label)) return
-  if (agentMayClickPay(env)) return
   throw new PaymentClickBlockedError(String(label).trim())
 }

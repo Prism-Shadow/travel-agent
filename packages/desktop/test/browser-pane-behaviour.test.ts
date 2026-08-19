@@ -979,7 +979,7 @@ describe("task authority", () => {
 
 describe("resolving a turn's current target (for the vault)", () => {
   it("returns the target id of the tab the turn owns", async () => {
-    // What lets a vault secure_fill/execute_payment say `"current"` instead of naming a target.
+    // What lets a vault secure_fill say `"current"` instead of naming a target.
     const { pane } = await paneWithSession("session-1", "task-a");
     await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
     expect(pane.taskTargetId("task-a")).toBe("T1");

@@ -22,7 +22,6 @@
   "dependencies": {
     "@prismshadow/penguin-core": "workspace:*",
     "@prismshadow/penguin-server": "workspace:*",
-    "@travel-agent/transaction": "workspace:^",
     "electron-updater": "^6.8.9",
     "penguin-browser": "workspace:*"
   },

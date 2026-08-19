@@ -1,10 +1,10 @@
 /**
- * Feature flags for the browser-workspace and privacy/payment work.
+ * Feature flags for the browser-workspace and privacy work.
  *
  * Every gated capability is declared here, defaults
  * included, so that "what is on by default" is one readable table rather than a property
  * scattered across call sites. Nothing in this module reads a browser, a vault or a
- * payment path — it only answers *whether* a capability may be attempted.
+ * irreversible action — it only answers *whether* a capability may be attempted.
  *
  * Three rules shape the design:
  *
@@ -14,8 +14,7 @@
  *    rollout criteria are met, keeping those paths independently revertible.
  *
  * 2. **Dependencies are declared, not remembered.** `secret_entry.live` must never be on
- *    while the vault is unavailable, and `payments.execute` must never be on while
- *    `vault.l2l3` is off. Encoding that here means a mis-set override
+ *    while the vault is unavailable. Encoding that here means a mis-set override
  *    degrades to "off" instead of to an unsafe combination — `resolveFlags` recomputes the
  *    closure every time rather than trusting the caller.
  *
@@ -49,10 +48,6 @@ export type FeatureFlag =
   | "vault.enabled"
   /** Phase 4/5: real L2/L3 fields. Requires OS-level agent isolation. */
   | "vault.l2l3"
-  /** Phase 4/5: the agent may trigger a real payment through a one-shot capability. */
-  | "payments.execute"
-  /** Phase 3: the agent may click the site's own "pay" button. Off until the payment machinery lands. */
-  | "payments.agent_click_pay"
   /** Phase 4: hash-chained local audit log. */
   | "audit.chain"
   /** Phase 5+: OCR fallback when redacting a value the page re-displayed elsewhere. */
@@ -70,7 +65,7 @@ export type FeatureFlags = Record<FeatureFlag, boolean>;
  *
  * **Frozen, and typed read-only.** The `Readonly` type stops a compile-time write; `Object.freeze`
  * stops a runtime one. Both are needed: without the freeze, any importer could do
- * `(FLAG_DEFAULTS as FeatureFlags)["payments.execute"] = true` and move the product default for
+ * `(FLAG_DEFAULTS as FeatureFlags)["vault.l2l3"] = true` and move the product default for
  * every later `resolveFlags` call in the process — a single mutation, anywhere, silently
  * rewriting the product defaults this module exists to hold. Reading is unaffected, and
  * `resolveFlags` copies via spread before touching anything.
@@ -82,8 +77,6 @@ export const FLAG_DEFAULTS: Readonly<FeatureFlags> = Object.freeze({
   "secret_entry.live": false,
   "vault.enabled": false,
   "vault.l2l3": false,
-  "payments.execute": false,
-  "payments.agent_click_pay": false,
   "audit.chain": false,
   "redaction.ocr": false,
 });
@@ -104,7 +97,7 @@ export function listFeatureFlags(): FeatureFlag[] {
  * What a flag needs before it may be on, beyond being requested.
  *
  * Read as "this flag additionally requires all of these". Enforced by {@link resolveFlags} as a
- * fixpoint, so a chain (`payments.execute` → `vault.l2l3` → `vault.enabled`) collapses correctly
+ * fixpoint, so transitive dependency chains collapse correctly
  * no matter which link is missing.
  */
 const FLAG_REQUIRES: Partial<Record<FeatureFlag, FeatureFlag[]>> = {
@@ -117,10 +110,6 @@ const FLAG_REQUIRES: Partial<Record<FeatureFlag, FeatureFlag[]>> = {
   "secret_entry.live": ["secret_entry.contract", "vault.l2l3"],
   // L2/L3 are vault fields; there is no L2 without a vault.
   "vault.l2l3": ["vault.enabled"],
-  // Paying needs a stored, decryptable payment credential, which is an L2 field.
-  "payments.execute": ["vault.l2l3"],
-  // Clicking "pay" without the execute path would be the bypass the execute path exists to prevent.
-  "payments.agent_click_pay": ["payments.execute"],
   // The audit chain's key is protected by the same keychain the vault uses.
   "audit.chain": ["vault.enabled"],
 };
@@ -176,15 +165,15 @@ export interface FlagOverrideParse {
  * `name=false`. Accepted values are `true/1/on/yes` and `false/0/off/no`, case-insensitive.
  *
  * **Unrecognised values are rejected, not coerced.** An earlier revision treated "anything that
- * is not a false spelling" as true, which meant `payments.execute=flase` silently *requested*
- * the capability — a typo in a config string turning a payment path on is the wrong direction to
+ * is not a false spelling" as true, which meant `vault.l2l3=flase` silently *requested*
+ * the capability — a typo in a config string turning a sensitive-data path on is the wrong direction to
  * fail. Such an entry is now reported in `invalid`, so it surfaces as a misconfiguration instead
  * of as an enabled feature.
  *
  * **Repeats are last-entry-wins, and an invalid value counts as an entry.** A duplicated flag
  * takes the value of its final occurrence, and a final occurrence that cannot be parsed resolves
  * to `false` — it is written as `false` rather than skipped, because skipping would leave an
- * *earlier* `=true` standing (`payments.execute=true,payments.execute=flase` would have stayed
+ * *earlier* `=true` standing (`vault.l2l3=true,vault.l2l3=flase` would have stayed
  * on). The rule to hold onto: an unparseable value can never be the reason a capability is
  * enabled, whatever came before it in the string.
  *
@@ -222,7 +211,7 @@ export function parseFlagOverrides(raw: string | undefined): FlagOverrideParse {
       overrides[name] = false;
     } else {
       // Written as `false`, not skipped. Skipping would only reach the default when nothing set
-      // this flag earlier in the string; with `payments.execute=true,payments.execute=flase` the
+      // this flag earlier in the string; with `vault.l2l3=true,vault.l2l3=flase` the
       // earlier `true` would survive the very entry meant to reject it.
       overrides[name] = false;
       invalid.push({ flag: name, value: written });
@@ -287,21 +276,17 @@ export function applyCapabilityProbe(flags: FeatureFlags, probe: CapabilityProbe
     deny("vault.l2l3", reason);
     deny("audit.chain", reason);
     deny("secret_entry.live", reason);
-    deny("payments.execute", reason);
-    deny("payments.agent_click_pay", reason);
   }
 
   if (probe.agentRuntimeIsolated !== true) {
     const reason =
       "the agent runtime is not isolated from userData, the keychain and the main process, " +
-      "so real personal data, live secret fills and stored payment credentials stay off";
+      "so real personal data and live secret fills stay off";
     deny("vault.l2l3", reason);
     // Filling a real CVV/OTP puts L3 material into a page the agent can reach the moment its
     // CDP capability comes back. Denied explicitly rather than left to the
     // dependency closure, so the reason a reader sees names the isolation gap.
     deny("secret_entry.live", reason);
-    deny("payments.execute", reason);
-    deny("payments.agent_click_pay", reason);
   }
 
   const closed = closeDependencies(next);
@@ -312,8 +297,7 @@ export function applyCapabilityProbe(flags: FeatureFlags, probe: CapabilityProbe
  * Turns off any flag whose prerequisites are not met, repeatedly, until nothing changes.
  *
  * Iterating to a fixpoint rather than doing one pass is what makes order irrelevant: turning
- * `vault.enabled` off must also take `payments.execute` down through `vault.l2l3`, and that
- * chain is two hops long.
+ * dependency closure remains independent of declaration order.
  */
 function closeDependencies(input: FeatureFlags): ResolvedFlags {
   const flags = { ...input };
@@ -344,9 +328,9 @@ function closeDependencies(input: FeatureFlags): ResolvedFlags {
  *
  * **The probe is part of this path, not an optional follow-up.** It defaults to `{}`, and an empty
  * probe reports no facts, so every capability gated on a runtime fact — real L2/L3 data, live
- * secret fills, payments — comes back off unless the caller passes measured evidence for it. An
+ * secret fills — comes back off unless the caller passes measured evidence for it. An
  * earlier revision exported this function without the probe step, which meant a host could ask for
- * `payments.execute` and simply receive it; the module's claim that forgetting to probe enables
+ * `vault.l2l3` and simply receive it; the module's claim that forgetting to probe enables
  * nothing was untrue for anyone who called this directly. Folding the probe in is what makes that
  * claim hold by construction rather than by convention.
  *

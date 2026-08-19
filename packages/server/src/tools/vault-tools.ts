@@ -1,5 +1,5 @@
 /**
- * The three things an agent may ask the main process to do.
+ * The two things an agent may ask the main process to do.
  *
  * Each is a thin, strictly-shaped tool call that turns into one broker request. What makes them
  * safe is not what happens here — it is what *cannot* happen here:
@@ -9,11 +9,8 @@
  * - `secure_fill` types one stored value into one element. The **argument is a handle**, so a
  *   compromised agent asking for a fill is asking the main process to use something it does not
  *   have, on a page main checks for itself.
- * - `execute_payment` spends a one-shot capability by **id**. An id is not a permission: every
- *   check runs in main, against the object main holds.
- *
  * Trace safety is a property of the argument shapes, not of a redaction pass: the
- * arguments a model writes contain handles, ids and selectors, and the outputs contain outcomes
+ * arguments a model writes contain handles and selectors, and the outputs contain outcomes
  * and refusals. There is no path here that can carry a value into a trace, because no value ever
  * reaches this process.
  *
@@ -116,43 +113,12 @@ const FILL_TOOL: ToolDefinitionConfig = {
   },
 };
 
-const PAY_TOOL: ToolDefinitionConfig = {
-  name: "execute_payment",
-  description:
-    "Spend a payment permission the person confirmed on a card. Takes the capability id you were " +
-    "given and the plan exactly as the payment page shows it now. The application re-checks the " +
-    "merchant domain, the amount, the turn and the expiry, and pays at most once. A refusal is a " +
-    "normal answer: report it, do not retry it, and never look for another way to pay.",
-  permission: "rw",
-  parameters: {
-    type: "object",
-    properties: {
-      capabilityId: { type: "string" },
-      action: {
-        type: "string",
-        description: "Stable name for what is being paid, e.g. ctrip.payFlightOrder.",
-      },
-      actualPlan: {
-        type: "object",
-        description:
-          "What the page says now: merchantDomain, item, amount, currency, cancellation.",
-      },
-      domain: {
-        type: "string",
-        description: "The eTLD+1 of the payment page. Checked against what the application sees.",
-      },
-    },
-    required: ["capabilityId", "action", "actualPlan"],
-  },
-};
-
 /** Builds the host tools, or none when this process has no shell to talk to. */
 export function vaultHostTools(deps: VaultToolDeps | null): HostTool[] {
   if (!deps) return [];
   return [
     { definition: GRANT_TOOL, create: (definition) => grantTool(definition, deps) },
     { definition: FILL_TOOL, create: (definition) => fillTool(definition, deps) },
-    { definition: PAY_TOOL, create: (definition) => payTool(definition, deps) },
   ];
 }
 
@@ -184,21 +150,6 @@ function fillTool(definition: ToolDefinitionConfig, deps: VaultToolDeps): Builti
         handle: text(args, "handle"),
         selector: text(args, "selector"),
         targetId: optionalText(args, "targetId") ?? "current",
-      })),
-  };
-}
-
-function payTool(definition: ToolDefinitionConfig, deps: VaultToolDeps): BuiltinTool {
-  return {
-    name: definition.name,
-    definition,
-    execute: (args, ctx) =>
-      run(deps, ctx, definition.name, optionalText(args, "domain"), (base) => ({
-        op: "execute_payment",
-        ...base,
-        capabilityId: text(args, "capabilityId"),
-        action: text(args, "action"),
-        actualPlan: record(args, "actualPlan"),
       })),
   };
 }
@@ -307,12 +258,4 @@ function enumOf<T extends string>(args: Record<string, unknown>, key: string, al
     throw new Error(`"${key}" must be one of ${allowed.join(", ")}.`);
   }
   return value as T;
-}
-
-function record(args: Record<string, unknown>, key: string): Record<string, unknown> {
-  const value = args[key];
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`"${key}" must be an object.`);
-  }
-  return value as Record<string, unknown>;
 }

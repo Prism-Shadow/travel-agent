@@ -14,7 +14,7 @@ This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not me
 | --- | --- | --- |
 | M0 | Browser stack in-tree, Ctrip hotel page loads | done |
 | M1 | Human handoff (`requestHelp`) | done |
-| M2 | Transaction layer (WAL / commitment / checkpoint / escalation) | library done |
+| M2 | Transaction-layer experiment | retired; active responsibilities moved to their consumers |
 | M4 | Tab ownership | done; cross-site offer alignment dropped (see below) |
 
 The open milestones that used to follow (M3, the one-sentence acceptance run; M5, flights)
@@ -23,16 +23,18 @@ baseline remains pinned, while the web and desktop experience now evolves as tra
 consumer product surface, informed by the Mindtrip research snapshot
 ([docs/research/mindtrip.md](docs/research/mindtrip.md)).
 
-`@travel-agent/transaction` is wired in: the payment paths in `packages/server` and
-`packages/desktop` go through its `submitBooking` gates.
-
 `@travel-agent/domain` has been **removed**. It held three things. Two of them — choosing which
 options to show, and deciding whether two listings are the same product — were judgements a model
 makes better than a hand-maintained rule table, and had sat with no caller through six phases; they
-were deleted rather than kept. The third, `submitBooking`, moved into `@travel-agent/transaction`,
-because it is not a judgement at all: it is the enforcement that has to hold *even when the agent is
-wrong*. That line — the model judges, code only enforces, and code is written only where the model
-is itself inside the threat model — is the rule we now apply before adding any "domain" logic.
+were deleted rather than kept. The third, `submitBooking`, briefly moved into the transaction
+experiment described below.
+
+The later `@travel-agent/transaction` package has also been retired. Its only live responsibilities
+were not one cohesive transaction abstraction: the interaction-card contract now belongs to the
+server API, and browser handover belongs to `penguin-browser`. Its checkpoint, escalation adapter,
+WAL, commitment, capability, and payment-execution chain had no reachable production reader or
+executor. The invariant that does matter even when the agent is wrong remains at the real action
+surface: `penguin-browser` unconditionally blocks payment controls, so the person completes payment.
 
 ## Layout
 
@@ -41,7 +43,6 @@ is itself inside the threat model — is the rule we now apply before adding any
 | `packages/core`, `server` | PenguinHarness engine baseline (pinned snapshot) |
 | `packages/web` | travel-agent's active consumer UI, shared by web and desktop |
 | `packages/browser-cli`, `browser-extension` | penguin-browser, vendored in |
-| `packages/transaction` | Irreversible-action semantics, incl. the `submitBooking` gates |
 | `packages/skills/skills/penguin-browser` | How the agent follows the conversation's browser choice |
 
 ## Browser backends

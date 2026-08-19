@@ -128,7 +128,6 @@ interface GateContext {
   sessionId: string
   /** Accumulated description of the locator chain: selectors, role names, text. */
   description: string
-  env?: NodeJS.ProcessEnv
 }
 
 function describeArgs(method: string, args: unknown[]): string {
@@ -194,7 +193,7 @@ export function guardPlaywrightObject<T extends object>(target: T, context: Gate
         return async (...args: unknown[]) => {
           assertMayOperate(context.sessionId, 'write')
           if (CLICK_METHODS.has(property)) {
-            assertClickAllowed(await labelFor(object, context, args), context.env)
+            assertClickAllowed(await labelFor(object, context, args))
           }
           return await trackWrite(context.sessionId, async () =>
             (value as (...rest: unknown[]) => Promise<unknown>).apply(object, args.map(unguard)),
@@ -240,9 +239,8 @@ export function guardPlaywrightObject<T extends object>(target: T, context: Gate
 export function guardPage<T extends object>(
   page: T,
   sessionId: string,
-  env?: NodeJS.ProcessEnv,
 ): T {
-  return guardPlaywrightObject(page, { sessionId, description: 'page', ...(env ? { env } : {}) })
+  return guardPlaywrightObject(page, { sessionId, description: 'page' })
 }
 
 /**
@@ -262,14 +260,13 @@ export function guardHelper<TArgs extends unknown[], TResult>(
     describe?: (...args: TArgs) => string | null | undefined
     /** Whether this helper can commit a purchase (a click or a submit). */
     clicks: boolean
-    env?: NodeJS.ProcessEnv
   },
 ): (...args: TArgs) => Promise<TResult> {
   return async (...args: TArgs): Promise<TResult> => {
     assertMayOperate(options.sessionId, 'write')
     if (options.clicks) {
       const described = options.describe?.(...args) ?? null
-      assertClickAllowed(described ? `${options.name} ${described}` : null, options.env)
+      assertClickAllowed(described ? `${options.name} ${described}` : null)
     }
     return await trackWrite(options.sessionId, async () => helper(...args))
   }

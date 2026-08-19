@@ -50,29 +50,28 @@ describe("the capability report", () => {
   });
 
   it("explains a requested capability that failed its probe — the chain the fail-closed rule requires", async () => {
-    // The person asked for the whole payment stack. No probe reported an isolated runtime or
+    // The person asked for the whole protected-data stack. No probe reported an isolated runtime or
     // usable encrypted storage, so all of it resolves off — and each flag carries a sentence the
     // settings page can show, which is what stops "off" from looking like a bug.
-    process.env.PENGUIN_FLAGS =
-      "vault.enabled,vault.l2l3,payments.execute,secret_entry.contract,secret_entry.live";
+    process.env.PENGUIN_FLAGS = "vault.enabled,vault.l2l3,secret_entry.contract,secret_entry.live";
     const seen = await report();
 
     expect(seen.flags["vault.enabled"]).toBe(false);
-    expect(seen.flags["payments.execute"]).toBe(false);
+    expect(seen.flags["vault.l2l3"]).toBe(false);
     expect(seen.flags["secret_entry.live"]).toBe(false);
 
     const denied = Object.fromEntries(seen.denials.map((entry) => [entry.flag, entry.reason]));
     expect(denied["vault.enabled"]).toMatch(/refuses to start|basic_text|unavailable/);
-    expect(denied["payments.execute"]).toBeDefined();
+    expect(denied["vault.l2l3"]).toBeDefined();
     expect(denied["secret_entry.live"]).toBeDefined();
   });
 
   it("reports misconfiguration instead of silently resolving it", async () => {
-    process.env.PENGUIN_FLAGS = "payments.execute=flase,not_a_flag";
+    process.env.PENGUIN_FLAGS = "vault.l2l3=flase,not_a_flag";
     const seen = await report();
     expect(seen.misconfigured.unknown).toEqual(["not_a_flag"]);
-    expect(seen.misconfigured.invalid).toEqual([{ flag: "payments.execute", value: "flase" }]);
-    expect(seen.flags["payments.execute"]).toBe(false);
+    expect(seen.misconfigured.invalid).toEqual([{ flag: "vault.l2l3", value: "flase" }]);
+    expect(seen.flags["vault.l2l3"]).toBe(false);
   });
 
   it("reports the shell when the fork environment says one is there", async () => {

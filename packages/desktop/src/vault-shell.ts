@@ -1,8 +1,8 @@
 /**
  * The vault side of the desktop shell, assembled in one place.
  *
- * Everything the main process holds for privacy and payment — the vault, the grants, the sensitive
- * element registry, the secret phase, the payment authority, the broker — is constructed here, and
+ * Everything the main process holds for privacy — the vault, the grants, the sensitive element
+ * registry, the secret phase, and the broker — is constructed here, and
  * only here, so that "what runs when the vault is on" is one readable function rather than a set
  * of side effects scattered through `main.ts`.
  *
@@ -17,8 +17,8 @@
  *    own chrome: a page cannot draw over it, and an agent cannot answer it.
  *
  * What is *not* here: the agent-isolation probe. `agentRuntimeIsolated` is never reported true in
- * this phase — the isolation work is Phase 5 — so `vault.l2l3`, `secret_entry.live` and
- * `payments.execute` resolve off through the ordinary dependency chain, with reasons, however the
+ * this phase — the isolation work is Phase 5 — so `vault.l2l3` and `secret_entry.live` resolve off
+ * through the ordinary dependency chain, with reasons, however the
  * environment is configured. That single absence is what keeps every gated capability gated.
  */
 import path from "node:path";
@@ -32,7 +32,6 @@ import { startBrokerServer, type BrokerServer } from "./broker/server.js";
 import { createBrokerHandlers, type GrantDecision } from "./vault/broker-handlers.js";
 import { DebuggerFillPort, type TargetResolver } from "./vault/debugger-fill-port.js";
 import { GrantRegistry } from "./vault/grants.js";
-import { PaymentAuthority } from "./vault/payment-authority.js";
 import { SecureFiller } from "./vault/secure-fill.js";
 import { SecretPhaseController } from "./vault/secret-phase.js";
 import { SensitiveElementRegistry } from "./vault/sensitive-elements.js";
@@ -43,7 +42,6 @@ import {
   type StorageAvailability,
 } from "./vault/safe-storage.js";
 import { createProfileVault, type ProfileVault } from "./vault/store.js";
-import { openJournal, type Journal } from "@travel-agent/transaction";
 
 export interface VaultShell {
   /** Environment for the forked server: where the broker is and the token to present. */
@@ -52,7 +50,6 @@ export interface VaultShell {
   grants: GrantRegistry;
   sensitive: SensitiveElementRegistry;
   secretPhase: SecretPhaseController;
-  payments: PaymentAuthority;
   close(): Promise<void>;
 }
 
@@ -121,27 +118,11 @@ export async function startVaultShell(input: {
     flags: { "secret_entry.live": resolved.flags["secret_entry.live"] },
   });
 
-  const journals = new Map<string, Promise<Journal>>();
-  const payments = new PaymentAuthority({
-    vault,
-    flags: { "payments.execute": resolved.flags["payments.execute"] },
-    journalFor: (sessionId) => {
-      let journal = journals.get(sessionId);
-      if (!journal) {
-        journal = openJournal(path.join(vaultDir, "journals", `${sessionId}.jsonl`));
-        journals.set(sessionId, journal);
-      }
-      return journal;
-    },
-    audit: vault.auditLog(),
-  });
-
   const ask = input.askForGrant ?? dialogGrantAsk;
   const handlers = createBrokerHandlers({
     vault,
     grants,
     filler,
-    payments,
     audit: vault.auditLog(),
     // The pane's own bookkeeping when main wired it; without it every "current"-target call is
     // refused with "no page open", which is the failing-closed reading of "I don't know".
@@ -180,7 +161,6 @@ export async function startVaultShell(input: {
     grants,
     sensitive,
     secretPhase,
-    payments,
     async close() {
       await broker.close();
       await secretPhase.abandon("the application is closing");

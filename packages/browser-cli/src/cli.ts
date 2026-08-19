@@ -1643,7 +1643,6 @@ cli
   .option('--summary <text>', 'One line of context (never a value)')
   .option('--options-json <json>', 'selection: [{ id, label, rationale, plan? }]')
   .option('--payment-json <json>', 'commitment_confirmation: the seven fields of the purchase')
-  .option('--tolerance <amount>', 'commitment_confirmation: slack to OFFER on the card, in the same currency')
   .option('--field <field>', 'secret_entry: cvv | otp | three_d_secure | card_number | payment_password | passkey')
   .option('--purpose <text>', 'secret_entry: why the code is needed')
   .option('--target <selector>', 'human_challenge / browser_takeover: element to highlight')
@@ -1668,7 +1667,6 @@ cli
     }
     if (options.optionsJson) request.options = JSON.parse(String(options.optionsJson))
     if (options.paymentJson) request.payment = JSON.parse(String(options.paymentJson))
-    if (options.tolerance) request.offeredTolerance = { amountIncrease: Number(options.tolerance) }
     if (options.field) request.field = String(options.field)
     if (options.purpose) request.purpose = String(options.purpose)
     if (options.target) request.targetSelector = String(options.target)
@@ -1698,62 +1696,6 @@ cli
     // An unanswered or refused request is not a CLI failure: the agent has to read the outcome and
     // decide. Only a request that could not be made at all exits non-zero.
     if (result.status === 'unavailable') process.exitCode = 2
-  })
-
-cli
-  .command('payment authorize', 'Ask the harness whether this payment may proceed')
-  .option('--plan-json <json>', 'What the payment page says right now (the same fields as the card)')
-  .option('--action <name>', 'Stable action name for the journal, e.g. ctrip.payFlightOrder')
-  .action(async (options) => {
-    const channel = harnessChannel()
-    if (!channel) {
-      console.error(
-        'This command needs a Travel Agent turn: the payment guard lives with the conversation.',
-      )
-      process.exit(2)
-    }
-    const response = await fetch(new URL('/api/agent/payments/authorize', channel.baseUrl), {
-      method: 'POST',
-      headers: { authorization: `Bearer ${channel.token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: channel.sessionId,
-        actualPlan: JSON.parse(String(options.planJson ?? '{}')),
-        action: String(options.action ?? 'payment'),
-      }),
-    })
-    const body = await response.text()
-    console.log(body)
-    // A refusal is an outcome, not an error: the agent reports it to the person and stops.
-    if (!response.ok) process.exitCode = 1
-  })
-
-cli
-  .command('payment report', 'Tell the harness what an authorised payment actually did')
-  .option('--authorization <id>', 'The authorizationId the guard returned')
-  .option('--outcome-json <json>', 'What happened: order id, status, whatever the page showed')
-  .action(async (options) => {
-    const channel = harnessChannel()
-    if (!channel) {
-      console.error('This command needs a Travel Agent turn.')
-      process.exit(2)
-    }
-    const response = await fetch(
-      new URL(`/api/agent/payments/${String(options.authorization)}/outcome`, channel.baseUrl),
-      {
-        method: 'POST',
-        headers: { authorization: `Bearer ${channel.token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: channel.sessionId,
-          outcome: JSON.parse(String(options.outcomeJson ?? '{}')),
-        }),
-      },
-    )
-    if (!response.ok) {
-      console.error(await response.text())
-      process.exitCode = 1
-      return
-    }
-    console.log(JSON.stringify({ recorded: true }))
   })
 
 cli

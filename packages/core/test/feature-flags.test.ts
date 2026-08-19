@@ -32,8 +32,6 @@ const ALL_REQUESTED: Partial<Record<FeatureFlag, boolean>> = {
   "vault.enabled": true,
   "vault.l2l3": true,
   "secret_entry.live": true,
-  "payments.execute": true,
-  "payments.agent_click_pay": true,
   "audit.chain": true,
 };
 
@@ -77,9 +75,9 @@ describe("the defaults table cannot be mutated by an importer", () => {
     const mutable = FLAG_DEFAULTS as FeatureFlags;
     // Sloppy mode ignores the write, strict mode throws; the assertion that matters is the value.
     expect(() => {
-      mutable["payments.execute"] = true;
+      mutable["vault.l2l3"] = true;
     }).toThrow(TypeError);
-    expect(FLAG_DEFAULTS["payments.execute"]).toBe(false);
+    expect(FLAG_DEFAULTS["vault.l2l3"]).toBe(false);
   });
 
   it("rejects added and deleted keys", () => {
@@ -161,18 +159,18 @@ describe("override parsing", () => {
 
 describe("override parsing rejects unrecognised values instead of coercing them", () => {
   // The regression this guards: a parser that treated "not a false spelling" as true would read
-  // `payments.execute=flase` as a *request to enable payments*. A typo must never be the reason
+  // `vault.l2l3=flase` as a request to enable protected data. A typo must never be the reason
   // a capability turns on.
-  it("does not enable a payment flag on a misspelled false", () => {
-    const { overrides, invalid } = parseFlagOverrides("payments.execute=flase");
-    expect(overrides["payments.execute"]).toBe(false);
-    expect(invalid).toEqual([{ flag: "payments.execute", value: "flase" }]);
+  it("does not enable a protected flag on a misspelled false", () => {
+    const { overrides, invalid } = parseFlagOverrides("vault.l2l3=flase");
+    expect(overrides["vault.l2l3"]).toBe(false);
+    expect(invalid).toEqual([{ flag: "vault.l2l3", value: "flase" }]);
   });
 
   it.each([
     ["vault.l2l3=flase", "vault.l2l3", "flase"],
     ["secret_entry.live=nope", "secret_entry.live", "nope"],
-    ["payments.agent_click_pay=disabled", "payments.agent_click_pay", "disabled"],
+    ["redaction.ocr=disabled", "redaction.ocr", "disabled"],
     ["vault.enabled=2", "vault.enabled", "2"],
     ["audit.chain=", "audit.chain", ""],
   ])("leaves %s off and reports it", (entry, flag, value) => {
@@ -184,9 +182,9 @@ describe("override parsing rejects unrecognised values instead of coercing them"
   it("keeps the resolved value disabled when the value is unparseable", () => {
     // Deliberately not phrased as "at its default": a default may one day be true, and the
     // guarantee being asserted is that an unparseable value resolves to false regardless.
-    const { overrides } = parseFlagOverrides("payments.execute=flase");
+    const { overrides } = parseFlagOverrides("vault.l2l3=flase");
     const { flags } = resolveFlags(overrides, TRUSTED_PROBE);
-    expect(flags["payments.execute"]).toBe(false);
+    expect(flags["vault.l2l3"]).toBe(false);
   });
 
   it("does not let a bad entry disturb the good ones beside it", () => {
@@ -201,8 +199,8 @@ describe("override parsing rejects unrecognised values instead of coercing them"
   });
 
   it("reports an explicitly-off flag as valid, not invalid", () => {
-    const { overrides, invalid } = parseFlagOverrides("payments.execute=false");
-    expect(overrides["payments.execute"]).toBe(false);
+    const { overrides, invalid } = parseFlagOverrides("vault.l2l3=false");
+    expect(overrides["vault.l2l3"]).toBe(false);
     expect(invalid).toEqual([]);
   });
 });
@@ -212,19 +210,15 @@ describe("repeated entries are last-entry-wins, and an invalid value still means
   // default only when nothing set the flag earlier. With an earlier `=true` in the same string,
   // the bad entry meant to reject it would have left the capability enabled.
   it("true then invalid resolves to false and still reports the bad value", () => {
-    const { overrides, invalid } = parseFlagOverrides(
-      "payments.execute=true,payments.execute=flase",
-    );
-    expect(overrides["payments.execute"]).toBe(false);
-    expect(invalid).toEqual([{ flag: "payments.execute", value: "flase" }]);
+    const { overrides, invalid } = parseFlagOverrides("vault.l2l3=true,vault.l2l3=flase");
+    expect(overrides["vault.l2l3"]).toBe(false);
+    expect(invalid).toEqual([{ flag: "vault.l2l3", value: "flase" }]);
   });
 
   it("invalid then true resolves to true and still reports the earlier bad value", () => {
-    const { overrides, invalid } = parseFlagOverrides(
-      "payments.execute=flase,payments.execute=true",
-    );
-    expect(overrides["payments.execute"]).toBe(true);
-    expect(invalid).toEqual([{ flag: "payments.execute", value: "flase" }]);
+    const { overrides, invalid } = parseFlagOverrides("vault.l2l3=flase,vault.l2l3=true");
+    expect(overrides["vault.l2l3"]).toBe(true);
+    expect(invalid).toEqual([{ flag: "vault.l2l3", value: "flase" }]);
   });
 
   it("takes the last value for a plainly repeated flag", () => {
@@ -256,9 +250,8 @@ describe("repeated entries are last-entry-wins, and an invalid value still means
 });
 
 describe("what Phase 3 ships with", () => {
-  // Pinned rather than assumed. Both of these decide whether an application types a one-time code
-  // or presses a button that moves money, and both are off in every configuration this phase can
-  // produce: their prerequisites need a vault and an isolated agent runtime, which are Phase 4/5.
+  // Pinned rather than assumed. This decides whether an application types a one-time code and is
+  // off without a vault and an isolated agent runtime.
   it("never types a real one-time code", () => {
     expect(resolveFlags().flags["secret_entry.live"]).toBe(false);
     // Even asked for directly, and even with the contract on.
@@ -268,39 +261,17 @@ describe("what Phase 3 ships with", () => {
       ],
     ).toBe(false);
   });
-
-  it("never presses the site's pay button", () => {
-    expect(resolveFlags().flags["payments.agent_click_pay"]).toBe(false);
-    expect(
-      resolveFlags({ "payments.agent_click_pay": true }).flags["payments.agent_click_pay"],
-    ).toBe(false);
-    // It takes the whole Phase 4 chain — a vault, real L2/L3, an execute path — *and* both runtime
-    // facts before this can be on at all.
-    expect(
-      resolveFlags(
-        {
-          "vault.enabled": true,
-          "vault.l2l3": true,
-          "payments.execute": true,
-          "payments.agent_click_pay": true,
-        },
-        { encryptedStorageAvailable: true, agentRuntimeIsolated: true },
-      ).flags["payments.agent_click_pay"],
-    ).toBe(true);
-  });
 });
 
 describe("resolveFlags applies the capability probe, so it cannot be skipped", () => {
   // The regression this guards: resolveFlags used to stop after the dependency closure, so a
-  // production caller could ask for payments.execute and simply receive it — the module's
+  // production caller could ask for vault.l2l3 and simply receive it — the module's
   // "forgetting to probe enables nothing" claim was false for anyone who called it directly.
   it("refuses every runtime-gated capability when no probe is passed", () => {
     const { flags } = resolveFlags(ALL_REQUESTED);
     expect(flags["vault.enabled"]).toBe(false);
     expect(flags["vault.l2l3"]).toBe(false);
     expect(flags["secret_entry.live"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
-    expect(flags["payments.agent_click_pay"]).toBe(false);
     expect(flags["audit.chain"]).toBe(false);
   });
 
@@ -312,13 +283,11 @@ describe("resolveFlags applies the capability probe, so it cannot be skipped", (
     expect(flags["secret_entry.contract"]).toBe(true);
   });
 
-  it("grants the full payment and secret chain when both facts are measured true", () => {
+  it("grants the full vault and secret chain when both facts are measured true", () => {
     const { flags, denials } = resolveFlags(ALL_REQUESTED, TRUSTED_PROBE);
     expect(flags["vault.enabled"]).toBe(true);
     expect(flags["vault.l2l3"]).toBe(true);
     expect(flags["secret_entry.live"]).toBe(true);
-    expect(flags["payments.execute"]).toBe(true);
-    expect(flags["payments.agent_click_pay"]).toBe(true);
     expect(flags["audit.chain"]).toBe(true);
     expect(denials).toEqual([]);
   });
@@ -328,14 +297,12 @@ describe("resolveFlags applies the capability probe, so it cannot be skipped", (
     expect(flags["vault.enabled"]).toBe(true);
     expect(flags["vault.l2l3"]).toBe(false);
     expect(flags["secret_entry.live"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
   });
 
   it("refuses everything vault-backed when only isolation is measured", () => {
     const { flags } = resolveFlags(ALL_REQUESTED, { agentRuntimeIsolated: true });
     expect(flags["vault.enabled"]).toBe(false);
     expect(flags["vault.l2l3"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
   });
 
   // Both resolution stages can deny the same flag, and their lists are merged first-wins. The
@@ -358,9 +325,9 @@ describe("resolveFlags applies the capability probe, so it cannot be skipped", (
   });
 
   it("reports each denied flag at most once when only the closure denies", () => {
-    // vault.l2l3 and payments.execute fall to the dependency closure, not the probe.
+    // vault.l2l3 and audit.chain fall to the dependency closure, not the probe.
     const denied = resolveFlags(
-      { "vault.l2l3": true, "payments.execute": true, "audit.chain": true },
+      { "vault.l2l3": true, "audit.chain": true },
       TRUSTED_PROBE,
     ).denials.map((d) => d.flag);
     expect(new Set(denied).size).toBe(denied.length);
@@ -420,30 +387,15 @@ describe("dependency closure", () => {
   });
 
   it("collapses a two-hop chain when the root is off", () => {
-    // payments.execute → vault.l2l3 → vault.enabled
-    const { flags } = resolveFlags({ "payments.execute": true, "vault.l2l3": true });
+    // secret_entry.live → vault.l2l3 → vault.enabled
+    const { flags } = resolveFlags({
+      "secret_entry.contract": true,
+      "secret_entry.live": true,
+      "vault.l2l3": true,
+    });
     expect(flags["vault.enabled"]).toBe(false);
     expect(flags["vault.l2l3"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
-  });
-
-  it("collapses the three-hop chain down to agent_click_pay", () => {
-    const { flags } = resolveFlags({ "payments.agent_click_pay": true });
-    expect(flags["payments.agent_click_pay"]).toBe(false);
-  });
-
-  it("grants the full payment chain only when every link is present", () => {
-    const { flags, denials } = resolveFlags(
-      {
-        "vault.enabled": true,
-        "vault.l2l3": true,
-        "payments.execute": true,
-        "payments.agent_click_pay": true,
-      },
-      TRUSTED_PROBE,
-    );
-    expect(flags["payments.agent_click_pay"]).toBe(true);
-    expect(denials).toEqual([]);
+    expect(flags["secret_entry.live"]).toBe(false);
   });
 });
 
@@ -455,8 +407,6 @@ describe("capability probe", () => {
     "vault.enabled": true,
     "vault.l2l3": true,
     "secret_entry.live": true,
-    "payments.execute": true,
-    "payments.agent_click_pay": true,
     "audit.chain": true,
   };
 
@@ -469,7 +419,6 @@ describe("capability probe", () => {
     expect(flags["vault.enabled"]).toBe(false);
     expect(flags["vault.l2l3"]).toBe(false);
     expect(flags["secret_entry.live"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
     expect(flags["audit.chain"]).toBe(false);
     expect(denials.length).toBeGreaterThan(0);
     // The browser itself is untouched: the browser phases stay out of the security gate.
@@ -477,15 +426,13 @@ describe("capability probe", () => {
     expect(flags["chrome.fallback"]).toBe(true);
   });
 
-  it("clears real personal data, live secret fills and payments when the runtime is not isolated", () => {
+  it("clears real personal data and live secret fills when the runtime is not isolated", () => {
     const granted = resolveFlags(fullyOn, TRUSTED_PROBE).flags;
     const { flags, denials } = applyCapabilityProbe(granted, {
       encryptedStorageAvailable: true,
       agentRuntimeIsolated: false,
     });
     expect(flags["vault.l2l3"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
-    expect(flags["payments.agent_click_pay"]).toBe(false);
     // A live fill puts a real CVV/OTP into a page the agent can read once its CDP capability
     // returns, so an unisolated runtime must take it down too.
     expect(flags["secret_entry.live"]).toBe(false);
@@ -501,7 +448,6 @@ describe("capability probe", () => {
     const { flags } = applyCapabilityProbe(granted, {});
     expect(flags["vault.enabled"]).toBe(false);
     expect(flags["vault.l2l3"]).toBe(false);
-    expect(flags["payments.execute"]).toBe(false);
   });
 
   it("never turns an additional flag on", () => {
@@ -549,30 +495,29 @@ describe("resolveFlagsFromEnv", () => {
 
   it("passes an unparseable value through as invalid and leaves the flag off", () => {
     const result = resolveFlagsFromEnv(
-      { PENGUIN_FLAGS: "payments.execute=flase" },
+      { PENGUIN_FLAGS: "vault.l2l3=flase" },
       { encryptedStorageAvailable: true, agentRuntimeIsolated: true },
     );
-    expect(result.flags["payments.execute"]).toBe(false);
-    expect(result.invalid).toEqual([{ flag: "payments.execute", value: "flase" }]);
+    expect(result.flags["vault.l2l3"]).toBe(false);
+    expect(result.invalid).toEqual([{ flag: "vault.l2l3", value: "flase" }]);
   });
 
   it("fails closed on gated flags when the probe argument is omitted entirely", () => {
     // Same guarantee as resolveFlags: this path must not become the way to skip the probe.
     const result = resolveFlagsFromEnv({
-      PENGUIN_FLAGS: "iab.enabled,vault.enabled,vault.l2l3,payments.execute",
+      PENGUIN_FLAGS: "iab.enabled,vault.enabled,vault.l2l3",
     });
     expect(result.flags["vault.enabled"]).toBe(false);
     expect(result.flags["vault.l2l3"]).toBe(false);
-    expect(result.flags["payments.execute"]).toBe(false);
     expect(result.flags["iab.enabled"]).toBe(true);
   });
 
   it("grants the gated chain when the environment and both measured facts agree", () => {
     const result = resolveFlagsFromEnv(
-      { PENGUIN_FLAGS: "vault.enabled,vault.l2l3,payments.execute" },
+      { PENGUIN_FLAGS: "vault.enabled,vault.l2l3" },
       TRUSTED_PROBE,
     );
-    expect(result.flags["payments.execute"]).toBe(true);
+    expect(result.flags["vault.l2l3"]).toBe(true);
     expect(result.denials).toEqual([]);
   });
 

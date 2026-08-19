@@ -1,9 +1,9 @@
 /**
- * The three host tools, from the model's side.
+ * The two host tools, from the model's side.
  *
  * What is pinned here is mostly what the tools *do not* do: they do not read the turn, the
  * conversation or the domain from the model's arguments, they do not turn a refusal into a
- * transport error (or the reverse), and they carry nothing but handles and ids — so a trace of a
+ * transport error (or the reverse), and they carry nothing but handles — so a trace of a
  * whole booking contains no personal value, which is the no-values invariant at the
  * `builtin tool` row.
  */
@@ -71,12 +71,11 @@ describe("what the host offers", () => {
     expect(vaultHostTools(null)).toEqual([]);
   });
 
-  it("offers exactly three tools, all of them writes", () => {
+  it("offers exactly two tools, both writes", () => {
     const { tools } = toolsWith({});
     expect(tools.map((tool) => tool.definition.name)).toEqual([
       "request_profile_grant",
       "fill_saved_field",
-      "execute_payment",
     ]);
     expect(tools.every((tool) => tool.definition.permission === "rw")).toBe(true);
   });
@@ -145,20 +144,6 @@ describe("what reaches the broker", () => {
     });
   });
 
-  it("sends the payment plan as the page reported it", async () => {
-    const { tools, sent } = toolsWith({});
-    await call(byName(tools, "execute_payment"), {
-      capabilityId: "cap-1",
-      action: "ctrip.payFlightOrder",
-      actualPlan: { merchantDomain: "ctrip.com", amount: 1280, currency: "CNY" },
-    });
-    expect(sent[0]).toMatchObject({
-      op: "execute_payment",
-      capabilityId: "cap-1",
-      actualPlan: { amount: 1280 },
-    });
-  });
-
   it("refuses malformed arguments without dialling at all", async () => {
     const { tools, broker } = toolsWith({});
     const missingHandle = await call(byName(tools, "fill_saved_field"), { selector: "#a" });
@@ -176,10 +161,9 @@ describe("what reaches the broker", () => {
 
   it("refuses outside a turn, and with no page open", async () => {
     const outsideTurn = toolsWith({ taskId: null });
-    const one = await call(byName(outsideTurn.tools, "execute_payment"), {
-      capabilityId: "cap-1",
-      action: "a",
-      actualPlan: {},
+    const one = await call(byName(outsideTurn.tools, "fill_saved_field"), {
+      handle: "pv:g-test001:id_number",
+      selector: "#a",
     });
     expect(one.output).toMatch(/only be used inside a turn/);
     expect(outsideTurn.broker.call).not.toHaveBeenCalled();
@@ -196,18 +180,17 @@ describe("what reaches the broker", () => {
 
 describe("what comes back", () => {
   it("reports a refusal as a completed call the model has to read", async () => {
-    // Not a failure: "that capability expired" is an answer, and a model that treated it as a
+    // Not a failure: "that grant expired" is an answer, and a model that treated it as a
     // transport error would retry it.
     const { tools } = toolsWith({
-      answer: { ok: false, code: "refused", message: "capability_expired: ask again" },
+      answer: { ok: false, code: "refused", message: "grant_expired: ask again" },
     });
-    const result = await call(byName(tools, "execute_payment"), {
-      capabilityId: "cap-1",
-      action: "a",
-      actualPlan: {},
+    const result = await call(byName(tools, "fill_saved_field"), {
+      handle: "pv:g-test001:id_number",
+      selector: "#a",
     });
     expect(result.stopReason).toBe("completed");
-    expect(result.output).toMatch(/capability_expired/);
+    expect(result.output).toMatch(/grant_expired/);
   });
 
   it("reports a broken channel as a failure, and says nothing was changed", async () => {
@@ -222,13 +205,12 @@ describe("what comes back", () => {
   });
 
   it("passes a success through as the result object", async () => {
-    const { tools } = toolsWith({ answer: { ok: true, result: { orderId: "E123456" } } });
-    const result = await call(byName(tools, "execute_payment"), {
-      capabilityId: "cap-1",
-      action: "a",
-      actualPlan: {},
+    const { tools } = toolsWith({ answer: { ok: true, result: { filled: true } } });
+    const result = await call(byName(tools, "fill_saved_field"), {
+      handle: "pv:g-test001:id_number",
+      selector: "#a",
     });
-    expect(JSON.parse(result.output)).toEqual({ orderId: "E123456" });
+    expect(JSON.parse(result.output)).toEqual({ filled: true });
   });
 
   it("carries no personal value in anything it sends or returns", async () => {

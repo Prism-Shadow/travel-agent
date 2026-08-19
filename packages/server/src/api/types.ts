@@ -19,11 +19,128 @@ import type {
   ThinkingLevelName,
   ToolDefinitionConfig,
 } from "@prismshadow/penguin-core/interfaces";
-// The interaction vocabulary is shared with the transaction layer rather than restated here: the
-// card the person reads and the object the agent builds have to be the same seven fields, and two
-// declarations of that would only ever agree by luck. Type-only, so nothing from that package is
-// pulled into a browser bundle.
-import type { InteractionOutcome, UserInteraction } from "@travel-agent/transaction";
+// The interaction vocabulary lives here so the card the person reads and the object the server
+// publishes share one contract. Web imports this module as types only.
+
+// ---------------------------------------------------------------------------
+// User interactions
+// ---------------------------------------------------------------------------
+
+/** What happens when nobody answers an interaction before its deadline. */
+export type TimeoutPolicy = "suspend" | "abort" | "proceed_with_default";
+
+/** One representative choice, including why it is worth showing. */
+export interface SelectionOption {
+  id: string;
+  label: string;
+  rationale: string;
+  plan: Record<string, unknown>;
+}
+
+/** The six ways an agent may interrupt the person using the product. */
+export type InteractionKind =
+  | "info_request"
+  | "selection"
+  | "commitment_confirmation"
+  | "secret_entry"
+  | "human_challenge"
+  | "browser_takeover";
+
+/** Secret fields requested by name only; their values never travel in this contract. */
+export type SecretField =
+  "cvv" | "otp" | "three_d_secure" | "card_number" | "payment_password" | "passkey";
+
+/** The purchase summary shown to the person before the agent stops at the payment gate. */
+export interface PaymentSummary {
+  merchant: { name: string; domain: string };
+  item: string;
+  amount: { value: number; currency: string };
+  cancellation: { summary: string; url?: string };
+  paymentMethod: { alias: string; brand?: string; last4?: string };
+  expiresAt: string;
+  taskId: string;
+}
+
+export interface InteractionBase {
+  id: string;
+  kind: InteractionKind;
+  ask: string;
+  summary: string;
+  taskId?: string;
+  timeoutMs: number;
+  onTimeout: TimeoutPolicy;
+  createdAt: string;
+}
+
+export interface InfoRequestInteraction extends InteractionBase {
+  kind: "info_request";
+  fields?: Array<{ name: string; label: string; placeholder?: string }>;
+  answerShape?: "text" | "decision";
+}
+
+export interface SelectionInteraction extends InteractionBase {
+  kind: "selection";
+  options: SelectionOption[];
+  defaultOptionId?: string;
+}
+
+export interface CommitmentConfirmationInteraction extends InteractionBase {
+  kind: "commitment_confirmation";
+  payment: PaymentSummary;
+}
+
+export interface SecretEntryInteraction extends InteractionBase {
+  kind: "secret_entry";
+  field: SecretField;
+  purpose: string;
+  live: boolean;
+}
+
+export interface HumanChallengeInteraction extends InteractionBase {
+  kind: "human_challenge";
+  targetSelector?: string;
+}
+
+export interface BrowserTakeoverInteraction extends InteractionBase {
+  kind: "browser_takeover";
+  reason: string;
+  targetSelector?: string;
+}
+
+export type UserInteraction =
+  | InfoRequestInteraction
+  | SelectionInteraction
+  | CommitmentConfirmationInteraction
+  | SecretEntryInteraction
+  | HumanChallengeInteraction
+  | BrowserTakeoverInteraction;
+
+export type InteractionOutcome =
+  | {
+      status: "answered";
+      value?: string;
+      values?: Record<string, string>;
+      optionId?: string;
+      approved?: boolean;
+      message?: string;
+    }
+  | { status: "declined"; message?: string }
+  | { status: "timeout"; policy: TimeoutPolicy }
+  | { status: "aborted" };
+
+/** Kind-specific input accepted by the interaction builder. */
+export type InteractionInput = {
+  taskId?: string;
+  timeoutMs?: number;
+  onTimeout?: TimeoutPolicy;
+} & (
+  | Omit<InfoRequestInteraction, "id" | "createdAt" | "timeoutMs" | "onTimeout">
+  | Omit<SelectionInteraction, "id" | "createdAt" | "timeoutMs" | "onTimeout">
+  | Omit<CommitmentConfirmationInteraction, "id" | "createdAt" | "timeoutMs" | "onTimeout">
+  | Omit<SecretEntryInteraction, "id" | "createdAt" | "timeoutMs" | "onTimeout">
+  | Omit<HumanChallengeInteraction, "id" | "createdAt" | "timeoutMs" | "onTimeout">
+  | Omit<BrowserTakeoverInteraction, "id" | "createdAt" | "timeoutMs" | "onTimeout">
+);
 
 // ---------------------------------------------------------------------------
 // General
@@ -1168,8 +1285,6 @@ export type ServerEvent =
   | { type: "interaction_resolved"; interactionId: string; outcome: InteractionOutcome }
   | ScheduleServerEvent
   | GoalServerEvent;
-
-export type { InteractionOutcome, UserInteraction };
 
 /** Goal-mode progress on the session channel (the chat page drives its goal banner from these). */
 export type GoalServerEvent =

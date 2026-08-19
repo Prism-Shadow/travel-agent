@@ -4,8 +4,8 @@
  * `startVaultShell` itself reaches for `app`, `dialog` and `safeStorage`, so it is not what runs
  * here. What runs is the same resolution it performs — flags resolved with the storage probe folded
  * in — proving the two properties 004 Phase 4's exit criteria name: a failed probe turns the gated
- * flags off *with reasons*, and `secret_entry.live` / `payments.execute` stay off in this phase
- * because nothing reports the isolation they require.
+ * flags off *with reasons*, and `secret_entry.live` stays off in this phase because nothing
+ * reports the isolation it requires.
  */
 import { describe, expect, it } from "vitest";
 
@@ -23,8 +23,6 @@ const ASKING_FOR_EVERYTHING = {
   "audit.chain": true,
   "secret_entry.contract": true,
   "secret_entry.live": true,
-  "payments.execute": true,
-  "payments.agent_click_pay": true,
 } as const;
 
 describe("with usable encrypted storage but no isolation — this phase's machine", () => {
@@ -40,12 +38,7 @@ describe("with usable encrypted storage but no isolation — this phase's machin
   });
 
   it("keeps every capability that needs isolation off, with a reason", () => {
-    for (const flag of [
-      "vault.l2l3",
-      "secret_entry.live",
-      "payments.execute",
-      "payments.agent_click_pay",
-    ] as const) {
+    for (const flag of ["vault.l2l3", "secret_entry.live"] as const) {
       expect(resolved.flags[flag]).toBe(false);
     }
     const reasons = resolved.denials.map((denial) => denial.reason).join(" ");
@@ -63,7 +56,7 @@ describe("on a Linux box with no keyring — attack A9", () => {
     expect(resolved.flags["vault.enabled"]).toBe(false);
     // And with the vault off, everything that stands on it falls too.
     expect(resolved.flags["audit.chain"]).toBe(false);
-    expect(resolved.flags["payments.execute"]).toBe(false);
+    expect(resolved.flags["vault.l2l3"]).toBe(false);
     expect(
       resolved.denials.some((denial) => /basic_text|unavailable|refuses/i.test(denial.reason)),
     ).toBe(true);

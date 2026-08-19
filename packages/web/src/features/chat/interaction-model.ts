@@ -12,11 +12,10 @@
  * shown as an alias, a brand and four digits — never as anything that could charge a card.
  */
 import type {
-  ApprovedTolerance,
   InteractionOutcome,
   PaymentSummary,
   UserInteraction,
-} from "@travel-agent/transaction";
+} from "@prismshadow/penguin-server/api";
 
 export type { UserInteraction, InteractionOutcome };
 
@@ -42,7 +41,7 @@ export interface CardCopy {
 const TAGS: Record<UserInteraction["kind"], string> = {
   info_request: "需要你回答",
   selection: "需要你选择",
-  commitment_confirmation: "需要你确认付款",
+  commitment_confirmation: "请核对付款信息",
   secret_entry: "需要你输入验证码",
   human_challenge: "需要你在页面上操作",
   browser_takeover: "需要你接管浏览器",
@@ -52,11 +51,10 @@ const TAGS: Record<UserInteraction["kind"], string> = {
  * The purchase, as lines a person reads top to bottom. Never a token, never a card number.
  *
  * All seven fields, and the last two are not bookkeeping. The expiry is what makes
- * "confirm" a decision with a shelf life — a person who leaves the card open for an hour and comes
+ * "ready to pay" a decision with a shelf life — a person who leaves the card open for an hour and comes
  * back should be able to see that it lapsed, rather than press a button that quietly refuses. The
- * task is what ties this consent to one turn: the same summary confirmed in a later turn is a
- * different purchase, and showing which turn it belongs to is what lets somebody reading the
- * conversation afterwards tell the two apart.
+ * task ties the review to one turn: the same summary shown in a later turn may describe a different
+ * purchase, and naming its turn lets somebody reading the conversation tell the two apart.
  */
 export function paymentLines(payment: PaymentSummary): string[] {
   const method = [payment.paymentMethod.alias, payment.paymentMethod.brand]
@@ -128,8 +126,8 @@ export function cardCopy(interaction: UserInteraction): CardCopy {
         ...base,
         detail: paymentLines(interaction.payment),
         actions: [
-          { kind: "approve", label: "确认支付这一笔", tone: "primary" },
-          { kind: "decline", label: "先不付", tone: "quiet" },
+          { kind: "approve", label: "信息无误，我来付款", tone: "primary" },
+          { kind: "decline", label: "暂不付款", tone: "quiet" },
         ],
       };
     case "secret_entry":
@@ -213,9 +211,6 @@ export function outcomeFor(input: {
   action: CardAction;
   /** Free text the person typed, if the card had a box. */
   text?: string;
-  /** Whether they ticked the offered slack. Only meaningful on a payment card that offered one. */
-  toleranceAccepted?: boolean;
-  offeredTolerance?: ApprovedTolerance;
 }): InteractionOutcome {
   const message = input.text?.trim() ? input.text.trim() : undefined;
   switch (input.action.kind) {
@@ -229,11 +224,6 @@ export function outcomeFor(input: {
       return {
         status: "answered",
         approved: true,
-        // Sent only when the card offered slack *and* the person accepted it. An unapproved
-        // tolerance is zero, and there is no path here that invents one.
-        ...(input.toleranceAccepted && input.offeredTolerance
-          ? { toleranceApproved: input.offeredTolerance }
-          : {}),
         ...(message ? { message } : {}),
       };
     case "decline":

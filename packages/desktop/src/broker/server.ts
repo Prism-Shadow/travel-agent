@@ -6,10 +6,10 @@
  *
  * 1. **It holds this launch's token.** Minted here, handed to the server child through its fork
  *    environment, never written to disk and never logged. Compared in constant time.
- * 2. **It is asking for one of three named operations, spelled exactly.** Parsing is strict:
+ * 2. **It is asking for one of two named operations, spelled exactly.** Parsing is strict:
  *    unknown operations *and* unknown fields are refused rather than ignored.
- * 3. **It presents a capability, not an identity.** A grant handle or a capability id, which the
- *    handlers re-check against the turn, the domain and the target the call names.
+ * 3. **It presents a capability, not an identity.** A grant handle, which the handlers re-check
+ *    against the turn, the domain and the target the call names.
  *
  * The permission model on the socket itself is filesystem-based: the socket is created inside the
  * application's own data directory with mode 0600, so another user cannot connect at all. Node
@@ -43,7 +43,6 @@ export const BROKER_CALLS_PER_TASK = 60;
 export interface BrokerHandlers {
   request_grant(call: Extract<BrokerRequest, { op: "request_grant" }>): Promise<BrokerResponse>;
   secure_fill(call: Extract<BrokerRequest, { op: "secure_fill" }>): Promise<BrokerResponse>;
-  execute_payment(call: Extract<BrokerRequest, { op: "execute_payment" }>): Promise<BrokerResponse>;
 }
 
 export interface BrokerServerOptions {

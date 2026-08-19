@@ -31,7 +31,7 @@ import type { FillPort } from "./secure-fill.js";
 import type { SensitiveElementRegistry } from "./sensitive-elements.js";
 import { isNeverFilled } from "./tiers.js";
 
-/** The three exits of the secret phase. Mirrors `SecretExit` in the transaction layer. */
+/** The three exits of the secret phase. Mirrors `SecretExit` in browser-cli's handover state. */
 export type SecretExitReason = "cleared" | "unproven" | "target_destroyed";
 
 /** What the phase needs from the browser, beyond what a fill needs. */

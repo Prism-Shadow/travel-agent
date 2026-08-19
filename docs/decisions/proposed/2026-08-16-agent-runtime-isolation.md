@@ -3,8 +3,8 @@
 Status: proposed
 
 OS-level isolation of the agent runtime is the hard prerequisite for enabling real L2/L3 personal
-data, live one-time-code fills, and agent-triggered payments. The machinery for those capabilities
-is built and gated off; this note owns the unresolved selection decision (D3) that opens the gate.
+data and live one-time-code fills. The machinery for those capabilities is built and gated off;
+this note owns the unresolved selection decision (D3) that opens the gate.
 
 ## Problem
 
@@ -21,8 +21,8 @@ as the user. Every gated capability depends on a real boundary below the applica
 Select and implement one isolation boundary, after a real prototype on each target platform;
 until it is met, the dependent capabilities stay off. Isolation is judged **by attack, not by
 feature**: it counts as met only when, with the agent runtime confined, each attack in the
-acceptance list below is refused. Passing flips the gate — `vault.l2l3`, `secret_entry.live`,
-`payments.execute` may be turned on. Failing any one keeps them off: fail closed, capability not
+acceptance list below is refused. Passing flips the gate — `vault.l2l3` and `secret_entry.live`
+may be turned on. Failing any one keeps them off: fail closed, capability not
 shipped, never "degrade to plaintext and continue".
 
 ## Options under consideration
@@ -40,7 +40,7 @@ before selection.
 ## Interim stance (what ships until it is met)
 
 - **L1 vault and the hash-chained audit log**: on (they never needed isolation).
-- **L2/L3, live secret fill, agent payment**: off, by the dependency chain in
+- **L2/L3 and live secret fill**: off, by the dependency chain in
   `packages/core/src/state/feature-flags.ts`, with reasons surfaced in the capability panel.
   Verified by `packages/desktop/test/vault-shell-gating.test.ts` and
   `packages/server/test/capabilities-route.test.ts`.

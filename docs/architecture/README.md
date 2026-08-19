@@ -53,19 +53,18 @@ conversation, and there is no silent fallback between them.
 Depth: [iab-in-app-browser.md](iab-in-app-browser.md) — the relay, target synthesis, ownership and
 lifecycle rules, and the Codex comparison.
 
-## The money path
+## The payment stop
 
 Search and selection are ordinary agent work. Money is not:
 
-1. The agent raises interaction cards (server `src/interaction/`) — the person's click on a card is
-   the authorization, carried as a one-shot capability (`packages/transaction`, `capability.ts`).
-2. Every irreversible submit goes through `submitBooking` (`packages/transaction`, `booking.ts`) —
-   journaled, drift-checked, capability-gated. Both spending surfaces call it: the server's payment
-   guard (`server/src/interaction/payment.ts`) and the desktop's payment authority
-   (`desktop/src/vault/payment-authority.ts`).
-3. The page-level write surface is enumerated, not sampled: `browser-cli`'s
+1. The agent raises interaction cards (`server/src/interaction/`), including the complete purchase
+   summary the person can review. Confirming that card acknowledges the summary; it does not grant
+   the agent authority to spend.
+2. The page-level write surface is enumerated, not sampled: `browser-cli`'s
    `executor/write-gate.ts` and `executor/payment-gate.ts` decide what may be clicked, and the
-   agent does not press the button that takes the money — it stops on the payment page.
+   payment check has no enable flag.
+3. The agent stops on the payment page. The person completes the irreversible action in the
+   browser; there is no agent-triggered payment executor, one-shot payment capability, or WAL path.
 
 ## Boundaries that hold the shape
 
@@ -75,12 +74,12 @@ Search and selection are ordinary agent work. Money is not:
   relay, and the skill teaches the agent the CLI.
 - **The engine baseline is pinned.** `core` and `server` are a hard-fork snapshot of PenguinHarness
   0.2.2; changes there are deliberate decisions (root `AGENTS.md`, Hard Rules).
-- **Capability gates fail closed.** `vault.l2l3`, `secret_entry.live` and `payments.execute` resolve
+- **Capability gates fail closed.** `vault.l2l3` and `secret_entry.live` resolve
   from runtime probes in `core/src/state/feature-flags.ts` and stay off until the agent runtime is
   isolated — the open decision D3
   ([agent-runtime-isolation](../decisions/proposed/2026-08-16-agent-runtime-isolation.md)).
-- **The model judges; code only enforces** where the model is inside the threat model — which is
-  why `packages/transaction` exists and a rules-based "travel domain" layer does not.
+- **The model judges; code only enforces** where the model is inside the threat model. The payment
+  gate is code because the model controls the click surface; offer selection remains model work.
 
 ## Data on disk
 
@@ -94,6 +93,7 @@ live in that session's scratchpad and are deleted with it.
 | --- | --- |
 | In-app browser, relay, ownership | [iab-in-app-browser.md](iab-in-app-browser.md) |
 | Decision records and open decisions | [../decisions/](../decisions/README.md) |
-| Transaction semantics | `packages/transaction/src/` (`booking.ts`, `capability.ts`, `journal.ts`) |
+| Interaction-card contract | `packages/server/src/api/types.ts`, `server/src/interaction/` |
+| Browser handover and payment stop | `packages/browser-cli/src/executor/handover-state.ts`, `payment-gate.ts` |
 | Capability gating | `packages/core/src/state/feature-flags.ts`, `server/src/http/routes/capabilities.ts` |
 | Where any prose belongs | [../AGENTS.md](../AGENTS.md) |

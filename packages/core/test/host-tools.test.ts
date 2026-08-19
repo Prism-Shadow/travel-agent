@@ -2,10 +2,10 @@
  * Tools a host contributes, and the one thing they may not do.
  *
  * The hook exists because the desktop shell has capabilities core does not and should not learn:
- * paying for something, or typing a stored identity number into a page, are meaningless without a
+ * typing a stored identity number into a page is meaningless without a
  * broker to a main process holding a vault. Putting them in the built-in registry would put a
  * travel product's semantics into a product-neutral runtime — the same argument that kept the
- * payment rules out of core's goal prompt in the previous phase.
+ * travel-specific rules out of core's goal prompt in the previous phase.
  *
  * What is pinned here: a host tool is listed to the model, is executable, carries its own
  * permission, and **cannot shadow a built-in**. The last one is a refusal rather than a precedence
@@ -19,11 +19,11 @@ import type { BuiltinTool } from "../src/environment/tools/types.js";
 import type { HostTool, ToolDefinitionConfig } from "../src/interfaces.js";
 import { partialToolCallOutput, toolCall } from "../src/omnimessage/index.js";
 
-const EXECUTE_PAYMENT: ToolDefinitionConfig = {
-  name: "execute_payment",
-  description: "Spend a one-shot payment capability the person confirmed.",
+const HOST_WRITE: ToolDefinitionConfig = {
+  name: "host_write",
+  description: "Perform one host-owned write through a scoped capability.",
   permission: "rw",
-  parameters: { type: "object", properties: { capabilityId: { type: "string" } } },
+  parameters: { type: "object", properties: { handle: { type: "string" } } },
 };
 
 function hostTool(definition: ToolDefinitionConfig, onCall?: (args: unknown) => void): HostTool {
@@ -54,38 +54,38 @@ function environmentWith(hostTools: HostTool[]): Environment {
 
 describe("host tools", () => {
   it("are listed to the model alongside the built-ins", async () => {
-    const environment = environmentWith([hostTool(EXECUTE_PAYMENT)]);
+    const environment = environmentWith([hostTool(HOST_WRITE)]);
     const listed = await environment.listTools();
     expect(listed).toEqual([
       {
-        name: "execute_payment",
-        description: EXECUTE_PAYMENT.description,
-        parameters: EXECUTE_PAYMENT.parameters,
+        name: "host_write",
+        description: HOST_WRITE.description,
+        parameters: HOST_WRITE.parameters,
       },
     ]);
   });
 
   it("carry their own permission, so the approval flow treats them as what they are", () => {
-    const environment = environmentWith([hostTool(EXECUTE_PAYMENT)]);
-    expect(environment.toolPermission("execute_payment")).toBe("rw");
+    const environment = environmentWith([hostTool(HOST_WRITE)]);
+    expect(environment.toolPermission("host_write")).toBe("rw");
     expect(environment.toolPermission("nothing_like_this")).toBeUndefined();
   });
 
   it("execute", async () => {
     const seen: unknown[] = [];
-    const environment = environmentWith([hostTool(EXECUTE_PAYMENT, (args) => seen.push(args))]);
+    const environment = environmentWith([hostTool(HOST_WRITE, (args) => seen.push(args))]);
     const messages = [];
     for await (const message of environment.executeTool({
       toolCall: toolCall({
         toolCallId: "call-1",
-        name: "execute_payment",
-        arguments: JSON.stringify({ capabilityId: "cap-1" }),
+        name: "host_write",
+        arguments: JSON.stringify({ handle: "cap-1" }),
       }),
     })) {
       messages.push(message);
     }
-    expect(seen).toEqual([{ capabilityId: "cap-1" }]);
-    expect(JSON.stringify(messages)).toContain("ran execute_payment");
+    expect(seen).toEqual([{ handle: "cap-1" }]);
+    expect(JSON.stringify(messages)).toContain("ran host_write");
   });
 
   it("leave the caller's tool config untouched", () => {
@@ -95,7 +95,7 @@ describe("host tools", () => {
     new Environment({
       workspaceDir: process.cwd(),
       toolConfig,
-      hostTools: [hostTool(EXECUTE_PAYMENT)],
+      hostTools: [hostTool(HOST_WRITE)],
     });
     expect(toolConfig.customTools).toEqual([]);
   });
