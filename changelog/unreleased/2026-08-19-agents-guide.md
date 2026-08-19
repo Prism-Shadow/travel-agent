@@ -15,12 +15,28 @@ one. What it carries instead is the knowledge that is expensive to rediscover:
   docs are dated records and are not rewritten to match today's code. READMEs, `CONTRIBUTING.md`,
   `docs/architecture/` and source comments are living and must be corrected in the same change that
   makes them wrong.
-- **Four traps, each with its measurement.** Injected workspace dependencies deadlocking a layout
-  change; `path.join(__dirname, '..')` encoding a file's depth; page-context code being excluded
-  from `tsc` by directory; tests in `src/` being compiled and published. Each links to the issue or
-  the module that documents it.
 - **The open issues table**, so the first response to a strange failure is to check whether it is
   already known — including the browser suite's non-reproducibility, which otherwise reads as "my
   change broke it".
 
 Every path and command in it was checked against the tree it describes.
+
+## `tasks/` is tracked, and holds the lessons
+
+The hard-won specifics — package-relative paths that encode a file's depth, injected dependencies
+that deadlock a layout change, compiler rules written as filename lists, a suite that fails
+differently each run — live in `tasks/lessons.md` rather than being restated in `AGENTS.md`. The
+three documents now divide the work explicitly: `AGENTS.md` carries what is absolute,
+`tasks/lessons.md` carries judgement that has to be applied, `docs/issues/` carries what is still
+broken.
+
+That required `tasks/` to leave `.gitignore`, where it had been put earlier the same day: a lesson
+file that exists on one machine teaches nobody. `artifacts/` stays ignored — it is regenerated
+binary capture, not knowledge.
+
+## The `/AGENTS.md` ignore rule
+
+Upstream ignored `/design`, `/AGENTS.md` and `/CLAUDE.md` as per-developer local files. Two of the
+three no longer apply here: `/design` is gone (the records moved to `docs/design/`), and `AGENTS.md`
+is now repository knowledge rather than one contributor's preferences. `CLAUDE.md` stays ignored.
+Without this the file would have been silently absent from every commit that claimed to add it.
