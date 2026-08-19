@@ -20,7 +20,7 @@ import {
   clearDiscoveryIfOwned,
   isPortListening,
   writeDiscovery,
-} from "penguin-browser/dist/relay-discovery.js";
+} from "penguin-browser/dist/relay/relay-discovery.js";
 
 /**
  * Per-run secret for the relay's `/iab` transport.

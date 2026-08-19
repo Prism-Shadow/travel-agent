@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] Fix: the desktop app could not launch — a deep import into `penguin-browser`'s build output was left on the pre-regrouping path. ([details](2026-08-19-desktop-relay-discovery-path.md))
 - [2026-08-19] `AGENTS.md` at the root: product direction, hard rules, traps, and the open-issue table for agents working in this repo. ([details](2026-08-19-agents-guide.md))
 - [2026-08-19] Browser CLI sources grouped by concern; tests moved to `test/` and out of the published package, where 185 build artifacts of them were shipping. ([details](2026-08-19-browser-cli-src-layout.md))
 - [2026-08-19] Cookie import from your own browser works again: Chromium cookie-db v24 binds `SHA-256(domain)` into every value, and the importer was keeping it. ([details](2026-08-19-cookie-import-domain-hash.md))

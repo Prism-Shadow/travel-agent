@@ -39,7 +39,7 @@ import { attachShortcutRouter } from "./browser-shortcut-router.js";
 import {
   readAllBackendPreferences,
   writeBackendPreference,
-} from "penguin-browser/dist/relay-discovery.js";
+} from "penguin-browser/dist/relay/relay-discovery.js";
 import { IAB_ENABLED_SWITCH, isIabAvailable } from "./iab-switch.js";
 import { IabTransport } from "./iab-transport.js";
 import { installBrowserIpc } from "./ipc.js";

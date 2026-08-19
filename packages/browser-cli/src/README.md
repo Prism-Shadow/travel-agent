@@ -55,16 +55,26 @@ correct for years only because every module was directly under `src/` (and every
 under `dist/`), where `..` meant the package root from both. Nine files did it, and grouping them
 one level down turned all nine into `src/dist/…` at runtime — which no type checker can see.
 
-## Extension contract
+## Who deep-imports this package
 
-`packages/browser-extension` deep-imports three of these paths:
+Two packages reach past `index.ts` into specific paths, so **moving or renaming any of these means
+updating that caller in the same change**. A rename here is not a local edit.
+
+`packages/browser-extension`, against the **sources**:
 
 - `penguin-browser/src/relay/cdp-types`
 - `penguin-browser/src/relay/protocol`
 - `penguin-browser/src/browser/ghost-browser`
+- plus `dist/ghost-cursor-client.js`, inlined with vite's `?raw`
 
-and inlines `dist/ghost-cursor-client.js` with vite's `?raw`. Moving or renaming any of them means
-updating the extension in the same change.
+`packages/desktop`, against the **build output** — `main.ts` and `browser-relay.ts`:
+
+- `penguin-browser/dist/relay/relay-discovery.js`
+
+The desktop one is the easier to miss: it resolves at runtime, so nothing fails until the app is
+launched. `pnpm typecheck` does not cover it either, because the desktop project type-checks against
+the `.d.ts` next to the built file. Grep for `penguin-browser/dist/` and `penguin-browser/src/`
+across the repo after any move here.
 
 It also means the change cannot build until the workspace re-syncs. The extension does not symlink
 to this package — `injectWorkspacePackages` gives it a hard-linked *copy*, so edits to a file's
