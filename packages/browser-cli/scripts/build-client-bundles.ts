@@ -19,7 +19,7 @@
  *
  * Bundler note: upstream penguin-browser used Bun.build() here, which meant carrying a
  * whole second JS runtime for this one call. travel-agent already ships esbuild, so this
- * was ported to it on vendoring — same inputs, same IIFE browser output. See VENDOR.md.
+ * was ported to it on vendoring — same inputs, same IIFE browser output.
  */
 
 import fs from 'node:fs'

@@ -8,6 +8,8 @@ description: >
 
 # Centralize CDP Relay State with Zustand
 
+> File paths below (`src/...`) are relative to `packages/browser-cli/`.
+
 Applies the **centralized-state** skill
 (`discord/skills/centralized-state/SKILL.md` in the kimakivoice repo) to the CDP
 relay server. The skill defines the pattern: one immutable state atom, functional

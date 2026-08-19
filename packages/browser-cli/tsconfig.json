@@ -2,7 +2,7 @@
   // 自包含：并入 travel-agent 后不再 extends 仓库根的 tsconfig.base.json。
   // travel-agent 的基线是 Bundler + noEmit（给 web/server 用），与本包需要的
   // NodeNext + composite + 真实 emit 不兼容，因此把原 penguin-browser 的基线
-  // 设置内联到这里。见 packages/browser-cli/VENDOR.md。
+  // 设置内联到这里。
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",

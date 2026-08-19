@@ -13,7 +13,7 @@
  * - dist/prompt.md — MCP prompt (skill.md minus CLI sections)
  *
  * 并入 travel-agent 时移除了全部 website/ 产物（官网双写、SKILL.md 托管副本、
- * .well-known/skills 发现端点）——官网未并入本仓。见 VENDOR.md。
+ * .well-known/skills 发现端点）——官网未并入本仓。
  */
 
 import fs from 'node:fs'
@@ -26,7 +26,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const penguinBrowserDir = path.join(__dirname, '..')
 const distDir = path.join(penguinBrowserDir, 'dist')
 // 并入 travel-agent 时移除了 website/ 双写目标：上游把这些资源同时写进 dist 和官网的
-// public/resources，官网未并入本仓，只保留 dist 产物。见 VENDOR.md。
+// public/resources，官网未并入本仓，只保留 dist 产物。
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) {

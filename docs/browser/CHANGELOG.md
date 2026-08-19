@@ -1,5 +1,7 @@
 # Changelog
 
+> Frozen history of the upstream `penguin-browser` repo (`github.com/Youhai020616/penguin-browser`, commit `ba9e13b`), vendored on 2026-08-12 as `packages/browser-cli` + `packages/browser-extension`. Changes made after the import are recorded through the repo-root `changelog/` process, not here.
+
 ## 0.4.0
 
 1. **Cloud browser sessions via Browser Use** — spin up stealth Chromium VMs in the cloud with `penguin-browser session new --browser cloud`. Cloud browsers support residential proxies (`--proxy us`, `--proxy de`), custom proxies (`--custom-proxy host:port`), and configurable timeouts (`--timeout 120`). Idle sessions auto-disconnect after 10 minutes.

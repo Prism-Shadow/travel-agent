@@ -183,9 +183,9 @@ Escalation 的 payload 里带截图路径，但事务层只管传输，不管这
 
 那 71M 可以扔掉，因为它已发布在 npm：**`@xmorse/playwright-core@1.59.10`，与 vendored 版本号完全一致**；stealth 用的 `@playwriter/patchright-core@1.61.0-playwriter.1` 同样在 npm。把依赖声明从 `workspace:^` 改成 `^1.59.10` 即可，`pnpm bootstrap`（`generate_injected.js` + `build.mjs`）那一步也一并省掉。
 
-**该前提已于 2026-08-12 验证成立**：vendored 那份与已发布的 `@xmorse/playwright-core@1.59.10` 仅有 3 处注释里的品牌名差异（"Penguin Browser" vs "Playwriter"）与 npm 发布时剥离的 `scripts` 字段，`browsers.json` 完全一致。typecheck / build / 62 个单元测试 / CDP relay 全部通过。完整记录见 `packages/browser-cli/VENDOR.md`。
+**该前提已于 2026-08-12 验证成立**：vendored 那份与已发布的 `@xmorse/playwright-core@1.59.10` 仅有 3 处注释里的品牌名差异（"Penguin Browser" vs "Playwriter"）与 npm 发布时剥离的 `scripts` 字段，`browsers.json` 完全一致。typecheck / build / 62 个单元测试 / CDP relay 全部通过。完整比对记录曾载于 `packages/browser-cli/VENDOR.md`，该文档已于 2026-08-19 移除，内容见 git 历史。
 
-并入方式是**文件拷贝 + 溯源记录**，不是 `git subtree`。早期草案写的是 subtree，查证后推翻：subtree 的价值在于 `pull` / `push` 回上游，而源仓库不再维护；且 `subtree add` 会把整仓 81M（含 71M vendored Playwright）永久写进对象库，即使随后 `git rm` 也无法回收。溯源信息记在 `VENDOR.md` 与并入提交的 message 里，比 subtree 元数据可读。
+并入方式是**文件拷贝 + 溯源记录**，不是 `git subtree`。早期草案写的是 subtree，查证后推翻：subtree 的价值在于 `pull` / `push` 回上游，而源仓库不再维护；且 `subtree add` 会把整仓 81M（含 71M vendored Playwright）永久写进对象库，即使随后 `git rm` 也无法回收。溯源信息记在并入提交的 message 与 git 历史里（配套的 `VENDOR.md` 溯源文档已于 2026-08-19 移除）。
 
 ---
 

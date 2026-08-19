@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const penguinBrowserDir = path.join(__dirname, '..')
 const packagesDir = path.join(penguinBrowserDir, '..')
 // 上游布局里 penguin-browser/ 与 extension/ 是仓库根的同级目录；并入 travel-agent 后
-// 变成 packages/browser-cli 与 packages/browser-extension。见 VENDOR.md。
+// 变成 packages/browser-cli 与 packages/browser-extension。
 const extensionDir = path.join(packagesDir, 'browser-extension')
 const extensionOutDirName = 'dist-packaged'
 const extensionOutDir = path.join(extensionDir, extensionOutDirName)
