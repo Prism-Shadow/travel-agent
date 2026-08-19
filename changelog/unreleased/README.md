@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] Research: how Mindtrip structures chat × trip — App Store release-note history plus first-hand screenshots settle the chat↔trip information architecture for the default-trip design discussion. ([details](2026-08-19-mindtrip-chat-trip-ia-research.md))
 - [2026-08-19] `pnpm desktop` stops printing the healthy browser-tasks reconcile poll every three seconds; the line returns exactly when the poll fails or stalls. ([details](2026-08-19-quiet-reconcile-poll-logging.md))
 - [2026-08-19] The extension's vendored Prism.js is removed — unversioned, unlicensed, and only ever colored the welcome page's bash snippets. ([details](2026-08-19-remove-vendored-prism.md))
 - [2026-08-19] The fixture extension used by relay-navigation tests moves from `browser-extension/test-fixtures/` to `browser-cli/test/fixtures/`, next to its only consumer. ([details](2026-08-19-fixture-extension-moves-to-its-consumer.md))

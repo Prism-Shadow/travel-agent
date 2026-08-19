@@ -167,7 +167,79 @@ Mindtrip 是目前独立 AI 旅行规划产品中的头部玩家。从「聊天�
 - 「覆盖」行:Mindtrip 侧租车由「无」改为「coming soon」;门票/景点仍是外链+估算价,该缺口未变。
 - §10 启示 2(API 路线天花板)不受影响:租车即使上线也是聚合库存路线,无 API 的长尾场景(本仓库的 Ctrip 演示场景属于此类)仍在其覆盖外。
 
-## 附:时间线速查
+## 12. Addendum (2026-08-19): how Mindtrip structures chat × trip
+
+| | |
+| --- | --- |
+| Method | App Store version-history mining (full release notes, v1.1→v18.1) plus first-hand screenshots of the web app taken with our own account on 2026-08-19 |
+| Why | The chat↔trip information architecture was the one thing §3/§11 did not answer, and it is the direct benchmark for travel-agent's "default project vs default trip" design decision |
+
+### 12.1 The information architecture, verbatim from the product
+
+```
+Sidebar (global)                Trip hub page                    Chat inside a trip
+────────────────              ─────────────────              ─────────────────
+Chats            (flat list     "Trip to United Kingdom"         Breadcrumb: chat name ▾
+Trips             of ALL        [UK][When][Who][Budget] chips      └ owning trip name
+Explore           chats,        Six modules: Ideas / Itinerary   Persistent chips on top:
+Saved             in-trip       / Bookings / Media / Trip          [UK][When][Who][Budget]
+Updates           and           preferences / Calendar             [Preferences]
+Inspiration       floating)     Embedded chat box + proactive    [Trip N] badge: items this
+Create                          AI opener + suggestion pills       chat accumulated into trip
+[New chat]                      "Chats N" sub-list of the        Every place/image in replies
+                                trip's own chats                   has ♥ (save) and ＋ (add)
+                                Map + Invite (collaboration)     Live map pane with POI pins
+```
+
+- **Trip : chat = 1 : N, as shipped fact.** The trip hub carries a "Chats 2" section listing two
+  named chats ("Trip to Cambridge Inquiry", "Trip Planning Inquiry"). A chat's breadcrumb names
+  its owning trip.
+- **Floating chats are first-class.** Our test account showed Chats = 1 with Trips = 0: a chat
+  exists without any trip, reachable from the global flat Chats list and the global "New chat"
+  button. There is **no "default trip"** — the uncommitted state is simply a chat that is not yet
+  a trip.
+- **A trip is materialized by an explicit form** ("Where to, Youhai?"): Destination (with
+  "+ Add location" and a "Road trip?" toggle — the single-destination limit reviewers complained
+  about has been iterated away), Timing as **Flexible | Select dates** (dates optional), and a
+  2,000-character free-text "Trip preferences" field (companions, budget, must-dos). Structured
+  where it must be, prose where it can be.
+- **Trip constraints ride every chat.** The chips (Destination / When / Who / Budget /
+  Preferences) stay pinned on top of each chat inside the trip — container-level metadata
+  visibly injected into every conversation. Chat is the process; the trip accumulates the state
+  (the "Trip N" saved-items badge counts what each chat contributed).
+- **The Trips page owns money and time artifacts**: tabs are Trips / Calendar / Receipts, with a
+  "Booked only" filter — bookings and receipts live at the trip layer, not the chat layer.
+
+### 12.2 The containment inversion (App Store release notes, quoted)
+
+| Version | Date | Release note (verbatim) | Reading |
+| --- | --- | --- | --- |
+| v1.1 | 2025-07 | "We added a new **Trips tab** to make it easy to access all of your trips in one place." | Chat-first product; trip = an output the chat produces; the tab is a list |
+| v9.0 | 2025-12 | "**Trips**: Our new trip tab lets you manage your trip all in one place, with smarter recommendations, **multiple chats**, and a place to store your ideas, **receipts**, media, and all your key trip details." | **The inversion**: trip becomes the hub; chats become plural tools *inside* it |
+| v12.0 | 2026-03 | "Streamlined interface for searching and adding places to **Trips and Collections**" | Trip is the object being edited; chat is the editing instrument |
+| v16–18 | 2026-06+ | Homepage "Trip Advice"; "Notifications when the **Mindtrip Bot** completes tasks or responds on your behalf" | The agentic layer attaches at the **trip** level, not the chat level |
+
+The current official feature description seals it: "**Trips**: Keep everything for a destination
+in one flexible hub — key details, **chats**, media, ideas, itineraries and bookings." And Start
+Anywhere's wording — turn inspiration into "**a chat, collection or trip plan**" — confirms chat,
+collection and trip are three sibling artifact kinds with different lifecycles.
+
+### 12.3 What this settles for travel-agent (cross-ref §10)
+
+1. **Trip as a lightweight container above conversations** is validated by the benchmark's own
+   five-month evolution (their v1 ≈ our today; their v9 is the destination). Model trip : conversation
+   as 1 : N from day one, even if the first UI renders 1 : 1.
+2. **No default trip.** The uncommitted state is a floating conversation plus a global recents
+   list; the trip materializes when the user commits (destination, optionally dates).
+3. **Constraint chips are container metadata injected per conversation** — exactly the existing
+   `trip-constraints.ts` scaffolding pattern, lifted from per-draft to per-trip.
+4. **Bookings/receipts belong to the trip layer** — where travel-agent's booking artifacts would
+   land.
+5. **Not worth copying**: the six-module hub (Ideas/Media/Calendar…) serves "planning as the
+   product"; travel-agent's one-sentence-to-payment-page shape needs only chips + the trip's
+   conversations + bookings.
+
+## 附：时间线速查
 
 | 时间 | 事件 |
 | --- | --- |
