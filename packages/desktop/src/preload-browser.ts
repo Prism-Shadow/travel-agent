@@ -36,6 +36,7 @@ export interface BridgeTabState {
   targetId: string | null;
   url: string;
   title: string;
+  faviconUrl: string | null;
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;

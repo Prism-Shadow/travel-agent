@@ -25,6 +25,8 @@ export interface DesktopTabState {
   targetId: string | null;
   url: string;
   title: string;
+  /** The page's real favicon, or null while no safe icon is available. */
+  faviconUrl: string | null;
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;

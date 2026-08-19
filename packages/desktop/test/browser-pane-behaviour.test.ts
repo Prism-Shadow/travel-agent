@@ -157,7 +157,7 @@ vi.mock("../src/session-partition.js", () => ({
 /** The resolver the pane installed, so a test can ask where a given view's downloads would go. */
 let downloadResolver: ((contents: unknown) => string | null) | null = null;
 
-const { BrowserPane, isNavigableUrl } = await import("../src/browser-pane.js");
+const { BrowserPane, isNavigableUrl, selectFaviconUrl } = await import("../src/browser-pane.js");
 type Pane = InstanceType<typeof BrowserPane>;
 
 const tempDirs: string[] = [];
@@ -266,6 +266,43 @@ describe("isNavigableUrl", () => {
     "",
   ])("refuses %s", (url) => {
     expect(isNavigableUrl(url)).toBe(false);
+  });
+});
+
+describe("tab favicons", () => {
+  it("accepts browser-renderable image URLs and refuses executable or oversized values", () => {
+    expect(selectFaviconUrl(["https://example.com/favicon.ico"])).toBe(
+      "https://example.com/favicon.ico",
+    );
+    expect(selectFaviconUrl(["data:image/png;base64,cGVuZ3Vpbg=="])).toBe(
+      "data:image/png;base64,cGVuZ3Vpbg==",
+    );
+    expect(
+      selectFaviconUrl([
+        "javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        `data:image/png;base64,${"a".repeat(256 * 1024)}`,
+      ]),
+    ).toBeNull();
+  });
+
+  it("publishes the page favicon and clears it before a new main-frame navigation", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    pane.openTabForUser("https://example.com/");
+
+    views[0]!.webContents.emit("page-favicon-updated", [
+      "javascript:alert(1)",
+      "https://example.com/favicon.png",
+    ]);
+    expect(pane.state().tabs[0]?.faviconUrl).toBe("https://example.com/favicon.png");
+
+    // A subframe does not own the tab's identity.
+    views[0]!.webContents.emit("did-start-navigation", "https://ads.example/", false, false);
+    expect(pane.state().tabs[0]?.faviconUrl).toBe("https://example.com/favicon.png");
+
+    views[0]!.webContents.emit("did-start-navigation", "https://next.example/", false, true);
+    expect(pane.state().tabs[0]?.faviconUrl).toBeNull();
   });
 });
 

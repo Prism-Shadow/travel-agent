@@ -15,10 +15,14 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowCounterClockwise";
+import { CircleNotchIcon } from "@phosphor-icons/react/dist/csr/CircleNotch";
 import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
+import { GlobeSimpleIcon } from "@phosphor-icons/react/dist/csr/GlobeSimple";
 import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { RadioButtonIcon } from "@phosphor-icons/react/dist/csr/RadioButton";
+import { StarIcon } from "@phosphor-icons/react/dist/csr/Star";
+import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { ConfirmModal } from "../../components/ui/confirm-modal";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError, toastSuccess } from "../../components/ui/toast";
@@ -91,6 +95,35 @@ function tabLabel(tab: DesktopTabState): string {
   return tab.title || originOf(tab.url) || S.chat.browserPane.newTab;
 }
 
+/** The site-owned icon, with a browser-style fallback and a quiet loading state. */
+function BrowserTabFavicon({ tab }: { tab: DesktopTabState }): React.ReactElement {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [tab.faviconUrl]);
+
+  if (tab.loading) {
+    return (
+      <CircleNotchIcon
+        aria-hidden="true"
+        size={16}
+        className="shrink-0 animate-spin text-gray-400"
+      />
+    );
+  }
+  if (tab.faviconUrl !== null && !failed) {
+    return (
+      <img
+        src={tab.faviconUrl}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        onError={() => setFailed(true)}
+        className="h-4 w-4 shrink-0 rounded-[3px] object-contain"
+      />
+    );
+  }
+  return <GlobeSimpleIcon aria-hidden="true" size={17} className="shrink-0 text-gray-400" />;
+}
+
 /**
  * One tab: the tab itself, plus the two controls that act on it.
  *
@@ -125,10 +158,11 @@ function BrowserTab({
   return (
     <div
       role="presentation"
-      className={`flex min-w-0 max-w-[12rem] shrink items-center gap-1 rounded-t border-b-2 px-1 ${
+      data-active={active ? "true" : "false"}
+      className={`group relative flex h-7 w-fit min-w-[9.75rem] max-w-56 shrink-0 items-center rounded-xl px-2 transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-inset ${
         active
-          ? "border-blue-500 bg-white dark:bg-gray-900"
-          : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
+          ? "bg-gray-100 text-gray-950 dark:bg-gray-800 dark:text-gray-50"
+          : "text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-900"
       }`}
     >
       <button
@@ -154,17 +188,13 @@ function BrowserTab({
             actions.setRetain(tab.id, !tab.retain);
           }
         }}
-        className={`flex min-w-0 flex-1 items-center gap-1 px-1 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-          active ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
-        }`}
+        title={label}
+        className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-l-lg px-1 text-[13px] font-medium outline-none"
       >
-        {tab.loading ? (
-          <span
-            aria-hidden="true"
-            className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500"
-          />
-        ) : null}
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <BrowserTabFavicon tab={tab} />
+        <span className="min-w-0 max-w-40 flex-1 truncate text-left transition-[padding] group-hover:pr-7">
+          {label}
+        </span>
       </button>
       <button
         type="button"
@@ -176,11 +206,13 @@ function BrowserTab({
         aria-label={`${S.chat.browserPane.keep}: ${label}`}
         title={S.chat.browserPane.keepHint}
         onClick={() => actions.setRetain(tab.id, !tab.retain)}
-        className={`shrink-0 rounded px-1 leading-none ${
-          tab.retain ? "text-amber-500" : "text-gray-300 hover:text-gray-500 dark:text-gray-600"
+        className={`absolute right-9 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition-[color,background-color,opacity] hover:bg-gray-200 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-gray-700 ${
+          tab.retain
+            ? "text-amber-500"
+            : "text-gray-400 opacity-0 group-hover:opacity-100 dark:text-gray-500"
         }`}
       >
-        ★
+        <StarIcon aria-hidden="true" size={15} weight={tab.retain ? "fill" : "regular"} />
       </button>
       <button
         type="button"
@@ -190,16 +222,16 @@ function BrowserTab({
         // Pointer close: no focus transfer. The user is looking at where they clicked, and moving
         // focus to a neighbouring tab would scroll the strip out from under them.
         onClick={() => pointerTabAction(actions.closeTab(tab.id))}
-        className="shrink-0 rounded px-1 leading-none text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200"
       >
-        ✕
+        <XIcon aria-hidden="true" size={14} weight="regular" />
       </button>
     </div>
   );
 }
 
-/** The tab strip, including the ⊕ that adds to it. */
-function BrowserTabStrip({ state }: { state: BrowserPaneState }): React.ReactElement {
+/** The tab strip, including the independent + control that adds to it. */
+export function BrowserTabStrip({ state }: { state: BrowserPaneState }): React.ReactElement {
   const { tabs, activeTabId, actions } = state;
   const tabNodes = useRef(new Map<string, HTMLButtonElement>());
   // Armed by keyboard navigation only. Selection is applied by main and arrives as a state push, so
@@ -241,12 +273,15 @@ function BrowserTabStrip({ state }: { state: BrowserPaneState }): React.ReactEle
   };
 
   return (
-    <div className="flex items-end gap-1 overflow-x-auto border-b border-gray-200 px-2 pt-1 dark:border-gray-800">
+    <div
+      data-testid="iab-tab-strip"
+      className="flex h-12 items-center gap-1 overflow-hidden bg-white px-4 py-1 dark:bg-gray-950"
+    >
       <div
         role="tablist"
         aria-label={S.chat.browserPane.tabs}
         aria-orientation="horizontal"
-        className="flex min-w-0 flex-1 items-end gap-1"
+        className="no-scrollbar flex min-w-0 shrink items-center gap-1.5 overflow-x-auto"
         onKeyDown={(event) => {
           // Arrow keys move within the strip; Home and End jump to its ends. Handled at the list
           // rather than per tab so the behaviour cannot drift between them — and each of them moves
@@ -284,9 +319,9 @@ function BrowserTabStrip({ state }: { state: BrowserPaneState }): React.ReactEle
             // push already tells the user which strip is current, so there is nothing to surface.
           });
         }}
-        className="mb-1 shrink-0 rounded px-2 py-0.5 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800"
       >
-        ＋
+        <PlusIcon aria-hidden="true" size={17} weight="regular" />
       </button>
     </div>
   );

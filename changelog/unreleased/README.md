@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] Codex-style website tabs: real page favicons cross a validated Electron bridge; compact rounded tab pills replace the underline treatment. ([details](2026-08-19-codex-style-website-tabs.md))
 - [2026-08-19] `design-qa.md` deleted; `artifacts/` and `tasks/` are gitignored local agent workspace. ([details](2026-08-19-agent-scratch-out-of-git.md))
 - [2026-08-19] The numbered design records moved from repo-root `design/` to `docs/design/`; entry links updated. ([details](2026-08-19-design-docs-into-docs.md))
 - [2026-08-19] Browser CLI package cleanup: reference docs relocated to `docs/browser/`, `VENDOR.md` and upstream marketing screenshots removed, `test-results/` ignore gap closed. ([details](2026-08-19-browser-cli-package-cleanup.md))

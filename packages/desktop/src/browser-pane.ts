@@ -129,6 +129,8 @@ export interface PaneTabState {
   targetId: string | null;
   url: string;
   title: string;
+  /** The page's own icon, or null until Chromium reports one. */
+  faviconUrl: string | null;
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -301,6 +303,8 @@ interface Tab {
   retain: boolean;
   /** Page scale survives tab switches and renderer crash rebuilds. */
   zoomFactor: number;
+  /** Last safe favicon reported by Chromium for the current main-frame navigation. */
+  faviconUrl: string | null;
   failed: TabFailure | null;
   /**
    * We are destroying this view ourselves.
@@ -329,6 +333,23 @@ const DRAFT_BROWSER_SCOPE_PREFIX = "draft-scope-";
 
 function isDraftBrowserScope(scope: string): boolean {
   return scope.startsWith(DRAFT_BROWSER_SCOPE_PREFIX);
+}
+
+const MAX_FAVICON_URL_LENGTH = 256 * 1024;
+
+/** Keeps an untrusted page from turning browser chrome into a script or unbounded IPC payload. */
+export function selectFaviconUrl(candidates: readonly string[]): string | null {
+  for (const candidate of candidates) {
+    if (candidate.length === 0 || candidate.length > MAX_FAVICON_URL_LENGTH) continue;
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") return candidate;
+      if (parsed.protocol === "data:" && candidate.startsWith("data:image/")) return candidate;
+    } catch {
+      // A page-controlled icon URL is optional browser chrome, never a reason to fail navigation.
+    }
+  }
+  return null;
 }
 
 export class BrowserPane {
@@ -645,6 +666,7 @@ export class BrowserPane {
       relaySession: options.relaySession ?? null,
       retain: options.retain ?? false,
       zoomFactor: options.zoomFactor ?? 1,
+      faviconUrl: null,
       failed: null,
       closing: false,
       lastUrl: options.url ?? "",
@@ -771,6 +793,24 @@ export class BrowserPane {
         publish();
       });
       contents.on("did-stop-loading", publish);
+      const onStartNavigation = (
+        _event: unknown,
+        _url: string,
+        _isInPlace: boolean,
+        isMainFrame: boolean,
+      ): void => {
+        if (!isMainFrame || tab.faviconUrl === null) return;
+        tab.faviconUrl = null;
+        publish();
+      };
+      contents.on("did-start-navigation", onStartNavigation);
+      const onFaviconUpdated = (_event: unknown, favicons: string[]): void => {
+        const faviconUrl = selectFaviconUrl(favicons);
+        if (faviconUrl === tab.faviconUrl) return;
+        tab.faviconUrl = faviconUrl;
+        this.publishState();
+      };
+      contents.on("page-favicon-updated", onFaviconUpdated);
       contents.on("did-navigate", () => {
         publish();
         // Recorded after `publish`, so `tab.lastUrl` and the title are the committed ones. A
@@ -827,6 +867,8 @@ export class BrowserPane {
       detachListeners = () => {
         try {
           contents.off("did-fail-load", onFailLoad);
+          contents.off("did-start-navigation", onStartNavigation);
+          contents.off("page-favicon-updated", onFaviconUpdated);
           contents.off("render-process-gone", onRenderGone);
           contents.off("destroyed", onDestroyed);
         } catch {
@@ -2053,6 +2095,7 @@ export class BrowserPane {
       targetId: tab.targetId,
       url: alive ? contents.getURL() : tab.lastUrl,
       title: alive ? contents.getTitle() : "",
+      faviconUrl: tab.faviconUrl,
       loading: alive ? contents.isLoading() : false,
       canGoBack: alive ? (contents.navigationHistory?.canGoBack() ?? false) : false,
       canGoForward: alive ? (contents.navigationHistory?.canGoForward() ?? false) : false,
