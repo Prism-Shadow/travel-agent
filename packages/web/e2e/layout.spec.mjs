@@ -23,7 +23,7 @@
  *   chrome used to stop fitting below ~412px;
  * - the sidebar's "New chat" button has no background fill (same gray-scale style as nav items);
  * - the collapsed rail shows, in product-specified order, last conversation / new chat /
- *   Agents / Skills / Models / Cost Center / Trajectories / Evaluation Center with localized
+ *   Agents / Models / Cost Center / Trajectories / Evaluation Center with localized
  *   (en + zh) hover
  *   tooltips; "last conversation" targets the newest non-archived session and is disabled
  *   while none exists; expanding from the rail restores the pinned sidebar;
@@ -274,13 +274,13 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   });
   expect(put.ok(), "put models").toBeTruthy();
 
-  // --- No sessions yet: the rail renders all 8 entries, "last conversation" disabled ---
+  // --- No sessions yet: the rail renders all 7 entries, "last conversation" disabled ---
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat`);
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
   const rail = page.locator("aside nav");
   const entries = rail.locator("a, button");
-  await expect(entries).toHaveCount(8);
+  await expect(entries).toHaveCount(7);
   await expect(rail.getByRole("button", { name: "Last conversation" })).toBeDisabled();
 
   // --- Order and tooltips (en): aria-label defines the order, title carries the same copy ---
@@ -288,7 +288,6 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
     "Last conversation",
     "New chat",
     "Agents",
-    "Skills",
     "Models",
     "Cost Center",
     "Trajectories",
@@ -343,24 +342,15 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   );
 
   // --- Page entries navigate and highlight like the pinned nav ---
-  await rail.getByRole("link", { name: "Skills" }).click();
-  await expect(page).toHaveURL(`${BASE}/skills`);
-  await expect(rail.getByRole("link", { name: "Skills" })).toHaveClass(ACTIVE_FILL);
+  await rail.getByRole("link", { name: "Models" }).click();
+  await expect(page).toHaveURL(`${BASE}/models`);
+  await expect(rail.getByRole("link", { name: "Models" })).toHaveClass(ACTIVE_FILL);
 
   // --- zh: tooltips follow the product-specified wording ---
   await page.addInitScript(() => localStorage.setItem("penguin.lang", "zh"));
   await page.reload();
-  await expect(entries).toHaveCount(8);
-  const ZH = [
-    "最近一次对话",
-    "新建对话",
-    "智能体",
-    "技能库",
-    "模型库",
-    "成本中心",
-    "轨迹观测",
-    "评估中心",
-  ];
+  await expect(entries).toHaveCount(7);
+  const ZH = ["最近一次对话", "新建对话", "智能体", "模型库", "成本中心", "轨迹观测", "评估中心"];
   expect(await attrs("aria-label"), "rail order (zh)").toEqual(ZH);
   expect(await attrs("title"), "rail tooltips (zh)").toEqual(ZH);
 
@@ -739,7 +729,7 @@ test("layout: no page grows the document (absolute descendants stay in their scr
   // A short viewport puts the second Agent's node below the fold with a handful of Sessions
   // instead of dozens — the same geometry a full-height window reaches with a longer list.
   await page.setViewportSize({ width: 1440, height: 420 });
-  const paths = ["/traces", "/chat", "/agents", "/agents/default_agent", "/skills", "/models"];
+  const paths = ["/traces", "/chat", "/agents", "/agents/default_agent", "/models"];
   const grewBy = (p) =>
     p.evaluate(() => {
       const de = document.documentElement;
@@ -755,7 +745,7 @@ test("layout: no page grows the document (absolute descendants stay in their scr
   expect(overflowing, "pages whose document scrolls").toEqual([]);
 
   // The other way to grow the document: content that cannot shrink. The sidebar's own chrome
-  // (Project switcher, New chat, eight nav entries, user row) used to be fixed height and
+  // (Project switcher, New chat, the nav entries, user row) used to be fixed height and
   // stopped fitting below ~412px — a window that short is reachable by browser zoom or docked
   // devtools. The nav now scrolls with the session list, and the collapsed rail scrolls its
   // icons the same way, so both states shrink to nothing instead of pushing the page out.

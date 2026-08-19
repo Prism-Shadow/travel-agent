@@ -1,6 +1,6 @@
 /**
  * Skill UI-language text and slash command assembly (pure functions shared by
- * chat-input and the skill library page):
+ * chat-input and the agent settings Skills tab):
  * - localizedText: uses the Chinese value when locale is zh and it's non-empty, otherwise
  *   falls back to English (an empty-string Chinese value counts as missing);
  * - localizedShortText: prefers the short description (language takes priority over
@@ -9,8 +9,7 @@
  *   short description in the UI language;
  * - filterSkills: search filter for the skill dropdown (matches name and localized
  *   description, case-insensitive);
- * - skillsAutoMessage / quickInvokeText: auto-invoke text and quick-invoke prefill text
- *   (zh/en dictionaries).
+ * - skillsAutoMessage: auto-invoke text (zh/en dictionaries).
  */
 import { describe, expect, it } from "vitest";
 import type { SkillMetadataItem } from "@prismshadow/penguin-server/api";
@@ -118,13 +117,6 @@ describe("skillSlashItems (slash skill command item assembly)", () => {
     ];
     expect(skillSlashItems(withShort, "zh")[0]!.desc).toBe("创建 Agent");
     expect(skillSlashItems(withShort, "en")[0]!.desc).toBe("Create agents");
-  });
-});
-
-describe("quickInvokeText (prefill text for skill-library quick invoke, zh/en dictionaries)", () => {
-  it('same convention as the empty-body auto-invoke text: "use the X skill", localized per dictionary', () => {
-    expect(zh.skills.quickInvokeText("agent-creation")).toBe("使用 agent-creation 技能");
-    expect(en.skills.quickInvokeText("agent-creation")).toBe("use the agent-creation skill");
   });
 });
 

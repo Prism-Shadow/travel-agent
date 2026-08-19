@@ -207,8 +207,7 @@ export function SkillsTab({
   /**
    * "Open a new chat" with this Agent: the same draft-state entry as the agents page
    * "New Chat" button. A non-empty source also prefills the composer with the generated
-   * install prompt through the draft cache — the mechanism the skill library's quick
-   * invoke already uses, so draft-view itself needs no changes. handoffAgentId is
+   * install prompt through the draft cache, so draft-view itself needs no changes. handoffAgentId is
    * cleared (a leftover handoff target would forward the install prompt to a different
    * Agent) and the skill pre-selection reset alongside the overwritten text.
    */
@@ -448,7 +447,7 @@ export function SkillsTab({
         </p>
       </ConfirmModal>
 
-      {/* Uninstall confirmation (shared ConfirmModal, same copy as the skill library page). */}
+      {/* Uninstall confirmation (shared ConfirmModal). */}
       <ConfirmModal
         open={removing !== null}
         title={removing !== null ? S.skills.uninstallConfirmTitle(removing) : ""}

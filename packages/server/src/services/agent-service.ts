@@ -283,7 +283,7 @@ export class AgentService {
       kernelOutdated: meta.kernelOutdated,
       vaultKeyCount: 0,
       scheduleCount: 0,
-      // Read the real count: coreCreateAgent seeds the default skill set for default_agent.
+      // Read the real count: coreCreateAgent seeds the built-in preinstalled skill set for every agent.
       skillCount: await this.skillCount(projectId, agentId),
       memoryCount: 0,
     };

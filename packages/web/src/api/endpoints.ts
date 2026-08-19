@@ -70,8 +70,6 @@ import type {
   SessionsResponse,
   SessionTracesResponse,
   SkillArchiveInstallRequest,
-  SkillInstallRequest,
-  SkillLibraryResponse,
   RetryNowResponse,
   SteerRequest,
   TaskCreateRequest,
@@ -700,21 +698,12 @@ export const deleteSchedule = (projectId: string, agentId: string, name: string)
     { method: "DELETE" },
   );
 
-// Skill library & Agent-installed Skills ------------------------------------------------------
-
-/** Skill library (available to any logged-in user): groups and metadata, excludes SKILL.md body content. */
-export const getSkillLibrary = () => apiFetch<SkillLibraryResponse>("/api/skills");
+// Agent-installed Skills (the built-in set is installed automatically; the routes below manage
+// zip imports/exports and per-agent copies — the library-browse/install UI was removed) -------
 
 export const getAgentSkills = (projectId: string, agentId: string) =>
   apiFetch<AgentSkillsResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/skills`,
-  );
-
-/** Installs (if already installed, overwrites with the library content); 201 returns the Agent's latest installed list. */
-export const installAgentSkills = (projectId: string, agentId: string, names: string[]) =>
-  apiFetch<AgentSkillsResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/skills`,
-    { method: "POST", body: { names } satisfies SkillInstallRequest },
   );
 
 /** Installs one skill from an uploaded zip (base64); 409 skill_exists unless overwrite; 201 returns the latest installed list. */

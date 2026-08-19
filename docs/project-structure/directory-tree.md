@@ -500,7 +500,7 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 │       │   │   │   ├── work-*.tsx? # Work group/summary rendering
 │       │   │   │   └── workspace-*.tsx # Workspace browser/select UI
 │       │   │   ├── models/ # Model configuration UI
-│       │   │   ├── skills/ # Skill management UI
+│       │   │   ├── skills/ # Skill icon rendering shared by chat and agent settings (the library page was removed; skills are built-in)
 │       │   │   ├── traces/ # Trace browsing/detail UI
 │       │   │   └── usage/ # Usage/accounting UI
 │       │   ├── lib/ # Shared frontend utilities

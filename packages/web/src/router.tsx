@@ -12,7 +12,6 @@ import { LoginPage } from "./pages/login";
 import { ChatPage } from "./features/chat/chat-page";
 import { AgentsPage } from "./features/agents/agents-page";
 import { AgentSettingsPage } from "./features/agents/agent-settings-page";
-import { SkillsPage } from "./features/skills/skills-page";
 import { ModelsPage } from "./features/models/models-page";
 import { UsagePage } from "./features/usage/usage-page";
 import { TracesPage } from "./features/traces/traces-page";
@@ -50,7 +49,6 @@ export function AppRouter() {
           <Route path="/chat/:sessionId?" element={<ChatPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/agents/:agentId" element={<AgentSettingsPage />} />
-          <Route path="/skills" element={<SkillsPage />} />
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/usage" element={<UsagePage />} />
           <Route path="/traces" element={<TracesPage />} />

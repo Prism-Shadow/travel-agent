@@ -661,7 +661,6 @@ export function Sidebar({
 
   const navItems: Array<{ to: string; label: string; icon: string }> = [
     { to: "/agents", label: S.nav.agents, icon: NAV_ICONS.agents },
-    { to: "/skills", label: S.nav.skills, icon: NAV_ICONS.skills },
     { to: "/models", label: S.nav.models, icon: NAV_ICONS.models },
     { to: "/usage", label: S.nav.usage, icon: NAV_ICONS.usage },
     { to: "/traces", label: S.nav.traces, icon: NAV_ICONS.traces },
@@ -794,7 +793,7 @@ export function Sidebar({
 
       {/* Scroll area: the page nav and the session list scroll together, so the nav rides up
           as the list is scrolled. It is the sidebar's only shrinkable block — with the nav
-          pinned, the column's fixed height (Project switcher + New chat + eight nav entries +
+          pinned, the column's fixed height (Project switcher + New chat + the nav entries +
           user row ≈ 412px) exceeded a short window, and the overflow, clipped by nothing,
           grew the document into a second scrollbar.
           relative: the scroller acts as its own containing block, so absolute descendants

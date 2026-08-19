@@ -1,6 +1,6 @@
 /**
  * Skill-invocation helpers for the chat input area (pure logic, shared by chat-input /
- * message-item / the Skill library page, and unit tests).
+ * message-item / the agent settings Skills tab, and unit tests).
  *
  * The `[use_skills]` marker block itself is **not** defined here: it is a globally agreed
  * format shared by the frontend, the backend and the core prompt template, so its producer
@@ -18,9 +18,8 @@ export const BOOK_ICON =
 
 /**
  * Picks copy based on the UI language: uses the Chinese value when locale is zh and one is
- * provided, otherwise falls back to English. Shared by the skill library page's group
- * name/group description/skill description, the input area's chip hint, and the slash skill
- * item's description (the library metadata's Chinese fields are all optional).
+ * provided, otherwise falls back to English. Shared by the input area's chip hint and the
+ * slash skill item's description (the metadata's Chinese fields are all optional).
  */
 export function localizedText(locale: "zh" | "en", enText: string, zhText?: string): string {
   return locale === "zh" && zhText ? zhText : enText;
@@ -37,7 +36,7 @@ export interface SkillDescLike {
  * Picks the **short description** for the UI language (falls back to the full description if
  * missing): language takes priority over length — zh tries shortDescriptionZh ->
  * shortDescription -> description in order; en tries shortDescription -> description. Shared by
- * the skill library card, the composer's skills dropdown, and the slash description.
+ * the composer's skills dropdown and the slash description.
  */
 export function localizedShortText(locale: "zh" | "en", s: SkillDescLike): string {
   if (locale === "zh") {

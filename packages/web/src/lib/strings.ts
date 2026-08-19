@@ -16,7 +16,6 @@ export const zh = {
     chat: "对话",
     newChat: "新对话",
     agents: "智能体",
-    skills: "技能库",
     models: "模型库",
     usage: "成本中心",
     traces: "轨迹观测",
@@ -709,32 +708,13 @@ export const zh = {
     },
   },
 
+  // Skills are built-in (installed for every agent automatically); the block below covers the
+  // Agent settings Skills tab (installed list + zip import/export) and the agents-page count —
+  // the former library page's browse/install/quick-invoke strings were removed with the page.
   skills: {
-    pageTitle: "技能库",
-    pageDesc: "内置 Skill 库：浏览、快捷调用，或安装到 Agent。",
-    quickInvoke: "快捷调用",
-    /** Pre-filled body for quick invoke (per UI language; English is `use the <name> skill`). */
-    quickInvokeText: (name: string): string => `使用 ${name} 技能`,
-    /** Title on a disabled quick-invoke button: quick invoke opens a draft on the currently selected agent, so a skill it hasn't installed (e.g. preinstall:false skills like remote-claude-code) can't be quick-invoked until it's installed on that agent. */
-    quickInvokeNeedsInstall: "先在当前 Agent 安装该技能后才能快捷调用",
-    manageInstall: "管理安装",
-    manageInstallTitle: (name: string): string => `管理安装：${name}`,
-    install: "安装",
-    installed: "已安装",
     uninstall: "卸载",
-    /** Skill count in the group header (small text to the right of the group name). */
+    /** Skill count on the agents-page card metadata. */
     skillCount: (n: number): string => `${n} 个技能`,
-    /** Usage count in the card metadata (shows "unused" instead of a bare 0). */
-    usedByAgents: (n: number): string => (n === 0 ? "未被使用" : `${n} 个 Agent 在用`),
-    /** Top toast shown on successful install / uninstall. */
-    installedToast: (skill: string, agent: string): string => `已将 ${skill} 安装到 ${agent}`,
-    updateOutdated: (n: number): string => `有新版本：更新 ${n} 个 Agent 的安装`,
-    updateAction: "更新",
-    updateConfirmTitle: (name: string): string => `更新 ${name}`,
-    updateConfirmWarning: (name: string): string =>
-      `更新 ${name} 会把库内当前副本重装到各 Agent，覆盖其已安装的文件——对已装技能的本地改动会丢失，如有需要请先导出备份。`,
-    updatedToast: (skill: string, n: number): string =>
-      `已将 ${skill} 更新到最新版（${n} 个 Agent）`,
     uninstalledToast: (skill: string, agent: string): string => `已从 ${agent} 卸载 ${skill}`,
     /** Uninstall confirmation: removing the installed copy deletes its files (local edits included). */
     uninstallConfirmTitle: (name: string): string => `卸载 ${name}`,
@@ -1358,7 +1338,7 @@ Benchmark：
     skillRemove: "移除技能",
     skillsSearchPlaceholder: "搜索技能",
     skillsNoMatch: "没有匹配的技能",
-    skillsEmptyHint: "暂无已装技能，去技能库添加",
+    skillsEmptyHint: "暂无已装技能，可在 Agent 设置的技能页导入",
     /** Auto-generated invocation text when skills are selected and the body is empty (wrapped in [use_skills] before sending). */
     skillsAutoMessage: (names: string[]): string => `使用 ${names.join("、")} 技能`,
     handoffFrom: (agent: string) => `由 ${agent} 的对话交接而来`,

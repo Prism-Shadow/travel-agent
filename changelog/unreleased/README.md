@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] The preinstalled skill set (`penguin-browser`) is built-in for every agent — installed at creation, re-synced on load — and the skill-library page plus its sidebar entry are removed (composer invocation and the Agent settings Skills tab stay). ([details](2026-08-19-builtin-skill-no-library-ui.md))
 - [2026-08-19] Chrome is formally available from the Desktop Browser menu while IAB remains the per-conversation default; CLI routing, persistence, setup, authorization copy, unavailable-state UX, bootstrap-tab reuse, and final-result retention now agree. ([details](2026-08-19-chrome-backend-open.md))
 - [2026-08-18] The Feishu escalation channel (`transaction/src/channel/`) is removed — no caller since M2, never verified live, and its absent-user scenario was designed away; the escalation core the server uses stays. ([details](2026-08-18-remove-feishu-channel.md))
 - [2026-08-18] Dead root devDependencies removed, and the desktop update chain (electron-builder publish target, updater, server update check) now names this fork instead of upstream — no distributed build can update itself into an upstream PenguinHarness. ([details](2026-08-18-de-upstream-update-chain.md))

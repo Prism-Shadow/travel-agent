@@ -4,6 +4,8 @@ The built-in skill library. A Skill is a directory with a `SKILL.md` (frontmatte
 
 Skills follow the "index first, body on demand" design: only their metadata is injected into an Agent's system prompt; the Agent reads the full `SKILL.md` via shell when it actually needs it.
 
+The preinstalled set (every skill without `preinstall: false`) is **built-in**: core's `loadOrInitAgentState` installs it into every Agent at initialization and re-syncs missing or outdated copies on load, so an Agent always has it — there is no library-browse/install UI (the Web App's skill-library page and its sidebar entry were removed; the Agent settings Skills tab still manages zip imports/exports).
+
 The library is trimmed to what the travel agent actually uses — a single skill, in the order of the `SKILL_GROUPS` manifest in `src/index.ts` (a skill directory missing from the manifest is still loaded, and lands in an "Other" group):
 
 | Group | Skills |

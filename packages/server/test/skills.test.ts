@@ -2,11 +2,11 @@
  * Integration tests for the Skill routes: library catalog structure (any logged-in user), member
  * install/uninstall with 404 for outsiders, 404 for unknown skills, installed
  * files matching the library content, idempotent update on reinstall, the
- * directory disappearing after uninstall, default_agent starting with the
- * preinstalled library set (preinstall: false skills stay manual-install)
- * while a newly created plain Agent has none, and the zip
- * archive install/export (layouts, zip-slip and limit rejections, 409
- * skill_exists + overwrite replace, byte-identical export round-trip).
+ * directory disappearing after uninstall, every Agent starting with the
+ * built-in preinstalled library set (preinstall: false skills stay
+ * manual-install), and the zip archive install/export (layouts, zip-slip and
+ * limit rejections, 409 skill_exists + overwrite replace, byte-identical
+ * export round-trip).
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -50,10 +50,16 @@ describe("skills api", () => {
     await t.cleanup();
   });
 
-  /** Creates a plain Agent with no Skills preinstalled. */
+  /** Creates an Agent (it comes with the built-in preinstalled set, i.e. penguin-browser). */
   async function createPlainAgent(agentId: string): Promise<void> {
     const res = await owner.post(`/api/projects/${projectId}/agents`, { agentId });
     expect(res.status).toBe(201);
+  }
+
+  /** Creates an Agent and strips the built-in set, for tests that need an empty skills dir. */
+  async function createBareAgent(agentId: string): Promise<void> {
+    await createPlainAgent(agentId);
+    expect((await owner.delete(`${base(agentId)}/penguin-browser`)).status).toBe(204);
   }
 
   it("GET /api/skills: groups with metadata, short descriptions, and icons, without sending bodies", async () => {
@@ -147,7 +153,7 @@ describe("skills api", () => {
   });
 
   it("unknown skill 404 unknown_skill, with no half-installed state", async () => {
-    await createPlainAgent("strict_agent");
+    await createBareAgent("strict_agent");
     const url = base("strict_agent");
     const res = await owner.post(url, { names: ["penguin-browser", "no-such-skill"] });
     expect(res.status).toBe(404);
@@ -180,7 +186,7 @@ describe("skills api", () => {
     expect((await member.get(base("no_such_agent"))).status).toBe(404);
   });
 
-  it("default_agent starts with the preinstalled library set; plain agents start empty and install manually", async () => {
+  it("every agent starts with the built-in preinstalled library set (default_agent and newly created agents alike)", async () => {
     const res = await member.get(base("default_agent"));
     expect(res.status).toBe(200);
     const body = (await res.json()) as AgentSkillsResponse;
@@ -195,15 +201,10 @@ describe("skills api", () => {
       expect(skill.icon, skill.name).toContain("<svg");
     }
 
-    // A plain agent gets nothing preinstalled; manual install from the library works on it,
-    // writing the library SKILL.md verbatim into the agent's skills directory.
+    // A newly created agent gets the same built-in set, written verbatim from the library.
     await createPlainAgent("fresh_agent");
     const fresh = (await (await member.get(base("fresh_agent"))).json()) as AgentSkillsResponse;
-    expect(fresh.skills).toEqual([]);
-    const manual = await member.post(base("fresh_agent"), { names: ["penguin-browser"] });
-    expect(manual.status).toBe(201);
-    const withManual = (await manual.json()) as AgentSkillsResponse;
-    expect(withManual.skills.map((s) => s.name)).toContain("penguin-browser");
+    expect(fresh.skills.map((s) => s.name)).toEqual(loadPreinstalledSkills().map((s) => s.name));
     const installedMd = path.join(
       skillsDir(t.root, projectId, "fresh_agent"),
       "penguin-browser",
@@ -222,7 +223,7 @@ describe("skills api", () => {
     Buffer.from(zipSync(files)).toString("base64");
 
   it("archive: nested top-dir layout — all files written (subdirs preserved), directory name wins over frontmatter", async () => {
-    await createPlainAgent("zip_agent");
+    await createBareAgent("zip_agent");
     const url = `${base("zip_agent")}/archive`;
     // Frontmatter says zip-skill, but the top-level directory is dir-skill: the directory
     // name is the identity (same rule as listInstalledSkills). The explicit directory
@@ -245,7 +246,7 @@ describe("skills api", () => {
   });
 
   it("archive: root layout takes the name from frontmatter; uninstall works on the archive-installed skill", async () => {
-    await createPlainAgent("zip_root_agent");
+    await createBareAgent("zip_root_agent");
     const url = base("zip_root_agent");
     const res = await member.post(`${url}/archive`, {
       dataBase64: zipB64({ "SKILL.md": strToU8(ZIP_SKILL_MD) }),
@@ -263,7 +264,7 @@ describe("skills api", () => {
   });
 
   it("archive: zip-slip and unsafe entry paths are rejected with 400, nothing written", async () => {
-    await createPlainAgent("zip_slip_agent");
+    await createBareAgent("zip_slip_agent");
     const url = base("zip_slip_agent");
     const unsafe = ["../evil.md", "/abs.md", "C:/win.md", "a\\b.md"];
     for (const entry of unsafe) {

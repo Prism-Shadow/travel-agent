@@ -35,7 +35,7 @@ const railItemClass = (active: boolean) =>
 
 /**
  * Collapsed narrow rail: expand button on top; below it, in product-specified order, last
- * conversation / new chat / Agents / Skills / Models / Costs / Traces / Benchmark (every entry
+ * conversation / new chat / Agents / Models / Costs / Traces / Benchmark (every entry
  * carries a localized title + aria-label, so hover tooltips follow the UI language); user
  * avatar at the bottom. No Logo shown.
  */
@@ -74,10 +74,9 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
     navigate(`/chat/${DRAFT_SESSION_ID}`, agentId ? { state: { agentId } } : undefined);
   };
 
-  /** Page entries (rail positions 3-8): same routes, same labels as the pinned nav. */
+  /** Page entries (rail positions 3-7): same routes, same labels as the pinned nav. */
   const pages: ReadonlyArray<{ to: string; label: string; icon: string }> = [
     { to: "/agents", label: S.nav.agents, icon: NAV_ICONS.agents },
-    { to: "/skills", label: S.nav.skills, icon: NAV_ICONS.skills },
     { to: "/models", label: S.nav.models, icon: NAV_ICONS.models },
     { to: "/usage", label: S.nav.usage, icon: NAV_ICONS.usage },
     { to: "/traces", label: S.nav.traces, icon: NAV_ICONS.traces },

@@ -14,7 +14,6 @@ export const en: Strings = {
     chat: "Chat",
     newChat: "New chat",
     agents: "Agents",
-    skills: "Skills",
     models: "Models",
     usage: "Cost Center",
     traces: "Trajectories",
@@ -746,29 +745,13 @@ export const en: Strings = {
     },
   },
 
+  // Skills are built-in (installed for every agent automatically); the block below covers the
+  // Agent settings Skills tab (installed list + zip import/export) and the agents-page count —
+  // the former library page's browse/install/quick-invoke strings were removed with the page.
   skills: {
-    pageTitle: "Skill library",
-    pageDesc: "Built-in skill library: browse, quick-start a chat, or install to agents.",
-    quickInvoke: "Quick start",
-    quickInvokeText: (name: string): string => `use the ${name} skill`,
-    /** Title on a disabled quick-start button: quick start opens a draft on the currently selected agent, so a skill it hasn't installed (e.g. a preinstall:false skill like remote-claude-code) can't be quick-started until it's installed on that agent. */
-    quickInvokeNeedsInstall: "Install this skill on the current agent first to quick-start",
-    manageInstall: "Manage installs",
-    manageInstallTitle: (name: string): string => `Manage installs: ${name}`,
-    install: "Install",
-    installed: "Installed",
     uninstall: "Uninstall",
+    /** Skill count on the agents-page card metadata. */
     skillCount: (n: number): string => (n === 1 ? "1 skill" : `${n} skills`),
-    usedByAgents: (n: number): string =>
-      n === 0 ? "not used yet" : n === 1 ? "used by 1 agent" : `used by ${n} agents`,
-    installedToast: (skill: string, agent: string): string => `Installed ${skill} to ${agent}`,
-    updateOutdated: (n: number): string => `Update available: update ${n} agent install(s)`,
-    updateAction: "Update",
-    updateConfirmTitle: (name: string): string => `Update ${name}`,
-    updateConfirmWarning: (name: string): string =>
-      `Updating ${name} reinstalls the library copy over each agent's installed files — any local edits to the installed skill are lost. Export a backup first if you need them.`,
-    updatedToast: (skill: string, n: number): string =>
-      `Updated ${skill} to the latest version (${n} agent(s))`,
     uninstalledToast: (skill: string, agent: string): string =>
       `Uninstalled ${skill} from ${agent}`,
     /** Uninstall confirmation: removing the installed copy deletes its files (local edits included). */
@@ -1403,7 +1386,7 @@ Scenarios:
     skillRemove: "Remove skill",
     skillsSearchPlaceholder: "Search skills",
     skillsNoMatch: "No matching skills",
-    skillsEmptyHint: "No skills installed yet — add some from the skill library",
+    skillsEmptyHint: "No skills installed yet — import one from the agent settings' Skills tab",
     skillsAutoMessage: (names: string[]): string =>
       names.length === 1 ? `use the ${names[0]} skill` : `use the ${names.join(", ")} skills`,
     handoffFrom: (agent: string) => `Handed off from ${agent}'s conversation`,

@@ -5,8 +5,8 @@
  *   `agent_state/`, `tools/`, `memory/`, `skills/`, and the sibling `scratchpad/`, and writes
  *   the default `system_config.yaml` and `AGENTS.md`.
  * - Otherwise loads the existing system config and editable Prompt for the given `agentId`.
- *   On that path, default_agent also receives any preinstalled library skills it does not
- *   already have on disk, and refreshes a copy whose version is behind the library.
+ *   On that path, the Agent also receives any built-in (preinstalled) library skills it does
+ *   not already have on disk, and refreshes a copy whose version is behind the library.
  *
  * The full runtime Prompt is rendered from the system-level Prompt template in
  * `system_config.yaml`; placeholders in the template are replaced with `AGENTS.md` and the
@@ -171,9 +171,9 @@ export async function loadOrInitAgentState(opts?: {
     }
     systemConfig = parsed as SystemConfig;
     agentsMd = (await fileExists(mdPath)) ? await fs.readFile(mdPath, "utf8") : defaultAgentsMd();
-    // default_agent created before a library skill existed never received it (install ran
-    // only on init). Fill in missing preinstalled skills, and replace a copy whose
-    // frontmatter version is behind the library.
+    // An Agent created before a library skill existed (or before the built-in policy) never
+    // received it (install ran only on init). Fill in missing preinstalled skills, and replace
+    // a copy whose frontmatter version is behind the library.
     await syncPreinstalledSkills(root, projectId, agentId);
   } else {
     // Init path: create the directory structure and write default config (preset only takes effect here).
@@ -193,17 +193,17 @@ export async function loadOrInitAgentState(opts?: {
       ...(preset?.description !== undefined ? { description: preset.description } : {}),
     };
     agentsMd = preset?.agentsMd ?? defaultAgentsMd();
-    // Only installs the Skills specified by preset (a plain newly created Agent gets none
-    // pre-installed). A default_agent with no preset (e.g. created on first CLI run) still gets
-    // the library's preinstalled set (Skills marked `preinstall: false` stay manual-install) —
-    // the install policy follows Agent identity, not whether creation came from the server or
-    // was done directly via SDK/CLI.
+    // Built-in skill policy: EVERY Agent gets the library's preinstalled set at initialization
+    // (Skills marked `preinstall: false` stay manual-install), merged with any preset Skills —
+    // a preset copy of the same name wins, so no directory is written twice in parallel.
     // Skills have no dedicated tool: metadata is injected via {{SKILL_METADATA}}, and the model
     // reads SKILL.md with shell and follows it.
-    const skills =
-      opts?.preset === undefined && agentId === DEFAULT_AGENT_ID
-        ? loadPreinstalledSkills()
-        : (opts?.preset?.skills ?? []);
+    const presetSkills = opts?.preset?.skills ?? [];
+    const presetNames = new Set(presetSkills.map((skill) => skill.name));
+    const skills = [
+      ...presetSkills,
+      ...loadPreinstalledSkills().filter((skill) => !presetNames.has(skill.name)),
+    ];
     await Promise.all([
       fs.writeFile(mdPath, agentsMd, "utf8"),
       ...skills.map((skill) => installSkill(root, projectId, agentId, skill)),
@@ -228,7 +228,7 @@ export async function loadOrInitAgentState(opts?: {
  *
  * Calls loadOrInitAgentState for each one: an Agent whose directory already exists (including a
  * default_agent created earlier by the CLI) is not overwritten (preset only takes effect on
- * initialization). Missing preinstalled skills on default_agent are filled in on load.
+ * initialization). Missing built-in (preinstalled) skills are filled in on load.
  * Returns the list of built-in Agent ids.
  */
 export async function provisionProjectAgents(opts?: {
@@ -464,17 +464,17 @@ function assertSafeSkillFile(rel: string): void {
  * Docs: /docs/skills § "Installation and storage".
  */
 /**
- * Keeps default_agent's preinstalled set current: installs a library skill that is
- * missing, or whose installed frontmatter version is behind the library. Same-or-newer
- * copies are left alone (the user may have edited them). Skills marked
- * `preinstall: false` stay out. Other agents are not touched.
+ * Keeps an Agent's built-in (preinstalled) skill set current: installs a library skill that
+ * is missing, or whose installed frontmatter version is behind the library. Same-or-newer
+ * copies are left alone (the user may have edited them). Skills marked `preinstall: false`
+ * stay out. Runs for every Agent on load — the preinstalled set is built-in, so an Agent
+ * cannot permanently lose it.
  */
 async function syncPreinstalledSkills(
   root: string,
   projectId: string,
   agentId: string,
 ): Promise<void> {
-  if (agentId !== DEFAULT_AGENT_ID) return;
   const installed = new Map(
     (await listInstalledSkills(root, projectId, agentId)).map((skill) => [
       skill.name,

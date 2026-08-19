@@ -1,9 +1,9 @@
 /**
- * Built-in agent provisioning and skill library install policy: the sole built-in agent
- * default_agent comes pre-installed with the library's preinstalled skill set (skills marked
- * `preinstall: false` stay manual-install), an ordinary newly created agent starts with zero
- * skills, and the default AGENTS.md is an empty file; provisionProjectAgents is idempotent and
- * never overwrites existing config.
+ * Built-in agent provisioning and skill library install policy: the library's preinstalled
+ * skill set is built-in for EVERY agent (skills marked `preinstall: false` stay
+ * manual-install) — installed at initialization and re-synced on load — and the default
+ * AGENTS.md is an empty file; provisionProjectAgents is idempotent and never overwrites
+ * existing config.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -44,9 +44,11 @@ const skillMdPath = (agentId: string, skillName: string): string =>
   path.join(skillsDir(tmpRoot, DEFAULT_PROJECT_ID, agentId), skillName, "SKILL.md");
 
 describe("Skill installation policy", () => {
-  it("a plain new Agent preinstalls no Skills and AGENTS.md is an empty file (guidance lives in the template's Suggested workflows)", async () => {
+  it("a plain new Agent gets the built-in preinstalled set and AGENTS.md is an empty file (guidance lives in the template's Suggested workflows)", async () => {
     const state = await loadOrInitAgentState({ agentId: "some_agent" });
-    expect(await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, "some_agent")).toEqual([]);
+    expect(
+      (await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, "some_agent")).map((s) => s.name),
+    ).toEqual(loadPreinstalledSkills().map((s) => s.name));
 
     // The default AGENTS.md is empty: it carries no preset guidance (delegation and task
     // conventions live in the default template's Suggested workflows section, and skill
@@ -111,10 +113,16 @@ describe("Skill installation policy", () => {
     expect(onDisk).not.toContain("stale checkout path");
   });
 
-  it("does not install preinstalled skills onto a non-default agent", async () => {
+  it("re-syncs the built-in set onto a non-default agent too: a removed skill returns on reload", async () => {
     await loadOrInitAgentState({ agentId: "some_agent" });
+    await fs.rm(path.dirname(skillMdPath("some_agent", "penguin-browser")), {
+      recursive: true,
+      force: true,
+    });
     await loadOrInitAgentState({ agentId: "some_agent" });
-    expect(await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, "some_agent")).toEqual([]);
+    expect(
+      (await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, "some_agent")).map((s) => s.name),
+    ).toEqual(loadPreinstalledSkills().map((s) => s.name));
   });
 });
 
