@@ -443,11 +443,20 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   });
   app.notFound((c) => c.json(errorBody("not_found", "Endpoint does not exist."), 404));
 
-  // Request logging: a minimal one-liner (method path status ms).
+  // Request logging: a minimal one-liner (method path status ms). The desktop shell's
+  // task supervisor reconciles against /api/sessions/browser-tasks on a steady interval;
+  // a healthy tick every second is heartbeat, not information, and at one line per tick
+  // it buries the log lines that matter. Quiet paths therefore log only when they fail
+  // or stall — a non-2xx/3xx status or a slow response still prints.
+  const QUIET_POLL_PATHS = new Set(["/api/sessions/browser-tasks"]);
+  const QUIET_POLL_SLOW_MS = 250;
   app.use("*", async (c, next) => {
     const start = performance.now();
     await next();
     const ms = Math.round(performance.now() - start);
+    if (QUIET_POLL_PATHS.has(c.req.path) && c.res.status < 400 && ms < QUIET_POLL_SLOW_MS) {
+      return;
+    }
     deps.log(`${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`);
   });
 
