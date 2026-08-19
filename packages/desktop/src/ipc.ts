@@ -49,7 +49,6 @@ const CHANNELS = [
   "iab:reload",
   "iab:stop",
   "iab:tasks-changed",
-  "iab:restore",
   "iab:clear-profile",
   "iab:handoff",
   "iab:handoff-open",
@@ -341,7 +340,6 @@ export function installBrowserIpc({
   // renderer had asserted, and a stale frame asserting a finished turn is exactly the authority a
   // leftover background command is trying to reuse.
   on("iab:tasks-changed", () => promptTaskRefresh());
-  on("iab:restore", (payload) => pane.restore(parseBoolean(payload, "accept")));
   on("iab:clear-profile", () => pane.clearProfile());
   on("iab:handoff", () => pane.handoff());
   on("iab:handoff-open", async () => {

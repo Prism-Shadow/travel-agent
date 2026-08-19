@@ -258,8 +258,6 @@ const api = {
    */
   tasksChanged: (): Promise<void> => ipcRenderer.invoke("iab:tasks-changed"),
 
-  /** Answer the "the last run left N pages" prompt: restore them, or discard them. */
-  restore: (accept: boolean): Promise<void> => ipcRenderer.invoke("iab:restore", accept),
 
   /** Sign out of everything: clear the pane's cookies and storage, and close its tabs. */
   clearProfile: (): Promise<void> => ipcRenderer.invoke("iab:clear-profile"),

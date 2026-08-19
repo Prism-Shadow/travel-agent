@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] A conversation's browser pages come back when you open that conversation; the global "reopen them" prompt and its four bookkeeping states are gone. ([details](2026-08-19-tabs-are-conversation-state.md))
 - [2026-08-19] Docs move to English: the in-app browser architecture doc and the `docs/verification/` prose are translated; `AGENTS.md` states the rule and its three exceptions. ([details](2026-08-19-docs-to-english.md))
 - [2026-08-19] Fix: the desktop app could not launch — a deep import into `penguin-browser`'s build output was left on the pre-regrouping path. ([details](2026-08-19-desktop-relay-discovery-path.md))
 - [2026-08-19] `AGENTS.md` at the root: product direction, hard rules, traps, and the open-issue table for agents working in this repo. ([details](2026-08-19-agents-guide.md))

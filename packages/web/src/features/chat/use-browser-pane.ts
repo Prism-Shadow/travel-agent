@@ -44,7 +44,6 @@ const EMPTY_STATE: DesktopPaneState = {
   backendLocked: false,
   extensionBackendAvailable: true,
   profileResetLocked: false,
-  restorable: 0,
 };
 
 const FRACTION_STORAGE_KEY = "penguin.iabPaneFraction";
@@ -69,7 +68,6 @@ export interface BrowserPaneState {
   tabs: DesktopPaneState["tabs"];
   activeTabId: string | null;
   activeTab: DesktopTabState | null;
-  restorable: number;
   backend: DesktopBackend;
   /** Whether the backend choice is held shut by a running task. */
   backendLocked: boolean;
@@ -135,7 +133,6 @@ export interface BrowserPaneActions {
   goForward: (tabId: string) => void;
   reload: (tabId: string) => void;
   stop: (tabId: string) => void;
-  restore: (accept: boolean) => Promise<void>;
   clearProfile: () => Promise<void>;
   setBackend: (backend: DesktopBackend) => Promise<void>;
   /**
@@ -593,12 +590,6 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       goForward: (tabId) => quiet(bridge?.goForward(tabId)),
       reload: (tabId) => quiet(bridge?.reload(tabId)),
       stop: (tabId) => quiet(bridge?.stop(tabId)),
-      // Not quiet: restoring can fail — a view that will not build — and the offer is deliberately
-      // kept when it does, so the user has something to retry. Swallowing the rejection would show
-      // a prompt that answers to nothing.
-      restore: async (accept) => {
-        await bridge?.restore(accept);
-      },
       clearProfile: async () => {
         await bridge?.clearProfile();
       },
@@ -656,7 +647,6 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
     activeTabId,
     activeTab,
     scopeSettled,
-    restorable: pane.restorable,
     backend: pane.backend,
     backendLocked: pane.backendLocked,
     extensionBackendAvailable: pane.extensionBackendAvailable,

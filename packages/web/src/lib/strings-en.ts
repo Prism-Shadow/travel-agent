@@ -862,11 +862,6 @@ export const en: Strings = {
       stop: "Stop",
       loadFailed: "This page did not load",
       retry: "Try again",
-      restorePrompt: (count: number) =>
-        `The last run left ${count} page${count === 1 ? "" : "s"} open`,
-      restore: "Reopen them",
-      restoreFailed: "Those pages could not be reopened — you can try again",
-      discard: "Discard",
       profile: "Browser data",
       clearProfile: "Clear browser data and sign out",
       clearProfileConfirm:

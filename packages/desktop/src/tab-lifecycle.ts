@@ -329,50 +329,6 @@ function parseCheckpointEntry(value: unknown): TabCheckpointEntry | null {
 }
 
 /**
- * Folds a newly-crashed run's tabs into an unanswered crash snapshot.
- *
- * The case this exists for: the app crashed, the user closed the window without answering the
- * "N pages left" prompt, opened the app again, and it crashed again. Neither run's pages may be
- * dropped just because the prompt outlived one of them.
- *
- * De-duplicated by URL within a conversation, since the same page reopened in two runs is one page
- * to the user. Ids are renumbered because they are per-run and would otherwise collide — restore
- * mints fresh tabs anyway, so nothing downstream depends on them.
- */
-export function mergeCheckpoints(pending: TabCheckpoint, incoming: TabCheckpoint): TabCheckpoint {
-  const merged: TabCheckpointEntry[] = [];
-  const seen = new Set<string>();
-  for (const entry of [...pending.tabs, ...incoming.tabs]) {
-    const key = `${entry.taskScope ?? ""}\u0000${entry.url}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push({ ...entry, id: `restore-${merged.length + 1}` });
-    if (merged.length >= MAX_CHECKPOINT_TABS) break;
-  }
-  // Two runs can each have marked an active tab in the same conversation; the parser would drop
-  // the second, but doing it here keeps the file we write consistent with what we would accept.
-  const scopesWithActive = new Set<string>();
-  for (const entry of merged) {
-    if (!entry.active) continue;
-    const scope = entry.taskScope ?? "";
-    if (scopesWithActive.has(scope)) entry.active = false;
-    else scopesWithActive.add(scope);
-  }
-  return stampDocument(TAB_CHECKPOINT_KIND, { tabs: merged }) as TabCheckpoint;
-}
-
-/**
- * How many pages the user is told about after a crash.
- *
- * The prompt exists because automatic restore is the wrong default (002 §6.4, three): reopening a
- * batch of booking pages without being asked re-enters flows the user may have abandoned, and hands
- * the sites a burst of traffic that reads as automation.
- */
-export function pendingRestoreCount(checkpoint: TabCheckpoint | null): number {
-  return checkpoint?.tabs.length ?? 0;
-}
-
-/**
  * The checkpoint's shape on disk is one file; this is the name of the scratch file it is written
  * through. Random rather than pid-based: two windows of the same process would otherwise pick the
  * same name and one would truncate the other's half-written file.

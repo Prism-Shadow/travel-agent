@@ -16,9 +16,7 @@ import {
   TabCheckpointStore,
   buildCheckpoint,
   isRestorableUrl,
-  mergeCheckpoints,
   parseCheckpoint,
-  pendingRestoreCount,
   planCrashRecovery,
   planTaskEnd,
   resolveTabDisposition,
@@ -260,64 +258,6 @@ describe("parseCheckpoint", () => {
   });
 });
 
-describe("mergeCheckpoints", () => {
-  const tab = (over: Partial<TabCheckpointEntry>): TabCheckpointEntry => ({
-    id: "t1",
-    url: "https://a.example/",
-    taskScope: "s1",
-    retain: false,
-    active: false,
-    ...over,
-  });
-
-  it("keeps both runs' pages", () => {
-    // The case: crashed, the user closed the window without answering the prompt, opened the app
-    // again, crashed again. Neither run's pages may be dropped because the prompt outlived one.
-    const merged = mergeCheckpoints(
-      buildCheckpoint([tab({ url: "https://a.example/" })]),
-      buildCheckpoint([tab({ id: "t9", url: "https://b.example/" })]),
-    );
-    expect(merged.tabs.map((entry) => entry.url)).toEqual([
-      "https://a.example/",
-      "https://b.example/",
-    ]);
-  });
-
-  it("de-duplicates the same page in the same conversation", () => {
-    const merged = mergeCheckpoints(
-      buildCheckpoint([tab({ url: "https://a.example/" })]),
-      buildCheckpoint([tab({ id: "t9", url: "https://a.example/" })]),
-    );
-    expect(merged.tabs).toHaveLength(1);
-  });
-
-  it("keeps the same URL in different conversations apart", () => {
-    const merged = mergeCheckpoints(
-      buildCheckpoint([tab({ url: "https://a.example/", taskScope: "s1" })]),
-      buildCheckpoint([tab({ id: "t9", url: "https://a.example/", taskScope: "s2" })]),
-    );
-    expect(merged.tabs).toHaveLength(2);
-  });
-
-  it("renumbers ids so two runs' tabs cannot collide", () => {
-    // Ids are per-run; a duplicate would be dropped by the parser on the way back in.
-    const merged = mergeCheckpoints(
-      buildCheckpoint([tab({ id: "tab-1", url: "https://a.example/" })]),
-      buildCheckpoint([tab({ id: "tab-1", url: "https://b.example/" })]),
-    );
-    expect(new Set(merged.tabs.map((entry) => entry.id)).size).toBe(2);
-    expect(parseCheckpoint(JSON.stringify(merged))?.tabs).toHaveLength(2);
-  });
-
-  it("keeps one active tab per conversation", () => {
-    const merged = mergeCheckpoints(
-      buildCheckpoint([tab({ url: "https://a.example/", active: true })]),
-      buildCheckpoint([tab({ id: "t9", url: "https://b.example/", active: true })]),
-    );
-    expect(merged.tabs.filter((entry) => entry.active)).toHaveLength(1);
-  });
-});
-
 describe("TabCheckpointStore", () => {
   it("writes and reads back", () => {
     const store = new TabCheckpointStore(tempFile());
@@ -380,16 +320,3 @@ describe("TabCheckpointStore", () => {
   });
 });
 
-describe("pendingRestoreCount", () => {
-  it("is zero without a checkpoint", () => {
-    expect(pendingRestoreCount(null)).toBe(0);
-  });
-
-  it("counts the tabs a crashed run left", () => {
-    const checkpoint = buildCheckpoint([
-      { id: "t1", url: "https://a.example/", taskScope: "s1", retain: false, active: false },
-      { id: "t2", url: "https://b.example/", taskScope: "s1", retain: false, active: true },
-    ]);
-    expect(pendingRestoreCount(checkpoint)).toBe(2);
-  });
-});

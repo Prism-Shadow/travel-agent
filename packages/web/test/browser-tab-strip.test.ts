@@ -39,14 +39,12 @@ function state(tabs: DesktopTabState[]): BrowserPaneState {
     backendLocked: false,
     extensionBackendAvailable: true,
     profileResetLocked: false,
-    restorable: 0,
   };
   return {
     supported: true,
     tabs,
     activeTabId: pane.activeTabId,
     activeTab: tabs[0] ?? null,
-    restorable: 0,
     backend: "iab",
     backendLocked: false,
     extensionBackendAvailable: true,
@@ -64,7 +62,6 @@ function state(tabs: DesktopTabState[]): BrowserPaneState {
       goForward: () => {},
       reload: () => {},
       stop: () => {},
-      restore: async () => {},
       clearProfile: async () => {},
       setBackend: async () => {},
       openInDefaultBrowser: async () => false,

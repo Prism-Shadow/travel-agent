@@ -47,12 +47,14 @@ import type { DownloadTarget } from "./session-partition.js";
 import {
   TabCheckpointStore,
   buildCheckpoint,
-  mergeCheckpoints,
-  pendingRestoreCount,
   planCrashRecovery,
   planTaskEnd,
 } from "./tab-lifecycle.js";
-import type { RenderProcessGoneReason, TabCheckpoint, TaskOutcome } from "./tab-lifecycle.js";
+import type {
+  RenderProcessGoneReason,
+  TabCheckpointEntry,
+  TaskOutcome,
+} from "./tab-lifecycle.js";
 import { reconcileTasks } from "./task-supervisor.js";
 import type { SessionTaskState } from "./task-supervisor.js";
 
@@ -178,8 +180,6 @@ export interface PaneState {
   extensionBackendAvailable: boolean;
   /** Whether clearing the browser data is held shut by a task running in *any* conversation. */
   profileResetLocked: boolean;
-  /** Pages left behind by a run that did not shut down cleanly, awaiting the user's decision. */
-  restorable: number;
 }
 
 /**
@@ -400,27 +400,22 @@ export class BrowserPane {
   private readonly downloadDirs = new Map<string, DownloadTarget>();
   /** Remembered selection, keyed by the tab's own session scope — never by the viewed one. */
   private readonly activeByScope = new Map<string, string>();
-  /** The live checkpoint: what is open right now, rewritten as tabs change. */
+  /**
+   * Every conversation's pages, rewritten as tabs change.
+   *
+   * Not a crash artifact: a conversation's tabs are part of that conversation, the same way its
+   * messages are, so the file is simply where they live between runs. It is never cleared on
+   * shutdown — there is no question to ask on the next launch.
+   */
   private readonly checkpoints: TabCheckpointStore | null;
   /**
-   * The crash snapshot: what a previous run left behind, waiting for the user's answer.
+   * Pages belonging to conversations this run has not opened yet.
    *
-   * A second file, and that separation is the point. The live checkpoint is overwritten constantly —
-   * the first tab opened after launch would erase the very pages the prompt is offering — and it is
-   * cleared on a clean shutdown, which would silently discard an unanswered prompt. This one is
-   * written once, at startup, and removed only when the user answers.
+   * Read once at startup and drained one conversation at a time by `materializeScope`. They are
+   * written back out with the live tabs on every checkpoint, because a checkpoint built from open
+   * tabs alone would delete the pages of every conversation the user has not visited this run.
    */
-  private readonly pendingCheckpoints: TabCheckpointStore | null;
-  private restorable = 0;
-  /** The crash snapshot for this run, held in memory so a failed copy still offers its pages. */
-  private pendingCheckpoint: TabCheckpoint | null = null;
-  /**
-   * Live checkpointing is off because the crash snapshot could not be copied aside.
-   *
-   * Writing would overwrite the crashed run's file, which is at that moment the only copy of those
-   * pages. Lifted once the user answers the prompt, which is when that file stops mattering.
-   */
-  private liveCheckpointsSuspended = false;
+  private dormant: TabCheckpointEntry[] = [];
   private checkpointTimer: NodeJS.Timeout | null = null;
   private disposed = false;
   private readonly onWindowResize: () => void;
@@ -454,10 +449,9 @@ export class BrowserPane {
     this.checkpoints = options.checkpointPath
       ? new TabCheckpointStore(options.checkpointPath)
       : null;
-    this.pendingCheckpoints = options.checkpointPath
-      ? new TabCheckpointStore(`${options.checkpointPath}.pending`)
-      : null;
-    this.restorable = pendingRestoreCount(this.promoteCrashedCheckpoint());
+    // Nothing is built here. Views are expensive and a conversation the user never opens should not
+    // pay for one; each scope's pages are materialized when that conversation is shown.
+    this.dormant = this.checkpoints?.read()?.tabs ?? [];
   }
 
   /** Registers the transport's attach hook. Called once during wiring. */
@@ -1307,8 +1301,46 @@ export class BrowserPane {
     // The route moves only after any missing backend choice is safe across the process boundary.
     this.pendingDraftPromotion = null;
     this.activeSession = sessionId;
+    this.materializeScope(sessionId);
     this.applyLayout();
     this.publishState();
+  }
+
+  /**
+   * Brings back the pages a conversation had, at the moment it is opened.
+   *
+   * This is the whole of restore. There is no prompt and no launch-time pass, because a tab is
+   * conversation state — the same kind of thing as the message list — and nobody is asked whether
+   * to restore their messages. Opening the conversation is the act that asks for its pages, which
+   * makes it both the consent and the trigger, and makes it impossible to be shown a count for
+   * pages that belong somewhere the user cannot see.
+   *
+   * Failures are logged and dropped rather than thrown: this runs inside a conversation switch, and
+   * a view that cannot be built must not stop the user from arriving.
+   */
+  private materializeScope(scope: string | null): void {
+    if (scope === null || this.dormant.length === 0) return;
+    const mine = this.dormant.filter((entry) => entry.taskScope === scope);
+    if (mine.length === 0) return;
+    // Removed first: a failure below must not leave an entry that would be retried on every switch.
+    this.dormant = this.dormant.filter((entry) => entry.taskScope !== scope);
+
+    for (const entry of mine) {
+      try {
+        const tab = this.createTab({
+          url: entry.url,
+          sessionScope: scope,
+          // The task that owned it is over. The pages are the user's now, which is also what stops
+          // a later agent from writing into them without claiming them first.
+          ownedByTask: null,
+          retain: entry.retain,
+          activate: false,
+        });
+        if (entry.active) this.activeByScope.set(scope, tab.id);
+      } catch (error) {
+        this.log(`could not reopen ${entry.url}: ${(error as Error).message}`);
+      }
+    }
   }
 
   /**
@@ -1346,6 +1378,12 @@ export class BrowserPane {
     // Persist before mutating any strip state. The renderer awaits this call before posting the first
     // task, so a failed write cannot leave the task and UI choosing different browsers.
     if (promoting) this.requireBackendPersistence(nextSessionId, backend);
+
+    // Pages the draft had from an earlier run but which were never materialized travel with it,
+    // for the same reason the live tabs do: the draft *is* the conversation being promoted.
+    this.dormant = this.dormant.map((entry) =>
+      entry.taskScope === previousSessionId ? { ...entry, taskScope: nextSessionId } : entry,
+    );
 
     const selected = this.activeByScope.get(previousSessionId);
     this.activeByScope.delete(previousSessionId);
@@ -1680,84 +1718,6 @@ export class BrowserPane {
   }
 
   /**
-   * Answers the crash prompt.
-   *
-   * Restored tabs come back **unowned**. The run that owned them is gone, so there is no live task
-   * to hand them to, and an agent that wants one has to claim it the ordinary way — which is also
-   * what puts it back through `tabRegistry`. Their session scope is restored, because that is what
-   * decides where the user finds them again.
-   */
-  restore(accept: boolean): void {
-    // Memory first: a snapshot that could not be written to disk is still the user's pages.
-    const checkpoint = this.pendingCheckpoint ?? this.pendingCheckpoints?.read() ?? null;
-
-    if (!accept || !checkpoint) {
-      this.discardPendingRestore();
-      this.publishState();
-      return;
-    }
-
-    // **Rebuild before forgetting.** The offer is the only copy of a crashed run's pages, and
-    // creating a WebContentsView can fail — no GPU process, an exhausted handle table, a window
-    // torn down underneath. Clearing first and then failing threw the pages away permanently, with
-    // nothing left to retry from: the user answered "yes" and lost the lot. So the snapshot stays
-    // exactly where it is until every view exists, and a failure leaves the prompt standing.
-    const restored: Tab[] = [];
-    try {
-      for (const entry of checkpoint.tabs) {
-        // A checkpoint entry with no session scope predates one, or was edited; it has no strip to
-        // go back to, so it is dropped rather than shown somewhere arbitrary.
-        if (entry.taskScope === null) continue;
-        const tab = this.createTab({
-          url: entry.url,
-          sessionScope: entry.taskScope,
-          ownedByTask: null,
-          retain: entry.retain,
-          activate: false,
-        });
-        restored.push(tab);
-        if (entry.active) this.activeByScope.set(tab.sessionScope, tab.id);
-      }
-    } catch (error) {
-      // All-or-preserve: the half-built strip goes, so a retry does not double the tabs, and the
-      // offer survives for that retry.
-      for (const tab of restored) this.destroyTab(tab);
-      this.applyLayout();
-      this.publishState();
-      this.log(`could not restore the previous run's tabs: ${(error as Error).message}`);
-      throw new Error(
-        `IAB_RESTORE_FAILED: the previous run's pages could not be reopened (${
-          (error as Error).message
-        }). They have been kept, so this can be tried again.`,
-      );
-    }
-
-    // Cleared here and nowhere else: this is the only moment the user has said what should happen
-    // to those pages, and by now they are back on screen.
-    this.discardPendingRestore();
-    this.requestForAgent();
-    this.applyLayout();
-    this.publishState();
-    this.log(`restored ${checkpoint.tabs.length} tabs from the previous run`);
-  }
-
-  /**
-   * Drops the crash offer: the snapshot, the crashed run's own file, and the suspension.
-   *
-   * Promotion leaves the crashed file in place when the copy fails, so it is cleared here too, and
-   * the live checkpoint resumes being written because there is nothing left to protect.
-   */
-  private discardPendingRestore(): void {
-    this.pendingCheckpoints?.clear();
-    if (this.liveCheckpointsSuspended) {
-      this.checkpoints?.clear();
-      this.liveCheckpointsSuspended = false;
-    }
-    this.pendingCheckpoint = null;
-    this.restorable = 0;
-  }
-
-  /**
    * Clears the pane's cookies, cache and credentials, and closes every tab that was using them.
    *
    * Refused while **any** task is running, not just one in this conversation: the profile is shared
@@ -1777,6 +1737,11 @@ export class BrowserPane {
     // propagates with every tab still open and the profile untouched, and the caller can say so.
     await clearIabSession();
     for (const tab of [...this.tabs.values()]) this.destroyTab(tab);
+    // Unopened conversations' pages go too. They were signed in with the profile that was just
+    // wiped, so bringing them back later would reopen a set of pages that are all logged out — the
+    // opposite of what "closes every tab that was using them" promises.
+    this.dormant = [];
+    this.scheduleCheckpoint();
     this.log("cleared the in-app browser profile");
   }
 
@@ -2122,7 +2087,6 @@ export class BrowserPane {
       // Profile-wide, so any conversation's running task holds it shut.
       profileResetLocked: this.runningTasks.size > 0,
       extensionBackendAvailable: this.extensionBackendAvailable,
-      restorable: this.restorable,
     };
   }
 
@@ -2151,18 +2115,22 @@ export class BrowserPane {
   }
 
   private writeCheckpoint(): void {
-    if (!this.checkpoints || this.liveCheckpointsSuspended) return;
+    if (!this.checkpoints) return;
     const activeIds = new Set(this.activeByScope.values());
     this.checkpoints.write(
-      buildCheckpoint(
-        [...this.tabs.values()].map((tab) => ({
+      buildCheckpoint([
+        ...[...this.tabs.values()].map((tab) => ({
           id: tab.id,
           url: tab.lastUrl,
           taskScope: tab.sessionScope,
           retain: tab.retain,
           active: activeIds.has(tab.id),
         })),
-      ),
+        // Conversations this run never opened keep their pages. Writing only the open tabs would
+        // make closing one tab delete every other conversation's saved pages — silently, and only
+        // noticed the next time one of them was opened.
+        ...this.dormant,
+      ]),
     );
   }
 
@@ -2174,8 +2142,9 @@ export class BrowserPane {
    * closes rearmed a timer that wrote an empty checkpoint half a second after teardown. The flag
    * makes every later write a no-op rather than relying on the ordering.
    *
-   * Clearing the checkpoint on the way out is what makes the crash prompt mean something: the file
-   * surviving into the next launch is precisely the evidence that this never ran.
+   * The checkpoint is **not** cleared here. It is not evidence of how this run ended — it is where
+   * each conversation's pages live, and they are supposed to be there when the conversation is
+   * opened again, whether this process quit cleanly or was killed.
    */
   destroy(): void {
     this.disposed = true;
@@ -2188,55 +2157,11 @@ export class BrowserPane {
     } catch {
       // The window is already gone, which took its listeners with it.
     }
+    // `disposed` is already set, so these closes cannot schedule a write that would empty the file
+    // on the way out. What is on disk stays on disk.
     for (const tab of [...this.tabs.values()]) this.destroyTab(tab);
-    // The live checkpoint only. An unanswered crash prompt survives a clean shutdown and is offered
-    // again next launch — the user never said to discard those pages, and closing a window is not
-    // an answer to a question about a different run.
-    //
-    // Except when the live file *is* the unanswered prompt, because the copy aside failed. Then it
-    // is the only record of those pages and clearing it would answer the question for the user.
-    if (!this.liveCheckpointsSuspended) this.checkpoints?.clear();
   }
 
-  /**
-   * Turns a surviving live checkpoint into the crash snapshot, at startup.
-   *
-   * A live checkpoint that outlived its process is the evidence of an unclean shutdown: a clean one
-   * clears it. Moving it aside immediately is what lets the pane go on writing live checkpoints —
-   * for tabs opened before the user answers — without overwriting the pages it is offering to
-   * restore. An unanswered snapshot from an earlier crash is merged rather than replaced, so two
-   * crashes in a row do not cost the user the first one's pages.
-   */
-  private promoteCrashedCheckpoint(): TabCheckpoint | null {
-    if (!this.checkpoints || !this.pendingCheckpoints) return null;
-    const crashed = this.checkpoints.read();
-    const pending = this.pendingCheckpoints.read();
-    if (!crashed || crashed.tabs.length === 0) {
-      this.pendingCheckpoint = pending;
-      return pending;
-    }
-
-    const merged = pending ? mergeCheckpoints(pending, crashed) : crashed;
-    // Held in memory whatever happens next: this run's prompt is answered from here, so a copy that
-    // could not be written still offers the user their pages.
-    this.pendingCheckpoint = merged;
-
-    if (this.pendingCheckpoints.write(merged)) {
-      this.checkpoints.clear();
-    } else {
-      // The copy did not land. Deleting the original anyway is the failure the whole
-      // "old or new, never neither" rule exists to prevent, so the crashed file stays exactly where
-      // it is — and live checkpointing is suspended for this run so nothing overwrites it. The cost
-      // is that a *second* crash in this run loses only the new tabs, which is the lesser loss.
-      this.liveCheckpointsSuspended = true;
-      this.log(
-        "could not copy the crashed run's pages aside, so they are being left where they are and " +
-          "this run will not write its own checkpoint",
-      );
-    }
-    this.log(`kept ${merged.tabs.length} pages from a run that did not shut down cleanly`);
-    return merged;
-  }
 }
 
 /**

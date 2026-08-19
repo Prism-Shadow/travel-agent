@@ -864,54 +864,6 @@ function BrowserFailure({ state }: { state: BrowserPaneState }): React.ReactElem
 }
 
 /**
- * The crash prompt.
- *
- * Deliberately not an automatic restore (design/002 §6.4 三): reopening a batch of booking pages
- * unasked re-enters flows the user may have abandoned, and hands the sites a burst of traffic that
- * reads as automation. It is shown in the pane's own area, which is empty at that moment because no
- * tab has been created yet.
- */
-function BrowserRestorePrompt({ state }: { state: BrowserPaneState }): React.ReactElement {
-  const { restorable, actions } = state;
-  return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-sm text-gray-700 dark:text-gray-200">
-        {S.chat.browserPane.restorePrompt(restorable)}
-      </p>
-      <div className="flex gap-2">
-        {/* The app's own primary — neutral black by default, the chosen accent once there is one.
-            It was a hand-rolled blue, the one control in the pane that ignored the design system. */}
-        <Button
-          variant="primary"
-          size="sm"
-          data-testid="iab-restore"
-          onClick={() => {
-            // The offer is kept when this fails, so the prompt stays and the button can be pressed
-            // again — but only if the user is told, rather than watching nothing happen.
-            void actions.restore(true).catch((error: unknown) => {
-              toastError(messageOf(error, S.chat.browserPane.restoreFailed));
-            });
-          }}
-        >
-          {S.chat.browserPane.restore}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            void actions.restore(false).catch(() => {
-              // Discarding does not fail for anything the user can act on.
-            });
-          }}
-        >
-          {S.chat.browserPane.discard}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/**
  * The native page's measured rectangle.
  *
  * The rectangle never changes when the Browser menu opens. Instead, a short-lived frozen capture
@@ -983,7 +935,7 @@ export function BrowserPaneViewport({
 }
 
 export function BrowserPanePanel({ state }: { state: BrowserPaneState }): React.ReactElement {
-  const { measureRef, pane, restorable } = state;
+  const { measureRef, pane } = state;
   const [menuOpen, setMenuOpenState] = useState(false);
   const [menuPreview, setMenuPreview] = useState<DesktopPageCapture | null>(null);
   const [blockingOverlayOpen, setBlockingOverlayOpen] = useState(false);
@@ -1078,19 +1030,6 @@ export function BrowserPanePanel({ state }: { state: BrowserPaneState }): React.
       </div>
     );
   }
-  const showRestore = restorable > 0 && pane.tabs.length === 0;
-
-  // A restore offer is not a web page. Rendering an empty tab strip, address bar and native-view
-  // hole above and below it made the startup state look like a broken blank browser. Give the
-  // decision the whole pane; accepting or discarding returns to ordinary browser chrome.
-  if (showRestore) {
-    return (
-      <div className="flex h-full w-full bg-white dark:bg-gray-950">
-        <BrowserRestorePrompt state={state} />
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full w-full flex-col bg-white dark:bg-gray-950">
       <BrowserTabStrip state={state} />

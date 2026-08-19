@@ -1390,44 +1390,84 @@ describe("profile and handoff", () => {
 });
 
 describe("checkpoint", () => {
-  it("does not restore anything by itself", async () => {
+  const entry = (url: string, taskScope: string, extra: Record<string, unknown> = {}) => ({
+    id: `t-${url}`,
+    url,
+    taskScope,
+    active: false,
+    retain: false,
+    ...extra,
+  });
+  const writeCheckpoint = (path: string, tabs: ReturnType<typeof entry>[]) =>
+    fs.writeFileSync(path, JSON.stringify({ version: 1, tabs }));
+
+  it("brings a conversation's pages back when that conversation is opened", async () => {
+    // A tab is conversation state, the same kind of thing as the message list. Opening the
+    // conversation is what asks for its pages, so there is nothing to prompt about.
     const checkpointPath = tempCheckpoint();
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [{ id: "t1", url: "https://ctrip.com/", taskScope: "session-1", active: true }],
-      }),
-    );
+    writeCheckpoint(checkpointPath, [entry("https://ctrip.com/", "session-1", { active: true })]);
     const { pane } = makePane({ checkpointPath });
+
+    expect(views).toHaveLength(0);
     pane.setActiveSession("session-1");
 
-    // Reopening a batch of booking pages unasked re-enters flows the user may have abandoned.
-    expect(pane.state().restorable).toBe(1);
-    expect(pane.state().tabs).toEqual([]);
-    expect(views).toHaveLength(0);
+    expect(pane.state().tabs.map((tab) => tab.url)).toEqual(["https://ctrip.com/"]);
   });
 
-  it("restores unowned, so a fresh task has to claim before it can write", async () => {
+  it("leaves the other conversations' pages where they are", async () => {
+    // The reported bug in its original form: a global count with a per-conversation view. Seven
+    // pages were announced and three appeared, because the other four belonged elsewhere.
     const checkpointPath = tempCheckpoint();
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [
-          {
-            id: "t1",
-            url: "https://ctrip.com/",
-            taskScope: "session-1",
-            active: true,
-            ownedByTask: "task-from-a-dead-run",
-          },
-        ],
-      }),
-    );
+    writeCheckpoint(checkpointPath, [
+      entry("https://a.example/", "session-1"),
+      entry("https://b.example/", "session-2"),
+      entry("https://c.example/", "session-3"),
+    ]);
     const { pane } = makePane({ checkpointPath });
     pane.setActiveSession("session-1");
-    pane.restore(true);
+
+    expect(pane.state().tabs.map((tab) => tab.url)).toEqual(["https://a.example/"]);
+    expect(views).toHaveLength(1);
+
+    // And they are still there to be found, rather than having been consumed by the first switch.
+    pane.setActiveSession("session-2");
+    expect(pane.state().tabs.map((tab) => tab.url)).toEqual(["https://b.example/"]);
+  });
+
+  it("keeps the pages of conversations this run never opened", async () => {
+    // Writing a checkpoint from open tabs alone deletes everything the user has not visited yet —
+    // silently, and only noticed the next time one of those conversations is opened.
+    vi.useFakeTimers();
+    try {
+      const checkpointPath = tempCheckpoint();
+      writeCheckpoint(checkpointPath, [
+        entry("https://opened.example/", "session-1"),
+        entry("https://never-opened.example/", "session-2"),
+      ]);
+      const { pane } = makePane({ checkpointPath });
+      pane.setActiveSession("session-1");
+      pane.closeTab(pane.state().tabs[0]!.id);
+      vi.advanceTimersByTime(5000);
+
+      const written = JSON.parse(fs.readFileSync(checkpointPath, "utf8")) as {
+        tabs: { url: string }[];
+      };
+      expect(written.tabs.map((tab) => tab.url)).toEqual(["https://never-opened.example/"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("brings them back unowned, so a fresh task has to claim before it can write", async () => {
+    const checkpointPath = tempCheckpoint();
+    writeCheckpoint(checkpointPath, [
+      entry("https://ctrip.com/", "session-1", {
+        active: true,
+        ownedByTask: "task-from-a-dead-run",
+      }),
+    ]);
+    const { pane } = makePane({ checkpointPath });
+    pane.setActiveSession("session-1");
 
     const [tab] = pane.state().tabs;
     expect(tab?.ownedByTask).toBeNull();
@@ -1437,170 +1477,55 @@ describe("checkpoint", () => {
     });
   });
 
-  it("discards on request, and stops offering", async () => {
+  it("materializes a conversation once, not every time it is shown again", async () => {
     const checkpointPath = tempCheckpoint();
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [{ id: "t1", url: "https://ctrip.com/", taskScope: "session-1" }],
-      }),
-    );
+    writeCheckpoint(checkpointPath, [entry("https://ctrip.com/", "session-1")]);
     const { pane } = makePane({ checkpointPath });
-    pane.restore(false);
-    expect(pane.state().restorable).toBe(0);
-    expect(fs.existsSync(checkpointPath)).toBe(false);
-  });
 
-  it("keeps the crash pages when a tab is opened before the prompt is answered", async () => {
-    // The live checkpoint is rewritten constantly, so the first tab opened after launch would have
-    // erased the very pages the prompt is offering. They live in a second file for exactly this.
-    const checkpointPath = tempCheckpoint();
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [{ id: "t1", url: "https://crashed.example/", taskScope: "session-1" }],
-      }),
-    );
-    const { pane } = makePane({ checkpointPath });
     pane.setActiveSession("session-1");
-    reportRunning(pane, "session-1", "a");
-    await pane.openTabForAgent({
-      url: "https://new.example/",
-      sessionId: "session-1",
-      taskId: "a",
-    });
+    pane.setActiveSession("session-2");
+    pane.setActiveSession("session-1");
 
-    expect(pane.state().restorable).toBe(1);
-    pane.restore(true);
-    expect(
-      pane
-        .state()
-        .tabs.map((tab) => tab.url)
-        .filter((url) => url.includes("crashed")),
-    ).toHaveLength(1);
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(views).toHaveLength(1);
   });
 
-  it("keeps an unanswered prompt across a clean close", async () => {
-    // Closing a window is not an answer to a question about a different run. An earlier revision
-    // cleared one file for both purposes and discarded the pages without being asked.
+  it("survives a clean shutdown, because pages are not evidence of how a run ended", async () => {
+    // The file used to be cleared on the way out so that finding it meant "the last run crashed".
+    // Nothing asks that question any more: these pages belong to their conversations either way.
     const checkpointPath = tempCheckpoint();
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [{ id: "t1", url: "https://crashed.example/", taskScope: "session-1" }],
-      }),
-    );
+    writeCheckpoint(checkpointPath, [entry("https://ctrip.com/", "session-1")]);
     const first = makePane({ checkpointPath });
     first.pane.setActiveSession("session-1");
     first.pane.destroy();
 
     const second = makePane({ checkpointPath });
-    expect(second.pane.state().restorable).toBe(1);
+    second.pane.setActiveSession("session-1");
+    expect(second.pane.state().tabs.map((tab) => tab.url)).toEqual(["https://ctrip.com/"]);
   });
 
-  it("keeps the crashed file when the copy aside cannot be written", async () => {
-    // "Old or new, never neither." An earlier version cleared the live checkpoint immediately after
-    // writing the pending one, whether or not that write landed — so a failed rename deleted the
-    // very pages the file exists to recover.
-    const checkpointPath = tempCheckpoint();
-    const crashed = JSON.stringify({
-      version: 1,
-      tabs: [{ id: "t1", url: "https://crashed.example/", taskScope: "session-1" }],
-    });
-    fs.writeFileSync(checkpointPath, crashed);
+  it("drops the unopened conversations' pages when the profile is cleared", async () => {
+    // They were signed in with the profile that was just wiped. Bringing them back later would
+    // reopen a set of pages that are all logged out.
+    vi.useFakeTimers();
+    try {
+      const checkpointPath = tempCheckpoint();
+      writeCheckpoint(checkpointPath, [entry("https://never-opened.example/", "session-2")]);
+      const { pane } = makePane({ checkpointPath });
+      pane.setActiveSession("session-1");
+      await pane.clearProfile();
+      vi.advanceTimersByTime(5000);
 
-    const failing = vi.spyOn(fs, "renameSync").mockImplementation(() => {
-      throw Object.assign(new Error("EPERM"), { code: "EPERM" });
-    });
-    const { pane } = makePane({ checkpointPath });
-    pane.setActiveSession("session-1");
-    failing.mockRestore();
-
-    // Offered from memory even though nothing could be written aside...
-    expect(pane.state().restorable).toBe(1);
-    // ...and the crashed file is still exactly where it was, so a relaunch finds it again.
-    expect(fs.readFileSync(checkpointPath, "utf8")).toBe(crashed);
-
-    pane.restore(true);
-    expect(pane.state().tabs.map((tab) => tab.url)).toEqual(["https://crashed.example/"]);
-  });
-
-  it("does not overwrite the crashed file it could not copy aside", async () => {
-    const checkpointPath = tempCheckpoint();
-    const crashed = JSON.stringify({
-      version: 1,
-      tabs: [{ id: "t1", url: "https://crashed.example/", taskScope: "session-1" }],
-    });
-    fs.writeFileSync(checkpointPath, crashed);
-
-    const failing = vi.spyOn(fs, "renameSync").mockImplementation(() => {
-      throw Object.assign(new Error("EPERM"), { code: "EPERM" });
-    });
-    const { pane } = makePane({ checkpointPath });
-    pane.setActiveSession("session-1");
-    reportRunning(pane, "session-1", "task-a");
-    failing.mockRestore();
-
-    // A new tab would normally rewrite the live checkpoint; while the crashed file is the only copy
-    // of those pages, live checkpointing stays off.
-    await pane.openTabForAgent({
-      url: "https://new.example/",
-      sessionId: "session-1",
-      taskId: "task-a",
-    });
-    pane.destroy();
-
-    expect(fs.readFileSync(checkpointPath, "utf8")).toBe(crashed);
-  });
-
-  it("keeps both runs' pages when a second crash lands on an unanswered prompt", async () => {
-    const checkpointPath = tempCheckpoint();
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [{ id: "t1", url: "https://first.example/", taskScope: "session-1" }],
-      }),
-    );
-    // Launch one: promotes the crashed file into the pending snapshot, unanswered.
-    makePane({ checkpointPath });
-    // ...and then this run crashes too, leaving its own live checkpoint behind.
-    fs.writeFileSync(
-      checkpointPath,
-      JSON.stringify({
-        version: 1,
-        tabs: [{ id: "t1", url: "https://second.example/", taskScope: "session-1" }],
-      }),
-    );
-
-    const third = makePane({ checkpointPath });
-    third.pane.setActiveSession("session-1");
-    expect(third.pane.state().restorable).toBe(2);
-    third.pane.restore(true);
-    expect(
-      third.pane
-        .state()
-        .tabs.map((tab) => tab.url)
-        .sort(),
-    ).toEqual(["https://first.example/", "https://second.example/"]);
-  });
-
-  it("clears the file on a clean shutdown, which is what makes the prompt mean something", async () => {
-    const checkpointPath = tempCheckpoint();
-    const { pane } = makePane({ checkpointPath });
-    pane.setActiveSession("session-1");
-    reportRunning(pane, "session-1", "a");
-    await pane.openTabForAgent({ url: "https://ctrip.com/", sessionId: "session-1", taskId: "a" });
-    pane.destroy();
-    expect(fs.existsSync(checkpointPath)).toBe(false);
+      const written = JSON.parse(fs.readFileSync(checkpointPath, "utf8")) as { tabs: unknown[] };
+      expect(written.tabs).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("writes nothing more after being destroyed", async () => {
     // The regression: destroy cleared the timer, then closing the tabs armed a new one, which wrote
-    // an empty checkpoint half a second after teardown — and the next launch offered to restore it.
+    // an empty checkpoint half a second after teardown — taking the pages with it.
     vi.useFakeTimers();
     try {
       const checkpointPath = tempCheckpoint();
@@ -1612,9 +1537,12 @@ describe("checkpoint", () => {
         sessionId: "session-1",
         taskId: "a",
       });
+      vi.advanceTimersByTime(5000);
+      const before = fs.readFileSync(checkpointPath, "utf8");
+
       pane.destroy();
       vi.advanceTimersByTime(5000);
-      expect(fs.existsSync(checkpointPath)).toBe(false);
+      expect(fs.readFileSync(checkpointPath, "utf8")).toBe(before);
     } finally {
       vi.useRealTimers();
     }
@@ -1720,11 +1648,10 @@ describe("a failed handshake", () => {
   });
 });
 
-describe("restoring after a crash", () => {
-  it("keeps the offer when a view cannot be built, so it can be tried again", async () => {
-    // Accepting used to clear the snapshot *first*. A `createTab` that then threw took the only
-    // copy of the crashed run's pages with it: the user answered "yes" and lost them, with no
-    // prompt left to retry from.
+describe("materializing a conversation's pages", () => {
+  it("does not block the switch when a view cannot be built", async () => {
+    // This runs inside a conversation switch. Throwing would stop the user from arriving at the
+    // conversation they asked for, which is a worse failure than one page missing from its strip.
     const checkpointPath = tempCheckpoint();
     fs.writeFileSync(
       checkpointPath,
@@ -1737,29 +1664,16 @@ describe("restoring after a crash", () => {
       }),
     );
     const { pane } = makePane({ checkpointPath });
-    pane.setActiveSession("session-1");
-    expect(pane.state().restorable).toBe(2);
 
     viewBudget = 0;
-    expect(() => pane.restore(true)).toThrow(/IAB_RESTORE_FAILED/);
+    expect(() => pane.setActiveSession("session-1")).not.toThrow();
     viewBudget = null;
 
-    // Nothing half-built left behind, and the offer still stands.
+    expect(pane.state().sessionScope).toBe("session-1");
     expect(pane.state().tabs).toEqual([]);
-    expect(pane.state().restorable).toBe(2);
-
-    // And the retry works.
-    pane.restore(true);
-    expect(
-      pane
-        .state()
-        .tabs.map((tab) => tab.url)
-        .sort(),
-    ).toEqual(["https://first.example/", "https://second.example/"]);
-    expect(pane.state().restorable).toBe(0);
   });
 
-  it("rolls back the tabs it had already rebuilt", async () => {
+  it("opens the pages it can when only some views fail", async () => {
     const checkpointPath = tempCheckpoint();
     fs.writeFileSync(
       checkpointPath,
@@ -1772,19 +1686,34 @@ describe("restoring after a crash", () => {
       }),
     );
     const { pane } = makePane({ checkpointPath });
-    pane.setActiveSession("session-1");
 
-    // The first view builds; the second does not.
     viewBudget = 1;
-    expect(() => pane.restore(true)).toThrow(/IAB_RESTORE_FAILED/);
+    pane.setActiveSession("session-1");
     viewBudget = null;
 
-    // All-or-preserve: the half-built strip is gone, so a retry cannot double the tabs, and both
-    // pages are still on offer.
+    expect(pane.state().tabs.map((tab) => tab.url)).toEqual(["https://first.example/"]);
+  });
+
+  it("does not retry a scope it has already drained", async () => {
+    // The entries are taken before the views are built, so a failure cannot leave work that would
+    // be attempted again on every switch back into the conversation.
+    const checkpointPath = tempCheckpoint();
+    fs.writeFileSync(
+      checkpointPath,
+      JSON.stringify({
+        version: 1,
+        tabs: [{ id: "t1", url: "https://first.example/", taskScope: "session-1" }],
+      }),
+    );
+    const { pane } = makePane({ checkpointPath });
+
+    viewBudget = 0;
+    pane.setActiveSession("session-1");
+    viewBudget = null;
+
+    pane.setActiveSession("session-2");
+    pane.setActiveSession("session-1");
     expect(pane.state().tabs).toEqual([]);
-    expect(pane.state().restorable).toBe(2);
-    pane.restore(true);
-    expect(pane.state().tabs).toHaveLength(2);
   });
 });
 
@@ -2019,9 +1948,13 @@ describe("a tab left with no view", () => {
         taskScope: "session-1",
       });
 
-      // And a clean shutdown still clears it, so the prompt keeps meaning "the last run crashed".
+      // And a clean shutdown leaves it there: the page belongs to its conversation, so it comes
+      // back the next time that conversation is opened rather than being an offer that expires.
       harness.pane.destroy();
-      expect(fs.existsSync(checkpointPath)).toBe(false);
+      const afterShutdown = JSON.parse(fs.readFileSync(checkpointPath, "utf8")) as {
+        tabs: Array<{ url: string }>;
+      };
+      expect(afterShutdown.tabs.map((tab) => tab.url)).toEqual(["https://ctrip.com/"]);
     } finally {
       vi.useRealTimers();
     }

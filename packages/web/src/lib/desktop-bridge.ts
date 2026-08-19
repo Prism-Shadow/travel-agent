@@ -63,7 +63,6 @@ export interface DesktopPaneState {
   /** Whether clearing the browser data is held shut by a task running in any conversation. */
   profileResetLocked: boolean;
   /** Pages left behind by a run that did not shut down cleanly, awaiting the user's answer. */
-  restorable: number;
 }
 
 export type DesktopBackend = "iab" | "extension";
@@ -143,7 +142,6 @@ export interface DesktopBrowserBridge {
    * one could re-authorise a turn that had ended.
    */
   tasksChanged(): Promise<void>;
-  restore(accept: boolean): Promise<void>;
   clearProfile(): Promise<void>;
   handoff(): Promise<DesktopHandoff | null>;
   handoffOpen(): Promise<boolean>;

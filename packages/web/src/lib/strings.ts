@@ -817,12 +817,6 @@ export const zh = {
       stop: "停止",
       loadFailed: "页面加载失败",
       retry: "重试",
-      /** Shown after a crash: the previous run left pages behind and the user decides (002 §6.4). */
-      restorePrompt: (count: number) => `上次任务留下 ${count} 个页面`,
-      restore: "恢复这些页面",
-      /** Shown when reopening the crashed runs pages failed; the offer stays so it can be retried. */
-      restoreFailed: "无法恢复上次的页面，可以再试一次",
-      discard: "不恢复",
       profile: "浏览器数据",
       clearProfile: "清除浏览器数据并退出登录",
       clearProfileConfirm:

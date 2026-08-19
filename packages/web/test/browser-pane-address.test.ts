@@ -23,7 +23,6 @@ const pane: DesktopPaneState = {
   backendLocked: false,
   extensionBackendAvailable: true,
   profileResetLocked: false,
-  restorable: 0,
 };
 
 function emptyState(scopeSettled: boolean): BrowserPaneState {
@@ -32,7 +31,6 @@ function emptyState(scopeSettled: boolean): BrowserPaneState {
     tabs: [],
     activeTabId: null,
     activeTab: null,
-    restorable: 0,
     backend: "iab",
     backendLocked: false,
     extensionBackendAvailable: true,
@@ -50,7 +48,6 @@ function emptyState(scopeSettled: boolean): BrowserPaneState {
       goForward: () => {},
       reload: () => {},
       stop: () => {},
-      restore: async () => {},
       clearProfile: async () => {},
       setBackend: async () => {},
       openInDefaultBrowser: async () => false,
@@ -90,14 +87,4 @@ describe("BrowserPanePanel address bar", () => {
     expect(renderedAddress(false)).toMatch(/\sdisabled(?:=|\s|>)/);
   });
 
-  it("gives a startup restore decision the whole pane instead of drawing empty browser chrome", () => {
-    const state = emptyState(true);
-    state.restorable = 2;
-    state.pane = { ...state.pane, restorable: 2 };
-    const markup = renderToStaticMarkup(createElement(BrowserPanePanel, { state }));
-
-    expect(markup).toContain('data-testid="iab-restore"');
-    expect(markup).not.toContain('data-testid="iab-viewport"');
-    expect(markup).not.toContain('data-testid="iab-address"');
-  });
 });

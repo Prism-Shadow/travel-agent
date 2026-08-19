@@ -29,6 +29,18 @@ lesson that is really an open defect belongs in `docs/issues/` with a link from 
   favicon, compact title rhythm, subtle selected surface, and native-quality icon controls. Avoid
   shipping text glyphs and a heavy active underline when the visual target is a quiet rounded
   browser tab.
+- **A control's scope must match the scope of the state it acts on.** The in-app browser offered
+  "the last run left 7 pages open, reopen them?" from inside one conversation, while the count and
+  the action covered every conversation — so it announced seven and showed three, and in a new
+  conversation it was a button that visibly did nothing. Before adding a control, ask what unit of
+  state it owns; if the answer differs from the unit it is rendered in, the mismatch will surface as
+  a number the user cannot reconcile.
+- **State that belongs to a thing should be restored when that thing is opened, not offered up
+  front.** Nobody is asked whether to restore a conversation's messages. Tabs are the same kind of
+  state, and treating them that way deleted a prompt, four bookkeeping states (crashed / asked /
+  answered / copy-aside-failed), a second checkpoint file and ~250 lines — while serving the original
+  design concern better, because opening the conversation is a more precise consent than a global
+  yes/no.
 - A native surface above the DOM swallows the pointer events a drag needs, so the drag has to hide
   it — and hiding it with nothing in its place is a blank pane, not a fix. Capture the frozen frame
   **before** occluding (capture refuses once the view is hidden), and pin the stand-in the way the
