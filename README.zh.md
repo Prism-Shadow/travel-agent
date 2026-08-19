@@ -40,6 +40,22 @@
 | `packages/transaction` | 不可逆动作的语义，含 `submitBooking` 闸门 |
 | `packages/skills/skills/penguin-browser` | 教 agent 怎么开 Chrome |
 
+## 浏览器后端
+
+两个后端最终汇合到同一套 Relay 与 Playwright 执行层；区别在于 debugger 桥接方式和被控制的浏览器 profile：
+
+```mermaid
+flowchart TB
+    Agent["Agent / penguin-browser CLI"] --> Executor["Playwright Executor"]
+    Executor <-->|"标准 CDP WebSocket"| Relay["CDP Relay"]
+
+    Relay <-->|"/iab"| IabTransport["IabTransport"]
+    IabTransport <-->|"webContents.debugger"| IAB["Electron WebContentsView"]
+
+    Relay <-->|"/extension"| Extension["Chrome Extension"]
+    Extension <-->|"chrome.debugger"| Chrome["用户真实 Chrome 标签页"]
+```
+
 ## 开发
 
 需要 Node >= 24、pnpm 11。

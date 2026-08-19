@@ -44,6 +44,23 @@ is itself inside the threat model — is the rule we now apply before adding any
 | `packages/transaction` | Irreversible-action semantics, incl. the `submitBooking` gates |
 | `packages/skills/skills/penguin-browser` | How the agent is supposed to drive Chrome |
 
+## Browser backends
+
+Both backends converge on the same relay and Playwright execution layer; they differ in the debugger
+bridge and the browser profile being controlled:
+
+```mermaid
+flowchart TB
+    Agent["Agent / penguin-browser CLI"] --> Executor["Playwright Executor"]
+    Executor <-->|"Standard CDP WebSocket"| Relay["CDP Relay"]
+
+    Relay <-->|"/iab"| IabTransport["IabTransport"]
+    IabTransport <-->|"webContents.debugger"| IAB["Electron WebContentsView"]
+
+    Relay <-->|"/extension"| Extension["Chrome Extension"]
+    Extension <-->|"chrome.debugger"| Chrome["User's Chrome tab"]
+```
+
 ## Development
 
 Needs Node >= 24 and pnpm 11.
