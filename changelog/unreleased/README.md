@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-19] `design-qa.md` deleted; `artifacts/` and `tasks/` are gitignored local agent workspace. ([details](2026-08-19-agent-scratch-out-of-git.md))
 - [2026-08-19] The numbered design records moved from repo-root `design/` to `docs/design/`; entry links updated. ([details](2026-08-19-design-docs-into-docs.md))
 - [2026-08-19] Browser CLI package cleanup: reference docs relocated to `docs/browser/`, `VENDOR.md` and upstream marketing screenshots removed, `test-results/` ignore gap closed. ([details](2026-08-19-browser-cli-package-cleanup.md))
 - [2026-08-19] The preinstalled skill set (`penguin-browser`) is built-in for every agent — installed at creation, re-synced on load — and the skill-library page plus its sidebar entry are removed (composer invocation and the Agent settings Skills tab stay). ([details](2026-08-19-builtin-skill-no-library-ui.md))

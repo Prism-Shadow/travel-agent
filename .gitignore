@@ -57,3 +57,7 @@ packages/browser-cli/tmp/
 
 # Raw web-research scrapes (firecrawl CLI cache; findings live in docs/research/)
 .firecrawl/
+
+# agent working notes and design-QA captures (local scratch, never product)
+artifacts/
+tasks/
