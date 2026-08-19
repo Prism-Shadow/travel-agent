@@ -495,6 +495,7 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 ├── .gitignore # Repository ignore rules
 ├── .prettierignore # Paths excluded from Prettier formatting
 ├── .prettierrc.json # Prettier formatting configuration
+├── AGENTS.md # Working guide for AI agents: product direction, hard rules, traps, open issues
 ├── CHANGELOG.md # Published/released changelog aggregate
 ├── CONTRIBUTING.md # Contribution rules, including changelog-entry expectations
 ├── LICENSE # Repository license
