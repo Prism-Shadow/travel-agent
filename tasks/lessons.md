@@ -71,6 +71,14 @@ lesson that is really an open defect belongs in `docs/issues/` with a link from 
   `dist/` and published with the package (`files` lists both `dist` and `src`). Tests belong outside
   the emitted root, with a separate no-emit project so they stay type-checked.
 
+- **tsserver auto-loads only files named `tsconfig.json`, walking up until one _includes_ the open
+  file.** `tsconfig.test.json` is invisible to editors, so browser-cli tests fell through to the
+  repo root config, whose harness baseline (Bundler, no DOM, no chrome types,
+  `noUncheckedIndexedAccess`) manufactured ~150 phantom diagnostics while every CI gate stayed
+  green. The root `tsconfig.json` is therefore a solution-style router (`files: []` + references to
+  every per-package config, test configs included); a file checked by a config not named
+  `tsconfig.json` must have that config referenced there, or editors will invent a project for it.
+
 ## Testing and verification
 
 - Exercise the real cold-start boundary when one subsystem creates a bootstrap resource for another.

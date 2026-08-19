@@ -9,7 +9,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "build": "tsc --project . && vite build --config vite.config.mts && tsx scripts/copy-prism.ts",
-    "typecheck": "tsc --project . --noEmit",
+    "typecheck": "tsc --project . --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests",
     "reload": "pnpm build && open -a 'Google Chrome' 'chrome://extensions/'",
     "watch": "vite build --watch --config vite.config.mts",

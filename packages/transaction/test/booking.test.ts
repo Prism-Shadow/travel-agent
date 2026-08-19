@@ -195,7 +195,10 @@ describe("submitBooking", () => {
       }),
     ).rejects.toThrow();
 
-    const submit = vi.fn(async () => "must not run");
+    // Returns the same shape as reconcile: submit and reconcile share the booking outcome
+    // type T, and this test's outcome is the reconciled order object. The value itself is a
+    // sentinel — the assertion below proves submit is never called on the replay path.
+    const submit = vi.fn(async () => ({ orderId: "must-not-run", reconciled: false }));
     const result = await submitBooking({
       ...options,
       submit,

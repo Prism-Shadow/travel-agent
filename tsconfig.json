@@ -1,4 +1,31 @@
 {
-  "extends": "./tsconfig.base.json",
-  "include": ["packages/*/src", "packages/*/test"]
+  // Solution-style router for editors (tsserver/vtsls). This file deliberately owns no
+  // files: every TypeScript file belongs to a per-package tsconfig, and those configs are
+  // the authority — CI runs them via `pnpm -r typecheck`.
+  //
+  // Why it exists: editors auto-discover only files literally named tsconfig.json, walking
+  // up from the open file until a config *includes* it. Before this router, this file
+  // included packages/*/src and packages/*/test directly, so any file not covered by its
+  // package config (browser-cli tests, for one) was checked against the repo-root harness
+  // baseline — Bundler resolution, no DOM lib, no chrome types, noUncheckedIndexedAccess —
+  // producing hundreds of phantom editor errors that no CI gate reproduces. The references
+  // below let tsserver route such files to the config that actually owns them.
+  //
+  // Not a build entry point: several referenced configs are non-composite, so `tsc -b` on
+  // this file is expected to fail. Nothing in the repo runs tsc against this file.
+  // browser-cli/scripts/ stays outside every project on purpose (docs/issues/0004).
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/server" },
+    { "path": "packages/web" },
+    { "path": "packages/desktop" },
+    { "path": "packages/skills" },
+    { "path": "packages/transaction" },
+    { "path": "packages/transaction/tsconfig.test.json" },
+    { "path": "packages/browser-extension" },
+    { "path": "packages/browser-extension/tsconfig.test.json" },
+    { "path": "packages/browser-cli" },
+    { "path": "packages/browser-cli/tsconfig.test.json" }
+  ]
 }

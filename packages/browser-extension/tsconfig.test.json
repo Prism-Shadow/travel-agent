@@ -1,0 +1,20 @@
+{
+  // Typecheck for test/. The main tsconfig covers src/ only (rootDir: src), so before this
+  // config existed the tests were typechecked by nothing at all — vitest does not check
+  // types. Checks src and test together without emitting (the main config is already
+  // noEmit; vite owns the build). Mirrors packages/browser-cli/tsconfig.test.json.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    // The tests import vitest, whose types re-export vite's node API; vite 7 ships
+    // `#types/*` self-imports and exports maps that the main config's node10 resolution
+    // cannot follow. Typecheck-only, so bundler resolution is safe here.
+    "moduleResolution": "bundler",
+    // The program sees two vite majors: vite/client types resolve to this package's vite,
+    // while vitest brings its own. Their global ImportMeta augmentations clash inside
+    // node_modules d.ts files (TS2430). The repo baseline (tsconfig.base.json) already
+    // sets skipLibCheck; the main config here predates it and never loads both copies.
+    "skipLibCheck": true
+  },
+  "include": ["src", "test"]
+}
