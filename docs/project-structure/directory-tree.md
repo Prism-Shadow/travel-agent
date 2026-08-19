@@ -4,6 +4,11 @@ This document maps the current `travel-agent` repository structure. It is source
 
 ```text
 travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarness
+├── .agents/ # Repository-scoped Codex customization
+│   └── skills/ # Workflows available to Codex anywhere in this repository
+│       └── code-workflow/ # Explicit planning, implementation, and verification workflow
+│           ├── agents/openai.yaml # Explicit-only invocation policy
+│           └── SKILL.md # Skill metadata and workflow instructions
 ├── .github/ # GitHub repository automation
 │   └── workflows/ # CI, desktop build, and pre-release pipelines
 │       ├── ci.yml # Main continuous-integration checks for the monorepo
