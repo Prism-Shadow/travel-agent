@@ -449,7 +449,7 @@ export function SchedulesTab({
         <p className="py-2 text-xs text-gray-400 dark:text-gray-500">{S.schedule.empty}</p>
       ) : (
         <div className="overflow-x-auto overflow-y-clip rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-180 text-left text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/80 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900">
                 <th className="whitespace-nowrap px-3 py-2.5">{S.common.name}</th>

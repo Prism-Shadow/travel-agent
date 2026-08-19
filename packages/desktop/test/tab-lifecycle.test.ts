@@ -319,4 +319,3 @@ describe("TabCheckpointStore", () => {
     expect(store.read()).toBeNull();
   });
 });
-

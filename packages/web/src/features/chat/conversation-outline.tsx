@@ -181,10 +181,10 @@ function RailOverflowMark({ edge }: { edge: "above" | "below" }) {
     <div
       data-outline-overflow={edge}
       aria-hidden
-      className={`flex w-10 flex-col items-start gap-[3px] pl-4 ${edge === "above" ? "pb-1.5" : "pt-1.5"}`}
+      className={`flex w-10 flex-col items-start gap-0.75 pl-4 ${edge === "above" ? "pb-1.5" : "pt-1.5"}`}
     >
       {[0, 1, 2].map((i) => (
-        <span key={i} className="h-[2px] w-[2px] rounded-full bg-gray-300 dark:bg-gray-700" />
+        <span key={i} className="h-0.5 w-0.5 rounded-full bg-gray-300 dark:bg-gray-700" />
       ))}
     </div>
   );
@@ -333,7 +333,7 @@ export function ConversationOutline({
               {/* The visible tick: a short bar, longer and darker at the reading position
                   (the button is the real hit target — pitch-tall and wider than the bar). */}
               <span
-                className={`h-[2px] rounded-full transition-all duration-150 ${
+                className={`h-0.5 rounded-full transition-all duration-150 ${
                   active
                     ? "w-5 bg-gray-800 dark:bg-gray-200"
                     : "w-3.5 bg-gray-300 group-hover/tick:bg-gray-500 dark:bg-gray-700 dark:group-hover/tick:bg-gray-400"

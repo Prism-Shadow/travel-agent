@@ -32,7 +32,7 @@ export function extractFilePaths(markdown: string): string[] {
 }
 
 /** Path split into segments: directory prefix faded, filename bold (Codex-style). The directory
- *  segment has shrink-[9999] and collapses first, the filename segment truncates only after —
+ *  segment has shrink-9999 and collapses first, the filename segment truncates only after —
  *  both segments are truncatable, so the row never overflows its container on a narrow panel. */
 function PathLabel({ path }: { path: string }) {
   const slash = path.lastIndexOf("/");
@@ -41,9 +41,7 @@ function PathLabel({ path }: { path: string }) {
   return (
     <span className="flex min-w-0 items-baseline font-mono text-sm">
       {dir && (
-        <span className="min-w-0 shrink-[9999] truncate text-gray-400 dark:text-gray-500">
-          {dir}
-        </span>
+        <span className="min-w-0 shrink-9999 truncate text-gray-400 dark:text-gray-500">{dir}</span>
       )}
       <span className="min-w-0 truncate font-semibold text-gray-800 dark:text-gray-100">
         {name}

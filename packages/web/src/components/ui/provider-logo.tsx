@@ -137,7 +137,7 @@ export function ProviderLogo({ provider, className }: { provider: string; classN
           dominantBaseline="central"
           fontSize="13"
           fontWeight="700"
-          className="[fill:var(--tile-fg)] dark:[fill:var(--tile-fg-dark)]"
+          className="fill-(--tile-fg) dark:fill-(--tile-fg-dark)"
         >
           {avatarInitial(provider)}
         </text>

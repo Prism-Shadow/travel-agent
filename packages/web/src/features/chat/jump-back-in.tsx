@@ -123,7 +123,7 @@ export function JumpBackIn({
   const inspirationRail = useHorizontalRail(INSPIRATION_CARDS.length);
 
   return (
-    <aside className="draft-jump-back-in hidden w-[21rem] shrink-0 flex-col justify-center pb-14 xl:flex">
+    <aside className="draft-jump-back-in hidden w-84 shrink-0 flex-col justify-center pb-14 xl:flex">
       <div className="flex flex-col gap-8">
         {recent.length > 0 && (
           <section aria-labelledby="jump-back-in-heading">
@@ -286,7 +286,7 @@ function SessionCard({
       />
       <span
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/5"
+        className="absolute inset-0 bg-linear-to-t from-black/80 via-black/15 to-black/5"
       />
 
       {session.pendingApprovalCount > 0 ? (
@@ -346,7 +346,7 @@ function InspirationCard({
       />
       <span
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/10"
+        className="absolute inset-0 bg-linear-to-t from-black/80 via-black/10 to-black/10"
       />
       <span className="absolute left-4 top-4 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-900 shadow-sm backdrop-blur-sm">
         {busy ? S.common.loading : tag}

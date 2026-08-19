@@ -86,5 +86,4 @@ describe("BrowserPanePanel address bar", () => {
   it("stays disabled until main confirms the conversation scope", () => {
     expect(renderedAddress(false)).toMatch(/\sdisabled(?:=|\s|>)/);
   });
-
 });

@@ -21,7 +21,7 @@
  * overflow, without having to audit every call site's ancestor chain.
  * Positioning and close behavior live in use-portal-panel.ts.
  *
- * The panel uses z-[60] (above the modal overlay's z-50): a portaled node sits in
+ * The panel uses z-60 (above the modal overlay's z-50): a portaled node sits in
  * the root stacking context, and this component may also be used inside a Modal
  * form, where z-40 would get covered by the overlay.
  */
@@ -135,7 +135,7 @@ export function OptionMenu<T extends string>({
               left: position.left,
               minWidth: position.triggerWidth,
             }}
-            className="anim-pop z-[60] max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            className="anim-pop z-60 max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
           >
             {options.map((opt) => (
               <button

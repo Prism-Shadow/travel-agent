@@ -160,7 +160,7 @@ function BrowserTab({
     <div
       role="presentation"
       data-active={active ? "true" : "false"}
-      className={`group relative flex h-7 w-fit min-w-[9.75rem] max-w-56 shrink-0 items-center rounded-xl px-2 transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-inset ${
+      className={`group relative flex h-7 w-fit min-w-39 max-w-56 shrink-0 items-center rounded-xl px-2 transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-inset ${
         active
           ? "bg-gray-100 text-gray-950 dark:bg-gray-800 dark:text-gray-50"
           : "text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-900"

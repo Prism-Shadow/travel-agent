@@ -2394,7 +2394,7 @@ export function ChatInput({
                       ? S.chat.inputPlaceholderShort
                       : S.chat.inputPlaceholder
           }
-          className="block max-h-44 min-h-[60px] w-full resize-none bg-transparent px-1 py-0.5 text-base leading-6 placeholder:text-gray-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:placeholder:text-gray-500"
+          className="block max-h-44 min-h-15 w-full resize-none bg-transparent px-1 py-0.5 text-base leading-6 placeholder:text-gray-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:placeholder:text-gray-500"
         />
 
         {/* Bottom toolbar row — one line, two groups: the settings controls sit left, the

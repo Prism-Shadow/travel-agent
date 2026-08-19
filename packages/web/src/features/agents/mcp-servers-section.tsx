@@ -273,7 +273,7 @@ export function McpServersSection({
         <p className="py-2 text-xs text-gray-400 dark:text-gray-500">{S.agent.mcpEmpty}</p>
       ) : (
         <div className="overflow-x-auto overflow-y-clip rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-          <table className="w-full min-w-[520px] text-left text-sm">
+          <table className="w-full min-w-130 text-left text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/80 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900">
                 <th className="px-3 py-2.5">{S.agent.mcpName}</th>
@@ -304,7 +304,7 @@ export function McpServersSection({
                   <td className="px-3 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
                     {transportOf(entry)}
                   </td>
-                  <td className="max-w-[360px] truncate px-3 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
+                  <td className="max-w-90 truncate px-3 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
                     {targetOf(entry)}
                   </td>
                   {showBadges && (

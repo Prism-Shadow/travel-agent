@@ -770,7 +770,7 @@ export function DraftView({
         <VersionLine />
       </header>
 
-      <div className="draft-welcome-layout flex min-h-[36rem] flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
+      <div className="draft-welcome-layout flex min-h-144 flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
         <section className="draft-welcome-primary mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
           <img
             src="/travel-collage.png"

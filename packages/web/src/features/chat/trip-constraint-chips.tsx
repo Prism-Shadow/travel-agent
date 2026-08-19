@@ -193,7 +193,7 @@ function Chip({
       setOpen={(v) => setOpen(v ? id : null)}
       menuClass="left-0 top-full mt-1 w-72 max-w-[calc(100vw-2rem)] origin-top-left"
       button={
-        <span className={`${pillClass} ${filled ? "!text-gray-900 dark:!text-gray-100" : ""} !p-0`}>
+        <span className={`${pillClass} ${filled ? "text-gray-900! dark:text-gray-100!" : ""} p-0!`}>
           <button
             type="button"
             onClick={() => setOpen(isOpen ? null : id)}

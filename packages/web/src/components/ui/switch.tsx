@@ -51,9 +51,9 @@ export function Switch({
         `relative inline-flex h-5 ${compact ? "w-8" : "w-9"} shrink-0 items-center rounded-full ` +
         "inset-ring inset-ring-black/10 dark:inset-ring-white/10 " +
         "transition-colors duration-200 ease-out " +
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-bg)]/40 " +
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-(--accent-bg)/40 " +
         "disabled:cursor-not-allowed disabled:opacity-60 " +
-        (checked ? "bg-[var(--accent-bg)]" : "bg-gray-200 dark:bg-gray-700") +
+        (checked ? "bg-(--accent-bg)" : "bg-gray-200 dark:bg-gray-700") +
         ` ${className ?? ""}`
       }
       {...rest}
@@ -61,7 +61,7 @@ export function Switch({
       <span
         aria-hidden
         className={`inline-block size-4 rounded-full border border-black/10 bg-white transition-transform duration-200 ease-out ${
-          checked ? (compact ? "translate-x-3.5" : "translate-x-[18px]") : "translate-x-0.5"
+          checked ? (compact ? "translate-x-3.5" : "translate-x-4.5") : "translate-x-0.5"
         }`}
       />
     </button>

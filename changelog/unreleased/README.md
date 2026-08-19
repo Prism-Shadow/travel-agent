@@ -1,6 +1,7 @@
 # Unreleased
 
 - [2026-08-19] The code workflow is available as an explicit, repository-scoped Codex skill with valid discovery metadata. ([details](2026-08-19-repository-code-workflow-skill.md))
+- [2026-08-19] Web class strings move to canonical Tailwind v4 forms (89 language-server warnings to zero, CSS unchanged); the five-file `format:check` backlog is cleared. ([details](2026-08-19-web-canonical-tailwind-classes.md))
 - [2026-08-19] Editors no longer typecheck stray files against the repo-root baseline: the root tsconfig is a solution-style router, and transaction/browser-extension tests gain their first real type gate. ([details](2026-08-19-editor-tsconfig-routing.md))
 - [2026-08-19] A conversation's browser pages come back when you open that conversation; the global "reopen them" prompt and its four bookkeeping states are gone. ([details](2026-08-19-tabs-are-conversation-state.md))
 - [2026-08-19] Docs move to English: the in-app browser architecture doc and the `docs/verification/` prose are translated; `AGENTS.md` states the rule and its three exceptions. ([details](2026-08-19-docs-to-english.md))

@@ -211,7 +211,7 @@ export function ErrorsPanel({
                       {formatDateTime(e.ts)}
                     </td>
                     <td className="py-1.5 pr-2 align-top font-mono text-gray-500 dark:text-gray-400">
-                      <span className="block break-words">{sourceCode(e.source, e.code)}</span>
+                      <span className="block wrap-break-word">{sourceCode(e.source, e.code)}</span>
                     </td>
                     <td className="py-1.5 pr-2 align-top">
                       <Badge tone={key === "unexpected" ? "red" : "gray"}>{kindLabel(key)}</Badge>
@@ -223,7 +223,7 @@ export function ErrorsPanel({
                         title={e.message}
                         onClick={() => toggle(i)}
                         className={`block w-full cursor-pointer text-left transition-colors hover:text-gray-700 dark:hover:text-gray-300 ${
-                          expanded.has(i) ? "whitespace-pre-wrap break-words" : "truncate"
+                          expanded.has(i) ? "whitespace-pre-wrap wrap-break-word" : "truncate"
                         }`}
                       >
                         {e.message}

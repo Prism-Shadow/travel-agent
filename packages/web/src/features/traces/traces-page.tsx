@@ -784,7 +784,7 @@ export function TracesPage() {
           <div className="flex justify-end">
             {/* File pick doubles as the confirm action (primary-button styling on a label
                 so the native picker opens without a detour). */}
-            <label className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-[var(--accent-bg)] bg-[var(--accent-bg)] px-3 py-1.5 text-sm font-medium text-[var(--accent-fg)] transition-opacity hover:opacity-90">
+            <label className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-(--accent-bg) bg-(--accent-bg) px-3 py-1.5 text-sm font-medium text-(--accent-fg) transition-opacity hover:opacity-90">
               <HiddenFileInput accept=".jsonl" onChange={onPickFile} />
               <UploadIcon size={14} />
               {S.traces.importPickFile}

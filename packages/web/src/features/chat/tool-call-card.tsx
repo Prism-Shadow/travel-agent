@@ -282,7 +282,7 @@ export function ToolCallCard({ item, ctx }: { item: ToolCallItem; ctx: StreamRen
             requestAnimationFrame(() => rootRef.current?.scrollIntoView({ block: "nearest" }));
           }
         }}
-        className="sticky top-4 z-[4] flex w-full items-center gap-2 bg-white px-3 py-1.5 text-left transition-colors duration-150 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"
+        className="sticky top-4 z-4 flex w-full items-center gap-2 bg-white px-3 py-1.5 text-left transition-colors duration-150 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"
       >
         <StatusIcon state={state} label={stateLabel} />
         <span className="shrink-0 truncate font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">

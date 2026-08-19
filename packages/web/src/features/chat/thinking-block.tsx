@@ -43,7 +43,7 @@ export function ThinkingBlock({ item }: { item: ThinkingItem }) {
           }
         }}
         aria-expanded={open}
-        className="sticky top-4 z-[4] flex w-full items-center gap-2 bg-white px-3 py-1.5 text-left transition-colors duration-150 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"
+        className="sticky top-4 z-4 flex w-full items-center gap-2 bg-white px-3 py-1.5 text-left transition-colors duration-150 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"
       >
         <StatusIcon state={state} label={stateLabel} />
         <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{S.chat.thinking}</span>

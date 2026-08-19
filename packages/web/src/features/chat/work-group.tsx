@@ -129,7 +129,7 @@ export function WorkGroup({
             requestAnimationFrame(() => rootRef.current?.scrollIntoView({ block: "nearest" }));
           }
         }}
-        className="sticky -top-4 z-[5] flex w-full items-center gap-2 bg-gray-50 px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800"
+        className="sticky -top-4 z-5 flex w-full items-center gap-2 bg-gray-50 px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800"
       >
         <StatusIcon state={active ? "running" : "done"} size={12} />
         {/* The title doubles as status: "Running" while in progress, "Done" when finished. */}

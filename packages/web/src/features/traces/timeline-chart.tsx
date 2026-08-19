@@ -66,7 +66,7 @@ const COLORS = {
  * Must be an opaque block the **same height** as a lane (h-4) — otherwise a
  * bar scrolled underneath the label would peek out above/below the text's
  * line height, looking like the bar is overlapping the label text. Width
- * lines up with the task label row's `pl-[5.5rem]`.
+ * lines up with the task label row's `pl-22`.
  */
 const LABEL_STICKY =
   "sticky left-0 z-10 flex h-4 w-[5.5rem] shrink-0 items-center justify-end bg-white pr-2 dark:bg-gray-950";
@@ -414,7 +414,7 @@ export function TimelineChart({
   const placeExact = (startMs: number, endMs: number, t0: number, total: number): CSSProperties => {
     const left = clamp(((startMs - t0) / total) * 100, 0, 100);
     const width = clamp(((endMs - startMs) / total) * 100, 0, 100 - left);
-    // A zero-duration segment landing exactly on the right edge: min-w-[2px]
+    // A zero-duration segment landing exactly on the right edge: min-w-0.5
     // would push it out of the track, and the track's overflow-hidden would
     // clip it entirely (invisible, unhoverable). Pull that 2px back into the
     // track with a -2px margin, while the start point stays exactly aligned.
@@ -521,7 +521,7 @@ export function TimelineChart({
             return (
               <div key={g.taskIndex} className="space-y-1">
                 {!hideTaskLabel && (
-                  <div className="flex items-center gap-2 pl-[5.5rem]">
+                  <div className="flex items-center gap-2 pl-22">
                     <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                       {S.traces.task(g.taskIndex + 1)}
                     </span>
@@ -545,7 +545,7 @@ export function TimelineChart({
                         onMouseLeave={leave}
                         onClick={() => onJump?.(s.ts)}
                         title={`${segmentLabel(s.kind)}${s.name ? ` ${s.name}` : ""} · ${humanizeDuration(s.endMs - s.startMs)}`}
-                        className={`absolute inset-y-0 min-w-[2px] cursor-pointer ${segmentColor(s.kind)} ${dimClass(active, legendMatch)}`}
+                        className={`absolute inset-y-0 min-w-0.5 cursor-pointer ${segmentColor(s.kind)} ${dimClass(active, legendMatch)}`}
                         style={placeExact(s.startMs, s.endMs, g.t0, g.total)}
                       />
                     );
@@ -575,7 +575,7 @@ export function TimelineChart({
                             onMouseLeave={leave}
                             onClick={() => onJump?.(approvalTs)}
                             title={`${s.name} · ${S.traces.legendApprovalWait}${s.decision ? ` (${s.decision})` : ""} · ${humanizeDuration(s.approvalMs - s.callMs)}`}
-                            className={`absolute inset-y-0 min-w-[2px] cursor-pointer ${COLORS.approvalWait} ${dimClass(
+                            className={`absolute inset-y-0 min-w-0.5 cursor-pointer ${COLORS.approvalWait} ${dimClass(
                               isActive(`w-${s.toolCallId}`),
                               legendKey === null || legendKey === "approvalWait",
                             )}`}
@@ -596,7 +596,7 @@ export function TimelineChart({
                                   onMouseLeave={leave}
                                   onClick={() => onJump?.(s.callTs)}
                                   title={`${s.name} · ${S.traces.legendApprovalWait} · ${S.traces.inProgress}`}
-                                  className={`absolute inset-y-0 min-w-[2px] cursor-pointer ${COLORS.approvalWait} ${
+                                  className={`absolute inset-y-0 min-w-0.5 cursor-pointer ${COLORS.approvalWait} ${
                                     dim || "animate-pulse"
                                   }`}
                                   style={placeExact(s.callMs, endMs, g.t0, g.total)}
@@ -618,7 +618,7 @@ export function TimelineChart({
                                   title={`${s.name} · ${S.traces.legendToolExec} · ${
                                     open ? S.traces.inProgress : humanizeDuration(endMs - execStart)
                                   }${s.failed ? ` · ${s.status}` : ""}`}
-                                  className={`absolute inset-y-0 min-w-[2px] cursor-pointer ${COLORS.exec} ${
+                                  className={`absolute inset-y-0 min-w-0.5 cursor-pointer ${COLORS.exec} ${
                                     s.failed ? "ring-1 ring-red-500" : ""
                                   } ${running ? "animate-pulse opacity-70" : dim}`}
                                   style={placeExact(execStart, endMs, g.t0, g.total)}
@@ -650,7 +650,7 @@ export function TimelineChart({
                           onMouseLeave={leave}
                           onClick={() => onJump?.(o.ts)}
                           title={`${o.name} · ${S.traces.legendOther} · ${humanizeDuration(o.endMs - o.startMs)}`}
-                          className={`absolute inset-y-0 min-w-[2px] cursor-pointer ${COLORS.other} ${
+                          className={`absolute inset-y-0 min-w-0.5 cursor-pointer ${COLORS.other} ${
                             o.failed ? "ring-1 ring-red-500" : ""
                           } ${dim}`}
                           style={placeExact(o.startMs, o.endMs, g.t0, g.total)}

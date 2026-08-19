@@ -198,8 +198,8 @@ export function AgentsPage() {
                 key={i}
                 className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4"
               >
-                <div className="min-w-[14rem] flex-1">
-                  <Skeleton className="h-[18px] w-40" />
+                <div className="min-w-56 flex-1">
+                  <Skeleton className="h-4.5 w-40" />
                   <Skeleton className="mt-1.5 h-4 w-2/3" />
                   <Skeleton className="mt-1.5 h-4 w-48" />
                 </div>
@@ -227,7 +227,7 @@ export function AgentsPage() {
                       (sparkline/buttons) wraps as a whole. The avatar counts as the first line
                       (same line as the name); description/stats share the same left edge as the
                       avatar (the column's left edge) */}
-                  <div className="min-w-[14rem] flex-1">
+                  <div className="min-w-56 flex-1">
                     {/* Title line: small avatar + name + agentId + version badge */}
                     <div className="flex items-center gap-2">
                       <AgentAvatar

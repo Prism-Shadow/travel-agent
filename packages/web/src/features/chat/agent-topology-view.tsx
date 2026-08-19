@@ -102,7 +102,7 @@ export function AgentTopologyView({
                   Nodes without one (the root, a standalone child, an omitted description) drop
                   the line and the single row centers itself in the box instead. */}
               {node.description !== null && (
-                <span className="w-full truncate pl-[24px] text-[10px] leading-tight text-gray-400 dark:text-gray-500">
+                <span className="w-full truncate pl-6 text-[10px] leading-tight text-gray-400 dark:text-gray-500">
                   {node.description}
                 </span>
               )}

@@ -187,7 +187,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
       headerless
       widthClass="max-w-[380px]"
       overlayClassName="!items-center !p-4"
-      panelClassName="!rounded-[18px] !border-gray-200 !pb-0 shadow-2xl dark:!border-gray-800"
+      panelClassName="!rounded-[18px] border-gray-200! !pb-0 shadow-2xl dark:!border-gray-800"
       contentClassName="!max-h-[calc(100vh-2rem)] !px-5 !py-6"
     >
       <div className="relative">
@@ -231,7 +231,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
                 size="sm"
                 value={sourceId}
                 disabled={!hydrated || busy}
-                className="!min-h-7 !rounded-[10px] !border-gray-200 !px-3 !py-1 !text-sm !leading-5 shadow-sm hover:!border-gray-300 dark:!border-gray-700"
+                className="min-h-7! rounded-[10px]! border-gray-200! px-3! py-1! text-sm! leading-5! shadow-sm hover:border-gray-300! dark:border-gray-700!"
                 onChange={(event) => setSourceId(event.target.value)}
               >
                 {(report?.sources ?? []).map((entry) => (
@@ -285,7 +285,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
                       checked={blocked === null && selected.has(kind)}
                       disabled={!hydrated || busy || blocked !== null}
                       aria-label={browserImportKindLabel(kind)}
-                      className="aria-checked:!bg-[#3098f7]"
+                      className="aria-checked:bg-[#3098f7]!"
                       onChange={(next) =>
                         setSelected((current) => {
                           const updated = new Set(current);
@@ -317,7 +317,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
           <Button
             onClick={onClose}
             disabled={busy}
-            className="!min-w-20 !rounded-[10px] !border-transparent !bg-gray-100 !px-4 !py-1.5 !text-sm !leading-5 !font-normal text-gray-900 hover:!bg-gray-200 dark:!bg-gray-800 dark:text-gray-100 dark:hover:!bg-gray-700"
+            className="min-w-20! rounded-[10px]! border-transparent! bg-gray-100! px-4! py-1.5! text-sm! leading-5! font-normal! text-gray-900 hover:bg-gray-200! dark:bg-gray-800! dark:text-gray-100 dark:hover:bg-gray-700!"
           >
             {S.common.cancel}
           </Button>
@@ -338,7 +338,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
                     .join(" ")
             }
             title={importNotice === "" ? undefined : importNotice}
-            className="!min-w-[77px] !rounded-[10px] !border-gray-950 !bg-gray-950 !px-4 !py-1.5 !text-sm !leading-5 !font-normal text-white hover:!opacity-90 dark:!border-gray-100 dark:!bg-gray-100 dark:!text-gray-950"
+            className="min-w-19.25! rounded-[10px]! border-gray-950! bg-gray-950! px-4! py-1.5! text-sm! leading-5! font-normal! text-white hover:opacity-90! dark:border-gray-100! dark:bg-gray-100! dark:text-gray-950!"
           >
             {busy ? S.chat.browserPane.import.importing : S.chat.browserPane.import.submit}
           </Button>

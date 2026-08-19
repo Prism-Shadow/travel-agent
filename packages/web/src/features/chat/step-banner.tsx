@@ -87,7 +87,7 @@ export function StepBanner({
     >
       {expandable ? (
         // Sticky offsets follow the work-group header exactly: -top-4 cancels the message
-        // list's py-4 so the bar pins at the visible top; z-[5] above the row level, below
+        // list's py-4 so the bar pins at the visible top; z-5 above the row level, below
         // the stream's overlays; fully opaque background so scrolling rows can't bleed through.
         <button
           type="button"
@@ -101,7 +101,7 @@ export function StepBanner({
               requestAnimationFrame(() => rootRef.current?.scrollIntoView({ block: "nearest" }));
             }
           }}
-          className="sticky -top-4 z-[5] flex w-full items-center gap-2 bg-gray-50 px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800"
+          className="sticky -top-4 z-5 flex w-full items-center gap-2 bg-gray-50 px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800"
         >
           {header}
         </button>

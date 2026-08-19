@@ -94,14 +94,14 @@ export function Toaster() {
   useOccludePane(list.length > 0, stackRef);
   if (list.length === 0) return null;
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex flex-col items-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 top-3 z-100 flex flex-col items-center px-4">
       <div ref={stackRef} className="flex w-fit max-w-lg flex-col items-center gap-2">
         {list.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => dismiss(t.id)}
-            className={`pointer-events-auto w-full break-words rounded-md border px-3 py-2 text-left text-sm shadow-lg ${t.leaving ? "anim-toast-out" : "anim-toast-in"} ${KIND_CLASS[t.kind]}`}
+            className={`pointer-events-auto w-full wrap-break-word rounded-md border px-3 py-2 text-left text-sm shadow-lg ${t.leaving ? "anim-toast-out" : "anim-toast-in"} ${KIND_CLASS[t.kind]}`}
           >
             {t.text}
           </button>
