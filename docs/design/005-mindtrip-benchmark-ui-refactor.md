@@ -5,7 +5,7 @@
 | 状态 | **已采纳，实施中**。2026-08-19 正式解冻 `packages/web` 产品 UI；先落地 P0 的旅行消费者主界面，P1/P2 仍按各自协议依赖推进 |
 | 日期 | 2026-08-19 |
 | 定位 | **产品是 travel agent**：能规划、能研究比较、能回答旅行问题、能在真实网页上执行任务的旅行智能体。订票是压满难题的**演示场景**（001 §1：携程只是演示），不是产品边界；交易红线 UI 只在任务进入不可逆执行时出现，不定义整个界面（本行 2026-08-19 依用户纠偏补入，修正初稿把试金石当产品的误读） |
-| 依据 | [docs/research/mindtrip.md](../docs/research/mindtrip.md)（§3 产品、§8 市场反馈、§10 对照、§11 一手 UI 解剖）· [docs/research/competitors.md](../docs/research/competitors.md) · packages/web 现状盘点（本文 §3） |
+| 依据 | [docs/research/mindtrip.md](../research/mindtrip.md)（§3 产品、§8 市场反馈、§10 对照、§11 一手 UI 解剖）· [docs/research/competitors.md](../research/competitors.md) · packages/web 现状盘点（本文 §3） |
 | 一句话 | 学 Mindtrip 的**呈现层**（卡片、结构化行程、比价弹层、预填 prompt 入口），不学它的**增长面**（社区/创作者/信息流）；差异化是活的数据面（agent 操作真实网页 vs 静态 POI 库）与可执行（代表集+理由、点击即授权、不可逆处停在支付页） |
 
 ---

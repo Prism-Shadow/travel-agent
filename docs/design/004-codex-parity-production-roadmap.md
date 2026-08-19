@@ -70,13 +70,13 @@
 
 | Phase | 名称 | 状态 | 粗略工期 | 依赖 |
 | --- | --- | --- | --- | --- |
-| 0 | 规划与关键验证 | completed | 2–3 d | 规划 checkpoint 已 push（`8474f0c`）；结论见 [`docs/verification/phase-00.md`](../docs/verification/phase-00.md) |
-| 1 | Vertical slice：左聊右览 | code_complete_manual_pending | 5–8 d | 0；结论见 [`docs/verification/phase-01.md`](../docs/verification/phase-01.md) |
-| 2 | 浏览器功能完整 | code_complete_manual_pending | 8–12 d | 1；结论见 [`docs/verification/phase-02.md`](../docs/verification/phase-02.md) |
-| 3 | Agent-first 交互与付款确认（交互层） | code_complete_manual_pending | 8–12 d | 2；结论见 [`docs/verification/phase-03.md`](../docs/verification/phase-03.md) |
-| 4 | 隐私 Vault 与交易机器 | code_complete_manual_pending | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标**；结论见 [`docs/verification/phase-04.md`](../docs/verification/phase-04.md) |
-| 5 | 生产加固 | in_progress（工程轨代码完成；安全轨隔离 D3 未决） | 6–10 d | 3（可与 4 并行开始）；结论见 [`docs/verification/phase-05.md`](../docs/verification/phase-05.md) · [`isolation.md`](../docs/verification/isolation.md) |
-| 6 | 跨平台 Beta | in_progress（数据迁移代码完成；签名/自动更新/三平台真机与验收待执行） | 6–10 d | 5；结论见 [`docs/verification/phase-06.md`](../docs/verification/phase-06.md) |
+| 0 | 规划与关键验证 | completed | 2–3 d | 规划 checkpoint 已 push（`8474f0c`）；结论见 [`docs/verification/phase-00.md`](../verification/phase-00.md) |
+| 1 | Vertical slice：左聊右览 | code_complete_manual_pending | 5–8 d | 0；结论见 [`docs/verification/phase-01.md`](../verification/phase-01.md) |
+| 2 | 浏览器功能完整 | code_complete_manual_pending | 8–12 d | 1；结论见 [`docs/verification/phase-02.md`](../verification/phase-02.md) |
+| 3 | Agent-first 交互与付款确认（交互层） | code_complete_manual_pending | 8–12 d | 2；结论见 [`docs/verification/phase-03.md`](../verification/phase-03.md) |
+| 4 | 隐私 Vault 与交易机器 | code_complete_manual_pending | 10–15 d | 3；**L2/L3 启用另需 §5 隔离达标**；结论见 [`docs/verification/phase-04.md`](../verification/phase-04.md) |
+| 5 | 生产加固 | in_progress（工程轨代码完成；安全轨隔离 D3 未决） | 6–10 d | 3（可与 4 并行开始）；结论见 [`docs/verification/phase-05.md`](../verification/phase-05.md) · [`isolation.md`](../verification/isolation.md) |
+| 6 | 跨平台 Beta | in_progress（数据迁移代码完成；签名/自动更新/三平台真机与验收待执行） | 6–10 d | 5；结论见 [`docs/verification/phase-06.md`](../verification/phase-06.md) |
 | 7 | 灰度与集中人工验收 | planned | 5–8 d（日历更长） | 6 |
 | 8 | GA | planned | 2–3 d（发布执行） | 7；D5 go |
 
@@ -185,8 +185,8 @@
 - **人工测试**：`docs/manual-testing/phase-05-hardening.md`——断网/杀 relay/杀扩展下的恢复体验、崩溃上报后台抽查（含无值抽验）。
 - **Checkpoint commit**：`chore(hardening): crash reporting with no values, CI guards, and the isolation verdict`
 - **进度（如实记录）**：
-  - **工程轨代码完成**（两个 commit）：CI 安全守卫（debug 开关源码扫描 + 打包期 Electron fuses 校验）；`core` 的秘密形状脱敏 `redactSecrets`/`redactDeep`（供日志与崩溃载荷共用，Luhn 判卡号以免误伤任务 id）；`desktop/src/crash-reporting.ts` 三层崩溃上报（本地、结构化、无值、记录不吞异常）；`server` 观测指标 `ObservabilityMetrics` + `GET /api/metrics`（takeover/secret_phase/卡片回退率，小样本 rate 为 null）；`desktop/src/recovery-status.ts` 统一恢复状态词表。结论见 [`docs/verification/phase-05.md`](../docs/verification/phase-05.md)。
-  - **安全轨（隔离，决策点 D3）未决**：隔离方案未选型未实施，A1–A7 未跑；`vault.l2l3`/`secret_entry.live`/`payments.execute` 仍 fail-closed。裁决与选项记于 [`docs/verification/isolation.md`](../docs/verification/isolation.md)。这是 Phase 5 收尾与「含 L2/L3 的 GA」的前置。
+  - **工程轨代码完成**（两个 commit）：CI 安全守卫（debug 开关源码扫描 + 打包期 Electron fuses 校验）；`core` 的秘密形状脱敏 `redactSecrets`/`redactDeep`（供日志与崩溃载荷共用，Luhn 判卡号以免误伤任务 id）；`desktop/src/crash-reporting.ts` 三层崩溃上报（本地、结构化、无值、记录不吞异常）；`server` 观测指标 `ObservabilityMetrics` + `GET /api/metrics`（takeover/secret_phase/卡片回退率，小样本 rate 为 null）；`desktop/src/recovery-status.ts` 统一恢复状态词表。结论见 [`docs/verification/phase-05.md`](../verification/phase-05.md)。
+  - **安全轨（隔离，决策点 D3）未决**：隔离方案未选型未实施，A1–A7 未跑；`vault.l2l3`/`secret_entry.live`/`payments.execute` 仍 fail-closed。裁决与选项记于 [`docs/verification/isolation.md`](../verification/isolation.md)。这是 Phase 5 收尾与「含 L2/L3 的 GA」的前置。
   - **两处收尾项**（verification §8）：卡片回退率待自然语言确认路径接线后才有分母；统一恢复状态词表已交付，逐个 handler 渲染接线与 `browser.recovery.*` 文案待补。
 
 ### Phase 6 · 跨平台 Beta
@@ -202,7 +202,7 @@
 - **人工测试**：`docs/manual-testing/phase-06-beta.md`——三平台安装体验、更新弹窗、中文 IME/剪贴板/上传逐平台、屏幕阅读器逐平台。
 - **Checkpoint commit**：`feat(release): signed cross-platform beta with migrating, rollback-safe auto-update`
 - **进度（如实记录）**：
-  - **数据迁移代码完成**：`desktop/src/data-migration.ts`——版本 + `compat` 双戳、老文件向前迁移、回滚时对加性新文件的向下兼容读、破坏性新文件 fail-closed 拒绝;已接入 vault 与 tab checkpoint 两处;纯逻辑用合成多版本 kind 全量测试。结论见 [`docs/verification/phase-06.md`](../docs/verification/phase-06.md)。
+  - **数据迁移代码完成**：`desktop/src/data-migration.ts`——版本 + `compat` 双戳、老文件向前迁移、回滚时对加性新文件的向下兼容读、破坏性新文件 fail-closed 拒绝;已接入 vault 与 tab checkpoint 两处;纯逻辑用合成多版本 kind 全量测试。结论见 [`docs/verification/phase-06.md`](../verification/phase-06.md)。
   - **001 §3 遗留项复核**:`test-installer.sh` 对 `packages/landing` 的引用是**转发器 install.sh 的真实测试**(转发器隐藏 OSS URL),非死引用,保留并记录,不删。
   - **未执行(发布/真机)**:Windows 签名证书接入、Linux AppImage/deb 复核、双通道自动更新升降实测、三平台构建矩阵、M10/M11/M12 逐平台 IME/剪贴板/上传/读屏验收、Beta 分发。均需证书与目标机器,不在本环境内。
 

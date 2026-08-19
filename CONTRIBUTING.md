@@ -2,7 +2,7 @@
 
 This guide covers the workspace setup, daily commands, quality gates, and the
 repo's working rules. The execution engine is a hard fork of PenguinHarness
-0.2.2 — we do not merge that upstream. See [design/001-architecture.md](design/001-architecture.md) §3.
+0.2.2 — we do not merge that upstream. See [docs/design/001-architecture.md](docs/design/001-architecture.md) §3.
 
 ## Prerequisites
 
@@ -65,7 +65,7 @@ Responsibilities split by source of truth: the **SDK** owns protocol and executi
 (message parsing, the agent loop, tools), the **Server** owns the multi-user runtime
 (auth, SSE streaming, scheduled tasks), and the **file layer** under `~/.penguin/data`
 owns everything editable and recorded (prompts, Skills, secrets, Traces). The full map
-is in [design/001-architecture.md](design/001-architecture.md).
+is in [docs/design/001-architecture.md](docs/design/001-architecture.md).
 
 ## Quality gates
 
@@ -135,4 +135,4 @@ pnpm test:e2e                                        # core live-model e2e, need
 - Make sure CI is green (build, format, typecheck, tests) and describe user-visible
   changes in the PR body.
 - New user-facing behavior should come with tests, and with docs updates when it changes
-  documented behavior (README, `design/`).
+  documented behavior (README, `docs/design/`).

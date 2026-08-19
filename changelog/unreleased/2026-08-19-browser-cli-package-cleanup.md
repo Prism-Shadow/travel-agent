@@ -12,7 +12,7 @@ files left it:
   `packages/browser-cli/docs/`) live with the rest of the contributor docs. The
   `src/relay-state.ts` header comment points at the new path.
 - **`VENDOR.md` removed.** Its pointer references (tsconfig, three build scripts,
-  design/001) were rewritten to stand alone; the full import/verification record remains in
+  docs/design/001) were rewritten to stand alone; the full import/verification record remains in
   git history.
 
 Also closed a `.gitignore` gap: `packages/browser-cli/test-results/` (relay logs written by

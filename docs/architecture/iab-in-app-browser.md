@@ -3,7 +3,7 @@
 > 用 Mermaid 图讲清楚"应用内浏览器"是怎么工作的。用 VS Code(Mermaid 预览插件)或
 > 在 GitHub 上打开本文件即可看到渲染后的图。
 >
-> 参考:`design/002-codex-style-single-window-iab.md`;代码:`packages/desktop/src/browser-pane.ts`、
+> 参考:`docs/design/002-codex-style-single-window-iab.md`;代码:`packages/desktop/src/browser-pane.ts`、
 > `iab-transport.ts`、`packages/browser-cli/src/cdp-relay.ts`、`executor.ts`。
 
 ## 一句话

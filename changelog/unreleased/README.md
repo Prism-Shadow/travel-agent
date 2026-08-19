@@ -1,5 +1,7 @@
 # Unreleased
 
+- [2026-08-19] The numbered design records moved from repo-root `design/` to `docs/design/`; entry links updated. ([details](2026-08-19-design-docs-into-docs.md))
+- [2026-08-19] Browser CLI package cleanup: reference docs relocated to `docs/browser/`, `VENDOR.md` and upstream marketing screenshots removed, `test-results/` ignore gap closed. ([details](2026-08-19-browser-cli-package-cleanup.md))
 - [2026-08-19] The preinstalled skill set (`penguin-browser`) is built-in for every agent — installed at creation, re-synced on load — and the skill-library page plus its sidebar entry are removed (composer invocation and the Agent settings Skills tab stay). ([details](2026-08-19-builtin-skill-no-library-ui.md))
 - [2026-08-19] Chrome is formally available from the Desktop Browser menu while IAB remains the per-conversation default; CLI routing, persistence, setup, authorization copy, unavailable-state UX, bootstrap-tab reuse, and final-result retention now agree. ([details](2026-08-19-chrome-backend-open.md))
 - [2026-08-18] The Feishu escalation channel (`transaction/src/channel/`) is removed — no caller since M2, never verified live, and its absent-user scenario was designed away; the escalation core the server uses stays. ([details](2026-08-18-remove-feishu-channel.md))

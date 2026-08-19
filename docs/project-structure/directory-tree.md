@@ -18,17 +18,19 @@ travel-agent/ # pnpm workspace monorepo for the Travel Agent fork of PenguinHarn
 │       ├── 2026-08-16-*.md # Privacy, migration, and hardening notes
 │       ├── 2026-08-17-*.md # Travel-domain removal, browser import, and CI notes
 │       └── 2026-08-18-*.md # Current docs/upstream-cleanup notes
-├── design/ # Design docs and architecture decision notes
-│   ├── 001-architecture.md # Baseline architecture overview
-│   ├── 002-codex-style-single-window-iab.md # Single-window in-app browser design
-│   ├── 003-agent-first-private-profile-and-payment-confirmation.md # Private profile/payment-confirmation design
-│   └── 004-codex-parity-production-roadmap.md # Production-readiness roadmap toward Codex parity
 ├── docs/ # Contributor-facing project documentation
 │   ├── architecture/ # Architecture explanations for current product subsystems
 │   │   └── iab-in-app-browser.md # In-app browser architecture notes
 │   ├── browser/ # Vendored browser stack (penguin-browser) reference docs
 │   │   ├── CHANGELOG.md # Frozen upstream penguin-browser changelog (history before the 2026-08-12 import)
 │   │   └── plan-centralize-relay-state.md # Relay-state centralization design for packages/browser-cli
+│   ├── design/ # Numbered design/decision records, formerly repo-root design/
+│   │   ├── 001-architecture.md # Baseline architecture overview
+│   │   ├── 002-codex-style-single-window-iab.md # Single-window in-app browser design
+│   │   ├── 003-agent-first-private-profile-and-payment-confirmation.md # Private profile/payment-confirmation design
+│   │   ├── 004-codex-parity-production-roadmap.md # Production-readiness roadmap toward Codex parity
+│   │   ├── 005-mindtrip-benchmark-ui-refactor.md # Mindtrip-informed consumer UI direction
+│   │   └── 006-generated-travel-cover-library.md # Generated travel cover library plan
 │   ├── issues/ # Tracked investigation notes and known issue write-ups
 │   │   └── 0001-extension-open-window-blocked.md # Browser-extension open-window issue record
 │   ├── manual-testing/ # Manual QA scripts and checklists by phase
