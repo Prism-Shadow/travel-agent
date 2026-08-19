@@ -59,10 +59,10 @@ prototype on each target platform before selection.
 
 ## GA framing
 
-Two honest paths to GA (004 §9 分档):
+Two honest paths to GA (the tiering in 004 §9):
 
 1. **GA with L2/L3**: requires isolation met and A1–A7 passed on every shipped platform.
-2. **GA without L2/L3 (A档)**: ship the browser, the L1 vault, the audit log and the agent-first
+2. **GA without L2/L3 (tier A)**: ship the browser, the L1 vault, the audit log and the agent-first
    payment *pause* (the agent still stops at the payment page; the person completes it), with the
    heavier capabilities explicitly and visibly disabled and this verdict recorded as the reason.
 

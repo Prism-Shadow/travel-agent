@@ -20,10 +20,22 @@ browser-automation platform or a scraping tool.
 
 ## Hard Rules
 
-1. **English is the repository's working language** — code, comments, error and log messages, test
-   names, package metadata, developer docs. Chinese appears only where it *is* the content: zh i18n
-   catalogs (`strings.ts`, `i18n.ts`, `titleZh`), `*.zh.md` documents, and test literals asserting
-   CJK behavior.
+1. **English is the repository's working language.** Everything you write is English — code,
+   comments, commit messages, error and log output, test names and fixtures, package metadata, and
+   every document under `docs/`, `changelog/` and `tasks/`. This is not a preference about style; a
+   comment or design note that only some readers can parse is documentation that does not exist for
+   the rest of them.
+
+   Chinese appears only where it **is** the content, never where it *describes* the content:
+
+   | Allowed | Because |
+   | --- | --- |
+   | zh i18n catalogs and fields — `strings.ts`, `i18n.ts`, `titleZh`, `short_description_zh` | The string *is* the product's Chinese UI |
+   | `*.zh.md` documents (`README.zh.md`) | A deliberate translation, paired with an English original |
+   | Test literals asserting zh output or CJK behavior | The literal is the thing under test |
+
+   Some older documents under `docs/` are still Chinese and are being translated. Do not add to
+   them in Chinese, and translate the file you are editing if the change is substantial.
 2. **Every change ships a changelog entry.** Add `changelog/unreleased/YYYY-MM-DD-<semantic-id>.md`
    (H1 title, one-sentence summary, then details) and a one-line link in
    `changelog/unreleased/README.md`. Related changes extend an existing entry instead of opening a

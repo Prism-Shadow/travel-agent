@@ -2,7 +2,7 @@
 
 Phase 6 turns a working app into an installable, self-updating, rollback-safe Beta on three
 platforms. Most of it is **release process** — signing, notarization, a real three-OS build matrix,
-auto-update升/降 tried on real machines, per-platform IME / clipboard / screen-reader passes — which
+auto-update upgrade and rollback tried on real machines, per-platform IME / clipboard / screen-reader passes — which
 is executed with certificates and hardware, not written as code. The one part that *is* a code
 deliverable, and the one that makes a rollback safe rather than lossy, is **data migration**: giving
 the on-disk `userData` formats a version and a compatibility floor, migrating an older file forward,

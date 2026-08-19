@@ -2,11 +2,11 @@
 
 | | |
 | --- | --- |
-| Phase | 0 — 规划与关键验证（design/004 §2 Phase 0） |
+| Phase | 0 — Planning and critical verification (design/004 §2 Phase 0) |
 | Baseline | `8474f0c` (`docs(design): define Codex-parity browser architecture and production roadmap`) |
 | Date | 2026-08-15 |
 | Host | Linux 6.1.0-40-amd64 · Node v24.18.0 · pnpm 11.18.0 · Electron 43.2.0 · headless (Xvfb), datacenter IP |
-| Scope | Records commands, evidence, verdicts and limits. **Does not modify 001/002/003** — Phase 0's 非目标 says so, and any change to those documents is a separate, reviewed edit. |
+| Scope | Records commands, evidence, verdicts and limits. **Does not modify 001/002/003** — Phase 0's non-goals say so, and any change to those documents is a separate, reviewed edit. |
 
 ---
 

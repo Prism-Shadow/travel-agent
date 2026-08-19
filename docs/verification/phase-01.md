@@ -6,7 +6,7 @@
 
 | | |
 | --- | --- |
-| Phase | 1 — Vertical slice：左聊右览（design/004 §2 Phase 1） |
+| Phase | 1 — Vertical slice: chat on the left, browser on the right (design/004 §2 Phase 1) |
 | Baseline | `24a21b0` (Phase 0 checkpoint) |
 | Date | 2026-08-15 |
 | Host | Linux 6.1.0-40-amd64 · Node v24.18.0 · pnpm 11.18.0 · Electron 43.2.0 · headless (Xvfb), datacenter IP |
