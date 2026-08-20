@@ -1,8 +1,8 @@
-# Issue sweep: five of six closed or mitigated, each verified by measurement
+# Issue sweep: six of six closed or mitigated, each verified by measurement
 
 Every fix below is tied to reproduced behavior and verified against the same observable; where an
-original report did not recur, the record says so. Issues 0001, 0003, 0004 and 0006 are closed;
-0005 is mitigated; 0002 stays open with today's evidence recorded.
+original report did not recur, the record says so. Issues 0001, 0002, 0003, 0004 and 0006 are
+closed; 0005 is mitigated.
 
 ## 0003 — flaky browser tests (closed, with a postmortem)
 
@@ -91,8 +91,21 @@ unchanged. After restarting the relay, the same new-tab Ctrip probe no longer em
 homepage. Unit coverage pins direct-at-destination creation, bootstrap reuse, and created-versus-
 reused cleanup semantics.
 
-## 0002 — open, re-verified
+## 0002 — browser output redaction (closed)
 
-All five redaction exports still have zero call sites. Recorded that wiring it is not a bug fix but
-the cross-process feature that must land with secret entry — the relay has no way to learn which
-values are sensitive yet.
+Reproduced with one registered passport value on an attached page: absent redaction state, ARIA,
+page Markdown and clean HTML each returned the plaintext, and the screenshot retained the source
+pixels. Desktop main now publishes one target's fingerprint entries, salt and live element set on
+an authenticated, conversation-scoped `iab-redaction-state` request. The executor pulls that state
+at each render rather than relying on a notification that a reconnect could miss; malformed or
+partial responses refuse the output.
+
+ARIA, page Markdown and clean HTML replace exact matches before snapshots enter diff caches. The
+screenshot path refreshes each selector's viewport box in main, refuses before capture if any live
+field cannot be located, and otherwise paints every box opaque before resizing, writing or base64
+encoding. Regression coverage uses the same page as an unprotected control and then proves the
+value is absent from all text structures, the original red screenshot region becomes black, and an
+unlocated field produces no image. Cross-conversation target requests are refused by the relay.
+
+`vault.l2l3` and `secret_entry.live` remain fail-closed behind D3. This closes the accidental-output
+path; it does not claim that an executor with deliberate raw CDP access is a security boundary.

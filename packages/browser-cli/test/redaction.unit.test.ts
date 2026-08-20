@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto'
 import { describe, expect, test } from 'vitest'
 
 import {
+  decodeRedactionState,
   fingerprintOf,
   judgeScreenshot,
   redactText,
@@ -80,17 +81,27 @@ describe('redactText', () => {
     expect(redactText(page, [], SALT)).toBe(page)
   })
 
-  test('skips values too short to search for safely', () => {
-    // Fingerprint-matching a 3-character value would let a caller binary-search the space; the
-    // rule is that anything that short is L3-shaped and never registered anyway.
-    const short = { ...entryFor('cvv', '123'), length: 3, shape: 'ddd' }
-    expect(redactText('123', [short], SALT)).toBe('123')
+  test('redacts short L2 values such as a two-character name', () => {
+    // Salt plus fingerprint is not a secrecy boundary — the executor can test guesses and can
+    // deliberately read L2 DOM values. Skipping short values therefore bought no secrecy and made
+    // ordinary output leak common real names by construction.
+    const name = '张伟'
+    expect(redactText(`乘客${name}确认`, [entryFor('full_name', name)], SALT)).toBe(
+      `乘客${redactionLabel('full_name')}确认`,
+    )
   })
 
   test('matches across CJK boundaries, where there are no spaces to anchor on', () => {
     const page = `姓名小明，证件${ID_NUMBER}提交`
     const redacted = redactText(page, [entryFor('id_number', ID_NUMBER)], SALT)
     expect(redacted).toBe(`姓名小明，证件${redactionLabel('id_number')}提交`)
+  })
+
+  test('treats adjacent CJK and a Latin passport number as a boundary', () => {
+    const page = `证件${PASSPORT}提交`
+    expect(redactText(page, [entryFor('passport_number', PASSPORT)], SALT)).toBe(
+      `证件${redactionLabel('passport_number')}提交`,
+    )
   })
 })
 
@@ -145,5 +156,52 @@ describe('judgeScreenshot', () => {
 
   test('allows a page with nothing sensitive on it', () => {
     expect(judgeScreenshot({ live: [] })).toEqual({ allowed: true, masks: [], unlocated: [] })
+  })
+})
+
+describe('decodeRedactionState', () => {
+  test('accepts one complete atomic state', () => {
+    const entry = entryFor('id_number', ID_NUMBER)
+    expect(
+      decodeRedactionState({
+        active: true,
+        salt: SALT.toString('base64'),
+        entries: [entry],
+        live: [{ id: entry.id, field: entry.field, box: { x: 1, y: 2, width: 3, height: 4 } }],
+      }),
+    ).toEqual({
+      salt: SALT,
+      entries: [entry],
+      live: [{ id: entry.id, field: entry.field, box: { x: 1, y: 2, width: 3, height: 4 } }],
+    })
+  })
+
+  test('accepts the exact inactive state', () => {
+    expect(decodeRedactionState({ active: false })).toBeUndefined()
+  })
+
+  test.each([
+    ['missing salt', { active: true, entries: [], live: [] }],
+    [
+      'partial lists',
+      {
+        active: true,
+        salt: SALT.toString('base64'),
+        entries: [entryFor('id_number', ID_NUMBER)],
+        live: [{ id: 'different', field: 'id_number' }],
+      },
+    ],
+    [
+      'malformed box',
+      {
+        active: true,
+        salt: SALT.toString('base64'),
+        entries: [entryFor('id_number', ID_NUMBER)],
+        live: [{ id: 'se-id_number', field: 'id_number', box: { x: 0, y: 0, width: 0, height: 2 } }],
+      },
+    ],
+    ['data on an inactive state', { active: false, entries: [] }],
+  ])('refuses %s rather than rendering with partial protection', (_label, state) => {
+    expect(() => decodeRedactionState(state)).toThrow(/Invalid in-app browser redaction state/)
   })
 })

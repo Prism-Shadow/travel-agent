@@ -140,7 +140,6 @@ its postmortem when one exists.
 
 | # | Problem |
 | --- | --- |
-| [0002](docs/issues/0002-browser-cli-redaction-never-wired.md) | Relay text redaction is built, tested, and never called — **must be closed before secret entry goes live** |
 | [0005](docs/issues/0005-injected-workspace-deps-sync-deadlock.md) | Layout changes deadlock the extension build — mitigated: the build now refuses early with the escape command |
 
 ## Editing Workflow
@@ -165,5 +164,6 @@ its postmortem when one exists.
 - Capability gates `vault.l2l3` and `secret_entry.live` are **fail-closed**,
   behind the unresolved isolation decision D3
   (`docs/decisions/proposed/2026-08-16-agent-runtime-isolation.md`). Code may be written
-  ahead of them, but issue 0002 must be closed before any of them opens.
+  ahead of them; the four ordinary browser outputs are wired through redaction, but that guardrail
+  does not substitute for the unresolved runtime boundary.
 - Nothing in this repo publishes to a registry today.

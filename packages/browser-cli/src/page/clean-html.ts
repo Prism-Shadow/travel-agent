@@ -1,9 +1,12 @@
 import { Page, Locator } from '@xmorse/playwright-core'
 import { formatHtmlForPrompt } from './htmlrewrite.js'
 import { createSmartDiff } from '../shared/diff-utils.js'
+import { redactText, type TextRedactionContext } from '../shared/redaction.js'
 
 export interface GetCleanHTMLOptions {
   locator: Locator | Page
+  /** Sensitive values registered by desktop main for this page. */
+  redaction?: TextRedactionContext
   search?: string | RegExp
   showDiffSinceLastCall?: boolean
   includeStyles?: boolean
@@ -34,6 +37,7 @@ function getSnapshotKey(locator: Locator | Page): string {
 export async function getCleanHTML(options: GetCleanHTMLOptions): Promise<string> {
   const {
     locator,
+    redaction,
     search,
     showDiffSinceLastCall = !search,
     includeStyles = false,
@@ -63,8 +67,9 @@ export async function getCleanHTML(options: GetCleanHTMLOptions): Promise<string
 
   // Sanitize to remove unpaired surrogates that break JSON encoding
   let htmlStr = cleanedHtml.toWellFormed?.() ?? cleanedHtml
+  if (redaction) htmlStr = redactText(htmlStr, redaction.entries, redaction.salt)
 
-  // Store snapshot and handle diffing
+  // Store only the redacted snapshot: a later diff must never recover plaintext from its baseline.
   let pageSnapshots = lastHtmlSnapshots.get(page)
   if (!pageSnapshots) {
     pageSnapshots = new Map()

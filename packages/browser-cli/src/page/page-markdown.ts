@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import type { Page } from '@xmorse/playwright-core'
 import { createSmartDiff } from '../shared/diff-utils.js'
 import { distPath } from '../shared/package-paths.js'
+import { redactText, type TextRedactionContext } from '../shared/redaction.js'
 
 export interface PageMarkdownResult {
   /** Extracted content as plain text (HTML tags stripped) */
@@ -33,6 +34,8 @@ export interface PageMarkdownResult {
 
 export interface GetPageMarkdownOptions {
   page: Page
+  /** Sensitive values registered by desktop main for this page. */
+  redaction?: TextRedactionContext
   /** String or regex to filter content (returns matching lines with context) */
   search?: string | RegExp
   /** Return diff since last call for this page */
@@ -70,7 +73,7 @@ function isRegExp(value: unknown): value is RegExp {
  * the main content. Returns plain text content (no HTML).
  */
 export async function getPageMarkdown(options: GetPageMarkdownOptions): Promise<string> {
-  const { page, search, showDiffSinceLastCall = !search } = options
+  const { page, redaction, search, showDiffSinceLastCall = !search } = options
 
   // Check if readability is already injected
   const hasReadability = await page.evaluate(() => !!(globalThis as any).__readability)
@@ -167,8 +170,9 @@ export async function getPageMarkdown(options: GetPageMarkdownOptions): Promise<
 
   // Sanitize to remove unpaired surrogates that break JSON encoding
   markdown = markdown.toWellFormed?.() ?? markdown
+  if (redaction) markdown = redactText(markdown, redaction.entries, redaction.salt)
 
-  // Store snapshot and handle diffing
+  // Store only the redacted snapshot: a later diff must never recover plaintext from its baseline.
   const previousSnapshot = lastMarkdownSnapshots.get(page)
   lastMarkdownSnapshots.set(page, markdown)
 

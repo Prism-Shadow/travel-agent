@@ -10,7 +10,14 @@ import { imageSize } from 'image-size'
 import { getCdpUrl } from '../src/shared/utils.js'
 import { getCDPSessionForPage } from '../src/relay/cdp-session.js'
 import type { CDPCommand } from '../src/relay/cdp-types.js'
-import { screenshotWithAccessibilityLabels } from '../src/page/aria-snapshot.js'
+import {
+  getAriaSnapshot,
+  screenshotWithAccessibilityLabels,
+  type ScreenshotResult,
+} from '../src/page/aria-snapshot.js'
+import { getCleanHTML } from '../src/page/clean-html.js'
+import { getPageMarkdown } from '../src/page/page-markdown.js'
+import { fingerprintOf, shapeOf, type RedactionContext } from '../src/shared/redaction.js'
 import { setupTestContext, cleanupTestContext, getExtensionServiceWorker, type TestContext, js } from './test-utils.js'
 import '../src/shared/test-declarations.js'
 
@@ -996,6 +1003,144 @@ describe('Snapshot & Screenshot Tests', () => {
     expect(dimensions.width).toBeGreaterThan(0)
     expect(dimensions.height).toBeGreaterThan(0)
 
+    await page.close()
+  }, 60000)
+
+  it('redacts a registered value from all four ordinary agent outputs', async () => {
+    const browserContext = getBrowserContext()
+    const serviceWorker = await getExtensionServiceWorker(browserContext)
+    const secret = 'E12345678'
+    const salt = Buffer.alloc(32, 7)
+
+    const page = await browserContext.newPage()
+    await page.setContent(`
+      <html>
+        <head>
+          <title>Redaction regression</title>
+          <style>
+            body { margin: 0; background: white; }
+            #sensitive {
+              position: absolute;
+              left: 80px;
+              top: 90px;
+              width: 260px;
+              height: 60px;
+              background: rgb(255, 0, 0);
+              color: white;
+              font: 24px sans-serif;
+            }
+          </style>
+        </head>
+        <body>
+          <main data-redaction-regression>
+            <article><p id="sensitive">Passport ${secret}</p></article>
+          </main>
+        </body>
+      </html>
+    `)
+    await page.bringToFront()
+    await serviceWorker.evaluate(async () => {
+      await globalThis.toggleExtensionForActiveTab()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    const browser = await chromium.connectOverCDP(getCdpUrl({ port: TEST_PORT }))
+    let cdpPage: Page | undefined
+    for (const candidate of browser.contexts()[0].pages()) {
+      if ((await candidate.locator('[data-redaction-regression]').count()) > 0) {
+        cdpPage = candidate
+        break
+      }
+    }
+    expect(cdpPage).toBeDefined()
+    const box = await cdpPage!.locator('#sensitive').boundingBox()
+    expect(box).not.toBeNull()
+
+    const entry = {
+      id: 'se-passport',
+      field: 'passport_number',
+      fingerprint: fingerprintOf(salt, secret),
+      length: [...secret].length,
+      shape: shapeOf(secret),
+    }
+    const redaction: RedactionContext = {
+      salt,
+      entries: [entry],
+      live: [{ id: entry.id, field: entry.field, box: box! }],
+    }
+    const label = '[REDACTED:passport_number]'
+
+    // Control sample: this is the exact pre-fix behavior. With no state wired into the render
+    // calls, the same page returns the value through all three text renderers and leaves its
+    // screenshot pixels untouched. The assertions prove the fixture can actually reproduce the
+    // issue before the protected calls below prove the fix.
+    const unprotectedAria = await getAriaSnapshot({ page: cdpPage! })
+    const unprotectedMarkdown = await getPageMarkdown({
+      page: cdpPage!,
+      showDiffSinceLastCall: false,
+    })
+    const unprotectedHtml = await getCleanHTML({
+      locator: cdpPage!,
+      showDiffSinceLastCall: false,
+    })
+    for (const output of [unprotectedAria.snapshot, unprotectedMarkdown, unprotectedHtml]) {
+      expect(output).toContain(secret)
+    }
+
+    const aria = await getAriaSnapshot({ page: cdpPage!, redaction })
+    const markdown = await getPageMarkdown({
+      page: cdpPage!,
+      redaction,
+      showDiffSinceLastCall: false,
+    })
+    const html = await getCleanHTML({
+      locator: cdpPage!,
+      redaction,
+      showDiffSinceLastCall: false,
+    })
+    for (const output of [aria.snapshot, JSON.stringify(aria.tree), JSON.stringify(aria.refs), markdown, html]) {
+      expect(output).not.toContain(secret)
+    }
+    for (const output of [aria.snapshot, JSON.stringify(aria.tree), markdown, html]) {
+      expect(output).toContain(label)
+    }
+
+    const unprotectedScreenshots: ScreenshotResult[] = []
+    await screenshotWithAccessibilityLabels({ page: cdpPage!, collector: unprotectedScreenshots })
+    const refused: ScreenshotResult[] = []
+    const collector: ScreenshotResult[] = []
+    await expect(
+      screenshotWithAccessibilityLabels({
+        page: cdpPage!,
+        collector: refused,
+        redaction: { ...redaction, live: [{ id: entry.id, field: entry.field }] },
+      }),
+    ).rejects.toThrow(/passport_number/)
+    expect(refused).toEqual([])
+
+    await screenshotWithAccessibilityLabels({ page: cdpPage!, collector, redaction })
+    expect(collector).toHaveLength(1)
+    expect(collector[0]!.snapshot).not.toContain(secret)
+
+    const sharp = (await import('sharp')).default
+    const viewport = await cdpPage!.evaluate(() => ({
+      width: globalThis.innerWidth,
+      height: globalThis.innerHeight,
+    }))
+    const sampleCenter = async (result: ScreenshotResult): Promise<number[]> => {
+      const screenshot = Buffer.from(result.base64, 'base64')
+      const { data, info } = await sharp(screenshot).raw().toBuffer({ resolveWithObject: true })
+      const sampleX = Math.floor((box!.x + box!.width / 2) * (info.width / viewport.width))
+      const sampleY = Math.floor((box!.y + box!.height / 2) * (info.height / viewport.height))
+      const offset = (sampleY * info.width + sampleX) * info.channels
+      return [...data.subarray(offset, offset + 3)]
+    }
+    expect(await sampleCenter(unprotectedScreenshots[0]!)).toEqual([255, 0, 0])
+    expect(await sampleCenter(collector[0]!)).toEqual([0, 0, 0])
+
+    fs.unlinkSync(unprotectedScreenshots[0]!.path)
+    fs.unlinkSync(collector[0]!.path)
+    await browser.close()
     await page.close()
   }, 60000)
 })

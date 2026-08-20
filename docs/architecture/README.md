@@ -78,6 +78,12 @@ Search and selection are ordinary agent work. Money is not:
   from runtime probes in `core/src/state/feature-flags.ts` and stay off until the agent runtime is
   isolated — the open decision D3
   ([agent-runtime-isolation](../decisions/proposed/2026-08-16-agent-runtime-isolation.md)).
+- **Ordinary browser outputs redact values filled by main.** Immediately before ARIA, page
+  Markdown, clean HTML or a labelled screenshot is produced, the IAB executor pulls that target's
+  complete fingerprint registry over the authenticated relay channel. Text is replaced before it
+  enters diff caches; screenshot boxes are refreshed in main and painted opaque, or the image is
+  refused if any box cannot be verified. This is a guardrail against accidental output, not a
+  security boundary: deliberate raw CDP access remains why the D3 isolation gate stays closed.
 - **The model judges; code only enforces** where the model is inside the threat model. The payment
   gate is code because the model controls the click surface; offer selection remains model work.
 

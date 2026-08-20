@@ -118,6 +118,7 @@ function fakeContents(overrides: Partial<Record<string, unknown>> = {}) {
 function makeTransport() {
   const contents = fakeContents();
   const openTab = vi.fn(async () => "target-1");
+  const redactionState = vi.fn<() => unknown>(() => ({ active: false }));
   const transport = new IabTransport({
     port: 19989,
     key: "test-key",
@@ -127,8 +128,9 @@ function makeTransport() {
     // The pane's ownership check. Allowing everything here keeps these tests about the wire
     // protocol; the refusals have their own tests below and in browser-pane-behaviour.
     mayDrive: () => ({ allowed: true }),
+    redactionState,
   });
-  return { transport, contents, openTab };
+  return { transport, contents, openTab, redactionState };
 }
 
 beforeEach(() => {
@@ -264,6 +266,108 @@ describe("commands", () => {
     await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 5)).toBe(true));
     expect(openTab).not.toHaveBeenCalled();
     expect(String(socket.messages().find((m) => m.id === 5)?.error)).toMatch(/sessionId/);
+    transport.stop();
+  });
+
+  it("returns main's current redaction state for the named target", async () => {
+    const { transport, contents, redactionState } = makeTransport();
+    contents.debugger.sendCommand.mockResolvedValue({ targetInfo: { targetId: "target-1" } });
+    redactionState.mockReturnValue({
+      active: true,
+      salt: "c2FsdA==",
+      entries: [{ id: "se-1" }],
+      live: [{ id: "se-1" }],
+    });
+    transport.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+    await vi.waitFor(() =>
+      expect(
+        socket
+          .messages()
+          .some(
+            (message) =>
+              message.method === "forwardCDPEvent" &&
+              (message.params as { method?: string } | undefined)?.method ===
+                "Target.attachedToTarget",
+          ),
+      ).toBe(true),
+    );
+
+    socket.deliver({
+      id: 6,
+      method: "iab-redaction-state",
+      params: { targetId: "target-1", taskId: "task-a" },
+    });
+    await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 6)).toBe(true));
+
+    expect(redactionState).toHaveBeenCalledWith("target-1");
+    expect(socket.messages().find((m) => m.id === 6)).toMatchObject({
+      id: 6,
+      result: { active: true },
+    });
+    transport.stop();
+  });
+
+  it("refuses a redaction request when main has no provider", async () => {
+    const contents = fakeContents();
+    contents.debugger.sendCommand.mockResolvedValue({ targetInfo: { targetId: "target-1" } });
+    const transport = new IabTransport({
+      port: 19989,
+      key: "k",
+      installId: "i",
+      openTab: async () => "target-1",
+      liveTargets: () => [contents],
+      mayDrive: () => ({ allowed: true }),
+    });
+    transport.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+    await vi.waitFor(() => expect(contents.debugger.sendCommand).toHaveBeenCalled());
+    socket.deliver({
+      id: 8,
+      method: "iab-redaction-state",
+      params: { targetId: "target-1", taskId: "task-a" },
+    });
+    await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 8)).toBe(true));
+    expect(String(socket.messages().find((m) => m.id === 8)?.error)).toMatch(
+      /no main-process provider/,
+    );
+    transport.stop();
+  });
+
+  it("refuses redaction state for a tab the bound task may not drive", async () => {
+    const contents = fakeContents();
+    contents.debugger.sendCommand.mockResolvedValue({ targetInfo: { targetId: "target-1" } });
+    const redactionState = vi.fn<() => unknown>(() => ({ active: false }));
+    const transport = new IabTransport({
+      port: 19989,
+      key: "k",
+      installId: "i",
+      openTab: async () => "target-1",
+      liveTargets: () => [contents],
+      mayDrive: () => ({
+        allowed: false,
+        reason: "foreign",
+        tabId: "tab-1",
+        owner: "task-owner",
+      }),
+      redactionState,
+    });
+    transport.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+    await vi.waitFor(() => expect(contents.debugger.sendCommand).toHaveBeenCalled());
+    socket.deliver({
+      id: 10,
+      method: "iab-redaction-state",
+      params: { targetId: "target-1", taskId: "task-caller" },
+    });
+    await vi.waitFor(() => expect(socket.messages().some((m) => m.id === 10)).toBe(true));
+    expect(String(socket.messages().find((m) => m.id === 10)?.error)).toMatch(
+      /IAB_TAB_FOREIGN.*task-owner/,
+    );
+    expect(redactionState).not.toHaveBeenCalled();
     transport.stop();
   });
 });

@@ -74,6 +74,7 @@ import {
 import { createDemoVideo } from '../media/ffmpeg.js'
 import { type GhostCursorClientOptions } from '../cursor/ghost-cursor.js'
 import { GhostCursorController } from '../cursor/ghost-cursor-controller.js'
+import { decodeRedactionState, type RedactionContext } from '../shared/redaction.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1450,6 +1451,7 @@ export class PlaywrightExecutor {
         if (!resolvedPage) {
           throw new Error('snapshot requires a page')
         }
+        const redaction = await this.redactionForPage(resolvedPage)
 
         // Use new in-page implementation via getAriaSnapshot
         const {
@@ -1461,6 +1463,7 @@ export class PlaywrightExecutor {
           frame,
           locator,
           interactiveOnly,
+          redaction,
         })
         const snapshotStr = rawSnapshot.toWellFormed?.() ?? rawSnapshot
 
@@ -1736,9 +1739,11 @@ export class PlaywrightExecutor {
       }
 
       const screenshotWithAccessibilityLabelsFn = async (options: { page: Page; interactiveOnly?: boolean }) => {
+        const targetPage = unguard(options.page)
         return screenshotWithAccessibilityLabels({
           ...options,
-          page: unguard(options.page),
+          page: targetPage,
+          redaction: await this.redactionForPage(targetPage),
           collector: screenshotCollector,
           logger: {
             info: (...args) => {
@@ -1757,6 +1762,26 @@ export class PlaywrightExecutor {
       const relayPort = this.cdpConfig.port || 19989
       const self = this
       const ghostCursorController = this.ghostCursorController
+
+      const getCleanHTMLFn = async (options: GetCleanHTMLOptions): Promise<string> => {
+        const target = unguard(options.locator)
+        const targetPage =
+          typeof (target as Page).content === 'function' ? (target as Page) : (target as Locator).page()
+        return await getCleanHTML({
+          ...options,
+          locator: target,
+          redaction: await this.redactionForPage(targetPage),
+        })
+      }
+
+      const getPageMarkdownFn = async (options: GetPageMarkdownOptions): Promise<string> => {
+        const targetPage = unguard(options.page)
+        return await getPageMarkdown({
+          ...options,
+          page: targetPage,
+          redaction: await this.redactionForPage(targetPage),
+        })
+      }
 
       const showGhostCursor = async (options?: { page?: Page } & GhostCursorClientOptions) => {
         const targetPage = unguard(options?.page) || page
@@ -1833,8 +1858,8 @@ export class PlaywrightExecutor {
         snapshot,
         accessibilitySnapshot: snapshot, // backward compat alias
         refToLocator,
-        getCleanHTML,
-        getPageMarkdown,
+        getCleanHTML: getCleanHTMLFn,
+        getPageMarkdown: getPageMarkdownFn,
         getLocatorStringForElement,
         getLatestLogs,
         clearAllLogs,
@@ -2238,6 +2263,24 @@ export class PlaywrightExecutor {
     if (!targetId) throw new Error('Could not resolve a CDP target id for this page')
     this.targetIdCache.set(target, targetId)
     return targetId
+  }
+
+  /**
+   * Pulls desktop main's current registry immediately before rendering an ordinary agent output.
+   *
+   * The pull is IAB-only because that is where the vault producer lives. Any transport or schema
+   * failure propagates and refuses the output; treating it as an empty registry would turn a relay
+   * reconnect or a version mismatch into plaintext disclosure.
+   */
+  private async redactionForPage(target: Page): Promise<RedactionContext | undefined> {
+    if (!this.cdpConfig.iab) return undefined
+    const targetId = await this.targetIdFor(target)
+    const cdp = await getCDPSessionForPage({ page: target })
+    const state = await (cdp.send as (method: string, params?: unknown) => Promise<unknown>)(
+      'iab-redaction-state',
+      { targetId },
+    )
+    return decodeRedactionState(state)
   }
 
   /**

@@ -262,7 +262,12 @@ function createWindow(url: string): void {
       // Feeds the address bar's completion. Goes through the importer because it owns the history
       // store's lifetime — the import fills it, ordinary browsing keeps it current.
       onVisit: (visit) => browserImporter?.historyStore()?.record(visit),
-      onNotifyRelay: (method, params) => transport?.notify(method, params),
+      onNotifyRelay: (method, params) => {
+        if (method === "iab-tab-closed" && typeof params.targetId === "string") {
+          vaultShell?.sensitive.forgetTarget(params.targetId);
+        }
+        transport?.notify(method, params);
+      },
       // An agent's first command in a turn can outrun the poll; this makes the race a bounded wait.
       refreshTaskState: async () => {
         await taskSupervisor?.reconcile();
@@ -349,6 +354,10 @@ function createWindow(url: string): void {
       // Declare only. The agent says how its task went when it closes its browser session, which
       // is before the turn is actually over; the rules run at the harness's own idle boundary.
       declareOutcome: (taskId, outcome) => pane.declareTaskOutcome(taskId, outcome),
+      // Read at request time rather than captured at construction: the transport starts before
+      // the vault shell, and a later relay reconnect must still see the current complete registry.
+      redactionState: async (targetId) =>
+        vaultShell ? await vaultShell.redactionState(targetId) : { active: false },
       log: (message) => process.stdout.write(message),
     });
     pane.setViewCreatedHandler((contents) => {

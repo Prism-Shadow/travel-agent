@@ -35,6 +35,7 @@ import { GrantRegistry } from "./vault/grants.js";
 import { SecureFiller } from "./vault/secure-fill.js";
 import { SecretPhaseController } from "./vault/secret-phase.js";
 import { SensitiveElementRegistry } from "./vault/sensitive-elements.js";
+import type { PublishedRedactionState } from "./vault/sensitive-elements.js";
 import {
   electronSafeStorage,
   judgeStorage,
@@ -49,6 +50,8 @@ export interface VaultShell {
   vault: ProfileVault;
   grants: GrantRegistry;
   sensitive: SensitiveElementRegistry;
+  /** Refreshes viewport boxes, then publishes one target's complete atomic redaction state. */
+  redactionState(targetId: string): Promise<PublishedRedactionState>;
   secretPhase: SecretPhaseController;
   close(): Promise<void>;
 }
@@ -160,6 +163,21 @@ export async function startVaultShell(input: {
     vault,
     grants,
     sensitive,
+    async redactionState(targetId) {
+      // A fill-time box is stale as soon as the page scrolls or reflows. Refresh every selector at
+      // the moment the screenshot may be taken; a missing selector removes its old box so the
+      // renderer refuses the image instead of masking yesterday's coordinates.
+      await Promise.all(
+        sensitive.live(targetId).map(async (element) => {
+          const box = element.selector
+            ? await port.locateField({ targetId, selector: element.selector })
+            : null;
+          if (box) sensitive.locate(element.id, box);
+          else sensitive.unlocate(element.id);
+        }),
+      );
+      return sensitive.publishState(targetId);
+    },
     secretPhase,
     async close() {
       await broker.close();

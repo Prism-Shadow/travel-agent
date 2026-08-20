@@ -75,6 +75,15 @@ function (selector) {
   return { present: true, value: "value" in element ? String(element.value) : null };
 }`;
 
+const LOCATE_FUNCTION = `
+function (selector) {
+  const element = document.querySelector(selector);
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+}`;
+
 const CLICK_FUNCTION = `
 function (selector) {
   const element = document.querySelector(selector);
@@ -166,6 +175,11 @@ export class DebuggerFillPort implements FillPort, SecretPhasePort {
       input.selector,
     ]);
     return outcome?.present === true;
+  }
+
+  /** Reads the element's current viewport-relative box immediately before a screenshot. */
+  async locateField(input: { targetId: string; selector: string }): Promise<BoundingBox | null> {
+    return await this.inWorld<BoundingBox>(input.targetId, LOCATE_FUNCTION, [input.selector]);
   }
 
   async currentUrl(input: { targetId: string }): Promise<string | null> {

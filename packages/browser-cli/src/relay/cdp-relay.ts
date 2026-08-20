@@ -1280,6 +1280,37 @@ export async function startPenguinBrowserCDPRelayServer({
         })
       }
 
+      /**
+       * Sensitive-value fingerprints and screenshot boxes for one page.
+       *
+       * This command conveys no authority, so the generic target/session validator above applies:
+       * a conversation can ask only about its own target. It is IAB-only because desktop main is
+       * the producer; accepting it on another backend would turn a missing producer into a silent
+       * no-redaction answer.
+       */
+      case 'iab-redaction-state': {
+        if (conn?.info.id !== IAB_BACKEND_ID || !sessionScope || !taskId) {
+          throw new Error(
+            'iab-redaction-state requires an in-app browser connection bound to a conversation and task',
+          )
+        }
+        const targetId =
+          params && typeof params === 'object' && !Array.isArray(params)
+            ? (params as { targetId?: unknown }).targetId
+            : undefined
+        if (typeof targetId !== 'string' || !targetId) {
+          throw new Error('iab-redaction-state needs a targetId')
+        }
+        return await sendToExtension({
+          extensionId: resolvedExtensionId,
+          method: 'iab-redaction-state',
+          // The shell remains the task-lifetime authority. Conversation scoping above prevents a
+          // cross-conversation read; this bound task lets main also refuse a retained tab or one
+          // owned by another still-running task in the same conversation.
+          params: { targetId, taskId },
+        })
+      }
+
       // Ghost Browser API - forward to extension for chrome.ghostPublicAPI/ghostProxies/projects
       case 'ghost-browser': {
         return await sendToExtension({

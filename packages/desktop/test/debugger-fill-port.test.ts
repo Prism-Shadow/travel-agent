@@ -159,4 +159,16 @@ describe("reading back, for the secret phase's proof", () => {
     expect(resolver.attachAgent).toHaveBeenCalledTimes(1);
     expect(resolver.destroy).toHaveBeenCalledWith("T-1");
   });
+
+  it("refreshes the current viewport box without reading the field value", async () => {
+    const current = { x: 44, y: 55, width: 210, height: 31 };
+    const located = fakeSession({ fillResult: current });
+    const port = new DebuggerFillPort(resolverWith(located.session));
+
+    expect(await port.locateField({ targetId: "T-1", selector: "#id" })).toEqual(current);
+    const call = located.commands.find((entry) => entry.method === "Runtime.callFunctionOn")!;
+    expect(call.params?.["arguments"]).toEqual([{ value: "#id" }]);
+    expect(String(call.params?.["functionDeclaration"])).toContain("getBoundingClientRect");
+    expect(String(call.params?.["functionDeclaration"])).not.toContain("element.value");
+  });
 });

@@ -14,9 +14,13 @@
  *
  * The registry holds **fingerprints, never values**. Main computes `HMAC(sessionSalt, value)` and
  * publishes the first bytes of it along with the value's length and a coarse character shape; the
- * relay can then test a candidate substring for equality without ever being told what it is looking
- * for. That is what lets redaction happen in the relay process — which is the one that renders the
- * snapshot — while the value stays in main.
+ * relay can then test a candidate substring for equality without receiving plaintext in the
+ * control message. That is what lets redaction happen in the relay process — which is the one that
+ * renders the snapshot — while the value stays in main.
+ *
+ * A salt plus a fingerprint is not encryption: a process that holds both can test guesses. This is
+ * an accidental-output guardrail for L2 data the executor can already read deliberately through
+ * raw CDP, not a security boundary. The unresolved D3 isolation gate remains closed.
  *
  * The shape and length are what make the scan affordable: a text node is only hashed at token
  * boundaries, only for windows of exactly the right length, and only where the character classes
@@ -35,9 +39,9 @@ export interface BoundingBox {
 /**
  * What the relay is told about one sensitive value.
  *
- * Everything here is safe to send over the relay's own channel and to keep in its memory: none of
- * it can be turned back into the value, and the fingerprint is salted per session so it cannot be
- * compared against a precomputed table of common values either.
+ * This carries no plaintext and a per-run salt defeats a precomputed table. It is still guessable
+ * by a process that holds both salt and fingerprint, which is why it is a guardrail rather than a
+ * secret-bearing capability.
  */
 export interface SensitiveFingerprint {
   /** Stable id for this registration, so it can be cleared when the field is cleared. */
@@ -54,6 +58,16 @@ export interface SensitiveFingerprint {
    */
   shape: string;
 }
+
+/** The self-contained answer sent to one renderer request over the authenticated IAB channel. */
+export type PublishedRedactionState =
+  | { active: false }
+  | {
+      active: true;
+      salt: string;
+      entries: SensitiveFingerprint[];
+      live: Array<{ id: string; field: string; box?: BoundingBox }>;
+    };
 
 /** A registration, as main holds it. The value itself is never stored — only its fingerprint. */
 export interface SensitiveElement extends SensitiveFingerprint {
@@ -84,11 +98,11 @@ export function fingerprintOf(salt: Buffer, value: string): string {
 }
 
 /**
- * The sensitive values of one browsing session.
+ * The sensitive values of one desktop vault-shell run.
  *
- * Per session because the salt is: two sessions holding the same value produce different
- * fingerprints, so nothing can be correlated between them, and a fingerprint that leaks is useless
- * anywhere else.
+ * The salt rotates with the shell: separate runs holding the same value produce different
+ * fingerprints. Conversation and task isolation is enforced by the relay and shell before state
+ * for a target is returned.
  */
 export class SensitiveElementRegistry {
   private readonly salt = randomBytes(32);
@@ -135,6 +149,12 @@ export class SensitiveElementRegistry {
     if (element) element.box = box;
   }
 
+  /** Removes a stale location when the element can no longer be located. */
+  unlocate(id: string): void {
+    const element = this.elements.get(id);
+    if (element) delete element.box;
+  }
+
   /** Marks a value as gone from the page. Only a proof should call this (exit (a)). */
   markCleared(id: string): void {
     const element = this.elements.get(id);
@@ -161,6 +181,29 @@ export class SensitiveElementRegistry {
       length,
       shape,
     }));
+  }
+
+  /**
+   * Publishes one target's complete redaction state atomically.
+   *
+   * Pulling this at render time avoids a missed notification becoming a leak after a relay
+   * reconnect. The plaintext is not retained and therefore cannot be present in this response.
+   */
+  publishState(targetId: string): PublishedRedactionState {
+    const elements = this.live(targetId);
+    if (elements.length === 0) return { active: false };
+    return {
+      active: true,
+      salt: this.salt.toString("base64"),
+      entries: elements.map(({ id, field, fingerprint, length, shape }) => ({
+        id,
+        field,
+        fingerprint,
+        length,
+        shape,
+      })),
+      live: elements.map(({ id, field, box }) => ({ id, field, ...(box ? { box } : {}) })),
+    };
   }
 
   /** The boxes a screenshot must cover, and whether any live value has no box to cover it. */

@@ -54,6 +54,8 @@ class BackendDouble {
   readonly refuse = new Map<string, string>()
   /** Exact result of the shell-owned tab creation command. */
   openTabResult: unknown = { targetId: 'bootstrap-target' }
+  /** Exact result of the shell-owned redaction-state command. */
+  redactionResult: unknown = { active: false }
   private socket: WebSocket | null = null
 
   constructor(
@@ -96,6 +98,10 @@ class BackendDouble {
       }
       if (inner === 'iab-open-tab') {
         socket.send(JSON.stringify({ id: message.id, result: this.openTabResult }))
+        return
+      }
+      if (inner === 'iab-redaction-state') {
+        socket.send(JSON.stringify({ id: message.id, result: this.redactionResult }))
         return
       }
       socket.send(JSON.stringify({ id: message.id, result: { ok: true, echoed: inner } }))
@@ -413,6 +419,35 @@ describe('what a conversation can see', () => {
     const navigations = a.events.filter((event) => event.method === 'Page.frameNavigated')
     expect(navigations).toHaveLength(1)
     expect(navigations[0]?.sessionId).toBe('cdp-a')
+  })
+
+  it('pulls redaction state only for a target in its own conversation', async () => {
+    backend.redactionResult = { active: false }
+    const a = await client({
+      clientId: 'redaction-a',
+      iabSession: 'session-a',
+      iabTask: 'task-a',
+      iabRelaySession: 'relay-a',
+    })
+
+    await expect(a.send('iab-redaction-state', { targetId: 'target-a' })).resolves.toEqual({
+      active: false,
+    })
+    expect(backend.received).toContainEqual(
+      expect.objectContaining({
+        method: 'iab-redaction-state',
+        params: { targetId: 'target-a', taskId: 'task-a' },
+      }),
+    )
+
+    await expect(a.send('iab-redaction-state', { targetId: 'target-b' })).rejects.toThrow(
+      /No such target in this conversation/,
+    )
+    expect(
+      backend.received.some(
+        (entry) => entry.method === 'iab-redaction-state' && entry.params.targetId === 'target-b',
+      ),
+    ).toBe(false)
   })
 })
 

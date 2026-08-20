@@ -13,8 +13,9 @@
  * `forwardCDPEvent`. The relay's target synthesis, Playwright bridging, tab ownership and executor
  * all work unchanged because from their side nothing changed.
  *
- * One command is ours alone. `Target.createTarget` is unsupported on Electron (Phase 0), so
- * `iab-open-tab` asks the shell to construct a view; everything else is ordinary CDP.
+ * A few commands are ours alone. `Target.createTarget` is unsupported on Electron (Phase 0), so
+ * `iab-open-tab` asks the shell to construct a view; redaction state also has to come from main,
+ * which is the only process that knows what it filled.
  */
 import { WebContents } from "electron";
 import type { ClaimResult, DriveDecision, TabOwnership } from "./browser-pane.js";
@@ -173,6 +174,8 @@ export interface IabTransportOptions {
    * rule rather than being rejected outright.
    */
   declareOutcome?: (taskId: string, outcome: string) => void;
+  /** Complete redaction state for one target, read immediately before an output is rendered. */
+  redactionState?: (targetId: string) => unknown | Promise<unknown>;
   log?: (message: string) => void;
 }
 
@@ -366,6 +369,30 @@ export class IabTransport {
         const outcome = typeof params?.outcome === "string" ? params.outcome : "unknown";
         this.options.declareOutcome?.(taskId, outcome);
         this.send({ id, result: { recorded: true } });
+        return;
+      }
+
+      if (message.method === "iab-redaction-state") {
+        const params = message.params as { targetId?: unknown; taskId?: unknown } | undefined;
+        const targetId = typeof params?.targetId === "string" ? params.targetId : "";
+        const taskId = typeof params?.taskId === "string" ? params.taskId : "";
+        if (!targetId || !taskId) {
+          throw new Error("iab-redaction-state needs a targetId and a bound taskId");
+        }
+        const rootSession = this.sessionForTarget(targetId);
+        const contents = rootSession ? this.attached.get(rootSession)?.contents : null;
+        if (!contents || contents.isDestroyed()) {
+          throw new Error("IAB_TAB_GONE: no in-app browser view exists for that redaction target");
+        }
+        if (!this.options.mayDrive) {
+          throw new Error("iab-redaction-state has no task-ownership checker");
+        }
+        const decision = this.options.mayDrive(contents, taskId);
+        if (!decision.allowed) throw new Error(ownershipError(decision));
+        if (!this.options.redactionState) {
+          throw new Error("iab-redaction-state has no main-process provider");
+        }
+        this.send({ id, result: await this.options.redactionState(targetId) });
         return;
       }
 

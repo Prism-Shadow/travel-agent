@@ -11,6 +11,12 @@ import { Sema } from 'async-sema'
 import type { ICDPSession } from '../relay/cdp-session.js'
 import { getCDPSessionForFrame, getCDPSessionForPage } from '../relay/cdp-session.js'
 import { distPath } from '../shared/package-paths.js'
+import {
+  judgeScreenshot,
+  redactText,
+  type RedactionContext,
+  type TextRedactionContext,
+} from '../shared/redaction.js'
 
 // Import sharp at module level - resolves to null if not available
 const sharpPromise = import('sharp')
@@ -963,6 +969,7 @@ export async function getAriaSnapshot({
   refFilter,
   interactiveOnly = false,
   cdp,
+  redaction,
 }: {
   page: Page
   frame?: Frame | FrameLocator
@@ -970,6 +977,7 @@ export async function getAriaSnapshot({
   refFilter?: (info: { role: string; name: string }) => boolean
   interactiveOnly?: boolean
   cdp?: ICDPSession
+  redaction?: TextRedactionContext
 }): Promise<AriaSnapshotResult> {
   // Resolve FrameLocator to an actual Frame. FrameLocator (from locator.contentFrame())
   // is a scoping helper without CDP access. We need the real Frame from page.frames()
@@ -1190,7 +1198,28 @@ export async function getAriaSnapshot({
         shortRef: shortRefMap.get(entry.ref) ?? entry.ref,
       }
     })
-    const result = { snapshot: finalized.snapshot, tree: finalized.tree, refs: refsWithShortRef }
+    const redact = (text: string): string =>
+      redaction ? redactText(text, redaction.entries, redaction.salt) : text
+    const redactTree = (nodes: AriaSnapshotNode[]): AriaSnapshotNode[] =>
+      nodes.map((node) => ({
+        ...node,
+        name: redact(node.name),
+        ...(node.locator ? { locator: redact(node.locator) } : {}),
+        ...(node.ref ? { ref: redact(node.ref) } : {}),
+        ...(node.shortRef ? { shortRef: redact(node.shortRef) } : {}),
+        children: redactTree(node.children),
+      }))
+    const result = {
+      snapshot: redact(finalized.snapshot),
+      tree: redactTree(finalized.tree),
+      refs: refsWithShortRef.map((entry) => ({
+        ...entry,
+        ref: redact(entry.ref),
+        shortRef: redact(entry.shortRef),
+        name: redact(entry.name),
+        ...(entry.selector ? { selector: redact(entry.selector) } : {}),
+      })),
+    }
 
     // Build refToElement map
     const refToElement = new Map<string, { role: string; name: string; shortRef: string }>()
@@ -1446,11 +1475,13 @@ export async function showAriaRefLabels({
   locator,
   interactiveOnly = true,
   logger,
+  redaction,
 }: {
   page: Page
   locator?: Locator
   interactiveOnly?: boolean
   logger?: { info?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void }
+  redaction?: TextRedactionContext
 }): Promise<{
   snapshot: string
   labelCount: number
@@ -1468,7 +1499,7 @@ export async function showAriaRefLabels({
 
   try {
     const snapshotStart = Date.now()
-    const { snapshot, refs } = await getAriaSnapshot({ page, locator, interactiveOnly, cdp })
+    const { snapshot, refs } = await getAriaSnapshot({ page, locator, interactiveOnly, cdp, redaction })
     const shortRefMap = new Map(
       refs.map((entry) => {
         return [entry.ref, entry.shortRef]
@@ -1571,93 +1602,137 @@ export async function screenshotWithAccessibilityLabels({
   interactiveOnly = true,
   collector,
   logger,
+  redaction,
 }: {
   page: Page
   locator?: Locator
   interactiveOnly?: boolean
   collector: ScreenshotResult[]
   logger?: { info?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void }
+  redaction?: RedactionContext
 }): Promise<void> {
   const log = logger?.info ?? logger?.error
+  const verdict = judgeScreenshot({ live: redaction?.live ?? [] })
+  if (!verdict.allowed) {
+    throw new Error(
+      `Screenshot refused because sensitive fields have no verified mask: ${verdict.unlocated.join(', ')}`,
+    )
+  }
   const showLabelsStart = Date.now()
-  const { snapshot, labelCount } = await showAriaRefLabels({ page, locator, interactiveOnly, logger })
+  const { snapshot, labelCount } = await showAriaRefLabels({
+    page,
+    locator,
+    interactiveOnly,
+    logger,
+    redaction,
+  })
   if (log) {
     log(`showAriaRefLabels: ${Date.now() - showLabelsStart}ms`)
   }
 
-  // Generate unique filename with timestamp
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 6)
-  const filename = `penguin-browser-screenshot-${timestamp}-${random}.png`
+  try {
+    // Generate unique filename with timestamp
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).slice(2, 6)
+    const filename = `penguin-browser-screenshot-${timestamp}-${random}.png`
 
-  // Use ./tmp folder (gitignored) instead of system temp
-  const tmpDir = path.join(process.cwd(), 'tmp')
-  if (!fs.existsSync(tmpDir)) {
-    fs.mkdirSync(tmpDir, { recursive: true })
-  }
-  const screenshotPath = path.join(tmpDir, filename)
-
-  // Get viewport size to clip screenshot to visible area
-  const viewport = (await page.evaluate('({ width: window.innerWidth, height: window.innerHeight })')) as {
-    width: number
-    height: number
-  }
-
-  // Check if sharp is available for resizing
-  const sharp = await sharpPromise
-
-  // Clip dimensions: if sharp unavailable, limit capture area to LLM_MAX_DIMENSION
-  const clipWidth = sharp ? viewport.width : Math.min(viewport.width, LLM_MAX_DIMENSION)
-  const clipHeight = sharp ? viewport.height : Math.min(viewport.height, LLM_MAX_DIMENSION)
-
-  // Take viewport screenshot as PNG for Kitty Graphics Protocol compatibility.
-  // PNG is lossless and the only format extracted by kitty-graphics-agent (f=100).
-  const screenshotStart = Date.now()
-  const rawBuffer = await page.screenshot({
-    type: 'png',
-    scale: 'css',
-    clip: { x: 0, y: 0, width: clipWidth, height: clipHeight },
-  })
-  if (log) {
-    log(`page.screenshot: ${Date.now() - screenshotStart}ms`)
-  }
-
-  // Resize with resizeImage if sharp available, otherwise use clipped raw buffer
-  const resizeStart = Date.now()
-  const buffer = await (async () => {
-    if (!sharp) {
-      logger?.error?.('[penguin-browser] sharp not available, using clipped screenshot (max', LLM_MAX_DIMENSION, 'px)')
-      return rawBuffer
+    // Use ./tmp folder (gitignored) instead of system temp
+    const tmpDir = path.join(process.cwd(), 'tmp')
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true })
     }
-    try {
-      const result = await resizeImageForAgent({ input: rawBuffer, format: 'png' })
-      return result.buffer
-    } catch (err) {
-      logger?.error?.('[penguin-browser] sharp resize failed, using raw buffer:', err)
-      return rawBuffer
+    const screenshotPath = path.join(tmpDir, filename)
+
+    // Get viewport size to clip screenshot to visible area
+    const viewport = (await page.evaluate('({ width: window.innerWidth, height: window.innerHeight })')) as {
+      width: number
+      height: number
     }
-  })()
-  if (log) {
-    log(`screenshot resize: ${Date.now() - resizeStart}ms`)
+
+    // Check if sharp is available for resizing and mandatory masking.
+    const sharp = await sharpPromise
+    if (verdict.masks.length > 0 && !sharp) {
+      throw new Error('Screenshot refused because the image masker is unavailable')
+    }
+
+    // Clip dimensions: if sharp unavailable, limit capture area to LLM_MAX_DIMENSION
+    const clipWidth = sharp ? viewport.width : Math.min(viewport.width, LLM_MAX_DIMENSION)
+    const clipHeight = sharp ? viewport.height : Math.min(viewport.height, LLM_MAX_DIMENSION)
+
+    // Take viewport screenshot as PNG for Kitty Graphics Protocol compatibility.
+    // PNG is lossless and the only format extracted by kitty-graphics-agent (f=100).
+    const screenshotStart = Date.now()
+    const rawBuffer = await page.screenshot({
+      type: 'png',
+      scale: 'css',
+      clip: { x: 0, y: 0, width: clipWidth, height: clipHeight },
+    })
+    if (log) {
+      log(`page.screenshot: ${Date.now() - screenshotStart}ms`)
+    }
+
+    // Paint every sensitive CSS-pixel box before resizing, saving, or base64 encoding. Boxes fully
+    // outside the viewport cannot contribute pixels; partial boxes are expanded to integer edges.
+    const clippedMasks = verdict.masks
+      .map((box) => {
+        const left = Math.max(0, Math.floor(box.x))
+        const top = Math.max(0, Math.floor(box.y))
+        const right = Math.min(clipWidth, Math.ceil(box.x + box.width))
+        const bottom = Math.min(clipHeight, Math.ceil(box.y + box.height))
+        return { x: left, y: top, width: right - left, height: bottom - top }
+      })
+      .filter((box) => box.width > 0 && box.height > 0)
+    const maskedBuffer =
+      clippedMasks.length === 0
+        ? rawBuffer
+        : await sharp!(rawBuffer)
+            .composite([
+              {
+                input: Buffer.from(
+                  `<svg width="${clipWidth}" height="${clipHeight}" xmlns="http://www.w3.org/2000/svg">` +
+                    clippedMasks
+                      .map(
+                        (box) =>
+                          `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="#000"/>`,
+                      )
+                      .join('') +
+                    '</svg>',
+                ),
+              },
+            ])
+            .png()
+            .toBuffer()
+
+    // Resize with resizeImage if sharp available, otherwise use clipped raw buffer
+    const resizeStart = Date.now()
+    const buffer = await (async () => {
+      if (!sharp) {
+        logger?.error?.('[penguin-browser] sharp not available, using clipped screenshot (max', LLM_MAX_DIMENSION, 'px)')
+        return maskedBuffer
+      }
+      try {
+        const result = await resizeImageForAgent({ input: maskedBuffer, format: 'png' })
+        return result.buffer
+      } catch (err) {
+        logger?.error?.('[penguin-browser] sharp resize failed, using masked buffer:', err)
+        return maskedBuffer
+      }
+    })()
+    if (log) {
+      log(`screenshot resize: ${Date.now() - resizeStart}ms`)
+    }
+
+    fs.writeFileSync(screenshotPath, buffer)
+    collector.push({
+      path: screenshotPath,
+      base64: buffer.toString('base64'),
+      mimeType: 'image/png',
+      snapshot,
+      labelCount,
+    })
+  } finally {
+    await hideAriaRefLabels({ page })
   }
-
-  // Save to file
-  fs.writeFileSync(screenshotPath, buffer)
-
-  // Convert to base64
-  const base64 = buffer.toString('base64')
-
-  // Hide labels
-  await hideAriaRefLabels({ page })
-
-  // Add to collector array
-  collector.push({
-    path: screenshotPath,
-    base64,
-    mimeType: 'image/png',
-    snapshot,
-    labelCount,
-  })
 }
 
 // Re-export for backward compatibility

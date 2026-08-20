@@ -66,4 +66,29 @@ describe("what main publishes for the relay", () => {
     expect(registry.matches(published!, "310101199001011235")).toBe(false);
     expect(JSON.stringify(published)).not.toContain("310101199001011234");
   });
+
+  it("publishes one target's complete text and screenshot state without plaintext", () => {
+    const registry = new SensitiveElementRegistry();
+    registry.register({
+      field: "passport_number",
+      value: "E12345678",
+      targetId: "T-1",
+      box: { x: 10, y: 20, width: 180, height: 32 },
+    });
+
+    const state = registry.publishState("T-1");
+    expect(state).toMatchObject({
+      active: true,
+      entries: [{ field: "passport_number", length: 9, shape: "adddddddd" }],
+      live: [
+        {
+          field: "passport_number",
+          box: { x: 10, y: 20, width: 180, height: 32 },
+        },
+      ],
+    });
+    expect(state.active && Buffer.from(state.salt, "base64")).toHaveLength(32);
+    expect(JSON.stringify(state)).not.toContain("E12345678");
+    expect(registry.publishState("T-2")).toEqual({ active: false });
+  });
 });
