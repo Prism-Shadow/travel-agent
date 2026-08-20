@@ -60,7 +60,14 @@ needed.
   `browser-cli` used it and read as correct for years only because every module sat directly under
   `src/` and every output directly under `dist/`, where `..` meant the package root from both.
   Grouping them one level down turned all nine into `src/dist/…` at runtime, which no type checker
-  can see. Use `packageRoot()` / `distPath()` from `browser-cli/src/shared/package-paths.ts`.
+  can see. Use `packageRoot()` / `distPath()` from `browser-cli/src/shared/package-paths.ts`. When
+  sweeping for stale deep paths after a move, grep **both spellings** — the package name
+  (`penguin-browser/dist/`) and the directory name (`browser-cli/dist/`): the 08-19 regrouping
+  sweep used only the first and missed the desktop e2e harness, which then broke CI.
+- **A cancelled batch-push CI run validates nothing.** Commits accumulated locally and pushed
+  together get one run for the head commit; if a follow-up push auto-cancels it, every commit in
+  the batch lands unverified and the next completed run blames whoever pushed last. After a
+  cancelled run, check what it was supposed to cover.
 - **Injected workspace dependencies share file contents, not directory structure.**
   `injectWorkspacePackages` gives a consumer a hard-linked copy, so editing a file propagates
   instantly (same inode) while adding, renaming, moving or deleting one does not — and the re-sync

@@ -64,7 +64,7 @@ function reservePort() {
   const key = `e2e-${Math.random().toString(36).slice(2)}`;
 
   const { startPenguinBrowserCDPRelayServer } = await import(
-    path.join(REPO, "packages/browser-cli/dist/cdp-relay.js")
+    path.join(REPO, "packages/browser-cli/dist/relay/cdp-relay.js")
   );
   const relay = await startPenguinBrowserCDPRelayServer({
     port: relayPort,
@@ -143,6 +143,10 @@ function reservePort() {
     claimTab: (targetId, identity) => pane.claimTab(targetId, identity),
     ownershipOf: (contents) => pane.ownershipOf(contents),
     declareOutcome: (taskId, outcome) => pane.declareTaskOutcome(taskId, outcome),
+    // The real main answers { active: false } when no vault shell exists (main.ts); the executor
+    // decodes that as "no redaction registry" and renders normally. Omitting the provider is not
+    // the same state: the transport then refuses every snapshot (fail-closed by design).
+    redactionState: async () => ({ active: false }),
   });
   pane.setViewCreatedHandler((contents) => transport.attach(contents));
   transport.start();

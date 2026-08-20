@@ -74,7 +74,8 @@ updating that caller in the same change**. A rename here is not a local edit.
 The desktop one is the easier to miss: it resolves at runtime, so nothing fails until the app is
 launched. `pnpm typecheck` does not cover it either, because the desktop project type-checks against
 the `.d.ts` next to the built file. Grep for `penguin-browser/dist/` and `penguin-browser/src/`
-across the repo after any move here.
+— and the directory-name spellings `browser-cli/dist/` / `browser-cli/src/` — across the repo
+after any move here; the desktop e2e harness references this package by directory name.
 
 It also means the extension sees a layout change only after the workspace re-syncs. The extension
 does not symlink to this package — `injectWorkspacePackages` gives it a hard-linked *copy*, so
