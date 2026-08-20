@@ -32,6 +32,10 @@ needed.
   favicon, compact title rhythm, subtle selected surface, and native-quality icon controls. Avoid
   shipping text glyphs and a heavy active underline when the visual target is a quiet rounded
   browser tab.
+- Login-shell startup chatter is model-visible tool output: `bash -lc` sources the user's profile
+  into the command's own pipes, and the measured emitter (nvm's die-on-prefix warning) has no env
+  knob to silence it — keep chatter out structurally (per-stream start markers relying on FIFO pipe
+  order, failing open on exit), not by env hardening or output pattern matching.
 - **A control's scope must match the scope of the state it acts on.** The in-app browser offered
   "the last run left 7 pages open, reopen them?" from inside one conversation, while the count and
   the action covered every conversation — so it announced seven and showed three, and in a new

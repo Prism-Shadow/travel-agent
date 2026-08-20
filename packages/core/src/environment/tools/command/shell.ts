@@ -40,6 +40,14 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+/**
+ * Invocation family, decided by the same basename rule as the argument shape: "posix" is the
+ * `-lc` login-shell family — the only one that sources profile startup files, so the only one
+ * command sessions wrap with startup markers (see startup-chatter.ts). "powershell" spawns
+ * `-NoProfile` and "cmd" spawns `/d`: profile-free by construction.
+ */
+export type ShellStyle = "posix" | "powershell" | "cmd";
+
 /** A resolved shell invocation: `spawn(command, [...args, cmd])` runs `cmd` in that shell. */
 export interface ShellInvocation {
   /** Executable name or absolute path handed to spawn(). */
@@ -48,6 +56,8 @@ export interface ShellInvocation {
   args: string[];
   /** Short lowercase name (basename without extension), shown to the model (e.g. "bash", "pwsh"). */
   name: string;
+  /** Invocation family (argument syntax + whether startup files are sourced); see {@link ShellStyle}. */
+  style: ShellStyle;
 }
 
 /** Injection points for unit tests; production callers use the defaults. */
@@ -71,11 +81,12 @@ function shellBasename(command: string): string {
     .toLowerCase();
 }
 
-/** Argument prefix for a shell, chosen by its basename (PowerShell-style vs cmd vs POSIX-style). */
-function argsForShell(name: string): string[] {
-  if (name === "pwsh" || name === "powershell") return ["-NoLogo", "-NoProfile", "-Command"];
-  if (name === "cmd") return ["/d", "/s", "/c"];
-  return ["-lc"];
+/** Argument prefix and invocation family for a shell, chosen by its basename (PowerShell-style vs cmd vs POSIX-style). */
+function shellShape(name: string): { args: string[]; style: ShellStyle } {
+  if (name === "pwsh" || name === "powershell")
+    return { args: ["-NoLogo", "-NoProfile", "-Command"], style: "powershell" };
+  if (name === "cmd") return { args: ["/d", "/s", "/c"], style: "cmd" };
+  return { args: ["-lc"], style: "posix" };
 }
 
 /** Default PATH probe: `where` lists every match line by line, in PATH order (win32 only). */
@@ -107,11 +118,11 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   const explicit = env.PENGUIN_SHELL?.trim();
   if (explicit) {
     const name = shellBasename(explicit);
-    return { command: explicit, args: argsForShell(name), name };
+    return { command: explicit, name, ...shellShape(name) };
   }
 
   if (platform !== "win32") {
-    return { command: "bash", args: ["-lc"], name: "bash" };
+    return { command: "bash", args: ["-lc"], name: "bash", style: "posix" };
   }
 
   const whichAll = opts.whichAll ?? defaultWhichAll;
@@ -122,19 +133,19 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   // is the one spawn("bash") would run.
   const bash = whichAll("bash")[0];
   if (bash && !bash.toLowerCase().startsWith(systemRoot.toLowerCase() + path.win32.sep)) {
-    return { command: "bash", args: ["-lc"], name: "bash" };
+    return { command: "bash", args: ["-lc"], name: "bash", style: "posix" };
   }
   // The bundled MinGit bash (installed-package layout only; absent for npm installs). Reported
   // to the model as "bash" rather than its filename: MinGit installs GNU bash under the name
   // `sh`, and the Skill ecosystem targets bash, so "sh" would understate what it can run.
   const bundled = env.PENGUIN_BUNDLED_SHELL?.trim();
   if (bundled && exists(bundled)) {
-    return { command: bundled, args: ["-lc"], name: "bash" };
+    return { command: bundled, args: ["-lc"], name: "bash", style: "posix" };
   }
   if (whichAll("pwsh").length > 0) {
-    return { command: "pwsh", args: argsForShell("pwsh"), name: "pwsh" };
+    return { command: "pwsh", name: "pwsh", ...shellShape("pwsh") };
   }
-  return { command: "powershell", args: argsForShell("powershell"), name: "powershell" };
+  return { command: "powershell", name: "powershell", ...shellShape("powershell") };
 }
 
 let cached: ShellInvocation | null = null;

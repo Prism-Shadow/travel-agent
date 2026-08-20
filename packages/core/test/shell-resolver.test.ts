@@ -23,13 +23,13 @@ describe("resolveShell — POSIX", () => {
         return [];
       },
     });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash", style: "posix" });
     expect(probed).toBe(false);
   });
 
   it("uses bash -lc on darwin", () => {
     const shell = resolveShell({ platform: "darwin", env: {} });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash", style: "posix" });
   });
 });
 
@@ -43,7 +43,7 @@ describe("resolveShell — win32 probing", () => {
         pwsh: ["C:\\Program Files\\PowerShell\\7\\pwsh.exe"],
       }),
     });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash", style: "posix" });
   });
 
   it("skips the WSL launcher bash under the system root and falls through to pwsh", () => {
@@ -55,7 +55,12 @@ describe("resolveShell — win32 probing", () => {
         pwsh: ["C:\\Program Files\\PowerShell\\7\\pwsh.exe"],
       }),
     });
-    expect(shell).toEqual({ command: "pwsh", args: POWERSHELL_ARGS, name: "pwsh" });
+    expect(shell).toEqual({
+      command: "pwsh",
+      args: POWERSHELL_ARGS,
+      name: "pwsh",
+      style: "powershell",
+    });
   });
 
   it("falls back to pwsh when bash is absent", () => {
@@ -64,12 +69,22 @@ describe("resolveShell — win32 probing", () => {
       env: {},
       whichAll: which({ pwsh: ["C:\\Program Files\\PowerShell\\7\\pwsh.exe"] }),
     });
-    expect(shell).toEqual({ command: "pwsh", args: POWERSHELL_ARGS, name: "pwsh" });
+    expect(shell).toEqual({
+      command: "pwsh",
+      args: POWERSHELL_ARGS,
+      name: "pwsh",
+      style: "powershell",
+    });
   });
 
   it("falls back to powershell when neither bash nor pwsh resolve", () => {
     const shell = resolveShell({ platform: "win32", env: {}, whichAll: which({}) });
-    expect(shell).toEqual({ command: "powershell", args: POWERSHELL_ARGS, name: "powershell" });
+    expect(shell).toEqual({
+      command: "powershell",
+      args: POWERSHELL_ARGS,
+      name: "powershell",
+      style: "powershell",
+    });
   });
 });
 
@@ -79,7 +94,7 @@ describe("resolveShell — PENGUIN_SHELL override", () => {
       platform: "linux",
       env: { PENGUIN_SHELL: "/usr/bin/zsh" },
     });
-    expect(shell).toEqual({ command: "/usr/bin/zsh", args: ["-lc"], name: "zsh" });
+    expect(shell).toEqual({ command: "/usr/bin/zsh", args: ["-lc"], name: "zsh", style: "posix" });
   });
 
   it("uses PowerShell-style args when the basename is pwsh (case/extension-insensitive)", () => {
@@ -92,22 +107,28 @@ describe("resolveShell — PENGUIN_SHELL override", () => {
       command: "C:\\Program Files\\PowerShell\\7\\pwsh.EXE",
       args: POWERSHELL_ARGS,
       name: "pwsh",
+      style: "powershell",
     });
   });
 
   it("uses PowerShell-style args for a bare powershell name", () => {
     const shell = resolveShell({ platform: "win32", env: { PENGUIN_SHELL: "powershell" } });
-    expect(shell).toEqual({ command: "powershell", args: POWERSHELL_ARGS, name: "powershell" });
+    expect(shell).toEqual({
+      command: "powershell",
+      args: POWERSHELL_ARGS,
+      name: "powershell",
+      style: "powershell",
+    });
   });
 
   it("uses cmd-style args when the basename is cmd", () => {
     const shell = resolveShell({ platform: "win32", env: { PENGUIN_SHELL: "cmd" } });
-    expect(shell).toEqual({ command: "cmd", args: ["/d", "/s", "/c"], name: "cmd" });
+    expect(shell).toEqual({ command: "cmd", args: ["/d", "/s", "/c"], name: "cmd", style: "cmd" });
   });
 
   it("ignores a blank PENGUIN_SHELL", () => {
     const shell = resolveShell({ platform: "linux", env: { PENGUIN_SHELL: "  " } });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash", style: "posix" });
   });
 });
 
@@ -125,7 +146,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       whichAll: which({ pwsh: ["C:\\pwsh.exe"] }),
       exists: bundledExists,
     });
-    expect(shell).toEqual({ command: BUNDLED, args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: BUNDLED, args: ["-lc"], name: "bash", style: "posix" });
   });
 
   it("yields to a real Git for Windows on PATH (its MSYS userland is the fuller one)", () => {
@@ -135,7 +156,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       whichAll: which({ bash: ["C:\\Program Files\\Git\\bin\\bash.exe"] }),
       exists: bundledExists,
     });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash", style: "posix" });
   });
 
   it("beats pwsh and powershell — the point of bundling is that neither is reached", () => {
@@ -154,7 +175,12 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       env: { PENGUIN_SHELL: "pwsh", PENGUIN_BUNDLED_SHELL: BUNDLED },
       exists: bundledExists,
     });
-    expect(shell).toEqual({ command: "pwsh", args: POWERSHELL_ARGS, name: "pwsh" });
+    expect(shell).toEqual({
+      command: "pwsh",
+      args: POWERSHELL_ARGS,
+      name: "pwsh",
+      style: "powershell",
+    });
   });
 
   it("a stale path (dir deleted) falls through to pwsh rather than spawning a missing exe", () => {
@@ -164,7 +190,12 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       whichAll: which({ pwsh: ["C:\\pwsh.exe"] }),
       exists: () => false,
     });
-    expect(shell).toEqual({ command: "pwsh", args: POWERSHELL_ARGS, name: "pwsh" });
+    expect(shell).toEqual({
+      command: "pwsh",
+      args: POWERSHELL_ARGS,
+      name: "pwsh",
+      style: "powershell",
+    });
   });
 
   it("is ignored on POSIX (npm installs and source checkouts never set it anyway)", () => {
@@ -173,7 +204,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
       env: { PENGUIN_BUNDLED_SHELL: BUNDLED },
       exists: bundledExists,
     });
-    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
+    expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash", style: "posix" });
   });
 
   it("a blank value is ignored (unset-but-defined shims must not win)", () => {

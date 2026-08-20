@@ -1,7 +1,7 @@
 # Unreleased
 
 - [2026-08-20] Private Profile gains an account-owned management surface with real capability states, honest empty data, and no browser-storage fallback. ([details](2026-08-20-private-profile-interface.md))
-- [2026-08-20] Issue sweep: extension tabs open at their destination, browser outputs redact main-filled values, flaky tests and unchecked scripts are fixed, the injected-deps trap fails early, and source-mode relay startup is repaired. ([details](2026-08-20-issue-sweep.md))
+- [2026-08-20] Issue sweep: extension tabs open at their destination, browser outputs redact main-filled values, flaky tests and unchecked scripts are fixed, the injected-deps trap fails early, source-mode relay startup is repaired, and login-shell startup chatter is kept out of command output. ([details](2026-08-20-issue-sweep.md))
 - [2026-08-20] `packages/transaction` is retired: live contracts move to server/browser-cli, unreachable payment execution machinery is removed, and the browser payment stop becomes unconditional. ([details](2026-08-20-retire-transaction-package.md))
 - [2026-08-19] Research: how Mindtrip structures chat × trip — App Store release-note history plus first-hand screenshots settle the chat↔trip information architecture for the default-trip design discussion. ([details](2026-08-19-mindtrip-chat-trip-ia-research.md))
 - [2026-08-19] `pnpm desktop` stops printing the healthy browser-tasks reconcile poll every three seconds; the line returns exactly when the poll fails or stalls. ([details](2026-08-19-quiet-reconcile-poll-logging.md))

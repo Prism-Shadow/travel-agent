@@ -2,7 +2,9 @@
  * ManagedSession — runtime state and collection logic for a single command session.
  *
  * Spawns the process with `bash -lc <cmd>` (on Windows, the shell picked by `sessionShell()`
- * — see shell.ts), with stdout/stderr going through plain pipes (no
+ * — see shell.ts; POSIX-style shells get the command wrapped with per-stream startup markers so
+ * login-shell profile chatter never reaches the output, see startup-chatter.ts), with
+ * stdout/stderr going through plain pipes (no
  * native dependency, clean output; an interactive program that detects no TTY falls back to
  * non-interactive mode, which parses more cleanly for the Agent anyway). `detached` makes the
  * child process the process-group leader, so both Ctrl-C and killing the whole group rely on
@@ -29,6 +31,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import type { ToolResult } from "../types.js";
 import { CappedTextBuffer, WakeSignal } from "../background/index.js";
 import { sessionShell } from "./shell.js";
+import { newStartupMarker, StartupChatterGate, withStartupMarker } from "./startup-chatter.js";
 
 /** Process-group semantics are available on POSIX; Windows falls back to signaling the child process directly. */
 const SUPPORTS_PROCESS_GROUP = process.platform !== "win32";
@@ -89,6 +92,10 @@ export class ManagedSession {
   private spawnError: Error | null = null;
   private killed = false;
   private killTimer: ReturnType<typeof setTimeout> | null = null;
+  // Per-stream startup gates: hold profile chatter written before the command began (POSIX
+  // login shells only; pass-throughs for profile-free shells). See startup-chatter.ts.
+  private readonly stdoutGate: StartupChatterGate;
+  private readonly stderrGate: StartupChatterGate;
   // Single wake point: data arrival / process exit / spawn error all wake a waiting collect through it.
   private readonly wakeSignal = new WakeSignal();
 
@@ -96,7 +103,13 @@ export class ManagedSession {
     this.cmd = opts.cmd;
     this.cwd = opts.cwd;
     const shell = sessionShell();
-    this.child = spawn(shell.command, [...shell.args, opts.cmd], {
+    // Only the POSIX style is a login shell and sources the user's profile before the command;
+    // the marker wrap keeps whatever the profile prints out of the command's output.
+    const marker = shell.style === "posix" ? newStartupMarker() : null;
+    this.stdoutGate = new StartupChatterGate(marker);
+    this.stderrGate = new StartupChatterGate(marker);
+    const spawnCmd = marker === null ? opts.cmd : withStartupMarker(opts.cmd, marker);
+    this.child = spawn(shell.command, [...shell.args, spawnCmd], {
       cwd: opts.cwd,
       env: opts.env,
       detached: SUPPORTS_PROCESS_GROUP, // Become the process-group leader, so the whole group can be signaled
@@ -109,8 +122,8 @@ export class ManagedSession {
     // EPIPE/ERR_STREAM_DESTROYED are an expected race and must not bubble up to the host process
     // as an unhandled error.
     this.child.stdin?.on("error", () => {});
-    this.child.stdout?.on("data", (c: string) => this.handleData(c));
-    this.child.stderr?.on("data", (c: string) => this.handleData(c));
+    this.child.stdout?.on("data", (c: string) => this.handleData(this.stdoutGate.filter(c)));
+    this.child.stderr?.on("data", (c: string) => this.handleData(this.stderrGate.filter(c)));
     // exit follows waitpid semantics: it fires as soon as bash exits, without waiting for
     // stdout/stderr pipe EOF — background child processes that inherit and hold the pipe open
     // won't hold up termination.
@@ -167,17 +180,29 @@ export class ManagedSession {
   }
 
   private handleData(chunk: string): void {
+    if (!chunk) return; // A gate holding pre-marker output yields nothing for the chunk
     this.buffer.append(chunk);
     this.wakeSignal.notify();
   }
+  /**
+   * The markers never arrived (measured: a `-c` string that fails to parse runs none of it, so
+   * the echos never execute; or the profile killed the shell): deliver what the gates held, so
+   * the shell's own diagnostics are never lost.
+   */
+  private releaseHeldStartupOutput(): void {
+    const held = this.stdoutGate.flush() + this.stderrGate.flush();
+    if (held) this.buffer.append(held);
+  }
   private handleExit(exit: ProcessExit): void {
     if (this.exited) return;
+    this.releaseHeldStartupOutput();
     this.exited = true;
     this.exitInfo = exit;
     this.wakeSignal.notify();
   }
   private handleError(err: Error): void {
     if (this.exited) return;
+    this.releaseHeldStartupOutput();
     this.spawnError = err;
     this.exited = true; // A spawn failure is also treated as a terminal state
     this.wakeSignal.notify();

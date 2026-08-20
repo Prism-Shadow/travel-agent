@@ -278,10 +278,10 @@ describe("exec_command — long-running command sessions", () => {
     const session = new ManagedSession({ cmd: "echo first; cat", cwd: tmp, env: process.env });
     try {
       const gen = session.collect(5000);
-      // The first chunk is not necessarily this command's output: the session runs a login
-      // shell, so a developer's profile can print first (nvm warns about a `prefix` in
-      // ~/.npmrc, for one). Drain until the marker appears; the generator is left suspended
-      // at a yield either way, which is the state the wake-race below needs.
+      // Login-shell startup chatter is gated out at the session level now (see
+      // startup-chatter.ts), but chunk boundaries are still not guaranteed, so drain until
+      // the marker appears; the generator is left suspended at a yield either way, which is
+      // the state the wake-race below needs.
       let seen = "";
       for (let i = 0; i < 10 && !seen.includes("first"); i++) {
         const chunk = await gen.next();

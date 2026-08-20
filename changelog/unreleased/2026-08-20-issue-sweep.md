@@ -36,6 +36,22 @@ nvm warns when `~/.npmrc` sets `prefix`/`globalconfig` — printing before the c
 The test asserted on the *first* chunk; it now drains until its marker appears, which leaves the
 generator suspended at a yield exactly as the wake-race assertion needs. 25 tests pass.
 
+Closing the test left the production half of the same pollution in place: on such a machine those
+three lines — imperative text ("Run `nvm use --delete-prefix` …") — prefixed every model-visible
+`exec_command` output. Reading nvm's source established that no environment variable silences
+`nvm_die_on_prefix` (`NVM_SILENT` gates only the "Now using…" line; `--delete-prefix` would mutate
+the user's npmrc), so the issue's env-hardening fix direction is a dead end and the separation is
+now structural: POSIX-style sessions spawn `echo <marker>; echo <marker> >&2; <cmd>` with a
+per-session random marker, and a per-stream gate holds pre-marker output — FIFO pipe order makes
+everything before the marker pre-command chatter by construction. Fail-open by measurement: a `-c`
+string that fails to parse never runs the echos (bash prints only the syntax error and exits 2),
+so held text is flushed when the process exits and no diagnostic is lost; pwsh/powershell
+(`-NoProfile`) and cmd (`/d`) are profile-free and stay unwrapped. Verified with a deterministic
+chattering-shell shim (gate units plus live spawns: chatter and marker absent, both command
+streams and exit codes intact, parse-error diagnostics delivered) and end to end on the reporting
+machine — the `exec_command` output that carried the three-line warning is now exactly the
+command's own. Full core suite green (898 passed, 5 skipped).
+
 ## 0005 — injected-deps deadlock (mitigated, still open)
 
 `build-extension-bundle.ts` now preflights: it scans `browser-extension/src` for
