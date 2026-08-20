@@ -9,3 +9,7 @@ the durable trace of that work is the feature's tests and changelog entries.
 convention the working sessions already stated ("intentionally not part of the product
 commit"). `tasks/travel-cover-library-192.md`, the one task ledger that had been committed,
 is untracked but kept on disk; the plan it serves lives in `docs/design/006`.
+
+The repository agent guide now makes the Product Design convention explicit: its mandatory QA
+report belongs at `artifacts/design-qa/design-qa.md`, with its supporting screenshots and comparison
+files, rather than at the repository root.

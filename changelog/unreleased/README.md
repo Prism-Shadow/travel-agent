@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-20] Private Profile gains an account-owned management surface with real capability states, honest empty data, and no browser-storage fallback. ([details](2026-08-20-private-profile-interface.md))
 - [2026-08-20] Issue sweep: extension tabs open at their destination, browser outputs redact main-filled values, flaky tests and unchecked scripts are fixed, the injected-deps trap fails early, and source-mode relay startup is repaired. ([details](2026-08-20-issue-sweep.md))
 - [2026-08-20] `packages/transaction` is retired: live contracts move to server/browser-cli, unreachable payment execution machinery is removed, and the browser payment stop becomes unconditional. ([details](2026-08-20-retire-transaction-package.md))
 - [2026-08-19] Research: how Mindtrip structures chat × trip — App Store release-note history plus first-hand screenshots settle the chat↔trip information architecture for the default-trip design discussion. ([details](2026-08-19-mindtrip-chat-trip-ia-research.md))
@@ -19,7 +20,7 @@
 - [2026-08-19] The crash prompt's "Reopen them" is the app's own primary button instead of a hand-rolled blue. ([details](2026-08-19-restore-prompt-primary-button.md))
 - [2026-08-19] Dragging the chat/browser split shows a frozen frame of the page instead of a blank hole. ([details](2026-08-19-splitter-drag-frozen-frame.md))
 - [2026-08-19] Codex-style website tabs: real page favicons cross a validated Electron bridge; compact rounded tab pills replace the underline treatment. ([details](2026-08-19-codex-style-website-tabs.md))
-- [2026-08-19] `design-qa.md` deleted; `artifacts/` and `tasks/` are gitignored local agent workspace. ([details](2026-08-19-agent-scratch-out-of-git.md))
+- [2026-08-19] Product Design QA belongs under `artifacts/design-qa/`; `artifacts/` and `tasks/` are gitignored local agent workspace. ([details](2026-08-19-agent-scratch-out-of-git.md))
 - [2026-08-19] The numbered design records moved from repo-root `design/` to `docs/design/`; entry links updated. ([details](2026-08-19-design-docs-into-docs.md))
 - [2026-08-19] Browser package cleanup: the browser-cli and browser-extension frozen upstream changelogs and design notes relocated to `docs/browser/`, `VENDOR.md` and upstream marketing screenshots removed, `test-results/` ignore gap closed. ([details](2026-08-19-browser-cli-package-cleanup.md))
 - [2026-08-19] The preinstalled skill set (`penguin-browser`) is built-in for every agent — installed at creation, re-synced on load — and the skill-library page plus its sidebar entry are removed (composer invocation and the Agent settings Skills tab stay). ([details](2026-08-19-builtin-skill-no-library-ui.md))

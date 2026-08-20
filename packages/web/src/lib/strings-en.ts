@@ -160,6 +160,80 @@ export const en: Strings = {
     changeNow: "Change now",
   },
 
+  privateProfile: {
+    menu: "Private Profile",
+    title: "Private Profile",
+    subtitle:
+      "Manage the personal details and preferences used for travel. You will be asked before every use.",
+    backToChat: "Back to chat",
+    tabOverview: "Overview",
+    tabPersonal: "Personal details",
+    tabPreferences: "Preferences",
+    tabPrivacy: "Privacy & activity",
+    addDetails: "Add details",
+    add: "Add",
+    notSaved: "Not saved",
+    editingUnavailable:
+      "This build does not yet connect the Private Profile read/write interface, so no input can be saved.",
+    why: "Why?",
+    personalTitle: "Personal details",
+    personalDescription: "Names and contact details, used only for a task and site you approve.",
+    preferencesTitle: "Travel preferences",
+    preferencesDescription: "Ordinary preferences that help the agent narrow the option space.",
+    identityTitle: "Identity documents and phone",
+    identityDescription:
+      "These fields require stronger runtime isolation; the agent may only request an opaque fill handle.",
+    fieldFullName: "Full name",
+    fieldEmail: "Contact email",
+    fieldBirthDate: "Date of birth",
+    fieldHomeCity: "Home city",
+    fieldSeat: "Seat",
+    fieldRoom: "Room",
+    fieldBreakfast: "Breakfast",
+    fieldPassport: "Passport number",
+    fieldPhone: "Phone number",
+    fieldAddress: "Street address",
+    storageCheckingTitle: "Checking private storage",
+    storageCheckingDescription: "Reading the real capability state of this runtime.",
+    storageLoadFailedTitle: "Private storage status could not be loaded",
+    storageLoadFailedDescription:
+      "The capability endpoint is unavailable. Profile editing stays closed until the state is known.",
+    storageAvailableTitle: "Encrypted on this device",
+    storageAvailableDescription:
+      "The desktop app can protect ordinary profile details with the operating-system key store and keep them locally.",
+    storageDesktopTitle: "Open the desktop app to use Private Profile",
+    storageDesktopDescription:
+      "This is the standalone web service. It has no desktop shell and no substitute private-storage backend.",
+    storageDeniedTitle: "Private storage is unavailable on this device",
+    storageDeniedDescription:
+      "The encrypted-storage requirement did not pass its probe, so the vault failed closed.",
+    storageOffTitle: "Private storage is not enabled",
+    storageOffDescription: "This build did not request the Private Profile vault capability.",
+    approvalTitle: "Ask before every use",
+    approvalDescription:
+      "A grant covers one task, one site, one purpose, and the exact fields you approve. Change any of them and the app asks again.",
+    localOnlyTitle: "Profile data bypasses the server",
+    localOnlyDescription:
+      "The vault lives in the desktop main process. Sensitive fill-only fields do not enter the model context.",
+    l2AvailableTitle: "Identity and contact fields can use secure fill",
+    l2UnavailableTitle: "Identity and contact fields are unavailable",
+    l2UnavailableDescription:
+      "Document numbers, phone, and street address stay off until agent-runtime isolation is proven.",
+    neverStoredTitle: "These values are never stored",
+    neverStoredDescription:
+      "Card security codes, one-time codes, account passwords, payment passwords, and passkeys must be entered by you each time.",
+    privacyTitle: "Privacy boundaries",
+    privacyDescription:
+      "This page names what the product can actually guarantee instead of hiding it behind a vague security switch.",
+    activityTitle: "Use activity",
+    activityUnavailable:
+      "Audit records are not exposed to this interface yet; an empty list would not be presented as “never used.”",
+    deleteAll: "Delete all profile data",
+    available: "Available",
+    unavailable: "Unavailable",
+    always: "Always",
+  },
+
   admin: {
     users: "Users",
     roleAdmin: "Admin",

@@ -118,6 +118,13 @@ pnpm test
 Dev entry points that touch data default to `~/.penguin/dev-data`, separate from an installed app's
 `~/.penguin/data`. Never point them at real user state.
 
+## Agent Artifacts
+
+Product Design QA is local working evidence, not repository documentation. When a Product Design
+workflow requires `design-qa.md`, write it to `artifacts/design-qa/design-qa.md` instead of the
+repository root, and keep its supporting screenshots and comparison files in the same directory.
+`artifacts/` is gitignored and must not be committed.
+
 ## Lessons
 
 [`tasks/lessons.md`](tasks/lessons.md) is the single home for what was expensive to learn — the

@@ -1075,6 +1075,16 @@ export function Sidebar({
               className={menuItemClass}
               onClick={() => {
                 setUserOpen(false);
+                go("/settings/private-profile");
+              }}
+            >
+              {S.privateProfile.menu}
+            </button>
+            <button
+              type="button"
+              className={menuItemClass}
+              onClick={() => {
+                setUserOpen(false);
                 setChangePasswordOpen(true);
               }}
             >

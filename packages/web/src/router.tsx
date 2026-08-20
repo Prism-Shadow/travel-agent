@@ -17,6 +17,7 @@ import { UsagePage } from "./features/usage/usage-page";
 import { TracesPage } from "./features/traces/traces-page";
 import { BenchmarkPage } from "./features/benchmark/benchmark-page";
 import { AdminUsersPage } from "./features/admin/admin-users-page";
+import { PrivateProfilePage } from "./features/private-profile/private-profile-page";
 
 /** Route guard: shows blank while initializing, redirects to /login when not authenticated. */
 function RequireAuth() {
@@ -53,6 +54,7 @@ export function AppRouter() {
           <Route path="/usage" element={<UsagePage />} />
           <Route path="/traces" element={<TracesPage />} />
           <Route path="/benchmark" element={<BenchmarkPage />} />
+          <Route path="/settings/private-profile" element={<PrivateProfilePage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>
