@@ -38,11 +38,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { AirplaneTiltIcon } from "@phosphor-icons/react/dist/csr/AirplaneTilt";
-import { ArrowsLeftRightIcon } from "@phosphor-icons/react/dist/csr/ArrowsLeftRight";
-import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
-import { CalendarCheckIcon } from "@phosphor-icons/react/dist/csr/CalendarCheck";
-import { CompassIcon } from "@phosphor-icons/react/dist/csr/Compass";
-import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
+import { BookOpenTextIcon } from "@phosphor-icons/react/dist/csr/BookOpenText";
+import { BrowsersIcon } from "@phosphor-icons/react/dist/csr/Browsers";
 import type {
   AgentModelConfigDto,
   AgentSummary,
@@ -130,12 +127,9 @@ function saveAppliedRouteKey(field: RouteStateField, key: string): void {
 }
 
 const TASK_ICONS = {
-  destinationPlan: MapPinIcon,
-  hotelCompare: BuildingsIcon,
-  flightCompare: AirplaneTiltIcon,
-  reviewBooking: CalendarCheckIcon,
-  adjustTrip: ArrowsLeftRightIcon,
-  browseDeals: CompassIcon,
+  ctripFlight: AirplaneTiltIcon,
+  otaCompare: BrowsersIcon,
+  xhsTrip: BookOpenTextIcon,
 } as const;
 
 export function DraftView({

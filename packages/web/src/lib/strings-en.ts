@@ -1124,160 +1124,24 @@ export const en: Strings = {
     },
     jumpBackInPrevious: "Scroll recent chats left",
     jumpBackInNext: "Scroll recent chats right",
-    /** Folder names for the draft page's collapsible examples (bookmark-style: exactly one open at a time). */
-    exampleFolders: {
-      plan: "Plan a new trip",
-      booking: "Manage a booking",
-      webapps: "Build web apps",
-      agents: "Build and optimize agents",
-    },
     exampleTasks: {
-      destinationPlan: {
-        label: "Plan five days in Tokyo",
-        desc: "A Shanghai departure balancing food, neighbourhood walks, and one day trip",
+      ctripFlight: {
+        label: "Book tomorrow's flight on Ctrip",
+        desc: "Beijing to Shanghai for a business trip — cheapest fare, no add-on bundles",
         prompt:
-          "Plan a five-day Tokyo trip next month from Shanghai for two people on a moderate budget. We like local food and neighbourhood walks, with one day trip. Start with a clear itinerary outline and the important trade-offs, then search for the transport and stays that need booking. Keep each category to a few representative options and explain why each made the cut. Do not continue until I choose, and stop at the payment page.",
+          "I'm going to Shanghai on a business trip tomorrow. Open Ctrip and book tomorrow's flight from Beijing to Shanghai for me — pick the cheapest one and book it, and don't add any extra service bundles.",
       },
-      hotelCompare: {
-        label: "Compare three West Lake stays",
-        desc: "Distinct options filtered by location, quietness, and total price",
+      otaCompare: {
+        label: "Compare Ctrip and Fliggy prices",
+        desc: "The same room in parallel tabs: true totals, rules, and where to book",
         prompt:
-          "Compare hotels near Hangzhou's West Lake for two people staying two nights next weekend. Prioritize walkability, quiet nights, and transparent tax-inclusive totals. Do not give me a long list: choose three meaningfully different representative options, explain why each made the cut and its main trade-off, wait for my choice, and stop at the payment page.",
+          "Ask me for the hotel, room type, and dates first. Then open Ctrip and Fliggy side by side in separate tabs of the browser on the right, find the same room on each, and compare what the price actually buys: tax-inclusive totals, cancellation rules, breakfast, and member-only rates. Flag anything that makes the offers non-comparable. Recommend where to book and why — this is a one-time check, not price tracking. Wait for my choice, then continue on the winning site and stop at the payment page.",
       },
-      flightCompare: {
-        label: "Find a less stressful return flight",
-        desc: "Balance total price, timing, baggage, and connection risk",
+      xhsTrip: {
+        label: "Turn Xiaohongshu guides into a trip",
+        desc: "Search the notes, distill an itinerary, then book the flights and stays",
         prompt:
-          "Find return flights from Shanghai to Osaka next month for two adults on a four-day, three-night trip. Balance tax-inclusive price, departure times, baggage, and connection risk. Show three representative options with clear trade-offs rather than only the cheapest, wait for my confirmation, and stop at the payment page.",
-      },
-      reviewBooking: {
-        label: "Organize my existing bookings",
-        desc: "Turn flights, stays, and activities into an actionable timeline",
-        prompt:
-          "I will share my existing flight, hotel, and activity bookings. First tell me which screenshots or confirmation details you need. Then organize them into a day-by-day travel timeline and flag timing conflicts, connection risks, cancellation deadlines, and anything still unbooked. Do not guess details that are not supported by the evidence.",
-      },
-      adjustTrip: {
-        label: "Decide whether changing dates is worth it",
-        desc: "Compare change fees, stay prices, and itinerary loss",
-        prompt:
-          "I want to change the dates of a trip I have already booked. Ask for the current bookings and proposed dates first, then check each change or cancellation rule, compare added cost, stay-price differences, and itinerary loss, and recommend keeping the plan, changing everything, or changing only part of it. Wait for my explicit confirmation before any irreversible action.",
-      },
-      browseDeals: {
-        label: "Continue from a travel link",
-        desc: "Verify the page in the browser and turn inspiration into a bookable plan",
-        prompt:
-          "I will share a travel guide, hotel, or activity link. Open it in the browser on the right and verify the page, extract supported details such as destination, dates, places, and prices, and turn them into an actionable travel plan. Ask me about anything uncertain and wait for explicit authorization before filling forms or reaching payment.",
-      },
-      game: {
-        label: "2D penguin sled game",
-        desc: "A cute Antarctic penguin sleds over rocks, easy start with a gentle difficulty ramp — a 2D pure-frontend mini game",
-        prompt:
-          "Build a cute Antarctic penguin sledding 2D game: press Space to jump over the rocks " +
-          "coming up on the ice; start easy and forgiving, with sled speed and obstacle density " +
-          "ramping up smoothly and gradually over time (no sudden spikes), live scoring, and " +
-          "hitting a rock ending the run with one-click restart. " +
-          "A 2D side-scroller with a cute cartoon look, pure frontend (a single HTML file is " +
-          "fine), styled per the web-design skill. " +
-          "When done, test it in a browser once, confirm the first few seconds are easy to " +
-          "clear, and tell me how to open it and how to play.",
-      },
-      gamecenter: {
-        label: "A mini-game center built by multiple agents",
-        desc: "Ten pure-frontend games with no repeated mechanics, built in parallel behind one index page",
-        prompt: `Build a web mini-game center with multiple agents working in parallel: 10 pure-frontend games with no two sharing the same mechanic, plus an index page.
-
-## How to split the work
-- First plan the 10 games (say snake, 2048, tetris, breakout, minesweeper, memory match, sokoban, space shooter, platform jumper, rhythm tap), confirm no two mechanics repeat, and fix a shared directory layout, palette and interaction spec.
-- Then hand the 10 games to several subagents to implement in parallel — each subagent owns exactly one game, follows the agreed spec, and never edits another's files.
-
-## Each game
-- Its own \`games/<slug>/index.html\`: pure frontend, a single file that runs straight from file://, with no backend and no CDN assets.
-- Start / restart, live score or timer, a lose-or-clear summary, both keyboard and touch controls, and the rules written on the page.
-- A way back to the index page.
-
-## Index page
-- \`index.html\` at the root: a card grid listing all 10 games (name + one-line mechanic + controls), each card opening its game.
-- One design language shared with every game, following the web-design skill.
-
-## Wrap-up
-- Review as a whole: the 10 mechanics really are distinct, the styling is consistent, and every index link resolves.
-- Self-test each game in a browser — it starts, it ends, it restarts — then tell me how to open it.`,
-      },
-      lol: {
-        label: "League of Legends music player",
-        desc: "Worlds anthems on the SoundCloud Widget API — a single file that opens from file://",
-        prompt: `Build a League of Legends Worlds anthem player with the SoundCloud Widget API (see https://developers.soundcloud.com/docs/api/html5-widget): a single index.html that works when opened from file://.
-
-## Technical constraints
-- Use the SC.Widget JS API (widget.load / widget.toggle / widget.setVolume / widget.seekTo), loading https://w.soundcloud.com/player/api.js
-- The iframe must stay visible (180px tall), with visual=true color=f0b90b single_active=true
-- Include ONLY these 8 tracks confirmed playable (oEmbed-verified); do not add tracks that are not oEmbed-verified:
-  - Warriors (S4) — soundcloud.com/leagueoflegends/warriors
-  - Worlds Collide (S5) — soundcloud.com/leagueoflegends/worlds-collide
-  - Legends Never Die (S7) — soundcloud.com/leagueoflegends/legends-never-die
-  - Phoenix (S9) — soundcloud.com/leagueoflegends/phoenix
-  - Burn It All Down (S11) — soundcloud.com/leagueoflegends/burn-it-all-down
-  - GODS (S13) — soundcloud.com/leagueoflegends/gods
-  - Heavy Is The Crown (S14) — soundcloud.com/linkinpark/heavy-is-the-crown
-  - Sacrifice (S15) — soundcloud.com/leagueoflegends/sacrifice
-
-## Layout
-- Left 260px sticky sidebar: the track list (S4/S5/… badge + emoji + title + year); clicking highlights with a gold border and switches tracks via SC.Widget.load() with auto_play
-- Right main area: hero title + a desktop clock (80px monospace gold HH:MM:SS, refreshed every second, blinking colons) + a mood tag
-- Player card: the SoundCloud iframe + a custom control bar (⏮ ▶/⏸ ⏭ + track info + a volume slider; clicking the speaker icon toggles mute)
-- Mood-wave section: 15 gold animated bars, re-randomized on every track switch
-- Keyboard shortcuts: Space play/pause, ← → previous/next, ↑ ↓ volume
-
-## Design
-Penguin visual style (see the web-design skill), dark by default. On phones the sidebar becomes a horizontally scrolling top bar.
-
-When done, open index.html in a browser and self-test once.`,
-      },
-      rag: {
-        label: "Build a Claude Code docs RAG agent",
-        desc: "Collect the claude-code-docs repo into a conversational RAG knowledge app with source citations",
-        prompt:
-          "Collect the docs from https://github.com/ericbuess/claude-code-docs and build a RAG knowledge app: " +
-          "clone the repo and prepare the corpus, then build a retrieval index; " +
-          "the app acts as a Claude Code configuration expert, answering Claude Code questions " +
-          "with retrieval-augmented replies and clickable citations that reveal the matched " +
-          "original text chunk and link to the real documents; " +
-          "give it a beautiful web chat UI following the web-design skill. " +
-          "When done, run the app and self-test one Chinese question and one English question, confirming both retrieve " +
-          "the right English documents and stream their answers, then tell me how to access it.",
-      },
-      agentBenchmarkBuild: {
-        label: "Build a general-purpose decision agent and its benchmark",
-        desc: "Create a general decision Agent and test it on football, after-sales, and investment tasks",
-        prompt: `Use \`agent-creation\` followed by \`benchmark-design\` to create a decision Agent and produce a frozen Benchmark with a Formal Baseline.
-
-Agent:
-- id: \`finite_choice_agent\`
-- capability: make stable, explainable finite choices when public information is incomplete or conflicting
-- installed_skills: \`[]\`
-
-Benchmark:
-- id: \`contextual-choice-adaptation\`
-- capability: form and transfer a stable finite-choice decision process from public rules, historical examples, and current facts
-- desired_baseline_score: \`<75\`
-- pilot_iteration_limit: \`5\`
-
-Scenarios:
-1. Make football betting decisions from historical matches and current information.
-2. Choose after-sales actions from policy and ticket facts.
-3. Choose investment actions from a strategy, historical markets, and current indicators.`,
-      },
-      agentOptimization: {
-        label: "Improve the general-purpose decision agent's accuracy",
-        desc: "Improve an Agent from existing evaluation results and verify that the new version is better",
-        prompt: `Use \`agent-optimization\` to optimize a decision Agent against its frozen Benchmark.
-
-- test_agent_id: \`finite_choice_agent\`
-- benchmark_id: \`contextual-choice-adaptation\`
-- capability_direction: improve stability under incomplete information, conflicting rules, and finite choices
-- runs: \`3\`
-- desired_score: \`>=95\`
-- candidate_round_limit: \`5\``,
+          "Search Xiaohongshu in the browser on the right for recent guides on a three-day Chongqing food trip for two people from Shanghai. If the site asks for a login or verification, hand the tab to me. Keep what several guides agree on, note which post supports each pick, and distill a day-by-day itinerary with the key trade-offs. Then search the flights and stays that fit it — a few representative options for each, with why each made the cut. Book nothing until I choose, and stop at every payment page.",
       },
     },
     sessionList: "Sessions",

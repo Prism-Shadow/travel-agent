@@ -1064,161 +1064,29 @@ export const zh = {
     },
     jumpBackInPrevious: "向左浏览最近对话",
     jumpBackInNext: "向右浏览最近对话",
-    /** Collapsed group names for the home-page examples (bookmark style; only one open at a time). */
-    exampleFolders: {
-      plan: "规划新旅程",
-      booking: "管理已有预订",
-      webapps: "搭建网页应用",
-      agents: "搭建和优化智能体",
-    },
     /**
      * Example task cards on the draft screen: one click auto-submits the canned prompt. These
      * are the FULL working prompts — descriptions stay short, but the submitted instructions
      * remain detailed because execution quality depends on them.
      */
     exampleTasks: {
-      destinationPlan: {
-        label: "规划一趟东京五日游",
-        desc: "从上海出发，兼顾美食、街区漫步和一天近郊",
+      ctripFlight: {
+        label: "在携程订明天的机票",
+        desc: "出差去上海，北京飞上海选最便宜的，不要多余服务包",
         prompt:
-          "帮我规划下个月从上海出发的东京五日游：两个人，预算适中，喜欢当地美食和街区漫步，安排一天近郊。先给我清晰的行程框架和关键取舍，再搜索需要预订的交通与住宿；每类只保留少数有代表性的选项并说明入选理由，未经我选择不要继续下单，最终停在支付页。",
+          "我准备明天去上海出差，帮我打开携程预订明天从北京去上海的机票，帮我选择最便宜的机票预订，不要多余的服务包。",
       },
-      hotelCompare: {
-        label: "比较三家西湖附近酒店",
-        desc: "按位置、安静程度和总价筛出差异明显的代表选项",
+      otaCompare: {
+        label: "携程飞猪多标签比价",
+        desc: "同一间房并行开标签，核对真实总价、规则和更划算的下单处",
         prompt:
-          "帮我比较下周末杭州西湖附近适合两人住两晚的酒店。优先步行方便、晚上安静、含税总价透明；不要罗列一长串，只给我三家差异明显的代表选项，每家写清为什么入选和主要取舍，等我选择后再继续填单，并停在支付页。",
+          "请先问我要比价的酒店、房型和日期。然后在右侧浏览器用多个标签页同时打开携程和飞猪，找到同一间房，对比价格背后的实际内容：含税总价、退改规则、含不含早餐、会员价；发现口径不一致导致不可比时明确标出来。给出更值得下单的平台和入选理由——这是一次性核对，不做长期盯价。等我选择后在胜出的平台继续，最终停在支付页。",
       },
-      flightCompare: {
-        label: "查找更省心的往返航班",
-        desc: "平衡总价、出发时间、行李与中转风险",
+      xhsTrip: {
+        label: "把小红书攻略变成一趟旅行",
+        desc: "站内搜攻略、提炼行程，再订机票酒店",
         prompt:
-          "帮我查找下个月上海往返大阪、四天三晚的航班，两位成人。请综合含税总价、起降时间、行李额度和中转风险，筛出三组有代表性的方案并解释取舍；不要只推最便宜的，等我确认后再继续，最终停在支付页。",
-      },
-      reviewBooking: {
-        label: "整理我已有的旅行订单",
-        desc: "把航班、酒店和活动整理成可执行时间线",
-        prompt:
-          "我会把已有的航班、酒店和活动订单发给你。请先告诉我需要哪些截图或确认信息，再把它们整理成按天的旅行时间线，标出时间冲突、衔接风险、退改期限和还没订的环节；没有依据的内容不要猜。",
-      },
-      adjustTrip: {
-        label: "评估一次改期是否值得",
-        desc: "比较改签成本、住宿变化与行程损失",
-        prompt:
-          "我想调整一趟已经订好的旅行日期。请先向我收集现有订单和新日期，再逐项核对改签或取消规则，比较额外成本、住宿价差与行程损失，最后给出保留原计划、整体改期或只改一部分的建议；任何不可逆操作都必须等我明确确认。",
-      },
-      browseDeals: {
-        label: "从一个旅行链接继续规划",
-        desc: "打开浏览器核对页面，把灵感变成可预订方案",
-        prompt:
-          "我会发一个旅行攻略、酒店或活动链接。请在右侧浏览器打开并核对页面内容，提取目的地、日期、地点和价格等有效信息，把它整理成可执行的旅行方案；不确定的地方先问我，涉及填写与支付时明确等待我的授权。",
-      },
-      game: {
-        label: "2D 企鹅雪橇越野小游戏",
-        desc: "可爱南极企鹅滑雪橇跳石头，难度由易到难的 2D 纯前端小游戏",
-        prompt:
-          "做一个可爱的南极企鹅滑雪橇越野 2D 小游戏：按空格键起跳，跃过冰面上迎面而来的石头；" +
-          "开局要足够简单、上手无压力，滑行速度与障碍密度随时间平滑、循序渐进地上升，避免突然变难，" +
-          "实时计分，撞上石头即结束并可一键重新开始。" +
-          "2D 横版画面、可爱卡通风，纯前端实现（单个 HTML 文件即可），界面遵循 web-design 技能。" +
-          "完成后在浏览器里自测一次，确认开局能轻松玩过几秒，并告诉我怎么打开和怎么玩。",
-      },
-      gamecenter: {
-        label: "多智能体搭建小游戏中心",
-        desc: "并行产出 10 个玩法互不重复的纯前端小游戏，配一个统一风格的索引首页",
-        prompt: `用多智能体并行搭建一个网页小游戏中心：10 个玩法互不重复的纯前端小游戏，外加一个索引首页。
-
-## 分工方式
-- 先规划这 10 个游戏（例如贪吃蛇、2048、俄罗斯方块、打砖块、扫雷、记忆翻牌、推箱子、太空射击、跳跃平台、节奏点击），确认玩法确实互不重复，并定好统一的目录结构、配色与交互规范。
-- 再把 10 个游戏分派给多个子智能体并行实现，每个子智能体只负责自己的那一个游戏，严格按既定规范产出，互不改动他人的文件。
-
-## 每个游戏
-- 独立的 \`games/<slug>/index.html\`，纯前端单文件、file:// 直接打开即可运行，不依赖后端与任何 CDN 资源。
-- 具备开始 / 重新开始、实时计分或计时、失败或通关结算，并同时支持键盘与触摸操作，页面内写明玩法说明。
-- 提供返回索引首页的入口。
-
-## 索引首页
-- 根目录 \`index.html\`：卡片网格列出全部 10 个游戏（名称 + 一句话玩法 + 操作方式），点击进入对应游戏。
-- 与所有游戏共用一套设计语言，遵循 web-design 技能。
-
-## 收尾
-- 统一验收：10 个游戏玩法确实不重复、风格一致，索引页的链接全部可达。
-- 在浏览器里逐个自测，确认都能开始、能结束、能重开，然后告诉我怎么打开。`,
-      },
-      lol: {
-        label: "英雄联盟音乐播放器",
-        desc: "用 SoundCloud Widget API 播放历届 Worlds 主题曲，单文件即开即用",
-        prompt: `用 SoundCloud Widget API（见 https://developers.soundcloud.com/docs/api/html5-widget）做一个英雄联盟 Worlds 主题曲播放器，单文件 index.html，file:// 打开即用。
-
-## 技术约束
-- 使用 SC.Widget JS API（widget.load / widget.toggle / widget.setVolume / widget.seekTo），引入 https://w.soundcloud.com/player/api.js
-- iframe 必须可见（180px 高），visual=true color=f0b90b single_active=true
-- 仅包含以下 8 首已确认可播曲目（oEmbed 验证通过），不要添加未经 oEmbed 验证的曲目：
-  - Warriors (S4) — soundcloud.com/leagueoflegends/warriors
-  - Worlds Collide (S5) — soundcloud.com/leagueoflegends/worlds-collide
-  - Legends Never Die (S7) — soundcloud.com/leagueoflegends/legends-never-die
-  - Phoenix (S9) — soundcloud.com/leagueoflegends/phoenix
-  - Burn It All Down (S11) — soundcloud.com/leagueoflegends/burn-it-all-down
-  - GODS (S13) — soundcloud.com/leagueoflegends/gods
-  - Heavy Is The Crown (S14) — soundcloud.com/linkinpark/heavy-is-the-crown
-  - Sacrifice (S15) — soundcloud.com/leagueoflegends/sacrifice
-
-## 布局
-- 左侧 260px 粘性侧边栏：曲目列表（S4/S5/… 标签 + emoji + 曲名 + 年份），点击高亮金色边框，SC.Widget.load() 切歌 + auto_play
-- 右侧主区域：Hero 标题 + 桌面时钟（80px 等宽金色 HH:MM:SS，每秒刷新，冒号闪烁）+ 心情标签
-- 播放器卡片：SoundCloud iframe + 自定义控制栏（⏮ ▶/⏸ ⏭ + 曲目信息 + 音量滑块，点击喇叭图标静音切换）
-- 心情波动区：15 根金色动画柱，切歌时重新随机生成
-- 键盘快捷键：空格播放暂停、← → 切歌、↑ ↓ 调音量
-
-## 设计
-Penguin 视觉风格（见 web-design 技能），默认深色。手机端侧边栏变为顶部横向滚动。
-
-完成后在浏览器打开 index.html 自测一次。`,
-      },
-      rag: {
-        label: "构建 Claude Code 文档 RAG 智能体",
-        desc: "收集 claude-code-docs 仓库，生成可对话、带来源引用的 RAG 知识应用",
-        prompt:
-          "收集 https://github.com/ericbuess/claude-code-docs 的文档，构建一个 RAG 知识应用：" +
-          "克隆仓库并整理语料，建立检索索引；应用化身 Claude Code 配置专家，" +
-          "检索增强回答 Claude Code 相关问题并标注可点击的来源引用——" +
-          "引用要能展示命中的原文片段，并链接到真实文档；" +
-          "按 web-design 技能提供美观的 Web 聊天界面。" +
-          "完成后运行应用，用一个中文问题和一个英文问题各自测一次，" +
-          "确认两者都检索到了正确的英文文档、流式回答正常，并告诉我访问方式。",
-      },
-      agentBenchmarkBuild: {
-        label: "构建通用决策智能体和评测基准",
-        desc: "创建一个通用决策 Agent，并用足球、售后和投资任务检验它",
-        prompt: `请依次使用 \`agent-creation\` 和 \`benchmark-design\`，创建决策 Agent，并产出 Frozen Benchmark 与 Formal Baseline。
-
-Agent：
-- id：\`finite_choice_agent\`
-- 能力：面对有限选项，在公开信息不足或冲突时仍能给出稳定、可解释的选择
-- installed_skills：\`[]\`
-
-Benchmark：
-- id：\`contextual-choice-adaptation\`
-- capability：从公开规则、历史案例和当前事实中形成并迁移稳定的有限选择决策过程
-- desired_baseline_score：\`<75\`
-- pilot_iteration_limit：\`5\`
-
-场景：
-1. 根据历史比赛与当前信息进行足球投注决策。
-2. 根据售后政策与工单事实选择处置动作。
-3. 根据投资策略、历史市场与当前指标选择投资动作。`,
-      },
-      agentOptimization: {
-        label: "优化通用决策智能体的准确率",
-        desc: "根据已有评测结果改进 Agent，并验证新版本是否真正提升",
-        prompt: `请使用 \`agent-optimization\`，根据 Frozen Benchmark 优化决策 Agent。
-
-- test_agent_id：\`finite_choice_agent\`
-- benchmark_id：\`contextual-choice-adaptation\`
-- capability_direction：提高信息不完整、规则冲突和有限选项决策中的稳定性
-- runs：\`3\`
-- desired_score：\`>=95\`
-- candidate_round_limit：\`5\``,
+          "在右侧浏览器打开小红书，搜索重庆三日游美食相关的近期攻略：从上海出发、两个人。遇到登录或验证就把标签页交给我处理。把多篇攻略共同认可的内容留下来，标注每个安排来自哪篇笔记，提炼成按天的行程和关键取舍。然后搜索匹配这趟行程的机票和酒店，每类只给少数代表选项并写明入选理由；未经我选择不预订任何东西，每个支付页都停下。",
       },
     },
     sessionList: "Session",

@@ -1,6 +1,7 @@
 # Unreleased
 
 - [2026-08-20] CI: the in-app browser e2e is repaired — a stale pre-regrouping dist path in the harness and the missing `iab-redaction-state` provider are fixed; the fail-closed design is untouched. ([details](2026-08-20-repair-iab-e2e-ci.md))
+- [2026-08-20] The draft screen's starter cards are replaced by three real-site scenarios — book tomorrow's cheapest Beijing–Shanghai flight on Ctrip, compare the same room across Ctrip and Fliggy in parallel tabs, turn Xiaohongshu guides into a booked trip; the six site-agnostic starters, the never-rendered folder layer, and six orphaned upstream demo prompts are removed. ([details](2026-08-20-real-site-starter-cards.md))
 - [2026-08-20] Contract READMEs for `docs/issues/` (close by deleting, numbers never reused, the folder survives zero open issues) and `tasks/` (in-flight plans and ledgers); five missing phase lines restored to this index. ([details](2026-08-20-docs-contracts-and-index-repair.md))
 - [2026-08-20] The injected-deps build deadlock is dissolved: extension bundling moves into the extension's own build behind the copy re-sync, the one-type dependency cycle that defeated pnpm's build ordering is broken, and a browser-cli layout change clears itself on the next `pnpm -r build`. ([details](2026-08-20-dissolve-injected-deps-deadlock.md))
 - [2026-08-20] Private Profile gains an account-owned management surface with real capability states, honest empty data, and no browser-storage fallback. ([details](2026-08-20-private-profile-interface.md))

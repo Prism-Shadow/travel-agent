@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { EXAMPLE_FOLDERS, EXAMPLE_TASKS } from "../src/features/chat/example-tasks";
+import { EXAMPLE_TASKS } from "../src/features/chat/example-tasks";
 import { buildSkillsMessage } from "../src/features/chat/skill-use";
 import { en } from "../src/lib/strings-en";
 import { zh } from "../src/lib/strings";
 
 describe("travel starter tasks", () => {
-  it("keeps two balanced groups with six distinct starters", () => {
-    expect(EXAMPLE_FOLDERS.map((folder) => folder.tasks.length)).toEqual([3, 3]);
-    expect(new Set(EXAMPLE_TASKS.map((task) => task.id)).size).toBe(6);
+  it("keeps exactly the three real-site starters, in display order", () => {
+    expect(EXAMPLE_TASKS.map((task) => task.id)).toEqual(["ctripFlight", "otaCompare", "xhsTrip"]);
   });
 
   it("submits every starter without an implicit development Skill block", () => {
@@ -23,7 +22,7 @@ describe("travel starter tasks", () => {
     {
       locale: "zh",
       dictionary: zh,
-      markers: ["代表选项", "入选理由", "支付页", "不可逆操作", "右侧浏览器"],
+      markers: ["代表选项", "入选理由", "支付页", "右侧浏览器", "不做长期盯价"],
     },
     {
       locale: "en",
@@ -32,8 +31,8 @@ describe("travel starter tasks", () => {
         "representative options",
         "made the cut",
         "payment page",
-        "irreversible action",
         "browser on the right",
+        "not price tracking",
       ],
     },
   ])(
