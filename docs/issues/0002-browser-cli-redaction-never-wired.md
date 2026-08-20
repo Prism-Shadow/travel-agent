@@ -10,7 +10,13 @@
 a page must not come back out through what the agent reads. It exports `redactText`,
 `judgeScreenshot`, `fingerprintOf`, `shapeOf`, `redactionLabel` — all unit-tested.
 
-**Nothing calls any of it.** Verified:
+**Nothing calls any of it.** Re-verified 2026-08-20: each of the five exports (`redactText`,
+`judgeScreenshot`, `fingerprintOf`, `shapeOf`, `redactionLabel`) still has **zero** call sites
+outside `redaction.ts`, and the three render paths named below still exist unchanged. Wiring it is
+not a bug fix but the cross-process feature that must land with secret entry: the relay would have
+to learn which values are sensitive, and that transport does not exist yet.
+
+Original verification:
 
 - `redactText` / `judgeScreenshot`: zero call sites in the repo outside `redaction.unit.test.ts`.
 - `RedactionEntry` never appears in `src/relay/cdp-relay.ts`, `src/executor/executor.ts` or

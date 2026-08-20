@@ -6,11 +6,24 @@
  * counts and prints a summary on exit.
  *
  * Usage:
- *   bun penguin-browser/scripts/long-running-stability-test.ts
- *   bun penguin-browser/scripts/long-running-stability-test.ts --duration 2  # hours (default: 4)
+ *   tsx packages/browser-cli/scripts/long-running-stability-test.ts
+ *   tsx packages/browser-cli/scripts/long-running-stability-test.ts --duration 2  # hours (default: 4)
  */
 
-import { $ } from 'bun'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Runs the CLI with an argument vector — never a shell string, because `-e` carries
+ * arbitrary Playwright source. Rejects on a non-zero exit, like the shell helper this
+ * replaced.
+ */
+async function cli(args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync('penguin-browser', args, { maxBuffer: 64 * 1024 * 1024 })
+  return stdout
+}
 
 const INTERVAL_MS = 5_000
 const DURATION_HOURS = (() => {
@@ -40,8 +53,7 @@ function logError(iteration: number, operation: string, err: unknown): void {
 }
 
 async function pw(sessionId: string, code: string): Promise<string> {
-  const result =
-    await $`penguin-browser -s ${sessionId} --timeout 30000 -e ${code}`.text()
+  const result = await cli(['-s', sessionId, '--timeout', '30000', '-e', code])
   return result.trim()
 }
 
@@ -84,7 +96,7 @@ async function main(): Promise<void> {
 
   // Create a session
   log('Creating session...')
-  const sessionRaw = await $`penguin-browser session new`.text()
+  const sessionRaw = await cli(['session', 'new'])
   const sessionMatch = sessionRaw.match(/Session\s+(\S+)\s+created/)
   if (!sessionMatch) {
     throw new Error(`Failed to parse session id from: ${sessionRaw.trim()}`)
@@ -207,7 +219,7 @@ async function main(): Promise<void> {
     }
 
     // Wait before next iteration
-    await Bun.sleep(INTERVAL_MS)
+    await new Promise((resolve) => setTimeout(resolve, INTERVAL_MS))
   }
 
   log('Duration elapsed, finishing up.')

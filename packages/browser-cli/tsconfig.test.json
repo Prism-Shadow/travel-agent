@@ -18,8 +18,8 @@
     "declarationMap": false,
     "sourceMap": false
   },
-  // `scripts/` 刻意不在内：那些是开发期一次性工具（其中一个还需要 bun 类型），把它们
-  // 拉进来只会用无关的既有报错淹没真问题。
-  "include": ["src", "test", "vitest.setup.ts", "vitest.config.ts"],
+  // `scripts/` is included: they are dev-time tools, but they are load-bearing enough that
+  // a broken one is found at build time instead of never (docs/issues/0004).
+  "include": ["src", "test", "scripts", "vitest.setup.ts", "vitest.config.ts"],
   "exclude": ["src/client/**", "**/node_modules", "**/.*/"]
 }

@@ -1,6 +1,8 @@
 # Changing browser-cli's file layout deadlocks the extension build
 
-- **Status:** open — a trap, with a known manual escape
+- **Status:** open, mitigated 2026-08-20 — the build now refuses early and prints the escape
+  command, so the trap costs one instruction instead of half an hour. The structural deadlock
+  (a sync gated on a build that cannot succeed until the sync runs) is unchanged
 - **Area:** `pnpm-workspace.yaml` (`injectWorkspacePackages`, `syncInjectedDepsAfterScripts`),
   `packages/browser-cli/scripts/build-extension-bundle.ts`
 - **Found:** 2026-08-19, during the `src/` layout refactor
@@ -62,13 +64,23 @@ describes shipping "a portable, self-contained node_modules (workspace packages 
 `scripts/stage.mjs` copies through those injected copies by name. Removing the flag would break
 packaging.
 
-## Suggested resolution
+## What was done (2026-08-20)
 
-Cheapest first, and none of them is obviously right yet:
+Suggestion 1, in a stronger form: `build-extension-bundle.ts` now **preflights** instead of
+interpreting a failure after the fact. Before the extension build runs, it scans
+`browser-extension/src` for `penguin-browser/src/…` specifiers and checks each one against the
+injected copy. A missing path aborts with the offending specifiers, the reason, and the escape
+command — so the confusing bundler error never appears. Verified both ways: renaming a file inside
+the injected copy triggers the message; an up-to-date copy builds silently (`pnpm build`, exit 0).
 
-1. **Make the failure legible.** `build-extension-bundle.ts` can detect the specific
-   `Cannot find module 'penguin-browser/…'` failure and print the escape command, turning a
-   30-minute puzzle into a one-line instruction.
+A positive filesystem check was chosen over matching the bundler's error text, which varies by
+bundler and version.
+
+## Remaining resolution options
+
+The deadlock itself is untouched — these remain open:
+
+1. ~~Make the failure legible.~~ Done, see above.
 2. **Break the nesting.** browser-cli's `build` builds the extension, which is what puts a consumer
    of the stale copy *inside* the producer's build. If CI built the two packages in sequence
    instead, the sync would land between them.

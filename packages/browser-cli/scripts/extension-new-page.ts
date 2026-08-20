@@ -1,4 +1,4 @@
-import playwright from 'playwright-core'
+import playwright from '@xmorse/playwright-core'
 
 async function main() {
   const cdpEndpoint = `ws://localhost:19989/cdp/${Date.now()}`

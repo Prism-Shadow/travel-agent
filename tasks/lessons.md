@@ -96,10 +96,15 @@ needed.
 - **Establish the baseline before the change, and clear the cache when you do.** A `composite`
   project answers `tsc` from `tsconfig.tsbuildinfo`, so a "clean" pre-change type check can be a
   cached no-op. Delete the buildinfo when a baseline has to mean something.
-- **A suite that fails differently each run cannot answer "did I break this".** `browser-cli` has
-  two browser-backed tests that fail intermittently ([`docs/issues/0003`](../docs/issues/0003-browser-cli-flaky-browser-tests.md));
-  isolate the failing file and compare against the recorded baseline (46 files, 572 passed,
-  6 skipped) before attributing it to a change.
+- **A suite that fails differently each run cannot answer "did I break this".** Isolate the failing
+  file, run it several times, and compare against a recorded baseline before attributing a red run
+  to a change — the two `browser-cli` tests that flaked for weeks were measured this way and turned
+  out to be test bugs, not product bugs
+  ([postmortem 0001](../docs/postmortem/0001-flaky-browser-tests.md)).
+- **A timer is not a way to express a state.** "Still in flight", "already settled" and "not yet
+  replaced" are conditions, and a delay only makes them true while the machine is fast enough. Hold
+  the condition open with a gate the test releases, or wait for the terminal state — both flaky
+  browser tests were a timer standing in for a state, in two different disguises.
 - **Prove the class, not the instance.** When a static search says a file is unused, confirm it
   covers dynamic `import()` too — two `browser-cli` modules looked dead and are lazily imported by
   `cli.ts` on purpose, so that `--help` works without browser dependencies installed.

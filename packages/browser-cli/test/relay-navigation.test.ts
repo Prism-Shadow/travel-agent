@@ -255,15 +255,19 @@ describe('Relay Navigation Tests', () => {
         const pluginFrame = await withTimeout({
           promise: (async () => {
             for (let attempt = 0; attempt < 40; attempt += 1) {
-              const frame = cdpPage!.frames().find((candidate) => {
-                return candidate.url() === loginUrl || candidate.url() === canvasUrl
-              })
+              // Wait for the *terminal* URL. The page navigates this frame twice — empty src,
+              // then login, then canvas 150ms later — so accepting the login document meant
+              // racing that second navigation: the button count below could be taken while the
+              // document was being replaced, and came back 0 (docs/issues/0003). Reaching
+              // canvas still proves the whole empty-src → cross-origin sequence resolved under
+              // auto-attach, because canvas is only reachable through it.
+              const frame = cdpPage!.frames().find((candidate) => candidate.url() === canvasUrl)
               if (frame) {
                 return frame
               }
               await cdpPage!.waitForTimeout(100)
             }
-            throw new Error('Plugin frame did not appear with expected URL')
+            throw new Error('Plugin frame did not settle at the canvas URL')
           })(),
           timeoutMs: 5000,
           errorMessage: 'Timed out waiting for plugin frame URL in empty-src iframe test',

@@ -107,7 +107,10 @@ describe("exec_command — long-running command sessions", () => {
       cmd: 'node -e "setTimeout(()=>{},5000)" & echo hello',
     });
     const elapsed = Date.now() - startedAt;
-    expect(elapsed).toBeLessThan(2000);
+    // The boundary is the failure mode, not a guess about machine speed: waiting for pipe EOF
+    // would take the background child's full 5s. 2000ms used to be asserted here and failed at
+    // 2023ms on a loaded machine — measuring the host, not the code (postmortem 0001).
+    expect(elapsed).toBeLessThan(4000);
     expect(res.output).toContain("hello");
     expect(res.output).not.toContain("process running with process_id");
     expect(res.stopReason).toBe("completed");
@@ -275,9 +278,17 @@ describe("exec_command — long-running command sessions", () => {
     const session = new ManagedSession({ cmd: "echo first; cat", cwd: tmp, env: process.env });
     try {
       const gen = session.collect(5000);
-      const first = await gen.next();
-      expect(first.done).toBe(false);
-      expect(String(first.value)).toContain("first");
+      // The first chunk is not necessarily this command's output: the session runs a login
+      // shell, so a developer's profile can print first (nvm warns about a `prefix` in
+      // ~/.npmrc, for one). Drain until the marker appears; the generator is left suspended
+      // at a yield either way, which is the state the wake-race below needs.
+      let seen = "";
+      for (let i = 0; i < 10 && !seen.includes("first"); i++) {
+        const chunk = await gen.next();
+        expect(chunk.done).toBe(false);
+        seen += String(chunk.value);
+      }
+      expect(seen).toContain("first");
       // The generator is still suspended at the yield above: writing to stdin now, with cat
       // echoing it back, means both the data event and the wakeup have already happened.
       session.write("second\n");

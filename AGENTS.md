@@ -142,10 +142,7 @@ its postmortem when one exists.
 | --- | --- |
 | [0001](docs/issues/0001-extension-open-window-blocked.md) | Extension backend opens a blocked/blank window on Ctrip |
 | [0002](docs/issues/0002-browser-cli-redaction-never-wired.md) | Relay text redaction is built, tested, and never called — **must be closed before secret entry goes live** |
-| [0003](docs/issues/0003-browser-cli-flaky-browser-tests.md) | Two browser-backed tests fail intermittently |
-| [0004](docs/issues/0004-browser-cli-scripts-not-typechecked.md) | `browser-cli/scripts/` is unchecked; several files do not compile |
-| [0005](docs/issues/0005-injected-workspace-deps-sync-deadlock.md) | Layout changes deadlock the extension build |
-| [0006](docs/issues/0006-core-exec-session-env-pollution.md) | A core exec-session test fails on machines whose npm config prints a startup warning |
+| [0005](docs/issues/0005-injected-workspace-deps-sync-deadlock.md) | Layout changes deadlock the extension build — mitigated: the build now refuses early with the escape command |
 
 ## Editing Workflow
 

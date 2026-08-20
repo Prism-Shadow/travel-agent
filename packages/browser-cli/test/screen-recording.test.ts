@@ -177,7 +177,12 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 function createSuccessfulRecordingHandler(
   requests: RecordingRequest[],
   options: {
-    stopDelayMs?: number
+    /**
+     * Holds the stop response open until the test resolves it. A timer cannot express "still
+     * in flight": on a loaded machine the timer expires before the assertions run, which is
+     * exactly how this file's two stop-race tests used to flake (docs/issues/0003).
+     */
+    stopGate?: Promise<void>
     startDelayMs?: number
     statusDelayMs?: number
     failStartCount?: number
@@ -214,8 +219,8 @@ function createSuccessfulRecordingHandler(
       }
     }
     if (requestUrl.pathname === '/recording/stop') {
-      if (options.stopDelayMs) {
-        await new Promise<void>((resolve) => setTimeout(resolve, options.stopDelayMs))
+      if (options.stopGate) {
+        await options.stopGate
       }
       activeSessions.delete(sessionId)
       return {
@@ -507,7 +512,11 @@ describe('recording lifecycle across execute calls', () => {
 
   test('manual stop joins an auto-stop already in flight instead of sending a duplicate request', async () => {
     const requests: RecordingRequest[] = []
-    const server = await createRecordingTestServer(createSuccessfulRecordingHandler(requests, { stopDelayMs: 80 }))
+    let releaseStop!: () => void
+    const stopGate = new Promise<void>((resolve) => {
+      releaseStop = resolve
+    })
+    const server = await createRecordingTestServer(createSuccessfulRecordingHandler(requests, { stopGate }))
     const page = createTestPage('pw-tab-a', { width: 1440, height: 900 })
     const laterDefaultPage = createTestPage('pw-tab-b', { width: 1024, height: 768 })
     const lifecycleState = createRecordingLifecycleState()
@@ -527,7 +536,11 @@ describe('recording lifecycle across execute calls', () => {
     try {
       await startApi.start({ page: page.page, outputPath: '/tmp/auto-stop.mp4', maxDurationMs: 10 })
       await waitFor(() => requests.some((request) => request.path === '/recording/stop'))
-      await expect(laterApi.stop()).resolves.toMatchObject({ path: '/tmp/auto-stop.mp4' })
+      // Joins while the auto-stop is provably in flight: its response cannot arrive before the
+      // gate is released, so this does not depend on how fast the machine is.
+      const joined = laterApi.stop()
+      releaseStop()
+      await expect(joined).resolves.toMatchObject({ path: '/tmp/auto-stop.mp4' })
 
       expect(requests.filter((request) => request.path === '/recording/stop')).toHaveLength(1)
       expect(page.viewport()).toEqual({ width: 1440, height: 900 })
@@ -933,9 +946,13 @@ describe('recording lifecycle across execute calls', () => {
 
   test('does not let public status reconciliation release a terminal operation in flight', async () => {
     const requests: RecordingRequest[] = []
+    let releaseStop!: () => void
+    const stopGate = new Promise<void>((resolve) => {
+      releaseStop = resolve
+    })
     const server = await createRecordingTestServer(
       createSuccessfulRecordingHandler(requests, {
-        stopDelayMs: 80,
+        stopGate,
         statusOverride: () => ({ isRecording: false, authoritative: true }),
       }),
     )
@@ -960,7 +977,10 @@ describe('recording lifecycle across execute calls', () => {
         isRecording: false,
         authoritative: true,
       })
+      // The stop is still in flight by construction — the gate below is what ends it — so a
+      // status reconciliation must not have released the entry.
       expect(lifecycleState.recordings.size).toBe(1)
+      releaseStop()
       await expect(stopping).resolves.toMatchObject({
         executionTimestamps: [{ start: 0.1, end: 0.2 }],
       })
