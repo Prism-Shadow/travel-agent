@@ -153,8 +153,9 @@ its postmortem when one exists.
 
 ## Open Issues
 
-None currently. Closed issues live in `changelog/` and their stories in `docs/postmortem/`; file
-new ones under `docs/issues/`.
+| # | Problem |
+| --- | --- |
+| [0008](docs/issues/0008-active-session-lags-one-conversation.md) | The pane's active session lags one conversation behind; fresh chats' agents are refused tabs (`IAB_SESSION_NOT_VISIBLE`) while the user is already looking at them |
 
 ## Editing Workflow
 
