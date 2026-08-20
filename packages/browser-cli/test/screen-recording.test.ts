@@ -180,7 +180,8 @@ function createSuccessfulRecordingHandler(
     /**
      * Holds the stop response open until the test resolves it. A timer cannot express "still
      * in flight": on a loaded machine the timer expires before the assertions run, which is
-     * exactly how this file's two stop-race tests used to flake (docs/issues/0003).
+     * exactly how this file's two stop-race tests used to flake. See
+     * docs/postmortem/0001-flaky-browser-tests.md.
      */
     stopGate?: Promise<void>
     startDelayMs?: number

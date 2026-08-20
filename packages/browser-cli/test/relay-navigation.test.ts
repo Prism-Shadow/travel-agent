@@ -258,9 +258,9 @@ describe('Relay Navigation Tests', () => {
               // Wait for the *terminal* URL. The page navigates this frame twice — empty src,
               // then login, then canvas 150ms later — so accepting the login document meant
               // racing that second navigation: the button count below could be taken while the
-              // document was being replaced, and came back 0 (docs/issues/0003). Reaching
-              // canvas still proves the whole empty-src → cross-origin sequence resolved under
-              // auto-attach, because canvas is only reachable through it.
+              // document was being replaced, and came back 0. Reaching canvas still proves the
+              // whole empty-src → cross-origin sequence resolved under auto-attach, because
+              // canvas is only reachable through it. See docs/postmortem/0001-flaky-browser-tests.md.
               const frame = cdpPage!.frames().find((candidate) => candidate.url() === canvasUrl)
               if (frame) {
                 return frame
@@ -1073,8 +1073,13 @@ describe('Relay Navigation Tests', () => {
     const server = await createSimpleServer({
       routes: {
         '/': `<!doctype html><html><body>
+          <script>globalThis.__restrictedIframeLoaded = false</script>
           <div id="iframe-parent">
-            <iframe src="chrome-extension://${fixtureExtId}/page.html" id="original-restricted-iframe"></iframe>
+            <iframe
+              src="chrome-extension://${fixtureExtId}/page.html"
+              id="original-restricted-iframe"
+              onload="globalThis.__restrictedIframeLoaded = true"
+            ></iframe>
           </div>
           <script>
             const iframeParent = document.querySelector('#iframe-parent')
@@ -1101,6 +1106,14 @@ describe('Relay Navigation Tests', () => {
     try {
       await page.goto(server.baseUrl, { waitUntil: 'domcontentloaded' })
       await page.bringToFront()
+      await page.waitForFunction(
+        () => {
+          const testGlobal = globalThis as typeof globalThis & { __restrictedIframeLoaded?: boolean }
+          return testGlobal.__restrictedIframeLoaded === true
+        },
+        undefined,
+        { timeout: 5000 },
+      )
 
       const result = await withTimeout({
         promise: serviceWorker.evaluate(async () => {

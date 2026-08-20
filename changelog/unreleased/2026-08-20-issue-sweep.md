@@ -52,6 +52,22 @@ and failed at 2023ms while the machine was loaded (it passes 3 of 3 in isolation
 now derived from the failure mode it exists to catch — waiting for pipe EOF would take the
 background child's full 5s — instead of from a hope about machine speed.
 
+## Follow-up verification: source-mode relay startup
+
+Running `pnpm --dir packages/browser-cli cli browser list` from a stopped relay exposed a path
+regression left by the source regrouping: `relay-client.ts` looked for the entry beside itself in
+`src/relay/`, while the entry lives at `src/start-relay-server.ts`. Relay startup now resolves both
+the source and compiled entry from the package root and fails immediately if the resolved entry is
+missing; a regression test pins both layouts. Stale source citations to the removed 0003 and 0004
+issue files now point to the postmortem or stand on their own, and the live LLM tests use Vitest's
+supported options-before-handler argument order.
+
+The same full run reproduced the third historical `relay-navigation` failure that the postmortem
+had explicitly left unclaimed. Its parent page waited only for `domcontentloaded`, which says
+nothing about whether the cross-extension iframe target exists yet. The test now waits for that
+iframe's `load` event before asking Chrome to exercise the three failed attach attempts; six
+targeted runs and the following full browser-cli run pass (578 passed, 6 skipped).
+
 ## 0001, 0002 — open, re-verified
 
 - **0001**: every mechanism it names is still in the code; its stale `browser-cli` paths are

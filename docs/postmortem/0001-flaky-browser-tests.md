@@ -57,6 +57,19 @@ The record also named `restores restricted iframes when all debugger attach retr
 failure. It did not appear in 11 runs on the day of the fix. No basis was found for calling it
 fixed; it is simply not currently reproducible.
 
+## Follow-up — the third historical failure reproduced
+
+A full browser-cli run later on 2026-08-20 reproduced that exact failure: the expected two
+replacement iframes were absent. The test waited only for the parent document's `domcontentloaded`
+event, which does not establish that its cross-extension iframe has loaded. Under suite load the
+debugger operation could begin before Chrome had created the restricted child target, so the test
+never entered the three-failed-attach path named by its title.
+
+The fixture now records the restricted iframe's `load` event, and the test waits for that state
+before toggling the extension. This changes no production behavior; it makes the test establish its
+own precondition instead of relying on machine timing. Six targeted runs passed after the change,
+followed by a full browser-cli run with 578 passed and 6 skipped.
+
 ## Links
 
 - Closes `docs/issues/0003-browser-cli-flaky-browser-tests.md` (removed with this change; git holds

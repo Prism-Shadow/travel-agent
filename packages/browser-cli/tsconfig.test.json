@@ -1,25 +1,26 @@
 {
-  // 测试的类型检查。
+  // Type-check tests and scripts without emitting them.
   //
-  // 主 tsconfig 的 `include` 只有 `src`，因为它要 emit 到 `dist/`：测试留在 src 里时会被一起
-  // 编译并随包发布（`files` 含 `dist` 与 `src`），一次构建产出 88 个 `.test.js`。把测试移到
-  // `test/` 解决了那个问题，但也把它们移出了 tsc 的视野——vitest 不做类型检查，测试里的类型
-  // 错误会静默通过。
+  // The main tsconfig includes only `src` because it emits to `dist`. Keeping tests under `src`
+  // used to compile and publish 88 `.test.js` files (`files` includes both `dist` and `src`). Moving
+  // them to `test/` fixed publication but also removed them from tsc's view; Vitest does not
+  // type-check them, so test type errors would otherwise pass silently.
   //
-  // 所以类型检查分两趟：主配置负责 `src` 并产出 `dist`，这一份只检查不产出，覆盖两者。
+  // Type-checking therefore runs in two passes: the main config emits `src`, while this config
+  // covers source, tests, and scripts without emitting.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": false,
     "incremental": false,
     "noEmit": true,
-    // 不产出，所以 rootDir 只是程序边界，放开到包根才能覆盖 test/ 与 scripts/。
+    // With no output, rootDir is only the program boundary and can cover test/ and scripts/.
     "rootDir": ".",
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false
   },
   // `scripts/` is included: they are dev-time tools, but they are load-bearing enough that
-  // a broken one is found at build time instead of never (docs/issues/0004).
+  // a broken one should be found by typecheck instead of at runtime.
   "include": ["src", "test", "scripts", "vitest.setup.ts", "vitest.config.ts"],
   "exclude": ["src/client/**", "**/node_modules", "**/.*/"]
 }

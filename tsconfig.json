@@ -13,7 +13,7 @@
   //
   // Not a build entry point: several referenced configs are non-composite, so `tsc -b` on
   // this file is expected to fail. Nothing in the repo runs tsc against this file.
-  // browser-cli/scripts/ stays outside every project on purpose (docs/issues/0004).
+  // browser-cli/scripts/ is owned by packages/browser-cli/tsconfig.test.json.
   "files": [],
   "references": [
     { "path": "packages/core" },

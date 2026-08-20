@@ -4,14 +4,15 @@
  */
 
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pc from 'picocolors'
 import { getListeningPidsForPort, killPortProcess } from '../browser/kill-port.js'
+import { packageRoot } from '../shared/package-paths.js'
 import { VERSION, sleep, LOG_FILE_PATH } from '../shared/utils.js'
 
 const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 
 export const RELAY_PORT = Number(process.env.PENGUIN_BROWSER_PORT) || 19989
 
@@ -234,6 +235,11 @@ export interface EnsureRelayServerOptions {
   env?: Record<string, string>
 }
 
+export function getRelayServerEntryPath(clientFilename: string, packageDirectory: string = packageRoot()): string {
+  const isSource = clientFilename.endsWith('.ts')
+  return path.join(packageDirectory, isSource ? 'src' : 'dist', `start-relay-server.${isSource ? 'ts' : 'js'}`)
+}
+
 // Module-level dedup: if ensureRelayServer is called concurrently within the
 // same process (e.g. two MCP tool handlers at once), only one spawn runs.
 let pendingEnsure: Promise<true | undefined> | null = null
@@ -311,9 +317,11 @@ async function ensureRelayServerImpl(options: EnsureRelayServerOptions = {}): Pr
   // Detect if we're running from source (.ts) or compiled (.js)
   // This handles: tsx, vite-node, ts-node, or direct node on compiled output
   const isRunningFromSource = __filename.endsWith('.ts')
-  const scriptPath = isRunningFromSource
-    ? path.resolve(__dirname, './start-relay-server.ts')
-    : path.resolve(__dirname, '../start-relay-server.js')
+  const scriptPath = getRelayServerEntryPath(__filename)
+
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Relay server entry point does not exist: ${scriptPath}`)
+  }
 
   const serverProcess = spawn(isRunningFromSource ? 'tsx' : process.execPath, [scriptPath], {
     detached: true,
