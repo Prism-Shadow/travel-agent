@@ -59,14 +59,17 @@ describe("skills api", () => {
   /** Creates an Agent and strips the built-in set, for tests that need an empty skills dir. */
   async function createBareAgent(agentId: string): Promise<void> {
     await createPlainAgent(agentId);
-    expect((await owner.delete(`${base(agentId)}/penguin-browser`)).status).toBe(204);
+    // Bare = the whole built-in preinstalled set removed, whatever the library ships today.
+    for (const skill of loadPreinstalledSkills()) {
+      expect((await owner.delete(`${base(agentId)}/${skill.name}`)).status).toBe(204);
+    }
   }
 
   it("GET /api/skills: groups with metadata, short descriptions, and icons, without sending bodies", async () => {
     const res = await member.get("/api/skills");
     expect(res.status).toBe(200);
     const body = (await res.json()) as SkillLibraryResponse;
-    expect(body.groups.map((g) => g.id)).toEqual(["browser"]);
+    expect(body.groups.map((g) => g.id)).toEqual(["browser", "travel"]);
     for (const group of body.groups) {
       expect(group.title.length).toBeGreaterThan(0);
       // The Chinese group title is passed through from the skills package (the UI
@@ -76,6 +79,7 @@ describe("skills api", () => {
     }
     // Members within a group follow the SKILL_GROUPS list order (as ungrouped by loadSkillGroups).
     expect(body.groups[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
+    expect(body.groups[1]!.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
     const skills = body.groups.flatMap((g) => g.skills);
     for (const skill of skills) {
       expect(skill.name.length).toBeGreaterThan(0);
@@ -101,7 +105,7 @@ describe("skills api", () => {
     const res = await member.post(url, { names: ["penguin-browser"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
-    expect(body.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
+    expect(body.skills.map((s) => s.name)).toEqual(["amap-lbs-skill", "penguin-browser"]);
     // The installed list likewise passes through the short description and icon
     // (icon.svg is copied on install, identical to the library's original).
     const installed = body.skills.find((s) => s.name === "penguin-browser")!;
@@ -126,7 +130,7 @@ describe("skills api", () => {
     expect((await member.delete(`${url}/penguin-browser`)).status).toBe(204);
     await expect(fs.access(path.dirname(skillFile("penguin-browser")))).rejects.toThrow();
     const after = (await (await member.get(url)).json()) as AgentSkillsResponse;
-    expect(after.skills.map((s) => s.name)).toEqual([]);
+    expect(after.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
 
     // Deleting a Skill that isn't installed (or was already uninstalled) → 404.
     expect((await member.delete(`${url}/penguin-browser`)).status).toBe(404);
@@ -148,7 +152,7 @@ describe("skills api", () => {
     const res = await owner.post(url, { names: ["penguin-browser"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
-    expect(body.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
+    expect(body.skills.map((s) => s.name)).toEqual(["amap-lbs-skill", "penguin-browser"]);
     expect(await fs.readFile(file, "utf8")).toBe(librarySkill("penguin-browser")!.content);
   });
 

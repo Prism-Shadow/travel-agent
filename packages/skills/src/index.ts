@@ -196,6 +196,12 @@ export const SKILL_GROUPS: SkillGroupInfo[] = [
     titleZh: "浏览器",
     skills: ["penguin-browser"],
   },
+  {
+    id: "travel",
+    title: "Travel",
+    titleZh: "出行",
+    skills: ["amap-lbs-skill"],
+  },
 ];
 
 /**

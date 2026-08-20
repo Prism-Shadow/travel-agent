@@ -97,9 +97,23 @@ describe("loadLibrarySkills", () => {
   });
 
   it("a skill that ships only SKILL.md + icon.svg omits the files field entirely", () => {
-    // The library currently has no multi-file skill (the auxiliary-file collection path in
-    // readSkillDir is exercised again the moment one adds a reference/ document).
     expect("files" in librarySkill("penguin-browser")!).toBe(false);
+  });
+
+  it("a multi-file skill carries its auxiliary files keyed by POSIX-relative path", () => {
+    // The vendored Amap skill ships REST scripts alongside SKILL.md; they install with it.
+    const files = librarySkill("amap-lbs-skill")!.files!;
+    for (const expected of [
+      "index.js",
+      "package.json",
+      "LICENSE",
+      "config.example.json",
+      "scripts/poi-search.js",
+      "scripts/route-planning.js",
+      "scripts/travel-planner.js",
+    ]) {
+      expect(Object.keys(files), expected).toContain(expected);
+    }
   });
 });
 
@@ -108,18 +122,21 @@ describe("loadPreinstalledSkills", () => {
     const all = loadLibrarySkills();
     const preinstalled = loadPreinstalledSkills().map((s) => s.name);
     expect(preinstalled).toEqual(all.filter((s) => s.preinstall !== false).map((s) => s.name));
-    // The trimmed library ships exactly one skill and it is preinstalled.
-    expect(preinstalled).toEqual(["penguin-browser"]);
+    // The library ships exactly two skills and both are preinstalled.
+    expect(preinstalled).toEqual(["amap-lbs-skill", "penguin-browser"]);
   });
 });
 
 describe("loadSkillGroups / groupSkills", () => {
   it("loads groups per SKILL_GROUPS, members complete with Chinese titles, no Other group", () => {
     const groups = loadSkillGroups();
-    expect(groups.map((g) => g.id)).toEqual(["browser"]);
+    expect(groups.map((g) => g.id)).toEqual(["browser", "travel"]);
     expect(groups[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
     expect(groups[0]!.title).toBe("Browser");
     expect(groups[0]!.titleZh).toBe("浏览器");
+    expect(groups[1]!.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
+    expect(groups[1]!.title).toBe("Travel");
+    expect(groups[1]!.titleZh).toBe("出行");
     for (const group of groups) {
       expect(group.title).toBeTruthy();
       expect(group.titleZh).toBeTruthy();
@@ -131,8 +148,8 @@ describe("loadSkillGroups / groupSkills", () => {
   it("groupSkills: appends an Other group for unlisted skills (Chinese and English titles)", () => {
     const stray = fakeSkill("stray-skill");
     const groups = groupSkills([fakeSkill("penguin-browser"), stray]);
-    expect(groups.map((g) => g.id)).toEqual(["browser", "other"]);
-    const other = groups[1]!;
+    expect(groups.map((g) => g.id)).toEqual(["browser", "travel", "other"]);
+    const other = groups[2]!;
     expect(other.title).toBe("Other");
     expect(other.titleZh).toBe("其他");
     expect(other.skills).toEqual([stray]);
@@ -141,17 +158,19 @@ describe("loadSkillGroups / groupSkills", () => {
   it("groupSkills: missing members are skipped; no Other group when all are grouped", () => {
     // Member listed in SKILL_GROUPS but absent from the input: skipped, group stays empty.
     const empty = groupSkills([]);
-    expect(empty.map((g) => g.id)).toEqual(["browser"]);
+    expect(empty.map((g) => g.id)).toEqual(["browser", "travel"]);
     expect(empty[0]!.skills).toEqual([]);
     // Every input skill grouped: no Other group appended.
-    const grouped = groupSkills([fakeSkill("penguin-browser")]);
-    expect(grouped.map((g) => g.id)).toEqual(["browser"]);
+    const grouped = groupSkills([fakeSkill("penguin-browser"), fakeSkill("amap-lbs-skill")]);
+    expect(grouped.map((g) => g.id)).toEqual(["browser", "travel"]);
     expect(grouped[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
+    expect(grouped[1]!.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
   });
 
   it("SKILL_GROUPS hardcodes member names (sole group info source outside library files)", () => {
     expect(SKILL_GROUPS.map((g) => ({ id: g.id, skills: g.skills }))).toEqual([
       { id: "browser", skills: ["penguin-browser"] },
+      { id: "travel", skills: ["amap-lbs-skill"] },
     ]);
   });
 });
