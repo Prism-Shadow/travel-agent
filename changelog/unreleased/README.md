@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-20] Contract READMEs for `docs/issues/` (close by deleting, numbers never reused, the folder survives zero open issues) and `tasks/` (in-flight plans and ledgers); five missing phase lines restored to this index. ([details](2026-08-20-docs-contracts-and-index-repair.md))
 - [2026-08-20] The injected-deps build deadlock is dissolved: extension bundling moves into the extension's own build behind the copy re-sync, the one-type dependency cycle that defeated pnpm's build ordering is broken, and a browser-cli layout change clears itself on the next `pnpm -r build`. ([details](2026-08-20-dissolve-injected-deps-deadlock.md))
 - [2026-08-20] Private Profile gains an account-owned management surface with real capability states, honest empty data, and no browser-storage fallback. ([details](2026-08-20-private-profile-interface.md))
 - [2026-08-20] Issue sweep: extension tabs open at their destination, browser outputs redact main-filled values, flaky tests and unchecked scripts are fixed, the injected-deps trap fails early, source-mode relay startup is repaired, and login-shell startup chatter is kept out of command output. ([details](2026-08-20-issue-sweep.md))
@@ -41,6 +42,11 @@
 - [2026-08-17] Import cookies, saved logins and browsing history from your own Chrome into the in-app browser. ([details](2026-08-17-import-from-browser.md))
 - [2026-08-17] The in-app browser address bar now accepts a URL and opens the first tab when a conversation has no tabs yet. ([details](2026-08-17-empty-browser-address-bar.md))
 - [2026-08-17] The in-app browser is now enabled and open by default when Desktop starts; `PENGUIN_FLAGS` is no longer required. ([details](2026-08-17-iab-default-on.md))
+- [2026-08-16] Phase 6 (beta): profile data survives an upgrade and a rollback — every profile file now carries a format version, so an older build can no longer silently drop the vault or the open-tab checkpoint. ([details](2026-08-16-phase-6-data-migration.md))
+- [2026-08-16] Phase 5 (hardening): crash reporting, logging and metrics extend the no-personal-value promise to the failure paths, and add the gauges that tell whether the agent-first design is working. ([details](2026-08-16-phase-5-hardening-engineering.md))
+- [2026-08-16] Phase 5 (hardening): a leaked `--remote-debugging-port` or inspector switch is now a build failure, not a reviewer catch. ([details](2026-08-16-phase-5-ci-security-guards.md))
+- [2026-08-16] Phase 4: a vault the model never reads, secret fills that bypass the model, and a payment path where the agent can only ask — all of it shipping off by default. ([details](2026-08-16-phase-4-privacy-vault.md))
+- [2026-08-15] Phase 3: the single take-the-wheel overlay becomes six interaction kinds, split by where the answer lives rather than by what the agent wants to know. ([details](2026-08-15-phase-3-agent-interaction.md))
 - [2026-08-15] Phase 2: the pane becomes a real browser — tabs, address bar, shortcuts — and a tab learns which conversation shows it and which task may write to it. ([details](2026-08-15-phase-2-browser-shell.md))
 - [2026-08-15] Phase 1 initially introduced the right half of the window as a real in-app browser the agent drives and the user can click, behind `iab.enabled`. ([details](2026-08-15-phase-1-iab-vertical-slice.md))
 - [2026-08-15] Phase 0: feature flags (all off), a manual-testing scaffold, and the three verdicts that shape Phase 1 — including `Target.createTarget` being unsupported on Electron. ([details](2026-08-15-phase-0-feature-flags-and-verdicts.md))

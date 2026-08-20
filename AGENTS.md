@@ -94,6 +94,7 @@ Read the project's own documents before inferring behavior from code.
 | Known open problems | [`docs/issues/`](docs/issues/) |
 | Competitor and product research snapshots | [`docs/research/`](docs/research/) |
 | Lessons that must not be learned twice | [`tasks/lessons.md`](tasks/lessons.md) |
+| In-flight plans and working ledgers | [`tasks/`](tasks/README.md) |
 | Contribution rules, quality gates, release process | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
 Records versus living docs: `changelog/`, `docs/research/` and `docs/postmortem/` are

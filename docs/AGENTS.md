@@ -14,11 +14,13 @@ everywhere else. A new top-level folder under `docs/` updates this table and the
 | [`research/`](research/) | Dated competitor and product snapshots | Frozen |
 | [`../changelog/`](../changelog/unreleased/README.md) | What shipped, one entry per change (Hard Rule 2) | Frozen once released |
 | [`../tasks/lessons.md`](../tasks/lessons.md) | One-sentence what-to-do-differently; links the postmortem that owns the story | Living |
+| [`../tasks/`](../tasks/README.md) | In-flight plans and working ledgers for cross-session work | Living while the work is; deleted when it ships (the changelog keeps the record) or graduated to `decisions/` |
 | Package READMEs | The per-package contract | Living |
 
 Placement in one line: current behavior → `architecture/` or the package README; rationale and
 trade-offs → `decisions/`; what shipped → `changelog/`; still broken → `issues/`; the story of how
-it broke → `postmortem/`; the compressed warning → `tasks/lessons.md`.
+it broke → `postmortem/`; the compressed warning → `tasks/lessons.md`; the plan for work still in
+flight → `tasks/`.
 
 ## Writing rules
 
@@ -29,6 +31,10 @@ it broke → `postmortem/`; the compressed warning → `tasks/lessons.md`.
 - **Cross-reference with relative markdown links**, never bare filenames or numbers, so references
   are mechanically checkable and survive moves.
 - **English everywhere**, with the exact exceptions listed in root AGENTS.md Hard Rule 1.
+- **Folder contracts are `README.md`; subtree-wide standing orders are `AGENTS.md`.** A README
+  states the rules of its own folder and renders where it lives; an AGENTS.md governs more than
+  the folder that holds it — this file routes prose across `docs/`, `../changelog/` and
+  `../tasks/`.
 - Source comments do not cite the deleted `design/00X` spec series — the comment states its
   contract in its own words; git history holds the old spec. (Upstream-engine citations of the
   form `Docs: /docs/… § …` are PenguinHarness's own convention and stay.)
