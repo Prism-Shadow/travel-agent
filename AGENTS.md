@@ -140,7 +140,6 @@ its postmortem when one exists.
 
 | # | Problem |
 | --- | --- |
-| [0001](docs/issues/0001-extension-open-window-blocked.md) | Extension backend opens a blocked/blank window on Ctrip |
 | [0002](docs/issues/0002-browser-cli-redaction-never-wired.md) | Relay text redaction is built, tested, and never called — **must be closed before secret entry goes live** |
 | [0005](docs/issues/0005-injected-workspace-deps-sync-deadlock.md) | Layout changes deadlock the extension build — mitigated: the build now refuses early with the escape command |
 

@@ -142,13 +142,13 @@ export async function acquireAndNavigateOwnedTab<T>(options: {
   create: () => Promise<T>
   claim: (tab: T) => Promise<boolean>
   release: (tab: T) => Promise<unknown>
-  navigate?: (tab: T) => Promise<unknown>
+  navigate?: (tab: T, source: AcquiredTab<T>['source']) => Promise<unknown>
   discardCreated?: (tab: T) => Promise<void>
   attempts?: number
 }): Promise<T> {
   const acquired = await acquireOwnedTab(options)
   try {
-    await options.navigate?.(acquired.tab)
+    await options.navigate?.(acquired.tab, acquired.source)
     return acquired.tab
   } catch (error) {
     await options.release(acquired.tab).catch(() => undefined)

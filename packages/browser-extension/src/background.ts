@@ -485,10 +485,12 @@ class ConnectionManager {
       // But with createInitialTab, the SAME client that triggered the create is waiting for
       // Target.setAutoAttach - so we'd send the event twice to the same client.
       if (message.method === 'createInitialTab') {
+        let createdTabId: number | undefined
         try {
           logger.debug('Creating initial tab for Playwright client')
           const tab = await createTabInPreferredWindow({ url: 'about:blank', active: false })
           if (tab.id) {
+            createdTabId = tab.id
             setTabConnecting(tab.id)
             const { targetInfo, sessionId } = await attachTab(tab.id, { skipAttachedEvent: true })
             logger.debug('Initial tab created and connected:', tab.id, 'sessionId:', sessionId)
@@ -506,6 +508,11 @@ class ConnectionManager {
           }
         } catch (error: any) {
           logger.debug('Failed to create initial tab:', error)
+          if (createdTabId !== undefined) {
+            await chrome.tabs.remove(createdTabId).catch((cleanupError) => {
+              logger.debug('Failed to close unattached initial tab:', cleanupError)
+            })
+          }
           sendMessage({ id: message.id, error: error.message })
         }
         return
@@ -1257,11 +1264,20 @@ async function handleCommand(msg: ExtensionCommandMessage): Promise<any> {
       logger.debug('Creating new tab with URL:', url)
       const tab = await createTabInPreferredWindow({ url, active: false })
       if (!tab.id) throw new Error('Failed to create tab')
-      setTabConnecting(tab.id)
-      logger.debug('Created tab:', tab.id, 'waiting for it to load...')
-      await sleep(100)
-      const { targetInfo } = await attachTab(tab.id)
-      return { targetId: targetInfo.targetId } satisfies Protocol.Target.CreateTargetResponse
+      try {
+        setTabConnecting(tab.id)
+        logger.debug('Created tab:', tab.id, 'waiting for it to load...')
+        await sleep(100)
+        const { targetInfo } = await attachTab(tab.id)
+        return { targetId: targetInfo.targetId } satisfies Protocol.Target.CreateTargetResponse
+      } catch (error) {
+        // A failed Target.createTarget has no Page to return to Playwright, so the caller cannot
+        // close the browser tab. Remove it here instead of stranding a blank or half-loaded tab.
+        await chrome.tabs.remove(tab.id).catch((cleanupError) => {
+          logger.debug('Failed to close tab after debugger attach failure:', cleanupError)
+        })
+        throw error
+      }
     }
 
     case 'Target.closeTarget': {

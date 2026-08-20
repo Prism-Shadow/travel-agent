@@ -1,8 +1,8 @@
-# Issue sweep: four of six closed or mitigated, each verified by measurement
+# Issue sweep: five of six closed or mitigated, each verified by measurement
 
-Every open issue was reproduced before being touched, and the fixes are verified the same way.
-Issues 0003, 0004 and 0006 are closed; 0005 is mitigated; 0001 and 0002 stay open with today's
-evidence recorded.
+Every fix below is tied to reproduced behavior and verified against the same observable; where an
+original report did not recur, the record says so. Issues 0001, 0003, 0004 and 0006 are closed;
+0005 is mitigated; 0002 stays open with today's evidence recorded.
 
 ## 0003 — flaky browser tests (closed, with a postmortem)
 
@@ -68,11 +68,31 @@ nothing about whether the cross-extension iframe target exists yet. The test now
 iframe's `load` event before asking Chrome to exercise the three failed attach attempts; six
 targeted runs and the following full browser-cli run pass (578 passed, 6 skipped).
 
-## 0001, 0002 — open, re-verified
+## 0001 — extension blank bootstrap (closed)
 
-- **0001**: every mechanism it names is still in the code; its stale `browser-cli` paths are
-  corrected (`src/executor/…`). What is missing is on-screen evidence only a run on the reporter's
-  Chrome can produce.
-- **0002**: all five redaction exports still have zero call sites. Recorded that wiring it is not a
-  bug fix but the cross-process feature that must land with secret entry — the relay has no way to
-  learn which values are sensitive yet.
+The report's persistent blocked/blank Ctrip result did not recur on the reporter's connected
+Chrome. The complete Beijing hotel flow reached the normal list (6,121 results) and hotel detail,
+and an isolated `window.open()` test proved popup relocation reached its requested page exactly
+once. No `about:blank#blocked`, `chrome-error://` page, captcha, or relevant relay error appeared,
+so there is no basis for attributing the report to popup relocation or Ctrip anti-automation.
+
+One narrower failure was repeatable and in the reported path. A second `tabs.open(targetUrl)`
+surfaced a Page at `about:blank` after 387 ms, then navigated to the requested URL at 1,319 ms: the
+extension did exactly what the implementation asked, because the executor called
+`context.newPage()` before `page.goto()`. If debugger attachment failed between those operations,
+the extension also left the browser-created tab behind.
+
+Extension-backed `tabs.open(url)` now sends that URL in `Target.createTarget`; only a reused
+session bootstrap still navigates in place. The executor resolves the Page by target id, waits for
+its destination to start, and closes a target Playwright never surfaces. The extension closes both
+ordinary and initial tabs when debugger attachment fails. Direct-CDP, headless and IAB creation are
+unchanged. After restarting the relay, the same new-tab Ctrip probe no longer emitted
+`about:blank`: its Page appeared while the destination was loading and reached the normal Ctrip
+homepage. Unit coverage pins direct-at-destination creation, bootstrap reuse, and created-versus-
+reused cleanup semantics.
+
+## 0002 — open, re-verified
+
+All five redaction exports still have zero call sites. Recorded that wiring it is not a bug fix but
+the cross-process feature that must land with secret entry — the relay has no way to learn which
+values are sensitive yet.

@@ -376,7 +376,10 @@ penguin-browser session reset "$PENGUIN_BROWSER_SESSION"
 
 A reset clears persistent executor state. Re-select the page and recreate only the state needed for the task.
 
-If all pages repeatedly appear as unusable `about:blank` targets, report the known browser-side failure and ask the user to restart Chrome before retrying.
+An `about:blank` page alone is not connection-failure evidence: it may be the session bootstrap.
+If `tabs.open()` fails and leaves only blank pages, report its navigation or attachment error and
+inspect the relay log. Reset the session or ask the user to restart Chrome only when that evidence
+shows a stale Playwright/CDP connection.
 
 For transient page loading, prefer `waitForURL`, `waitForLoadState("domcontentloaded")`, `waitForSelector`, or an application-specific condition. Avoid long blind sleeps.
 

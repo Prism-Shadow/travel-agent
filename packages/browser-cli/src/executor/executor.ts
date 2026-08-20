@@ -80,8 +80,8 @@ const __dirname = path.dirname(__filename)
 
 const require = createRequire(import.meta.url)
 
-/** How long to wait for Playwright to surface a WebContentsView the shell just created. */
-const IAB_NEW_TAB_TIMEOUT_MS = 10_000
+/** How long to wait for Playwright to surface a target a browser backend just created. */
+const RELAY_NEW_TAB_TIMEOUT_MS = 10_000
 
 export class CodeExecutionTimeoutError extends Error {
   constructor(timeout: number) {
@@ -2370,17 +2370,68 @@ export class PlaywrightExecutor {
       })
     }
 
+    // A relay-backed Chrome extension can create the tab at its destination in one operation.
+    // `context.newPage()` instead asks Chrome for about:blank and only navigates after Playwright
+    // surfaces it, leaving a visible blank tab between debugger attachment and page.goto(). Direct
+    // CDP and headless browsers do not pass through the extension and retain Playwright's path.
+    const createAtDestination =
+      Boolean(url) && url !== 'about:blank' && !this.isDirectCdpMode() && !this.isHeadlessMode()
+
     return this.tabOpener.open({
       findReusable: () => this.findUnclaimedBlankPage(),
-      create: () => context.newPage(),
+      create: () => (createAtDestination ? this.createExtensionPage(url!) : context.newPage()),
       claim: async (candidate) => {
         const result = await this.claimTab(candidate)
         return result.ok && result.state === 'claimed'
       },
       release: (candidate) => this.releaseTab(candidate),
-      navigate: url ? (candidate) => candidate.goto(url, { waitUntil: 'domcontentloaded' }) : undefined,
+      navigate: url
+        ? async (candidate, source) => {
+            if (createAtDestination && source === 'created') {
+              await candidate.waitForURL((current) => current.href !== 'about:blank', {
+                waitUntil: 'domcontentloaded',
+              })
+              return
+            }
+            await candidate.goto(url, { waitUntil: 'domcontentloaded' })
+          }
+        : undefined,
       discardCreated: async (candidate) => candidate.close().catch(() => {}),
     })
+  }
+
+  /**
+   * Creates an extension-backed Chrome tab at its destination rather than bootstrapping it at
+   * about:blank. The extension owns chrome.tabs creation; Playwright receives the attached target
+   * asynchronously, so target id is the only race-free way to resolve the resulting Page.
+   */
+  private async createExtensionPage(url: string): Promise<Page> {
+    const context = this.context
+    if (!context) throw new Error('No browser context is connected')
+
+    const anchor = context.pages().find((page) => !page.isClosed())
+    if (!anchor) {
+      throw new Error('The Chrome extension has no live page through which to create a tab')
+    }
+
+    const cdp = await getCDPSessionForPage({ page: anchor })
+    const { targetId } = await cdp.send('Target.createTarget', { url })
+    const deadline = Date.now() + RELAY_NEW_TAB_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      for (const page of context.pages()) {
+        if (page.isClosed()) continue
+        if ((await this.targetIdFor(page).catch(() => null)) === targetId) return page
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+
+    // The extension created the browser tab, so a target that never reaches Playwright would
+    // otherwise remain visible with no caller able to claim or clean it up.
+    await cdp.send('Target.closeTarget', { targetId }).catch(() => undefined)
+    throw new Error(
+      `The Chrome extension created target ${targetId} but Playwright never surfaced it. ` +
+        'The tab was closed because its debugger failed to attach.',
+    )
   }
 
   /**
@@ -2442,7 +2493,7 @@ export class PlaywrightExecutor {
     // Resolve by target id rather than by "which page is new". Phase 1 runs a single view, so the
     // shell legitimately answers with the view that already exists, and a diff against the pages
     // seen a moment ago would find nothing and time out. The id is the contract either way.
-    const deadline = Date.now() + IAB_NEW_TAB_TIMEOUT_MS
+    const deadline = Date.now() + RELAY_NEW_TAB_TIMEOUT_MS
     while (Date.now() < deadline) {
       for (const page of context.pages()) {
         if (page.isClosed()) continue

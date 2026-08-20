@@ -230,3 +230,58 @@ describe('IAB bootstrap tab reuse', () => {
     expect(foreign.goto).not.toHaveBeenCalled()
   })
 })
+
+describe('extension tab creation', () => {
+  const fakePage = (url: string) => ({
+    isClosed: () => false,
+    url: () => url,
+    goto: vi.fn(async () => null),
+    waitForURL: vi.fn(async (_predicate: unknown, _options: unknown) => undefined),
+    close: vi.fn(async () => undefined),
+  })
+
+  const makeExecutor = () => {
+    const blank = fakePage('about:blank')
+    const created = fakePage('https://hotels.ctrip.com/')
+    const newPage = vi.fn(async () => created)
+    const executor = new PlaywrightExecutor({
+      sessionId: 'extension-open-test',
+      cdpConfig: { extensionId: 'install:test' },
+    }) as any
+    executor.context = { pages: () => [blank, created], newPage }
+    executor.createExtensionPage = vi.fn(async () => created)
+    executor.claimTab = vi.fn(async () => ({ ok: true, state: 'claimed' }))
+    executor.releaseTab = vi.fn(async () => true)
+    return { blank, created, executor, newPage }
+  }
+
+  it('creates a new extension tab at the requested URL without navigating from about:blank', async () => {
+    const { created, executor, newPage } = makeExecutor()
+    executor.findUnclaimedBlankPage = vi.fn(async () => null)
+
+    await expect(executor.openOwnedTab('https://hotels.ctrip.com/')).resolves.toBe(created)
+
+    expect(executor.createExtensionPage).toHaveBeenCalledWith('https://hotels.ctrip.com/')
+    expect(newPage).not.toHaveBeenCalled()
+    expect(created.goto).not.toHaveBeenCalled()
+    expect(created.waitForURL).toHaveBeenCalledWith(expect.any(Function), {
+      waitUntil: 'domcontentloaded',
+    })
+    const destinationStarted = created.waitForURL.mock.calls[0]![0] as (url: URL) => boolean
+    expect(destinationStarted(new URL('about:blank'))).toBe(false)
+    expect(destinationStarted(new URL('https://hotels.ctrip.com/'))).toBe(true)
+  })
+
+  it('still navigates a reusable extension bootstrap tab in place', async () => {
+    const { blank, executor } = makeExecutor()
+    executor.findUnclaimedBlankPage = vi.fn(async () => blank)
+
+    await expect(executor.openOwnedTab('https://hotels.ctrip.com/')).resolves.toBe(blank)
+
+    expect(executor.createExtensionPage).not.toHaveBeenCalled()
+    expect(blank.goto).toHaveBeenCalledWith('https://hotels.ctrip.com/', {
+      waitUntil: 'domcontentloaded',
+    })
+    expect(blank.waitForURL).not.toHaveBeenCalled()
+  })
+})

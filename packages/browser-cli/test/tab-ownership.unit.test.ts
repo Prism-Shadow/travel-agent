@@ -141,6 +141,7 @@ describe('acquireAndNavigateOwnedTab', () => {
   it('releases a reused tab when navigation fails without closing it', async () => {
     const released: string[] = []
     const discarded: string[] = []
+    const sources: string[] = []
 
     await expect(
       acquireAndNavigateOwnedTab({
@@ -148,7 +149,8 @@ describe('acquireAndNavigateOwnedTab', () => {
         create: async () => 'created',
         claim: async () => true,
         release: async (tab) => released.push(tab),
-        navigate: async () => {
+        navigate: async (_tab, source) => {
+          sources.push(source)
           throw new Error('navigation failed')
         },
         discardCreated: async (tab) => {
@@ -159,11 +161,13 @@ describe('acquireAndNavigateOwnedTab', () => {
 
     expect(released).toEqual(['blank'])
     expect(discarded).toEqual([])
+    expect(sources).toEqual(['reused'])
   })
 
   it('releases and closes a newly created tab when navigation fails', async () => {
     const released: string[] = []
     const discarded: string[] = []
+    const sources: string[] = []
 
     await expect(
       acquireAndNavigateOwnedTab({
@@ -171,7 +175,8 @@ describe('acquireAndNavigateOwnedTab', () => {
         create: async () => 'created',
         claim: async () => true,
         release: async (tab) => released.push(tab),
-        navigate: async () => {
+        navigate: async (_tab, source) => {
+          sources.push(source)
           throw new Error('navigation failed')
         },
         discardCreated: async (tab) => {
@@ -182,6 +187,7 @@ describe('acquireAndNavigateOwnedTab', () => {
 
     expect(released).toEqual(['created'])
     expect(discarded).toEqual(['created'])
+    expect(sources).toEqual(['created'])
   })
 })
 
