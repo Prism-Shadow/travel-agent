@@ -23,9 +23,10 @@ needs already exists while the MCP form would have required new mechanism:
   under `skills/` without `preinstall: false` installs at creation and refreshes on load. An MCP
   entry would need new seeding logic, and `kernel-update` deliberately never touches
   `tools.mcpServers` (user-owned), so built-in updates could not reach it.
-- **The key** rides the Agent vault: the scripts read `AMAP_WEBSERVICE_KEY` from the environment,
-  and vault values are injected into every command's env without entering the model context — an
-  existing, tested path. The MCP config offers no vault interpolation; its `env`/URL fields
+- **The key** rides the Agent vault: the scripts read it from the environment (`AMAP_KEY` — the
+  one name every script accepts; the shared module also takes `AMAP_WEBSERVICE_KEY`), and vault
+  values are injected into every command's env without entering the model context — an existing,
+  tested path. The MCP config offers no vault interpolation; its `env`/URL fields
   persist in `system_config.yaml` as plaintext.
 - **Prompt surface**: the skill's `description` is injected via `{{SKILL_METADATA}}`, which is the
   sanctioned channel for teaching the agent when to reach for it. The kernel default prompt stays

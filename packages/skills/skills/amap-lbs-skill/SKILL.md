@@ -15,10 +15,11 @@ overseas scenes on the browser skill.
 
 ## Before you start
 
-1. **API key.** The bundled scripts read `AMAP_WEBSERVICE_KEY` (or `AMAP_KEY`) from the
-   environment. Ask the user to put their Amap Web Service key into the Agent vault as
-   `AMAP_WEBSERVICE_KEY` — vault values reach every command's environment without ever entering
-   the conversation. If no vault entry exists, ask the user for a key (created at
+1. **API key.** Ask the user to put their Amap Web Service key into the Agent vault as
+   `AMAP_KEY` — vault values reach every command's environment without ever entering the
+   conversation. `AMAP_KEY` is the one name every bundled script accepts (measured:
+   `poi-search.js` gates on it specifically, while the shared module also accepts
+   `AMAP_WEBSERVICE_KEY`). If no vault entry exists, ask the user for a key (created at
    https://lbs.amap.com/api/webservice/create-project-and-key) and follow the key prompts in the
    scenario flows below; never invent or reuse someone else's key.
 2. **Dependencies.** The scripts require `axios`; a `package.json` is bundled. On first use in a

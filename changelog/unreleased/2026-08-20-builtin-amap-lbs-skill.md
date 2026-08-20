@@ -7,7 +7,7 @@ planning, shareable map links — over the Amap Web Service REST API.
 
 - Distribution rides the existing preinstall path (installed at agent creation, refreshed on
   load); a new "Travel" (出行) skill group carries it in the library UI.
-- The user's own `AMAP_WEBSERVICE_KEY` rides the Agent vault into every command's environment,
+- The user's own key rides the Agent vault (`AMAP_KEY`, the name every bundled script accepts) into every command's environment,
   never the model context; without a key the skill is visibly inert and asks, consistent with
   no-silent-fallback.
 - Adaptations are recorded in the decision note
