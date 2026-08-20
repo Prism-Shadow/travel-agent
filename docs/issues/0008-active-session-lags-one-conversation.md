@@ -43,6 +43,16 @@ user navigates away. Starting hidden is representable now; only starting is bann
 gate misfires (this bug), the agent's only recourse is asking the user to be where they already
 are.
 
+## Prior art — Codex (snapshot
+[2026-08-21](../research/2026-08-21-codex-browser-conversation-model.md))
+
+Codex has no analog of this gate. Its browser is "a shared view inside a chat" (a single
+visible page today — users are requesting tabs); its safety interposition is per-site approval
+and per-action confirmation, not "your thread must be on screen"; and its cloud browser runs
+agent browsing with no live pane at all, delivering visibility as screenshots and a replay in
+the transcript. Pop-out windows also mean "which conversation is visible" has no single answer
+there.
+
 ## Fix directions to decide
 
 1. Fix the lag itself (once the writer is pinned) — necessary regardless.
