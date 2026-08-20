@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-21] Worktrees move inside the checkout at `.worktree/<task>` (git-ignored, never committed); AGENTS.md records the convention. ([details](2026-08-21-worktree-convention.md))
 - [2026-08-21] The Ctrip-run crash is fixed at its root: opener-carrying popups are adopted per Electron's createWindow contract instead of throwing in the main process, the crash reporter records once and exits honestly instead of storming (a 9.2 GB log was reclaimed; the file is now capped), the real-Electron e2e gains an opener-popup gate proven red on the old code, and the story lands as postmortem 0002. ([details](2026-08-21-crash-reporter-storm.md))
 - [2026-08-20] The official Amap skill becomes a second built-in: mainland-China POI/route/itinerary grounding for every agent, key via the vault, upstream analytics instructions removed. ([details](2026-08-20-builtin-amap-lbs-skill.md))
 - [2026-08-20] CI: the in-app browser e2e is repaired — a stale pre-regrouping dist path in the harness and the missing `iab-redaction-state` provider are fixed; the fail-closed design is untouched. ([details](2026-08-20-repair-iab-e2e-ci.md))

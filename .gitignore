@@ -59,5 +59,8 @@ packages/browser-cli/tmp/
 # Raw web-research scrapes (firecrawl CLI cache; findings live in docs/research/)
 .firecrawl/
 
+# Linked git worktrees (see AGENTS.md § Worktrees): task checkouts, never committed
+.worktree/
+
 # design-QA captures and other binary scratch (regenerated on demand, never product)
 artifacts/

@@ -80,6 +80,13 @@ packages/skills              Built-in skill library, incl. skills/penguin-browse
 Both browser backends converge on the same relay and Playwright execution layer; they differ only in
 the debugger bridge and the profile being driven. See `docs/architecture/iab-in-app-browser.md`.
 
+## Worktrees
+
+Linked worktrees live inside the checkout at `.worktree/<task>` — `git worktree add
+.worktree/<task> -b <branch>` — never as sibling directories outside it. The directory is
+git-ignored and its contents are never committed from the main tree. Once a worktree's branch
+has merged, remove the folder: `git worktree remove .worktree/<task>`.
+
 ## Documentation Map
 
 Read the project's own documents before inferring behavior from code.
