@@ -63,12 +63,14 @@ needed.
   can see. Use `packageRoot()` / `distPath()` from `browser-cli/src/shared/package-paths.ts`.
 - **Injected workspace dependencies share file contents, not directory structure.**
   `injectWorkspacePackages` gives a consumer a hard-linked copy, so editing a file propagates
-  instantly (same inode) while adding, renaming, moving or deleting one does not. The re-sync runs
-  only after a package's `build` **succeeds**, and `browser-cli`'s build has the extension build
-  nested inside it — so a layout change deadlocks: the build that would sync is the build that
-  fails. Escape with
-  `rm -f node_modules/.pnpm-workspace-state-v1.json && pnpm install`. Measurements:
-  [`docs/issues/0005`](../docs/issues/0005-injected-workspace-deps-sync-deadlock.md).
+  instantly (same inode) while adding, renaming, moving or deleting one does not — and the re-sync
+  runs only after the injected package's `build` **succeeds**. Never put a consumer of the copy
+  inside the producer's own build: that gates the sync on a build that needs the sync, and the
+  resulting deadlock cost half an hour per layout change until the nesting was dissolved
+  (2026-08-20 changelog). A workspace dependency cycle — even a devDependency carrying one type
+  import — disables pnpm's build ordering for the pair entirely (they build in parallel), so keep
+  shared contract types on the side the production edge points to. If a copy is somehow stale
+  anyway: `rm -f node_modules/.pnpm-workspace-state-v1.json && pnpm install`.
 - **Express a compiler rule as a directory, not a list of filenames.** The three page-context
   bundles were excluded from `browser-cli`'s `tsc` by name; moving them broke the exclusion silently
   and pulled DOM-using files into a compilation with no `dom` lib. `src/client/**` says the same

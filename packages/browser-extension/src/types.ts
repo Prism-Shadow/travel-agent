@@ -1,22 +1,12 @@
-export type ConnectionState = 'idle' | 'connected' | 'extension-replaced'
-export type TabState = 'connecting' | 'connected' | 'error'
-
-export interface TabInfo {
-  sessionId?: string
-  targetId?: string
-  state: TabState
-  errorText?: string
-  attachOrder?: number
-  isRecording?: boolean
-}
-
-export interface ExtensionState {
-  tabs: Map<number, TabInfo>
-  connectionState: ConnectionState
-  currentTabId: number | undefined
-  preferredWindowId: number | undefined
-  errorText: string | undefined
-}
+// The extension-state shape is the contract between this background worker and browser-cli's
+// relay tests; it lives in browser-cli's shared layer so the dependency between the two
+// packages points one way only (see extension-state.ts there for the full reasoning).
+export type {
+  ConnectionState,
+  TabState,
+  TabInfo,
+  ExtensionState,
+} from 'penguin-browser/src/shared/extension-state.js'
 
 /**
  * Recording state - stored in service worker to track active recordings.

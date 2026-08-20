@@ -145,9 +145,8 @@ its postmortem when one exists.
 
 ## Open Issues
 
-| # | Problem |
-| --- | --- |
-| [0005](docs/issues/0005-injected-workspace-deps-sync-deadlock.md) | Layout changes deadlock the extension build — mitigated: the build now refuses early with the escape command |
+None currently. Closed issues live in `changelog/` (the sweep and dissolution entries) and full
+incident stories in `docs/postmortem/`; file new ones under `docs/issues/`.
 
 ## Editing Workflow
 

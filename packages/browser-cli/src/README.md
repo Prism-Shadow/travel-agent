@@ -76,14 +76,12 @@ launched. `pnpm typecheck` does not cover it either, because the desktop project
 the `.d.ts` next to the built file. Grep for `penguin-browser/dist/` and `penguin-browser/src/`
 across the repo after any move here.
 
-It also means the change cannot build until the workspace re-syncs. The extension does not symlink
-to this package — `injectWorkspacePackages` gives it a hard-linked *copy*, so edits to a file's
-contents reach it immediately but **added, renamed, moved or deleted files do not**. Worse, the
-build that would re-sync the copy is the same build that fails, so retrying never clears it. The
-escape:
-
-```bash
-rm -f node_modules/.pnpm-workspace-state-v1.json && pnpm install
-```
-
-`docs/issues/0005-injected-workspace-deps-sync-deadlock.md` has the measurements.
+It also means the extension sees a layout change only after the workspace re-syncs. The extension
+does not symlink to this package — `injectWorkspacePackages` gives it a hard-linked *copy*, so
+edits to a file's contents reach it immediately but **added, renamed, moved or deleted files do
+not**. The copy re-syncs after this package's `build` succeeds, and the extension bundles in its
+own package build, ordered after this one — so a layout change clears itself on the next
+`pnpm -r build`. Building the extension alone right after a layout change fails early with
+instructions (its `scripts/build-packaged.ts` preflight). The measurements, and the nested-build
+deadlock this ordering replaced, are in the 2026-08-20 changelog entry
+“The injected-deps build deadlock is dissolved”.

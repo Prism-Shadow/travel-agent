@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-20] The injected-deps build deadlock is dissolved: extension bundling moves into the extension's own build behind the copy re-sync, the one-type dependency cycle that defeated pnpm's build ordering is broken, and a browser-cli layout change clears itself on the next `pnpm -r build`. ([details](2026-08-20-dissolve-injected-deps-deadlock.md))
 - [2026-08-20] Private Profile gains an account-owned management surface with real capability states, honest empty data, and no browser-storage fallback. ([details](2026-08-20-private-profile-interface.md))
 - [2026-08-20] Issue sweep: extension tabs open at their destination, browser outputs redact main-filled values, flaky tests and unchecked scripts are fixed, the injected-deps trap fails early, source-mode relay startup is repaired, and login-shell startup chatter is kept out of command output. ([details](2026-08-20-issue-sweep.md))
 - [2026-08-20] `packages/transaction` is retired: live contracts move to server/browser-cli, unreachable payment execution machinery is removed, and the browser payment stop becomes unconditional. ([details](2026-08-20-retire-transaction-package.md))

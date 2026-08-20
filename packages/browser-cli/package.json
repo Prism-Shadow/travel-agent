@@ -10,7 +10,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rm -rf dist *.tsbuildinfo && mkdir dist && tsx scripts/build-client-bundles.ts && tsc && tsx scripts/build-extension-bundle.ts && tsx scripts/build-resources.ts",
+    "build": "rm -rf dist *.tsbuildinfo && mkdir dist && tsx scripts/build-client-bundles.ts && tsc && tsx scripts/build-resources.ts",
     "watch": "tsc -w",
     "cli": "vite-node src/cli.ts",
     "typecheck": "tsc && tsc -p tsconfig.test.json",
@@ -49,7 +49,6 @@
     "image-size": "^2.0.2",
     "kitty-graphics-agent": "^0.0.5",
     "marked": "^17.0.1",
-    "penguin-browser-extension": "workspace:^",
     "tsx": "^4.20.0",
     "vite-node": "^5.0.0",
     "vitest": "^4.0.8"

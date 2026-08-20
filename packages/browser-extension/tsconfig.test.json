@@ -16,5 +16,5 @@
     // sets skipLibCheck; the main config here predates it and never loads both copies.
     "skipLibCheck": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "scripts"]
 }

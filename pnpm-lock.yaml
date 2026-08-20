@@ -131,9 +131,6 @@ importers:
       marked:
         specifier: ^17.0.1
         version: 17.0.6
-      penguin-browser-extension:
-        specifier: workspace:^
-        version: file:packages/browser-extension(@opentelemetry/api@1.9.0)(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@10.2.2)(vitest@4.1.10)
       tsx:
         specifier: ^4.20.0
         version: 4.22.4
@@ -4099,10 +4096,6 @@ packages:
 
   pend@1.2.0:
     resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
-
-  penguin-browser-extension@file:packages/browser-extension:
-    resolution: {directory: packages/browser-extension, type: directory}
-    engines: {node: '>=24'}
 
   penguin-browser@file:packages/browser-cli:
     resolution: {directory: packages/browser-cli, type: directory}
@@ -9535,96 +9528,6 @@ snapshots:
   pe-library@0.4.1: {}
 
   pend@1.2.0: {}
-
-  penguin-browser-extension@file:packages/browser-extension(@opentelemetry/api@1.9.0)(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@10.2.2)(vitest@4.1.10):
-    dependencies:
-      penguin-browser: file:packages/browser-cli(@opentelemetry/api@1.9.0)(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@10.2.2)(vitest@4.1.10)
-      string-dedent: 3.0.2
-      zustand: 5.0.14(@types/react@19.2.17)(react@19.2.7)
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@cloudflare/workers-types'
-      - '@lynx-js/react'
-      - '@opentelemetry/api'
-      - '@prisma/client'
-      - '@sveltejs/kit'
-      - '@tanstack/react-start'
-      - '@tanstack/solid-start'
-      - '@types/react'
-      - better-sqlite3
-      - bufferutil
-      - drizzle-kit
-      - drizzle-orm
-      - immer
-      - mongodb
-      - mysql2
-      - next
-      - pg
-      - prisma
-      - react
-      - react-dom
-      - solid-js
-      - supports-color
-      - svelte
-      - use-sync-external-store
-      - utf-8-validate
-      - vitest
-      - vue
-
-  penguin-browser@file:packages/browser-cli(@opentelemetry/api@1.9.0)(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@10.2.2)(vitest@4.1.10):
-    dependencies:
-      '@hono/node-server': 2.0.12(hono@4.12.34)
-      '@hono/node-ws': 1.3.1(@hono/node-server@2.0.12(hono@4.12.34))(bufferutil@4.1.0)(hono@4.12.34)
-      '@modelcontextprotocol/sdk': 1.30.0(supports-color@10.2.2)(zod@4.4.3)
-      '@xmorse/playwright-core': 1.59.10(bufferutil@4.1.0)(supports-color@10.2.2)
-      acorn: 8.17.0
-      ajv: 8.20.0
-      async-sema: 3.1.1
-      better-auth: 1.6.26(@opentelemetry/api@1.9.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10)
-      diff: 8.0.4
-      dom-accessibility-api: 0.7.1
-      goke: 6.14.1
-      hono: 4.12.34
-      picocolors: 1.1.1
-      posthtml: 0.16.7
-      posthtml-beautify: 0.7.0
-      string-dedent: 3.0.2
-      strip-ansi: 7.2.0
-      ws: 8.21.0(bufferutil@4.1.0)
-      zod: 4.4.3
-      zustand: 5.0.14(@types/react@19.2.17)(react@19.2.7)
-    optionalDependencies:
-      '@playwriter/patchright-core': 1.61.0-playwriter.1
-      sharp: 0.34.5
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@cloudflare/workers-types'
-      - '@lynx-js/react'
-      - '@opentelemetry/api'
-      - '@prisma/client'
-      - '@sveltejs/kit'
-      - '@tanstack/react-start'
-      - '@tanstack/solid-start'
-      - '@types/react'
-      - better-sqlite3
-      - bufferutil
-      - drizzle-kit
-      - drizzle-orm
-      - immer
-      - mongodb
-      - mysql2
-      - next
-      - pg
-      - prisma
-      - react
-      - react-dom
-      - solid-js
-      - supports-color
-      - svelte
-      - use-sync-external-store
-      - utf-8-validate
-      - vitest
-      - vue
 
   penguin-browser@file:packages/browser-cli(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@10.2.2)(vitest@3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(supports-color@10.2.2)(tsx@4.22.4)(yaml@2.9.0)):
     dependencies:

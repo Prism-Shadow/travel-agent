@@ -40,9 +40,16 @@ export function getInstalledPenguinBrowserPackageDir(): string {
 
 export function getBundledExtensionPath(): string {
   const packageDir = getInstalledPenguinBrowserPackageDir()
+  // Source checkout first: the browser-extension sibling builds the packaged variant as its own
+  // build step (topologically after this package, so the injected copy it resolves against is
+  // fresh — the nested-build deadlock this ordering replaced is recorded in the 2026-08-20
+  // changelog). A deployed app has no workspace sibling and falls through to `dist/extension`,
+  // which desktop's stage.mjs assembles into the deployed package. Preferring the sibling also
+  // means a stale pre-change `dist/extension` left in a source tree can never shadow a fresh
+  // build.
   const candidates = [
+    path.join(packageDir, '..', 'browser-extension', 'dist-packaged'),
     path.join(packageDir, 'dist', 'extension'),
-    path.join(packageDir, '..', 'extension', 'dist'),
   ]
 
   for (const extensionPath of candidates) {
@@ -53,6 +60,6 @@ export function getBundledExtensionPath(): string {
   }
 
   throw new Error(
-    `Bundled Penguin Browser extension not found under ${packageDir}. Rebuild or reinstall the penguin-browser package.`,
+    `Bundled Penguin Browser extension not found under ${packageDir}. Run \`pnpm -r build\` in a source checkout, or reinstall the app.`,
   )
 }

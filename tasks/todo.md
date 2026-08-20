@@ -1,42 +1,45 @@
-# Issue 0006 — finish the production half: keep login-shell startup chatter out of command output
+# Issue 0005 — dissolve the injected-deps build deadlock
 
-## Evidence
+## Evidence gathered first
 
-- The sweep (2026-08-20) closed 0006 at the test level (drain-until-marker); 25/25 pass, re-verified.
-- The pollution itself is alive in production: `bash -lc 'echo MARKER'` on this machine puts nvm's
-  three-line die-on-prefix warning on stderr — prefixed to **every** model-visible exec_command
-  output, and it is imperative text ("Run `nvm use --delete-prefix` …") injected into the context.
-- nvm source (`~/.nvm/nvm.sh`): `nvm_auto use` → `nvm use --silent` → `nvm_die_on_prefix` →
-  `nvm_err`. `NVM_SILENT` gates only "Now using…"; `--delete-prefix` mutates the user's npmrc.
-  **No env knob silences it** — issue 0006's fix direction 2 (env hardening) is a dead end.
-- Measured: a `-c` string with a parse error runs nothing (no echos, exit 2, only the stderr
-  diagnostic) → any marker scheme must fail open on exit.
-- Profile costs ~0.9s on this machine; the command starts after it either way (no timing change).
+- The deadlock: extension bundling ran *inside* browser-cli's build; the injected copy re-syncs
+  only after that build **succeeds**; the nested step failed against the stale copy after any
+  layout change — sync gated on a build that needed the sync.
+- `pnpm deploy` (desktop staging) requires global `injectWorkspacePackages` in pnpm ≥ 10 →
+  confining injection is not available; the injection stays.
+- Artifact consumers mapped: `browser-cli/dist/extension` served only `getBundledExtensionPath()`
+  (CLI auto-load); desktop stages `browser-extension/dist` separately; browser-cli tests build
+  their own per-port extension outputs.
+- Measured during the fix: the pair was a workspace **cycle** (browser-cli devDep on the extension
+  for one type-only import) — pnpm built them in parallel, which would have defeated the ordering
+  the fix depends on.
 
-## Fix (structural, per-stream markers)
+## Changes
 
-- [x] `shell.ts`: `ShellInvocation.style: "posix" | "powershell" | "cmd"` (pwsh spawns
-      `-NoProfile`, cmd `/d` — both profile-free; only `-lc` shells source profiles).
-- [x] New `startup-chatter.ts`: `newStartupMarker()`, `withStartupMarker(cmd, marker)`
-      (`echo m; echo m >&2; <cmd>`, single line so line numbers hold), `StartupChatterGate`
-      (hold pre-marker text per stream; FIFO pipe order makes pre-marker = pre-command;
-      fail open on flush()/cap; strip the marker's own line ending incl. split CRLF).
-- [x] `session.ts`: wrap the spawned string for posix style; gate both streams; flush held
-      text on exit/error so parse-error diagnostics are never lost; skip empty chunks.
-- [x] Tests: gate units (split marker, split CRLF, cap, flush) + live POSIX integration via a
-      chattering PENGUIN_SHELL shim (chatter absent, marker absent, stdout/stderr delivered,
-      exit codes preserved, parse-error diagnostic delivered).
-- [x] `shell-resolver.test.ts`: pin `style` per scenario; exec-session wake-race comment updated.
+- [x] browser-cli build drops the nested step; `scripts/build-extension-bundle.ts` deleted.
+- [x] browser-extension builds both variants itself; new `scripts/build-packaged.ts` carries the
+      preflight (now also mapping `.js` specifiers to `.ts` sources — drill-exposed blind spot)
+      and skips under a pinned PENGUIN_BROWSER_EXTENSION_DIST (test builds).
+- [x] Cycle broken: `ExtensionState` contract moved to `browser-cli/src/shared/extension-state.ts`;
+      extension re-exports it along its production edge; devDep removed; lockfile updated.
+- [x] `getBundledExtensionPath()`: sibling `dist-packaged` first, `dist/extension` fallback.
+- [x] `stage.mjs` assembles `dist-packaged` → deployed `penguin-browser/dist/extension`.
+- [x] `.prettierignore` gains `packages/desktop/stage/`; extension `tsconfig.test.json` gains
+      `scripts/`.
 
-## Verify
+## Verified
 
-- [x] `pnpm vitest run` for startup-chatter + shell-resolver + exec-session in core — 53 pass.
-- [x] Real-machine probe (temporary test, deleted): full Environment→exec_command on this
-      nvm-chattering machine returns exactly `"hello\n"` — no npmrc/nvm text, no marker leak.
-- [x] `pnpm typecheck` — all packages green.
-- [x] Full core suite — 898 passed / 5 skipped, no regressions.
+- [x] Strict drill from a confirmed-stale copy: new deep-imported file → one `pnpm -r build`,
+      exit 0, content in both variants (previously an unconditional deadlock).
+- [x] Cycle warning gone; builds ordered browser-cli → browser-extension.
+- [x] `stage.mjs` exit 0; staged tree has both extension copies + CLI entry; packaged variant
+      has no `welcome.html` (folded), resources copy has it.
+- [x] Source-mode `getBundledExtensionPath()` → sibling `dist-packaged`.
+- [x] `pnpm typecheck` (7/7), extension tests 9/9, `extension-connection.test.ts` 14/14 with real
+      Chrome through the new test-build path, `format:check` clean.
 
-## Record
+## Records
 
-- [x] Extend the sweep changelog entry's 0006 section (same day, same issue) + README line.
-- [x] lessons.md: chatter is model-visible output; no env knob silences nvm; separate structurally.
+- [x] Changelog entry + README line; issue file removed; AGENTS.md open-issue table emptied;
+      browser-cli src/README paragraph and the lessons.md injected-deps lesson updated to the
+      new structure (cycle sentence added).

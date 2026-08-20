@@ -1,4 +1,4 @@
-import type { ExtensionState } from 'penguin-browser-extension/src/types.js'
+import type { ExtensionState } from './extension-state.js'
 
 declare global {
   var toggleExtensionForActiveTab: () => Promise<{ isConnected: boolean; state: ExtensionState }>

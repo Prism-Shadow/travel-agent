@@ -16,3 +16,5 @@ playwright-report/
 packages/browser-cli/
 packages/browser-extension/
 packages/desktop/dist-e2e/
+# electron-builder staging tree (git-ignored build artifact; contains copied bundles)
+packages/desktop/stage/

@@ -12,6 +12,8 @@
  * - copy build/icon.png into the app dir (the runtime window icon, see src/app-icon.ts);
  * - generate the `penguin-browser` CLI launcher into `bin/`;
  * - copy the unpacked Chrome extension into `resources/penguin-browser-extension`;
+ * - assemble the packaged extension variant into the deployed penguin-browser package
+ *   (`dist/extension`), the path its CLI's auto-load resolves outside a workspace;
  * - ensure `stage/minigit` exists (may be empty): the Windows CI job downloads MinGit
  *   into it, and electron-builder's win extraResources entry must always have a source.
  *
@@ -113,6 +115,24 @@ if (!fs.existsSync(path.join(extensionSrc, "manifest.json"))) {
 }
 const extensionDest = path.join(appDir, "resources", "penguin-browser-extension");
 fs.cpSync(extensionSrc, extensionDest, { recursive: true, dereference: true });
+
+// The `penguin-browser browser` command auto-loads its bundled extension from
+// `<package>/dist/extension` (see browser-cli's package-paths.ts). In the workspace that path
+// is covered by the browser-extension sibling's `dist-packaged`; the deployed tree has no
+// sibling, so stage assembles the packaged variant into the deployed package — the same
+// pattern as web-dist into the server above.
+const packagedExtensionSrc = path.join(repoRoot, "packages", "browser-extension", "dist-packaged");
+if (!fs.existsSync(path.join(packagedExtensionSrc, "manifest.json"))) {
+  console.error(
+    "[stage] packages/browser-extension/dist-packaged is missing — run `pnpm -r build` first.",
+  );
+  process.exit(1);
+}
+const cliPkg = path.join(appDir, "node_modules", "penguin-browser");
+fs.cpSync(packagedExtensionSrc, path.join(cliPkg, "dist", "extension"), {
+  recursive: true,
+  dereference: true,
+});
 
 // CLI launchers: generated, not committed — the script text lives in src/launcher.ts.
 const { posixLauncherScript, windowsLauncherScript } = await import(
