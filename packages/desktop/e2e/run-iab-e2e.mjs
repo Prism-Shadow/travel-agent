@@ -175,6 +175,16 @@ expect(
   "clickThrough actuates the real page",
 );
 expect(
+  "popup-adopted",
+  (s) => s.uncaught === null,
+  "an opener-carrying popup throws nothing in the main process (issue 0007)",
+);
+expect(
+  "popup-adopted",
+  (s) => s.requested === true && s.adopted === true && s.openerAlive === true,
+  "the popup is adopted as a live tab, opener handle intact",
+);
+expect(
   "splitter",
   (s) => s.hiddenDuringDrag === true,
   "the view steps aside while the splitter is dragged, so the native surface cannot swallow the pointer",

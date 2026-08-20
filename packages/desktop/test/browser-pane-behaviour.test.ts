@@ -61,7 +61,11 @@ class FakeContents {
   }));
   setWindowOpenHandler = vi.fn();
   windowOpenHandler:
-    ((details: { url: string }) => { action: string; createWindow?: () => unknown }) | null = null;
+    | ((details: { url: string }) => {
+        action: string;
+        createWindow?: (options?: { webContents?: unknown }) => unknown;
+      })
+    | null = null;
   on(event: string, handler: (...args: unknown[]) => void): this {
     const existing = this.listeners.get(event) ?? [];
     existing.push(handler);
@@ -111,13 +115,20 @@ class FakeContents {
 }
 
 class FakeView {
-  readonly webContents = new FakeContents();
+  readonly webContents: FakeContents;
   setBounds = vi.fn();
   setVisible = vi.fn();
-  constructor() {
+  /** A provided contents models `WebContentsView({ webContents })` adopting Chromium's guest. */
+  constructor(contents?: FakeContents) {
+    this.webContents = contents ?? new FakeContents();
     views.push(this);
     this.webContents.setWindowOpenHandler.mockImplementation(
-      (handler: (details: { url: string }) => { action: string; createWindow?: () => unknown }) => {
+      (
+        handler: (details: { url: string }) => {
+          action: string;
+          createWindow?: (options?: { webContents?: unknown }) => unknown;
+        },
+      ) => {
         this.webContents.windowOpenHandler = handler;
       },
     );
@@ -135,12 +146,12 @@ let viewBudget: number | null = null;
 
 vi.mock("electron", () => ({
   WebContentsView: class {
-    constructor() {
+    constructor(options?: { webContents?: unknown }) {
       if (viewBudget !== null) {
         if (viewBudget <= 0) throw new Error("view creation failed");
         viewBudget -= 1;
       }
-      return new FakeView() as unknown as object;
+      return new FakeView(options?.webContents as FakeContents | undefined) as unknown as object;
     }
   },
   session: { fromPartition: () => ({}) },
@@ -1229,6 +1240,40 @@ describe("popups", () => {
     const result = views[0]!.webContents.windowOpenHandler?.({ url: "file:///etc/passwd" });
     expect(pane.state().tabs).toHaveLength(1);
     expect(result).toEqual({ action: "deny" });
+  });
+
+  it("returns Chromium's pre-created guest itself, rebuilding the tab around it (issue 0007)", async () => {
+    // An opener-carrying `window.open()` arrives with the popup's WebContents already created,
+    // and Electron's guest-window-manager throws in the main process unless `createWindow`
+    // returns exactly that object. The pre-built view is discarded; the guest becomes the tab.
+    const { pane } = await paneWithSession();
+    await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
+    const guest = new FakeContents();
+    const response = views[0]!.webContents.windowOpenHandler?.({ url: "https://login.example/" });
+    const returned = response?.createWindow?.({ webContents: guest });
+    expect(returned).toBe(guest);
+    const tabs = pane.state().tabs;
+    expect(tabs).toHaveLength(2);
+    // views[1] is the pre-built view the handler made; views[2] wraps the guest. The pre-built
+    // one must be gone from the window — an attached view nothing positions is a leak.
+    expect(views[2]!.webContents).toBe(guest);
+    expect(views[1]!.webContents.close).toHaveBeenCalled();
+  });
+
+  it("keeps the identity contract when the guest rebuild fails, closing the popup instead", async () => {
+    const { pane } = await paneWithSession();
+    await pane.openTabForAgent({ sessionId: "session-1", taskId: "task-a" });
+    const guest = new FakeContents();
+    const response = views[0]!.webContents.windowOpenHandler?.({ url: "https://login.example/" });
+    viewBudget = 0; // the guest-wrapping WebContentsView construction will throw
+    const returned = response?.createWindow?.({ webContents: guest });
+    viewBudget = null;
+    // Still the guest — anything else is an uncaught main-process exception in Electron — and the
+    // popup fails closed: the placeholder tab is gone and the guest is closed on the next tick.
+    expect(returned).toBe(guest);
+    expect(pane.state().tabs).toHaveLength(1);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(guest.close).toHaveBeenCalled();
   });
 });
 

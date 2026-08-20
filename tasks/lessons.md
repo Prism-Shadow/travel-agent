@@ -12,6 +12,11 @@ needed.
 
 ## Product and behaviour
 
+- Registering an `uncaughtException` listener suppresses Node's default fatal handling for as
+  long as it stays attached: a handler that defers a rethrow re-enters itself forever — record
+  once, detach, then rethrow, and cap any file a failure path appends to
+  ([postmortem 0002](../docs/postmortem/0002-popup-adoption-crash-storm.md)).
+
 - Distinguish a feature being available from it being the default selection. For dual browser
   backends, say explicitly whether Chrome is selectable, whether it is selected by default, and what
   setup is still required.
@@ -101,6 +106,11 @@ needed.
   `tsconfig.json` must have that config referenced there, or editors will invent a project for it.
 
 ## Testing and verification
+
+- A double that accepts fewer arguments than the real caller passes tests a world that cannot
+  express the bug: when the platform hands your callback an object (Electron's `createWindow`
+  gets `options.webContents`), the fake must hand it over too
+  ([postmortem 0002](../docs/postmortem/0002-popup-adoption-crash-storm.md)).
 
 - Exercise the real cold-start boundary when one subsystem creates a bootstrap resource for another.
   Unit coverage for generic `about:blank` reuse did not cover IAB because its bootstrap tab was

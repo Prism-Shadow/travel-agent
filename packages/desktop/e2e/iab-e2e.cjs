@@ -32,14 +32,20 @@ const FIXTURE = `<!doctype html>
 <main>
   <h1 id="heading">Fixture</h1>
   <button id="go" onclick="document.getElementById('heading').textContent = 'clicked'">Search</button>
+  <button id="pop" onclick="window.opened = window.open('/popup', 'penguin-popup'); document.getElementById('heading').textContent = window.opened ? 'popup-requested' : 'popup-blocked'">Login</button>
 </main>`;
 
-/** Serves the fixture on an ephemeral loopback port. */
+const POPUP = `<!doctype html>
+<meta charset="utf-8">
+<title>iab popup</title>
+<body>popup</body>`;
+
+/** Serves the fixture on an ephemeral loopback port; `/popup` is the login-window stand-in. */
 function startFixtureServer() {
   return new Promise((resolve) => {
-    const server = http.createServer((_req, res) => {
+    const server = http.createServer((req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      res.end(FIXTURE);
+      res.end(req.url === "/popup" ? POPUP : FIXTURE);
     });
     server.listen(0, "127.0.0.1", () => resolve({ server, port: server.address().port }));
   });
@@ -277,6 +283,41 @@ function reservePort() {
     return await state.fixture.locator('#heading').innerText();
   `);
   out({ step: "click", status: clicked.status, body: clicked.body.slice(0, 200) });
+
+  // --- an opener-carrying popup becomes a tab, not a main-process crash ---------------------
+  //
+  // A `window.open()` that keeps its opener — every booking site's login window — makes Chromium
+  // pre-create the popup's WebContents, and Electron's guest-window-manager then requires
+  // `createWindow` to return exactly that object: a substitute view is thrown as an uncaught
+  // "Invalid webContents" in the main process, which is how issue 0007 took the app down on
+  // Ctrip. The temporary listener turns a regression into a diagnosable step rather than a dead
+  // harness; adoption is proven by the popup entering the strip with its opener handle live.
+  let popupUncaught = null;
+  const onPopupUncaught = (error) => {
+    popupUncaught = String(error?.message ?? error).slice(0, 200);
+  };
+  process.on("uncaughtException", onPopupUncaught);
+  const popped = await exec(`
+    await clickThrough(state.fixture.locator('#pop'));
+    return await state.fixture.locator('#heading').innerText();
+  `);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  process.off("uncaughtException", onPopupUncaught);
+  const popupTab = pane.state().tabs.find((tab) => (tab.url ?? "").endsWith("/popup"));
+  const openerAlive = await exec(
+    "return await state.fixture.evaluate(() => Boolean(window.opened && !window.opened.closed))",
+  );
+  out({
+    step: "popup-adopted",
+    status: popped.status,
+    requested: popped.body.includes("popup-requested"),
+    adopted: Boolean(popupTab),
+    openerAlive: openerAlive.body.includes("true"),
+    uncaught: popupUncaught,
+  });
+  // A proof tab, like the draft one above: closed here so every later count assertion stays
+  // about the agent tabs it was written for.
+  if (popupTab) pane.closeTab(popupTab.id);
 
   // --- the splitter, with the native view visible ------------------------------------------
   //

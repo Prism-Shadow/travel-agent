@@ -105,19 +105,49 @@ export interface CrashSink {
   write(report: CrashReport): void;
 }
 
-/** A JSONL sink under a directory, each report one line, best-effort. */
+/** Where appends stop. Reports past the cap are dropped: the earliest ones place the failure. */
+const MAX_CRASH_FILE_BYTES = 5 * 1024 * 1024;
+
+/**
+ * A JSONL sink under a directory, each report one line, best-effort, capped.
+ *
+ * The cap is not hypothetical: an uncaught-exception loop once appended the same line at ~5k/s
+ * until the file reached 9.2 GB. The loop itself is fixed (the handler detaches before its one
+ * rethrow), but the sink must still refuse unbounded growth on its own — the earliest reports are
+ * the diagnostic ones, so writes stop rather than rotate.
+ */
 export function fileCrashSink(input: {
   dir: string;
   appendFileSync: (path: string, data: string) => void;
   mkdirSync: (path: string) => void;
+  statSync: (path: string) => { size: number };
   join: (...parts: string[]) => string;
+  maxBytes?: number;
   log?: (line: string) => void;
 }): CrashSink {
+  const maxBytes = input.maxBytes ?? MAX_CRASH_FILE_BYTES;
+  let capped = false;
   return {
     write(report) {
       try {
         input.mkdirSync(input.dir);
-        input.appendFileSync(input.join(input.dir, "crashes.jsonl"), `${JSON.stringify(report)}\n`);
+        const file = input.join(input.dir, "crashes.jsonl");
+        let size = 0;
+        try {
+          size = input.statSync(file).size;
+        } catch {
+          // No file yet: size stays 0 and the append below creates it.
+        }
+        if (size >= maxBytes) {
+          if (!capped) {
+            capped = true;
+            input.log?.(
+              `[crash] crashes.jsonl reached ${maxBytes} bytes; dropping further reports\n`,
+            );
+          }
+          return;
+        }
+        input.appendFileSync(file, `${JSON.stringify(report)}\n`);
       } catch (error) {
         // Never rethrow: the report is a courtesy, and failing to write one must not turn a
         // recoverable renderer crash into a main-process failure.
@@ -135,9 +165,12 @@ export function fileCrashSink(input: {
  * removes the listeners — used so a test does not leave `process` handlers attached, and so a
  * teardown is possible.
  *
- * `unhandledRejection` and `uncaughtException` are recorded but **not** swallowed: after writing the
- * report the main-process exception is re-thrown on the next tick so Electron's own crash handling
- * still runs. Recording is not the same as pretending the crash did not happen.
+ * `unhandledRejection` and `uncaughtException` are recorded but **not** swallowed: after writing
+ * the report the handler detaches itself and re-throws on the next tick, so the platform's own
+ * fatal handling (print and exit) actually runs. The detach is load-bearing: registering an
+ * `uncaughtException` listener suppresses that default for as long as one is attached, so a
+ * handler that rethrows while still listening re-enters itself forever — one real exception
+ * became a ~5k lines/s storm and a 9.2 GB file. One record, then an honest death.
  */
 export interface CrashWiring {
   app: {
@@ -159,9 +192,10 @@ export interface CrashWiring {
   /**
    * What to do with an uncaught main-process exception *after* it is recorded.
    *
-   * Defaults to re-surfacing it on the next tick, so Electron's own crash handling and the OS still
-   * see it — recording is not swallowing. Injected so a test can assert an exception was reported
-   * without actually throwing into the test runner.
+   * Defaults to re-surfacing it on the next tick; by then the handler has detached itself, so the
+   * deferred throw reaches the platform default (print and exit) instead of re-entering the
+   * handler. Injected so a test can assert an exception was reported without actually throwing
+   * into the test runner.
    */
   rethrow?: (error: Error) => void;
   now?: () => Date;
@@ -194,6 +228,10 @@ export function installCrashReporting(wiring: CrashWiring): () => void {
       }));
 
   const onUncaught = (error: Error): void => {
+    // Detach before anything else. With this listener still attached, Node keeps suppressing the
+    // default fatal handling, and the deferred rethrow below would arrive right back here — the
+    // storm this file's cap describes. Detached, the rethrow is the process's honest last word.
+    wiring.process.off("uncaughtException", onUncaught);
     wiring.sink.write(
       buildCrashReport({
         layer: "main",

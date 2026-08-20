@@ -146,8 +146,8 @@ its postmortem when one exists.
 
 ## Open Issues
 
-None currently. Closed issues live in `changelog/` (the sweep and dissolution entries) and full
-incident stories in `docs/postmortem/`; file new ones under `docs/issues/`.
+None currently. Closed issues live in `changelog/` and their stories in `docs/postmortem/`; file
+new ones under `docs/issues/`.
 
 ## Editing Workflow
 

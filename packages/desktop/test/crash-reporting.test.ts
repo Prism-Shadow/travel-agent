@@ -94,6 +94,9 @@ describe("fileCrashSink", () => {
       dir: "/crash",
       mkdirSync: vi.fn(),
       appendFileSync: (path, data) => writes.push({ path, data }),
+      statSync: () => {
+        throw new Error("ENOENT"); // no file yet — the append below creates it
+      },
       join: (...parts) => parts.join("/"),
     });
     sink.write(buildCrashReport({ layer: "main", event: "x", versions: VERSIONS, now: at }));
@@ -111,6 +114,7 @@ describe("fileCrashSink", () => {
         throw new Error("read-only fs");
       },
       appendFileSync: () => {},
+      statSync: () => ({ size: 0 }),
       join: (...parts) => parts.join("/"),
       log: (line) => logs.push(line),
     });
@@ -118,6 +122,32 @@ describe("fileCrashSink", () => {
       sink.write(buildCrashReport({ layer: "main", event: "x", versions: VERSIONS })),
     ).not.toThrow();
     expect(logs.join("")).toMatch(/could not write/);
+  });
+
+  it("stops appending at the size cap, keeping the earliest reports", () => {
+    const appends: string[] = [];
+    const logs: string[] = [];
+    let size = 0;
+    const sink = fileCrashSink({
+      dir: "/crash",
+      mkdirSync: vi.fn(),
+      appendFileSync: (_path, data) => {
+        appends.push(data);
+        size += data.length;
+      },
+      statSync: () => ({ size }),
+      join: (...parts) => parts.join("/"),
+      maxBytes: 200,
+      log: (line) => logs.push(line),
+    });
+    const report = buildCrashReport({ layer: "main", event: "x", versions: VERSIONS, now: at });
+    for (let i = 0; i < 10; i++) sink.write(report);
+    // The first writes land; once the file passes the cap, nothing more is appended and the
+    // notice is logged exactly once — a report storm must not become a disk-filling storm.
+    expect(appends.length).toBeGreaterThan(0);
+    expect(appends.length).toBeLessThan(10);
+    expect(size).toBeLessThan(200 + 200);
+    expect(logs.filter((l) => l.includes("dropping further reports"))).toHaveLength(1);
   });
 });
 
@@ -180,6 +210,20 @@ describe("installCrashReporting", () => {
     expect(h.reports[0]).toMatchObject({ layer: "main", event: "uncaughtException" });
     expect(h.reports[0]!.reason).toContain("Error");
     // Recorded and re-surfaced: the same error is handed to the rethrow hook, not dropped.
+    expect(h.rethrown).toEqual([boom]);
+    h.dispose();
+  });
+
+  it("detaches after one uncaught exception, so the rethrow cannot re-enter it", () => {
+    const h = harness();
+    const boom = new Error("first");
+    h.processEmitter.emit("uncaughtException", boom);
+    // The handler removed itself before rethrowing. While a listener is attached Node suppresses
+    // its default fatal handling, so a handler that rethrows while still listening loops forever
+    // — the 9.2 GB storm. Detached, the deferred rethrow reaches the default: print and exit.
+    expect(h.processEmitter.listenerCount("uncaughtException")).toBe(0);
+    h.processEmitter.emit("uncaughtException", new Error("second"));
+    expect(h.reports).toHaveLength(1);
     expect(h.rethrown).toEqual([boom]);
     h.dispose();
   });

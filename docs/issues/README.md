@@ -13,6 +13,8 @@ postmortem (the finished story) can hold.
 - Numbers are never reused, including after a file is deleted. The tree does not show the
   high-water mark; find it before numbering a new issue:
   `git log --diff-filter=A --name-only --format= -- docs/issues | sort -u | tail -1`
+  — and check `docs/postmortem/` for a number an issue burned without ever being committed
+  (opened and closed inside a single change).
 - Keep the root `AGENTS.md` open-issues section current in the same change that opens or closes
   an issue.
 

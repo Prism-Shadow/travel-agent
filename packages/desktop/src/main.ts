@@ -574,6 +574,7 @@ if (!app.requestSingleInstanceLock()) {
           dir: path.join(app.getPath("userData"), "crash-reports"),
           mkdirSync: (dir) => nodeFs.mkdirSync(dir, { recursive: true }),
           appendFileSync: (file, data) => nodeFs.appendFileSync(file, data),
+          statSync: (file) => nodeFs.statSync(file),
           join: path.join,
           log: (line) => process.stdout.write(`[crash] ${line}`),
         }),

@@ -35,7 +35,7 @@
  * layers must not be merged, and each of the three answers a question the others cannot.
  */
 import { WebContentsView } from "electron";
-import type { BrowserWindow, WebContents } from "electron";
+import type { BrowserWindow, BrowserWindowConstructorOptions, WebContents } from "electron";
 import { computePaneLayout, layoutChanged } from "./browser-pane-layout.js";
 import type { PaneLayout, PaneMeasurement } from "./browser-pane-layout.js";
 import {
@@ -689,7 +689,7 @@ export class BrowserPane {
    * Separate from `createTab` because crash recovery reuses it: the tab keeps its id, its position
    * in the strip and its ownership, and only the Chromium side is replaced.
    */
-  private buildView(tab: Tab, url?: string, adopted = false): void {
+  private buildView(tab: Tab, url?: string, adopted = false, guest?: WebContents): void {
     // **All or nothing.** Every step below can fail on a real machine — no GPU process, an
     // exhausted handle table, a window torn down underneath — and a half-built view is worse than
     // none: a `WebContentsView` that was constructed and attached but never adopted by a tab is a
@@ -698,7 +698,12 @@ export class BrowserPane {
     // was, with the view it could not use already taken apart.
     const previousView = tab.view;
     const previousDispose = tab.dispose;
-    const view = new WebContentsView({ webPreferences: iabWebPreferences() });
+    // A guest is a popup's `WebContents` that Chromium already created (an opener-carrying
+    // `window.open`); the view adopts it instead of building fresh contents. It inherited the
+    // opener's webPreferences, so this is the same IAB partition and preload either way.
+    const view = guest
+      ? new WebContentsView({ webContents: guest })
+      : new WebContentsView({ webPreferences: iabWebPreferences() });
     let attached = false;
     let detachListeners: (() => void) | null = null;
     try {
@@ -758,9 +763,52 @@ export class BrowserPane {
         }
         return {
           action: "allow",
-          // Built above, so this only hands Chromium the view it already has: the tab exists by
-          // now, and a failure has already become a refusal rather than an exception.
-          createWindow: () => opened.view!.webContents,
+          // Two shapes of "allow", split by whether Chromium pre-created the popup's WebContents
+          // (Electron 43, `lib/browser/guest-window-manager.ts`):
+          //
+          //   - `options.webContents` absent — a browser-initiated open (an implicit-`noopener`
+          //     `target=_blank` link, a middle-click). Electron adopts whatever this returns, so
+          //     it gets the view built above.
+          //   - `options.webContents` present — an opener-carrying `window.open()`. Electron then
+          //     requires this to return *exactly that object*: anything else is thrown as an
+          //     uncaught "Invalid webContents" in the main process (issue 0007's crash). The
+          //     pre-built view is discarded and the tab rebuilt around the guest — which is what
+          //     keeps the opener handle, `window.name`, the referrer and a form POST's body live.
+          //     A failed rebuild still keeps the identity contract and closes the popup instead:
+          //     fail-closed beats an uncaught exception in the main process.
+          createWindow: (
+            // Electron hands the pre-created guest over as `options.webContents`
+            // (`guest-window-manager.ts`), but the public BrowserWindowConstructorOptions type
+            // omits the field; the widening states what the runtime actually delivers.
+            {
+              webContents: guest,
+            }: BrowserWindowConstructorOptions & { webContents?: WebContents } = {},
+          ) => {
+            if (!guest) return opened.view!.webContents;
+            // The same idiom as `recoverFromCrash`: listeners off, model first, then the native
+            // side, so the pre-built view's `destroyed` cannot delete the tab being rebuilt.
+            const previous = opened.view;
+            opened.dispose();
+            opened.view = null;
+            if (previous) this.discardView(previous, true);
+            try {
+              this.buildView(opened, undefined, true, guest);
+              this.applyLayout();
+              this.publishState();
+              this.scheduleCheckpoint();
+            } catch (error) {
+              this.log(`could not adopt a popup to ${target}: ${(error as Error).message}`);
+              this.destroyTab(opened);
+              queueMicrotask(() => {
+                try {
+                  if (!guest.isDestroyed()) guest.close();
+                } catch {
+                  // Already gone.
+                }
+              });
+            }
+            return guest;
+          },
         };
       });
 
@@ -2019,6 +2067,11 @@ export class BrowserPane {
   }
 
   private applyLayout(): void {
+    // Teardown reaches here too (`destroy` → `destroyTab` → `forgetTab`), and once the window is
+    // gone every measurement below throws "Object has been destroyed". Same guard as
+    // `publishState` and `scheduleCheckpoint`; the optional call covers a window destroyed from
+    // outside before `destroy` ran (and test fakes that do not model `isDestroyed`).
+    if (this.disposed || this.options.window.isDestroyed?.()) return;
     const [width = 0, height = 0] = this.options.window.getContentSize();
     const layout = computePaneLayout({
       measurement: this.measurement,
