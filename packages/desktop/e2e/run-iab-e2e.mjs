@@ -123,8 +123,8 @@ expect(
 );
 expect(
   "cold-start",
-  (s) => s.requested === true && s.present === false,
-  "the workspace starts open without eagerly creating a browser target",
+  (s) => s.requested === false && s.present === false,
+  "an untouched conversation shows no pane and no eager browser target",
 );
 expect(
   "draft-before-chat",

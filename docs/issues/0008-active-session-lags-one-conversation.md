@@ -53,6 +53,14 @@ agent browsing with no live pane at all, delivering visibility as screenshots an
 the transcript. Pop-out windows also mean "which conversation is visible" has no single answer
 there.
 
+## Status update (2026-08-21)
+
+Direction 2 shipped: the visibility gate is retired
+(`docs/decisions/implemented/2026-08-21-agent-tabs-follow-conversation-not-screen.md`), so this
+bug no longer locks agents out — its remaining damage is a late strip render. Direction 1 (pin
+the stale writer with a transition log) remains open; this issue now tracks only that
+correctness bug.
+
 ## Fix directions to decide
 
 1. Fix the lag itself (once the writer is pinned) — necessary regardless.

@@ -353,7 +353,24 @@ export class BrowserPane {
   private nextTabOrdinal = 1;
   private measurement: PaneMeasurement | null = null;
   /** The browser workspace is visible on desktop startup; the user can still close it explicitly. */
-  private requested = true;
+  /**
+   * The pane's open state, per conversation. An explicit entry records a choice — the user's
+   * toggle, or a tab being created — while a scope without one derives its answer from content:
+   * open when the conversation has pages, closed when it has none. One conversation's open pane
+   * says nothing about another's; the old single flag leaked one conversation's open browser
+   * into every other conversation, and forced an empty pane onto conversations that had never
+   * used the browser at all.
+   */
+  private requestedByScope = new Map<string, boolean>();
+
+  /** The effective open state for a scope: its recorded choice, else "does it have pages". */
+  private requestedFor(scope: string | null): boolean {
+    if (scope === null) return false;
+    const explicit = this.requestedByScope.get(scope);
+    if (explicit !== undefined) return explicit;
+    for (const tab of this.tabs.values()) if (tab.sessionScope === scope) return true;
+    return this.dormant.some((entry) => entry.taskScope === scope);
+  }
   private occluded = false;
   /** The conversation the renderer is showing. Null means no conversation is open. */
   private activeSession: string | null = null;
@@ -562,23 +579,13 @@ export class BrowserPane {
     const taskId = requireIdentity(options.taskId, "taskId");
     await this.requireTaskLive(sessionId, taskId);
 
-    // The work has to be visible. Phase 1's guarantee was that an agent cannot drive a browser the
-    // user has not got open; with per-conversation strips, "open" is not enough — a tab created for
-    // conversation A while the user is reading conversation B appears in no strip at all, and the
-    // agent would be working somewhere nobody can see or close.
-    //
-    // Refused rather than resolved by switching the user's view: yanking someone into another
-    // conversation because a background task started browsing is a worse answer than telling the
-    // agent it cannot start. A task already working keeps its tabs when the user navigates away —
-    // they are still in that conversation's strip, and going back shows them — but *starting*
-    // hidden is the thing that must not happen.
-    if (this.activeSession !== sessionId) {
-      throw new Error(
-        `IAB_SESSION_NOT_VISIBLE: the in-app browser will not open a tab for a conversation the ` +
-          `user is not looking at (asked for ${sessionId}, showing ` +
-          `${this.activeSession ?? "no conversation"}). Ask the user to open this conversation.`,
-      );
-    }
+    // Any conversation may start browsing, on screen or not: the tab lands in that
+    // conversation's own strip, hidden until the user opens that conversation — the same
+    // already-shipped state as a task that keeps working after the user navigates away.
+    // Per-conversation strips made the old refusal's premise ("a hidden tab appears in no strip
+    // at all") false, and the surveyed prior art ships no visibility gate; see
+    // docs/decisions on agent tabs following the conversation. What is refused stays refused
+    // elsewhere: identity, task liveness, ownership, and every action gate.
 
     // Only `undefined` means "leave it blank". A URL that was supplied and cannot be navigated is
     // an error the caller must see: silently ignoring it would return a target id for a page that
@@ -597,9 +604,9 @@ export class BrowserPane {
       relaySession: options.relaySessionId ?? null,
     });
 
-    // Show the pane before the caller gets its id: the agent is about to do something, and the user
-    // should be watching it rather than discovering it later.
-    this.requestForAgent();
+    // Mark the conversation's pane open before the caller gets its id: on screen that shows the
+    // work now; hidden, it records that the browser should be showing when the user arrives.
+    this.requestFor(sessionId);
 
     const targetId = await this.ensureTargetId(tab);
     if (!targetId) {
@@ -629,7 +636,7 @@ export class BrowserPane {
       sessionScope,
       ownedByTask: null,
     });
-    this.requestForAgent();
+    this.requestFor(sessionScope);
     return tab.id;
   }
 
@@ -1436,6 +1443,10 @@ export class BrowserPane {
     this.backendBySession.delete(previousSessionId);
     if (backend !== "iab") this.backendBySession.set(nextSessionId, backend);
 
+    const requestedChoice = this.requestedByScope.get(previousSessionId);
+    this.requestedByScope.delete(previousSessionId);
+    if (requestedChoice !== undefined) this.requestedByScope.set(nextSessionId, requestedChoice);
+
     for (const tab of this.tabs.values()) {
       if (tab.sessionScope !== previousSessionId) continue;
       tab.sessionScope = nextSessionId;
@@ -1814,22 +1825,25 @@ export class BrowserPane {
   }
 
   /**
-   * Opens the pane because the agent needs it.
+   * Marks a conversation's pane open because a tab was just created in it.
    *
-   * An agent that starts driving a browser the user cannot see is the failure this prevents: the
-   * whole point of the workspace is that the work is visible.
+   * For the conversation on screen this opens the pane now; for a hidden one it records that
+   * the browser should be showing when the user arrives — it must not pop the pane over an
+   * unrelated conversation's chat.
    */
-  private requestForAgent(): void {
-    if (this.requested) return;
-    this.requested = true;
-    this.log("opened the pane because a tab was created");
+  private requestFor(scope: string): void {
+    if (this.requestedByScope.get(scope) === true) return;
+    this.requestedByScope.set(scope, true);
+    if (scope === this.activeSession) this.log("opened the pane because a tab was created");
     this.applyLayout();
     this.publishState();
   }
 
-  /** The renderer's intent: is the pane open? */
+  /** The renderer's intent for the conversation on screen: is its pane open? */
   setRequested(requested: boolean): void {
-    this.requested = requested;
+    const scope = this.activeSession;
+    if (scope === null) return;
+    this.requestedByScope.set(scope, requested);
     this.applyLayout();
     this.publishState();
   }
@@ -2037,7 +2051,9 @@ export class BrowserPane {
    * from whatever the user was actually using.
    */
   acceptsShortcuts(): boolean {
-    return this.requested && !this.occluded && this.activeSession !== null;
+    return (
+      this.requestedFor(this.activeSession) && !this.occluded && this.activeSession !== null
+    );
   }
 
   /**
@@ -2076,7 +2092,7 @@ export class BrowserPane {
     const layout = computePaneLayout({
       measurement: this.measurement,
       content: { width, height },
-      requested: this.requested,
+      requested: this.requestedFor(this.activeSession),
       occluded: this.occluded,
     });
     // Chrome renders in the user's own window. Keeping an old IAB view painted under Chrome's
@@ -2127,7 +2143,7 @@ export class BrowserPane {
     return {
       present: visible.length > 0,
       visible: active?.lastLayout?.visible ?? false,
-      requested: this.requested,
+      requested: this.requestedFor(this.activeSession),
       tabs: visible.map((tab) => this.tabState(tab)),
       activeTabId: active?.id ?? null,
       sessionScope: this.activeSession,

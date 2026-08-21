@@ -317,9 +317,36 @@ describe("tab favicons", () => {
   });
 });
 
-describe("initial state", () => {
-  it("starts with the browser workspace open", () => {
-    expect(makePane().pane.state().requested).toBe(true);
+describe("pane visibility per conversation", () => {
+  it("shows no pane when no conversation is on screen", () => {
+    expect(makePane().pane.state().requested).toBe(false);
+  });
+
+  it("does not leak one conversation's open pane into another", () => {
+    // The old single flag meant opening the browser anywhere opened it everywhere; a
+    // conversation that never used the browser must not greet the user with an empty pane.
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    pane.openTabForUser("https://ctrip.com/");
+    expect(pane.state().requested).toBe(true);
+    pane.setActiveSession("session-2");
+    expect(pane.state().requested).toBe(false);
+    pane.setActiveSession("session-1");
+    expect(pane.state().requested).toBe(true);
+  });
+
+  it("remembers an explicit close for that conversation only", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-1");
+    pane.openTabForUser("https://ctrip.com/");
+    pane.setRequested(false);
+    pane.setActiveSession("session-2");
+    pane.openTabForUser("https://fliggy.com/");
+    expect(pane.state().requested).toBe(true);
+    pane.setActiveSession("session-1");
+    // Its pages are still there; the user said "closed", and that choice is this conversation's.
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(pane.state().requested).toBe(false);
   });
 });
 
@@ -456,18 +483,22 @@ describe("openTabForAgent", () => {
     ).rejects.toThrow(/http and https/);
   });
 
-  it("refuses to start work in a conversation the user is not looking at", async () => {
-    // The Phase 1 guarantee, carried into a per-conversation strip: a tab opened for conversation A
-    // while the user reads conversation B appears in no strip at all, so the agent would be working
-    // where nobody can see or close it. Refused rather than resolved by switching the user's view.
-    const { pane } = await paneWithSession("session-visible");
-    // Genuinely running in the other conversation — the refusal is about where the user is looking,
-    // not about authority.
+  it("starts hidden work in a conversation the user is not looking at", async () => {
+    // The tab lands in the agent's own conversation's strip — hidden now, shown the moment the
+    // user opens that conversation. The displayed conversation's chat is untouched: no tab in
+    // its strip and no pane popped over it (the old gate refused this outright, and its stale
+    // enforcement key locked out conversations the user *was* looking at — issue 0008).
+    // The viewer has never opened the browser: the strongest form of "must not pop the pane".
+    const { pane } = makePane();
+    pane.setActiveSession("session-visible");
+    pane.setMeasurement({ x: 800, y: 40, width: 700, height: 800 });
     reportRunning(pane, "session-other", "task-elsewhere");
-    await expect(
-      pane.openTabForAgent({ sessionId: "session-other", taskId: "task-elsewhere" }),
-    ).rejects.toThrow(/IAB_SESSION_NOT_VISIBLE/);
+    await pane.openTabForAgent({ sessionId: "session-other", taskId: "task-elsewhere" });
     expect(pane.state().tabs).toHaveLength(0);
+    expect(pane.state().requested).toBe(false);
+    pane.setActiveSession("session-other");
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(pane.state().requested).toBe(true);
   });
 
   it("scopes the tab to the agent's conversation", async () => {
@@ -1387,6 +1418,9 @@ describe("shortcut entitlement", () => {
     const { pane } = makePane();
     expect(pane.acceptsShortcuts()).toBe(false);
     pane.setActiveSession("session-1");
+    // An untouched conversation shows no pane, so it claims no keys either.
+    expect(pane.acceptsShortcuts()).toBe(false);
+    pane.setRequested(true);
     expect(pane.acceptsShortcuts()).toBe(true);
     pane.setRequested(false);
     expect(pane.acceptsShortcuts()).toBe(false);

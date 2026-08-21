@@ -166,7 +166,7 @@ function reservePort() {
   pane.setActiveSession(DRAFT_SCOPE);
 
   // The renderer reports where the pane goes, exactly as the real hook does. The workspace is open
-  // by product default, but no tab or WebContentsView exists until someone asks for one.
+  // per conversation: a scope that has never used the browser shows no pane until content exists.
   pane.setMeasurement({ x: 700, y: 0, width: 700, height: 900 });
   out({ step: "cold-start", requested: pane.state().requested, present: pane.state().present });
 

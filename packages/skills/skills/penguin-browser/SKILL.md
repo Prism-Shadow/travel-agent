@@ -3,8 +3,8 @@ name: penguin-browser
 description: Control the browser backend selected for a Travel Agent conversation through the Penguin Browser CLI and persistent Playwright sessions. Desktop conversations default to the visible in-app browser; the user's own Chrome is an explicit alternative for reusing that profile or an existing authorized tab. Use for interactive or authenticated browser tasks that require rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
 short_description: Automate the conversation's selected browser backend.
 short_description_zh: 通过本地 CLI 自动化对话中由用户选择的浏览器后端。
-version: 9
-updated: 2026-08-19T00:00:00Z
+version: 10
+updated: 2026-08-21T00:00:00Z
 ---
 
 # Penguin Browser
@@ -85,8 +85,9 @@ mode can refuse with actionable errors:
   between tasks.
 - **`IAB_IDENTITY_REQUIRED`** — the command was not started by a task. It carries no conversation
   and no task, so its tabs would belong to nobody; there is no flag for this on purpose.
-- **`IAB_SESSION_NOT_VISIBLE`** — the conversation you are working in is not the one on screen. Ask
-  the user to open it rather than working in a browser they cannot see.
+- Tabs open into your conversation's own strip even when the user is viewing another
+  conversation: they appear the moment the user opens yours, so keep working and narrate
+  progress in the conversation instead of asking the user to switch views.
 
 For a Chrome selection, `packages/browser-extension/dist/manifest.json` must exist and the extension
 must connect to the same relay. The Desktop opens setup when the user selects Chrome and no extension
