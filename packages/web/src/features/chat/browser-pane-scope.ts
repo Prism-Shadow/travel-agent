@@ -101,15 +101,20 @@ export function applySessionSwitch(options: {
   } catch {
     hidden = false;
   }
-  if (!hidden) {
-    // The view may still be painting the other conversation. Confirming a scope now would unlock a
-    // strip over a page that is not this conversation's.
-    return Promise.resolve(null);
-  }
-  options.onHidden?.();
+  if (hidden) options.onHidden?.();
   if (!options.isCurrent()) return Promise.resolve(null);
-  return options
+  // Announced even when the hide was not confirmed: main must always learn which conversation
+  // the renderer shows, or its notion of the active scope goes stale for every later decision
+  // (the one-behind pattern of issue 0008). What an unconfirmed hide withholds is only the
+  // *confirmation* below — the strip stays locked over a view that may still be painting the
+  // previous conversation.
+  const announced = options
     .announce(options.sessionId)
     .then((scope) => (options.isCurrent() ? scope : null))
     .catch(() => null);
+  if (!hidden) {
+    void announced;
+    return Promise.resolve(null);
+  }
+  return announced;
 }

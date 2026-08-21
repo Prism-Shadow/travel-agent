@@ -53,6 +53,22 @@ agent browsing with no live pane at all, delivering visibility as screenshots an
 the transcript. Pop-out windows also mean "which conversation is visible" has no single answer
 there.
 
+## Status update (2026-08-21, later)
+
+Two further changes narrow this issue:
+
+- **The only identified silent-skip is closed.** `applySessionSwitch` used to skip the
+  announce entirely when the hide was unconfirmed — the exact shape that leaves main one
+  conversation behind while the renderer moves on. It now always announces (main tracks
+  truth) and only withholds the *confirmation*; two scope tests pin the new contract.
+- **The transition is logged.** `setActiveSession` logs `active session <prev> -> <next>`,
+  so the next occurrence convicts or clears the remaining candidates from the desktop log
+  alone. Repro protocol: run `pnpm desktop`, then draft → send → New Chat → send while an
+  agent opens tabs, and read the transition lines around any refusal.
+
+If the lag never reproduces after the announce fix, the silent-skip was the writer and this
+issue closes; the log is the arbiter either way.
+
 ## Status update (2026-08-21)
 
 Direction 2 shipped: the visibility gate is retired

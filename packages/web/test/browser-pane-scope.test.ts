@@ -115,9 +115,12 @@ describe("applySessionSwitch", () => {
     expect(bridge.order).toEqual(["hide", "announce:B"]);
   });
 
-  it("confirms nothing when main did not hide the view", async () => {
-    // A window tearing down, a refused channel. The view may still be painting the conversation the
-    // user just left, so unlocking the strip is the one thing that must not happen.
+  it("announces but confirms nothing when main did not hide the view", async () => {
+    // A window tearing down, a refused channel. The view may still be painting the conversation
+    // the user just left, so unlocking the strip must not happen — but main must still learn
+    // which conversation the renderer shows, or its active scope goes stale for every later
+    // decision (the one-behind pattern of issue 0008: skipped announces leave the pane exactly
+    // one conversation behind reality).
     const bridge = recorder({ hides: false });
     await expect(
       applySessionSwitch({
@@ -127,10 +130,10 @@ describe("applySessionSwitch", () => {
         isCurrent: () => true,
       }),
     ).resolves.toBeNull();
-    expect(bridge.order).toEqual(["hide"]);
+    expect(bridge.order).toEqual(["hide", "announce:B"]);
   });
 
-  it("confirms nothing when the hide throws", async () => {
+  it("announces but confirms nothing when the hide throws", async () => {
     let announced = false;
     await expect(
       applySessionSwitch({
@@ -145,7 +148,7 @@ describe("applySessionSwitch", () => {
         isCurrent: () => true,
       }),
     ).resolves.toBeNull();
-    expect(announced).toBe(false);
+    expect(announced).toBe(true);
   });
 
   it("does not announce a conversation the user has already left", async () => {

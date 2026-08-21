@@ -51,6 +51,15 @@ function startFixtureServer() {
   });
 }
 
+/** Polls a condition until it holds or the deadline passes; the step's own assert says the rest. */
+async function waitFor(condition, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 function reservePort() {
   return new Promise((resolve, reject) => {
     const net = require("node:net");
@@ -171,7 +180,9 @@ function reservePort() {
   out({ step: "cold-start", requested: pane.state().requested, present: pane.state().present });
 
   const draftTabId = pane.openTabForUser(fixtureUrl);
-  await new Promise((resolve) => setTimeout(resolve, 250));
+  // Poll, do not sleep: a fixed nap measures the runner, not the product (postmortem 0001) —
+  // the first navigation on a cold Xvfb Chromium can take well over 250ms.
+  await waitFor(() => pane.state().tabs[0]?.url === fixtureUrl, 8000);
   out({
     step: "draft-before-chat",
     scope: pane.state().sessionScope,

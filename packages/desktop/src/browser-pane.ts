@@ -1351,6 +1351,9 @@ export class BrowserPane {
     }
     // The route moves only after any missing backend choice is safe across the process boundary.
     this.pendingDraftPromotion = null;
+    // Logged because issue 0008 could not be pinned without it: the pane reported a stale scope
+    // twice in the wild, and this transition is the only writer besides promotion.
+    this.log(`active session ${this.activeSession ?? "none"} -> ${sessionId ?? "none"}`);
     this.activeSession = sessionId;
     this.materializeScope(sessionId);
     this.applyLayout();

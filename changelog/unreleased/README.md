@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-21] Session switches always announce to main (the one-behind stale-scope shape of issue 0008 loses its only identified writer, and the transition is now logged), and the e2e's draft step polls for navigation instead of sleeping 250 ms — the red CI run's exact failure. ([details](2026-08-21-announce-always-and-e2e-poll.md))
 - [2026-08-21] Issue 0009 opened and closed same-day: deleting a conversation now drops its browser scope over a new `iab:drop-session` channel — live views, relay claims, dormant pages and per-scope state no longer leak until restart. ([details](2026-08-21-issue-0009-deleted-session-leaks.md))
 - [2026-08-21] The browser pane follows the conversation: agents may start browsing in a hidden conversation's own strip (`IAB_SESSION_NOT_VISIBLE` retired, skill v10), and the pane's open state is per conversation instead of one leaking global flag. ([details](2026-08-21-pane-follows-conversation.md))
 - [2026-08-21] Issue 0008 opened: the in-app browser's active session lags one conversation behind, refusing fresh chats' agents with `IAB_SESSION_NOT_VISIBLE` while the user is already looking at them; evidence from two traced failures, writer not yet pinned. ([details](2026-08-21-issue-0008-stale-active-session.md))
