@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-21] Issue 0009 opened: deleting a conversation never reaches the browser pane, leaking its live views, relay claims, dormant pages and per-scope state until restart. ([details](2026-08-21-issue-0009-deleted-session-leaks.md))
 - [2026-08-21] The browser pane follows the conversation: agents may start browsing in a hidden conversation's own strip (`IAB_SESSION_NOT_VISIBLE` retired, skill v10), and the pane's open state is per conversation instead of one leaking global flag. ([details](2026-08-21-pane-follows-conversation.md))
 - [2026-08-21] Issue 0008 opened: the in-app browser's active session lags one conversation behind, refusing fresh chats' agents with `IAB_SESSION_NOT_VISIBLE` while the user is already looking at them; evidence from two traced failures, writer not yet pinned. ([details](2026-08-21-issue-0008-stale-active-session.md))
 - [2026-08-21] Worktrees move inside the checkout at `.worktree/<task>` (git-ignored, never committed); AGENTS.md records the convention. ([details](2026-08-21-worktree-convention.md))
