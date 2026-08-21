@@ -216,6 +216,8 @@ const api = {
   /** Promote the active draft's browser strip to its newly-created Session (or roll it back). */
   reassignSession: (sessionId: string): Promise<string> =>
     ipcRenderer.invoke("iab:reassign-session", sessionId),
+  dropSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke("iab:drop-session", sessionId),
 
   /** Which browser the next agent session should use. */
   setBackend: (backend: "iab" | "extension"): Promise<void> =>

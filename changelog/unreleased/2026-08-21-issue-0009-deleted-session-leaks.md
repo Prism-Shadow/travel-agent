@@ -1,9 +1,16 @@
-# Issue 0009 opened: deleting a conversation leaks its browser strip
+# Issue 0009 opened and closed: deleting a conversation no longer leaks its browser strip
 
 An IAB audit after the pane-follows-conversation change found that sidebar deletion never
-reaches the pane — no bridge channel exists for it — so a deleted conversation's live
+reached the pane — no bridge channel existed for it — so a deleted conversation's live
 `WebContentsView`s, relay target claims, dormant checkpoint entries, and per-scope
-requested/backend state all outlive it until app restart. Hidden starts make
-deleted-with-tabs an ordinary state, raising the exposure. Recorded with a `dropScope` fix
-direction; the audit also re-ran every suite green (desktop 869, browser-cli 594+1 skipped,
-web 822, skills 21, real-Electron e2e).
+requested/backend state all outlived it until app restart. Hidden starts made
+deleted-with-tabs an ordinary state, raising the exposure.
+
+Fixed in the same day: the pane gains `dropScope(sessionId)` — destroys the scope's tabs
+(views and relay claims via the existing `destroyTab` path), drops its dormant entries and
+per-scope requested/backend/persistence records, and reschedules the checkpoint — wired
+through a new `iab:drop-session` bridge channel that the sidebar's delete flow calls
+best-effort after the server confirms deletion. Archiving deliberately does not drop: an
+archived conversation keeps its pages. The audit also re-ran every suite green; the fix adds
+a behaviour test (deleted scope's contents closed, choices gone, other conversations
+untouched — desktop 870).

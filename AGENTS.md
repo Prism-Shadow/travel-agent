@@ -156,7 +156,6 @@ its postmortem when one exists.
 | # | Problem |
 | --- | --- |
 | [0008](docs/issues/0008-active-session-lags-one-conversation.md) | The pane's active session lags one conversation behind (stale-writer unpinned); impact reduced to a late strip render since the visibility gate was retired |
-| [0009](docs/issues/0009-deleted-session-strip-leaks.md) | Deleting a conversation never reaches the pane: its live views, dormant pages, and per-scope state leak until restart |
 
 ## Editing Workflow
 

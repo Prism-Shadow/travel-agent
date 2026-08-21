@@ -37,6 +37,7 @@ const CHANNELS = [
   "iab:get-state",
   "iab:set-session",
   "iab:reassign-session",
+  "iab:drop-session",
   "iab:set-backend",
   "iab:open-tab",
   "iab:close-tab",
@@ -305,6 +306,8 @@ export function installBrowserIpc({
   on("iab:reassign-session", (payload) =>
     pane.reassignActiveSession(parseId(payload, "sessionId")),
   );
+  // Deletion is the one lifecycle event the pane cannot observe on its own (issue 0009).
+  on("iab:drop-session", (payload) => pane.dropScope(parseId(payload, "sessionId")));
   on("iab:set-backend", (payload) => pane.setBackend(parseBackend(payload)));
 
   // —— tabs ——

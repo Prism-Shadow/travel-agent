@@ -1469,6 +1469,29 @@ export class BrowserPane {
     return nextSessionId;
   }
 
+  /**
+   * Removes everything a deleted conversation owned.
+   *
+   * Deletion is the one lifecycle event the pane cannot observe on its own — the server and the
+   * renderer agree the conversation is gone, and without this call its live views, relay claims,
+   * dormant pages and per-scope choices would outlive it until restart (issue 0009). Archiving
+   * deliberately does not come here: an archived conversation keeps its pages.
+   */
+  dropScope(sessionId: string): void {
+    for (const tab of [...this.tabs.values()]) {
+      if (tab.sessionScope === sessionId) this.destroyTab(tab);
+    }
+    this.dormant = this.dormant.filter((entry) => entry.taskScope !== sessionId);
+    this.activeByScope.delete(sessionId);
+    this.requestedByScope.delete(sessionId);
+    this.backendBySession.delete(sessionId);
+    this.persistedBackendSessions.delete(sessionId);
+    this.applyLayout();
+    this.publishState();
+    this.scheduleCheckpoint();
+    this.log(`dropped browser scope ${sessionId}`);
+  }
+
   /** Which browser the next agent session should use. A task-level decision. */
   setBackend(backend: PaneBackend): void {
     const sessionId = this.requireActiveSession();

@@ -123,6 +123,8 @@ export interface DesktopBrowserBridge {
   setSession(sessionId: string | null): Promise<string | null>;
   /** Promote the active draft browser strip to its new Session, or roll back that exact move. */
   reassignSession(sessionId: string): Promise<string>;
+  /** A deleted conversation's strip, dormant pages and per-scope choices go with it. */
+  dropSession(sessionId: string): Promise<void>;
   setBackend(backend: DesktopBackend): Promise<void>;
   getState(): Promise<DesktopPaneState>;
   openTab(url?: string): Promise<string>;

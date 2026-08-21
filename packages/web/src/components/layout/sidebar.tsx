@@ -24,6 +24,7 @@ import type {
   SessionInfo,
 } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
+import { desktopBrowserBridge } from "../../lib/desktop-bridge";
 import { S } from "../../lib/strings";
 import { formatMonthDay } from "../../lib/format";
 import { apiErrorText } from "../../lib/api-error";
@@ -438,6 +439,11 @@ export function Sidebar({
     try {
       await api.deleteSession(target.sessionId);
       remove(target.sessionId);
+      // Desktop only: the pane cannot observe deletion (issue 0009). Best-effort — a failed
+      // drop must not resurrect the dialog for a conversation the server already deleted.
+      void desktopBrowserBridge()
+        ?.dropSession(target.sessionId)
+        .catch(() => {});
       // The session is gone, so clear its input draft too (no orphaned keys left in localStorage; keys are scoped per user, #68).
       if (user) clearDraft(sessionDraftKey(user.userId, target.sessionId));
       setDeletingSession(null);

@@ -335,6 +335,25 @@ describe("pane visibility per conversation", () => {
     expect(pane.state().requested).toBe(true);
   });
 
+  it("dropScope removes a deleted conversation's tabs, choices and dormant pages, and no one else's", async () => {
+    // Deletion is invisible to the pane without this call (issue 0009): the strip's live views,
+    // their relay claims, and the per-scope choices would all outlive the conversation.
+    const { pane } = await paneWithSession("session-keep", "task-keep");
+    await pane.openTabForAgent({ sessionId: "session-keep", taskId: "task-keep" });
+    reportRunning(pane, "session-doomed", "task-doomed");
+    await pane.openTabForAgent({ sessionId: "session-doomed", taskId: "task-doomed" });
+    const doomedContents = views[views.length - 1]!.webContents;
+
+    pane.dropScope("session-doomed");
+    expect(doomedContents.close).toHaveBeenCalled();
+    pane.setActiveSession("session-doomed");
+    expect(pane.state().tabs).toHaveLength(0);
+    expect(pane.state().requested).toBe(false);
+    pane.setActiveSession("session-keep");
+    expect(pane.state().tabs).toHaveLength(1);
+    expect(pane.state().requested).toBe(true);
+  });
+
   it("remembers an explicit close for that conversation only", () => {
     const { pane } = makePane();
     pane.setActiveSession("session-1");
