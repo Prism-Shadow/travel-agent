@@ -2051,9 +2051,7 @@ export class BrowserPane {
    * from whatever the user was actually using.
    */
   acceptsShortcuts(): boolean {
-    return (
-      this.requestedFor(this.activeSession) && !this.occluded && this.activeSession !== null
-    );
+    return this.requestedFor(this.activeSession) && !this.occluded && this.activeSession !== null;
   }
 
   /**
