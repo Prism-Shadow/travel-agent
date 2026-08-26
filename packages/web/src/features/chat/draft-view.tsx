@@ -71,8 +71,14 @@ import { EXAMPLE_TASKS } from "./example-tasks";
 import type { ExampleTask, ExampleTaskId } from "./example-tasks";
 import { JumpBackIn, type InspirationCardId } from "./jump-back-in";
 import { TripConstraintChips } from "./trip-constraint-chips";
-import { EMPTY_TRIP_CONSTRAINTS, applyTripPrefix } from "./trip-constraints";
+import {
+  EMPTY_TRIP_CONSTRAINTS,
+  applyTripPrefix,
+  constraintsToTripPatch,
+  tripToConstraints,
+} from "./trip-constraints";
 import type { TripConstraints } from "./trip-constraints";
+import { useTrips } from "../../state/trips";
 import {
   clearDraft,
   createDraftBrowserScopeId,
@@ -259,6 +265,7 @@ export function DraftView({
    * silently attaching the conversation to a journey the person is no longer looking at.
    */
   const draftTripId = routeState?.tripId ?? null;
+  const { byId: tripsById, patch: patchTrip } = useTrips();
   const stateAgentId = routeState?.agentId;
   const appliedStateKey = useRef<string | null>(null);
   /** One-shot marker for the project-default Agent (seeding precedence, see below). */
@@ -710,18 +717,51 @@ export function DraftView({
   // typed-but-unsent draft must survive. The selected model / Workspace / approval mode apply as-is.
   const [exampleBusy, setExampleBusy] = useState<ExampleTaskId | null>(null);
 
-  // Trip-constraint chips (Where/When/Who/Budget): a visible draft of the constraint block
-  // the next composer send will prepend (trip-constraints.ts). Deliberately NOT in the
-  // draft cache (v1 boundary, design/005 P0); cleared only after a successful send — the
-  // example tasks are complete prompts and bypass the chips entirely.
-  const [trip, setTrip] = useState<TripConstraints>(EMPTY_TRIP_CONSTRAINTS);
+  /**
+   * Trip-constraint chips (Where/When/Who/Budget), in one of two modes.
+   *
+   * **Inside a Trip** they *are* that Trip's identity: they open showing what the journey
+   * already knows, and editing one patches the Trip, so the second conversation about a
+   * journey never asks again for what the first one established.
+   *
+   * **On a floating conversation** they stay what they were — local scaffolding for this one
+   * message, cleared after a successful send. Filling them does not quietly create a Trip:
+   * a journey begins when the person says so ("new trip", or moving this conversation into
+   * one afterwards), not as a side effect of naming a city in a question.
+   *
+   * Either way the values are prepended to the outgoing message as visible text, so what the
+   * model receives is exactly what the person can see they sent. Later messages in the
+   * conversation do not repeat it; the trip skill has the agent read `trip.json` instead.
+   */
+  const draftTrip = draftTripId === null ? null : (tripsById.get(draftTripId) ?? null);
+  const [localTrip, setLocalTrip] = useState<TripConstraints>(EMPTY_TRIP_CONSTRAINTS);
+  const trip = draftTrip ? tripToConstraints(draftTrip) : localTrip;
+  const setTripValue = useCallback(
+    (next: TripConstraints) => {
+      if (draftTrip === null) {
+        setLocalTrip(next);
+        return;
+      }
+      // The Trip is the store of record; a failed write must not leave the chips showing a
+      // value the journey does not actually have, so nothing is set optimistically here.
+      void patchTrip(draftTrip.tripId, constraintsToTripPatch(next)).catch((e: unknown) =>
+        toastError(apiErrorText(e)),
+      );
+    },
+    [draftTrip, patchTrip],
+  );
   const sendWithTrip = useCallback(
     async (input: TaskInputPart[], goal: { budget: number } | null): Promise<boolean> => {
-      const ok = await onSend(applyTripPrefix(input, trip, S.chat.tripChips), false, goal);
-      if (ok) setTrip(EMPTY_TRIP_CONSTRAINTS);
+      const ok = await onSend(
+        applyTripPrefix(input, trip, S.chat.tripChips, draftTrip?.dir),
+        false,
+        goal,
+      );
+      // Only the floating chips are scratch to be cleared; a Trip's identity outlives the send.
+      if (ok && draftTrip === null) setLocalTrip(EMPTY_TRIP_CONSTRAINTS);
       return ok;
     },
-    [onSend, trip],
+    [onSend, trip, draftTrip],
   );
   const runExample = useCallback(
     async (task: ExampleTask) => {
@@ -797,7 +837,7 @@ export function DraftView({
           </p>
 
           <div className="mt-6 w-full text-left">
-            <TripConstraintChips value={trip} onChange={setTrip} />
+            <TripConstraintChips value={trip} onChange={setTripValue} />
             <ChatInput
               appearance="travel"
               status="idle"

@@ -200,7 +200,7 @@ export const SKILL_GROUPS: SkillGroupInfo[] = [
     id: "travel",
     title: "Travel",
     titleZh: "出行",
-    skills: ["amap-lbs-skill"],
+    skills: ["trip-workspace", "amap-lbs-skill"],
   },
 ];
 

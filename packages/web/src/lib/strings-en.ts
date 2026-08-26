@@ -1107,6 +1107,7 @@ export const en: Strings = {
     // trip-constraints.ts) + chip/popover UI copy. "Budget" is the trip's price TIER —
     // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
     tripChips: {
+      lineFolder: "Trip folder: ",
       lineWhere: "Where: ",
       lineWhen: "When: ",
       lineWho: "Who: ",

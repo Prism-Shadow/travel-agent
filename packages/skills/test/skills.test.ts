@@ -122,8 +122,8 @@ describe("loadPreinstalledSkills", () => {
     const all = loadLibrarySkills();
     const preinstalled = loadPreinstalledSkills().map((s) => s.name);
     expect(preinstalled).toEqual(all.filter((s) => s.preinstall !== false).map((s) => s.name));
-    // The library ships exactly two skills and both are preinstalled.
-    expect(preinstalled).toEqual(["amap-lbs-skill", "penguin-browser"]);
+    // The library ships exactly three skills and all are preinstalled.
+    expect(preinstalled).toEqual(["amap-lbs-skill", "penguin-browser", "trip-workspace"]);
   });
 });
 
@@ -134,7 +134,8 @@ describe("loadSkillGroups / groupSkills", () => {
     expect(groups[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
     expect(groups[0]!.title).toBe("Browser");
     expect(groups[0]!.titleZh).toBe("浏览器");
-    expect(groups[1]!.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
+    // trip-workspace leads its group: it is what every conversation in a trip needs first.
+    expect(groups[1]!.skills.map((s) => s.name)).toEqual(["trip-workspace", "amap-lbs-skill"]);
     expect(groups[1]!.title).toBe("Travel");
     expect(groups[1]!.titleZh).toBe("出行");
     for (const group of groups) {
@@ -170,7 +171,7 @@ describe("loadSkillGroups / groupSkills", () => {
   it("SKILL_GROUPS hardcodes member names (sole group info source outside library files)", () => {
     expect(SKILL_GROUPS.map((g) => ({ id: g.id, skills: g.skills }))).toEqual([
       { id: "browser", skills: ["penguin-browser"] },
-      { id: "travel", skills: ["amap-lbs-skill"] },
+      { id: "travel", skills: ["trip-workspace", "amap-lbs-skill"] },
     ]);
   });
 });

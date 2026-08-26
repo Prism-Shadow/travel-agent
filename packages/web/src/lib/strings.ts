@@ -1047,6 +1047,7 @@ export const zh = {
     // trip-constraints.ts) + chip/popover UI copy. "预算" here is the trip's price TIER —
     // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
     tripChips: {
+      lineFolder: "行程文件夹：",
       lineWhere: "目的地：",
       lineWhen: "日期：",
       lineWho: "人数：",

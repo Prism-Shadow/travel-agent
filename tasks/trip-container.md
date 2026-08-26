@@ -81,11 +81,21 @@ adopted.
 - [ ] New built-in skill (patterned on `skills/penguin-browser`): read `trip.json` and
       `itinerary.md` before starting work; write findings and decisions back into the trip
       directory.
-- [ ] Model-proposed trip creation: when a scratch conversation is evidently a journey, the agent
-      raises the existing `selection` card to propose it; the person's click applies it. No new
-      protocol, and the write stays with the server.
-- Verify: web tests for chip inheritance and override; a manual run where the agent proposes and
-  the person accepts.
+- **Deferred: model-proposed trip creation.** The plan was for the agent to notice that a loose
+  conversation is a journey and raise the existing `selection` card to propose making it one.
+  On implementation the mechanism turned out not to exist: the agent has no way to create a
+  Trip. Interaction cards carry a *choice* back to the agent, not a command to the server, so
+  the only ways to close the loop would be to give the agent a trip tool (a change to the pinned
+  engine's tool set) or to have the Web pattern-match a card's text to decide it means "create a
+  trip" (code inferring intent the model expressed in prose — the wrong side of Hard Rule 4, and
+  fragile).
+
+  Building either would be a mechanism ahead of a caller, which this repository has paid for
+  twice (`@travel-agent/domain`, `packages/transaction`). The need it was meant to serve is
+  already met by two shipped affordances: "new trip", and moving a conversation into a trip from
+  its row menu. If use shows people want the agent to offer it, that is the moment to design the
+  path properly.
+- Verify: web tests for chip inheritance, the trip-folder line, and clearing a field.
 
 ### P4 — Trip detail: the itinerary (2d)
 

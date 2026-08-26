@@ -22,22 +22,22 @@
  * there: "any 5 days in October" hands the agent a degree of freedom it can actually use
  * when it goes off to compare real prices.
  */
-import type { TaskInputPart } from "@prismshadow/penguin-server/api";
+import type {
+  TaskInputPart,
+  TripBudgetTier,
+  TripSummary,
+  TripWhen,
+  TripWho,
+} from "@prismshadow/penguin-server/api";
+import { TRIP_BUDGET_TIERS } from "@prismshadow/penguin-server/api";
 
-/** Traveller counts — the three age brackets travel pricing (flights, stays, tickets) actually distinguishes. */
-export interface TripWho {
-  adults: number;
-  children: number;
-  infants: number;
-}
-
-/** Price tiers, Mindtrip's Budget dialog verbatim; "any" is an explicit "money is not the axis". */
-export type TripBudgetTier = "any" | "low" | "mid" | "high" | "luxury";
-export const BUDGET_TIERS: readonly TripBudgetTier[] = ["any", "low", "mid", "high", "luxury"];
-
-/** Exact dates (either end may still be blank) or Mindtrip-style flexible "N days, some month". */
-export type TripWhen =
-  { kind: "dates"; start: string; end: string } | { kind: "flexible"; days: number; month: string };
+/**
+ * The three constraint shapes now belong to the Trip, so the server defines them and this
+ * module re-exports them: two definitions of "when" — one for the chips, one for the row they
+ * are stored in — would drift the first time either side gained a field.
+ */
+export type { TripBudgetTier, TripWhen, TripWho };
+export const BUDGET_TIERS = TRIP_BUDGET_TIERS;
 
 export interface TripConstraints {
   /** Free text — one destination or several ("Tokyo, Osaka"); no POI autocomplete to fake. */
@@ -54,8 +54,43 @@ export const EMPTY_TRIP_CONSTRAINTS: TripConstraints = {
   budget: null,
 };
 
+/**
+ * A Trip's stored identity as the chips render it. The chips and the Trip hold the same four
+ * things under different names (`where` is the Trip's `destination`), so this is the single
+ * place the two vocabularies meet.
+ */
+export function tripToConstraints(trip: TripSummary): TripConstraints {
+  return {
+    where: trip.destination,
+    when: trip.when,
+    who: trip.who,
+    budget: trip.budget,
+  };
+}
+
+/**
+ * The chips' values as a Trip patch. Every field is sent, including the cleared ones as
+ * `null`: the chips are a complete statement of the trip's identity, so a field the person
+ * emptied has to be cleared on the Trip rather than left at its previous value.
+ */
+export function constraintsToTripPatch(c: TripConstraints): {
+  destination: string;
+  when: TripWhen | null;
+  who: TripWho | null;
+  budget: TripBudgetTier | null;
+} {
+  return {
+    destination: c.where.trim(),
+    when: whenIsSet(c.when) ? c.when : null,
+    who: c.who,
+    budget: c.budget,
+  };
+}
+
 /** Locale copy the composer needs (structural contract for strings.ts / strings-en.ts). */
 export interface TripChipsCopy {
+  /** Names the trip's folder for the agent (`trip-workspace` skill reads it from there). */
+  lineFolder: string;
   lineWhere: string;
   lineWhen: string;
   lineWho: string;
@@ -104,8 +139,17 @@ function whenLine(when: TripWhen | null, copy: TripChipsCopy): string | null {
  * The visible constraint block: one `label: value` line per filled chip, in the fixed
  * Where / When / Who / Budget order. Empty result for empty constraints.
  */
-export function composeTripPrefix(c: TripConstraints, copy: TripChipsCopy): string {
+export function composeTripPrefix(
+  c: TripConstraints,
+  copy: TripChipsCopy,
+  /** Absolute path of the Trip's folder, when this conversation belongs to one. */
+  tripDir?: string,
+): string {
   const lines: string[] = [];
+  // The folder leads, because it is the instruction the agent acts on first: the trip-workspace
+  // skill reads trip.json and itinerary.md from it before doing anything else. It is stated in
+  // the visible message like everything else here — there is no hidden channel carrying it.
+  if (tripDir !== undefined && tripDir !== "") lines.push(`${copy.lineFolder}${tripDir}`);
   if (c.where.trim() !== "") lines.push(`${copy.lineWhere}${c.where.trim()}`);
   const when = whenLine(c.when, copy);
   if (when !== null) lines.push(`${copy.lineWhen}${when}`);
@@ -129,8 +173,9 @@ export function applyTripPrefix(
   input: TaskInputPart[],
   c: TripConstraints,
   copy: TripChipsCopy,
+  tripDir?: string,
 ): TaskInputPart[] {
-  const prefix = composeTripPrefix(c, copy);
+  const prefix = composeTripPrefix(c, copy, tripDir);
   if (prefix === "") return input;
   const at = input.findIndex((p) => p.type === "text");
   if (at === -1) return [{ type: "text", text: prefix }, ...input];

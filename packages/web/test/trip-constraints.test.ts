@@ -12,10 +12,13 @@ import {
   EMPTY_TRIP_CONSTRAINTS,
   applyTripPrefix,
   composeTripPrefix,
+  constraintsToTripPatch,
   isEmptyTrip,
+  tripToConstraints,
   whenIsSet,
 } from "../src/features/chat/trip-constraints";
 import type { TripConstraints } from "../src/features/chat/trip-constraints";
+import type { TripSummary } from "@prismshadow/penguin-server/api";
 
 const ZH = zh.chat.tripChips;
 const EN = en.chat.tripChips;
@@ -132,5 +135,87 @@ describe("applyTripPrefix", () => {
   it("adds a leading text part to an attachment-only send", () => {
     const out = applyTripPrefix([image], full, ZH);
     expect(out).toEqual([text(composeTripPrefix(full, ZH)), image]);
+  });
+});
+
+describe("the trip folder line", () => {
+  const text = (t: string): TaskInputPart => ({ type: "text", text: t });
+
+  it("leads the block, so the agent reads the journey's files first", () => {
+    // The trip-workspace skill acts on this path before anything else; it is stated in the
+    // visible message like every other constraint, never through a hidden channel.
+    const out = composeTripPrefix(full, EN, "/Users/p/Penguin Trips/tokyo-2026-10");
+    expect(out.split("\n")[0]).toBe("Trip folder: /Users/p/Penguin Trips/tokyo-2026-10");
+    expect(out).toBe(
+      `Trip folder: /Users/p/Penguin Trips/tokyo-2026-10\n${composeTripPrefix(full, EN)}`,
+    );
+  });
+
+  it("is the whole block for a trip whose identity is still empty", () => {
+    // A journey created from one sentence knows nothing yet, but the folder still has to
+    // reach the agent — otherwise the skill has nowhere to read or write.
+    expect(composeTripPrefix(EMPTY_TRIP_CONSTRAINTS, EN, "/trips/t-1")).toBe(
+      "Trip folder: /trips/t-1",
+    );
+    expect(applyTripPrefix([text("hi")], EMPTY_TRIP_CONSTRAINTS, EN, "/trips/t-1")).toEqual([
+      text("Trip folder: /trips/t-1\n\nhi"),
+    ]);
+  });
+
+  it("is absent for a conversation belonging to no trip", () => {
+    expect(composeTripPrefix(full, EN)).not.toContain("Trip folder");
+    expect(composeTripPrefix(full, EN, "")).not.toContain("Trip folder");
+  });
+});
+
+describe("chips as a trip's identity", () => {
+  const trip: TripSummary = {
+    tripId: "t-1",
+    projectId: "proj",
+    name: "Autumn",
+    destination: "Tokyo",
+    when: { kind: "flexible", days: 5, month: "2026-10" },
+    who: { adults: 2, children: 0, infants: 0 },
+    budget: "mid",
+    dir: "/trips/t-1",
+    dirExists: true,
+    createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt: "2026-08-01T00:00:00.000Z",
+  };
+
+  it("round-trips a trip's stored identity through the chips", () => {
+    const asChips = tripToConstraints(trip);
+    expect(asChips).toEqual({
+      where: "Tokyo",
+      when: { kind: "flexible", days: 5, month: "2026-10" },
+      who: { adults: 2, children: 0, infants: 0 },
+      budget: "mid",
+    });
+    expect(constraintsToTripPatch(asChips)).toEqual({
+      destination: "Tokyo",
+      when: { kind: "flexible", days: 5, month: "2026-10" },
+      who: { adults: 2, children: 0, infants: 0 },
+      budget: "mid",
+    });
+  });
+
+  it("sends cleared fields as null, so emptying a chip clears the trip", () => {
+    // Every field is stated on every patch: the chips are a complete statement of identity,
+    // so a field the person emptied must be cleared rather than left at its old value.
+    expect(constraintsToTripPatch(EMPTY_TRIP_CONSTRAINTS)).toEqual({
+      destination: "",
+      when: null,
+      who: null,
+      budget: null,
+    });
+  });
+
+  it("treats a set-but-empty date span as unset", () => {
+    expect(
+      constraintsToTripPatch({
+        ...EMPTY_TRIP_CONSTRAINTS,
+        when: { kind: "dates", start: "", end: "" },
+      }).when,
+    ).toBeNull();
   });
 });
