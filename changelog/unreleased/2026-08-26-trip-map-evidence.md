@@ -29,3 +29,9 @@ Details:
 - Stated as a limitation the agent acts on: Amap covers mainland China well — where the target
   scenarios live — and elsewhere poorly. Outside the mainland it states the distance and its
   source rather than drawing a map that would be wrong or empty.
+
+Records: the decision note graduates to `docs/decisions/implemented/` with what shipped, its
+deferrals and what now pins the behaviour; `tasks/trip-container.md` is deleted (the work shipped
+and the changelog keeps the record); the architecture README gains the Trip as built; and two
+lessons are recorded — run every package's suite, and give same-millisecond rows a tiebreak that
+means something.

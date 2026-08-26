@@ -131,3 +131,13 @@ needed.
 - **Prove the class, not the instance.** When a static search says a file is unused, confirm it
   covers dynamic `import()` too — two `browser-cli` modules looked dead and are lazily imported by
   `cli.ts` on purpose, so that `--help` works without browser dependencies installed.
+- **Run every package's suite, not the ones the change looks like it touched.** Adding one
+  built-in skill turned three `packages/server` skill-API assertions red while `packages/skills`
+  and `packages/web` stayed green: the library's contents are asserted by name in more than one
+  package. The full run costs a couple of minutes and is the only thing that answers "what else
+  believed the old shape".
+- **Two rows created in the same millisecond need a tiebreak that means something.** A list
+  ordered `created_at DESC, <id> DESC` shuffles between reads when the id is random — the sidebar
+  showed trips in a different order each refresh. Break the tie on insertion order (SQLite's
+  `rowid`), and write the test that creates the two rows back to back, because one that spaces
+  them apart never sees it. A single green run does not prove ordering: run it five times.

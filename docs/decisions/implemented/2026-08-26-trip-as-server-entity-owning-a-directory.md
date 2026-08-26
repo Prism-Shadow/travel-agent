@@ -1,6 +1,6 @@
 # Agent Note: A Trip is a server entity that owns a directory
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -40,7 +40,7 @@ floating chat and "Move to another trip" / "Remove from trip" inside one. Under 
 Trip-is-the-Workspace mapping each of those is a workspace re-point, and therefore a change to
 three separate invariants of a pinned engine.
 
-## Proposal
+## Decision
 
 A Trip is an entity in the server's own index, and it **owns** a directory rather than being one.
 
@@ -113,24 +113,54 @@ conversation read `trip.json` and `itinerary.md` before it starts work.
   Workspace semantics (a directory path, fixed at creation) leak through every affordance that
   needs membership to change.
 
-## Acceptance criteria
+## Consequences
 
-- A conversation can be created outside any trip, attached to a trip, moved to another trip, and
-  detached, with no change to `packages/core` and no change to any Session's `workspace`.
-- Trip identity fields survive across conversations of the same trip and are visible on each of
-  them without being retyped.
-- An agent working in a trip conversation reads and writes the trip directory by absolute path.
-- The sidebar's first-class object is the Trip; engine console routes are reachable but demoted.
-- Conversations with no trip remain usable and are not forced to become one.
-
-## Risks
-
-- **Two places hold identity.** The `trips` row and `trip.json` must not drift; the row is the
-  writer and the file is a rendered mirror, refreshed on every identity change.
+- A conversation is created outside any trip, attached, moved between trips and detached, all
+  through `sessions.trip_id`. `packages/core` is unchanged and no Session's `workspace` moves.
+- Trip identity is stated once and inherited by every conversation of that journey: the four
+  constraint chips edit the Trip when the conversation belongs to one.
+- The agent works in the trip directory by absolute path. It is told the path in the visible
+  message prefix, and the `trip-workspace` skill has it read `trip.json` and `itinerary.md`
+  before starting. `itinerary.md`, `places.json` and any rendered map are the model's; the app
+  renders them and never edits them.
+- The sidebar's first-class object is the Trip; conversations with no trip keep a place of their
+  own and are never forced to become one. The engine console is reachable but demoted.
+- **Identity lives in two places by design.** The `trips` row is the writer; `trip.json` is a
+  rendered mirror refreshed on every identity change. The mirror write is best-effort, so a
+  folder the person moved cannot make their trip unusable in the app; `dirExists` reports the
+  truth instead.
 - **Per-workspace memory does not serve the trip.** Conversations in one trip may have different
-  workspaces, so engine memory scope cannot carry trip continuity. The skill-read files replace it;
-  if that proves too weak in use, the answer is a better trip document, not a workspace re-point.
-- **The directory can be edited or moved by the person.** `trips.dir` can go stale. The trip must
-  degrade honestly (show the missing directory) rather than recreate it silently.
-- **An additive server schema is still a change to a pinned package.** It is deliberate, recorded
-  here, and confined to travel-agent's own concepts — no upstream engine behaviour is altered.
+  workspaces, so engine memory scope cannot carry trip continuity — the skill-read files do. If
+  that proves too weak in use, the answer is a better trip document, not a workspace re-point.
+- **Trip folders are the person's.** Deleting a trip detaches its conversations and leaves the
+  directory untouched. `PENGUIN_TRIPS_DIR` defaults to `<root>/trips` so every entry point that
+  redirects the data root keeps its trips with it; only a packaged desktop app claims
+  `~/Penguin Trips`.
+- **The server schema grew, which is a change to a pinned package.** It is additive — a new
+  table, a nullable column, new routes — and confined to travel-agent's own concepts; no upstream
+  engine behaviour is altered.
+
+## Deferred
+
+**Model-proposed trip creation.** The intent was for the agent to notice that a loose
+conversation is a journey and offer to make it one through the existing `selection` card. The
+mechanism does not exist: an interaction card carries a choice back to the agent, not a command
+to the server, so closing the loop would need either a trip tool in the pinned engine's tool set
+or the Web pattern-matching a card's prose to infer what it meant. The first changes the engine;
+the second puts code in the business of guessing at the model's meaning. Both would be mechanism
+ahead of a caller, which this repository has paid for twice. "New trip" and moving a conversation
+into a trip already serve the need.
+
+**Any booking or receipt record.** The run stops at the payment page and cannot observe whether
+payment happened, so a stored "booked" state would be a guess.
+
+## Testing
+
+`packages/server/test/trips.test.ts` pins the routes, the absent-vs-null patch semantics,
+directory allocation and its collision suffix, the deletion contract (conversations detach, the
+folder survives), the trip-file reader's confinement, and — the load-bearing one — that attach,
+move and detach leave a Session's `workspace` untouched, on databases upgraded through
+`ensureColumn` as well as fresh ones. `packages/web/test/trip-grouping.test.ts` pins the sidebar
+grouping, including that a trip with no conversations still appears and that a conversation whose
+trip is gone is not lost. `packages/web/test/trip-constraints.test.ts` pins chip-to-trip identity
+and the trip-folder line.

@@ -7,11 +7,10 @@ page. This document maps the processes and packages that carry that interaction,
 depth lives for each part. It is a living reference — update it in the same change that makes it
 wrong.
 
-The product's first-class object is becoming the **Trip** — a server entity that owns a directory
-and gathers a journey's conversations, identity and itinerary. That is decided but not yet built:
-see [the decision note](../decisions/proposed/2026-08-26-trip-as-server-entity-owning-a-directory.md)
-and [`tasks/trip-container.md`](../../tasks/trip-container.md). Everything below describes what
-exists today, where the largest object is still the conversation.
+The product's first-class object is the **Trip**: a journey that owns a directory on the person's
+own disk and gathers that journey's conversations, identity and itinerary. Depth and the
+alternatives it beat:
+[the decision note](../decisions/implemented/2026-08-26-trip-as-server-entity-owning-a-directory.md).
 
 ## Process topology
 
@@ -59,6 +58,34 @@ conversation, and there is no silent fallback between them.
 
 Depth: [iab-in-app-browser.md](iab-in-app-browser.md) — the relay, target synthesis, ownership and
 lifecycle rules, and the Codex comparison.
+
+## The Trip
+
+A Trip is a row in the server's own index that **owns** a directory; it is not a directory. That
+distinction carries the whole design, because membership has to change over a conversation's life
+— a loose question turns out to be a journey — while a Session's `workspace` cannot: the engine
+fixes it at creation, records it in the append-only Trace, and derives memory scope from it.
+
+```
+server index
+  trips     tripId · projectId · name · destination · when · who · budget · dir
+  sessions  + trip_id (nullable)   ← attach / move / detach is one UPDATE
+
+~/Penguin Trips/tokyo-2026-10/
+  trip.json      identity, written by the server, read by the agent
+  itinerary.md   the plan, written by the model, rendered by the app
+  places.json · map.png   optional, written by the model as evidence for a spatial claim
+```
+
+The agent works in that directory by absolute path — it is told the path in the visible message
+prefix, and the `trip-workspace` skill has it read `trip.json` and `itinerary.md` first. This is
+safe because a workspace is a default for relative paths, not a boundary: core's file tools
+resolve absolute paths unchanged. A conversation belonging to no Trip is an ordinary state, not a
+defect.
+
+Ownership is split the same way everywhere: the server writes what it renders (the row and its
+`trip.json` mirror); the model owns the documents. Deleting a Trip detaches its conversations and
+never touches the folder — those files are the person's.
 
 ## The payment stop
 
