@@ -110,7 +110,7 @@ const DRAFT_SAVE_DEBOUNCE_MS = 300;
  * failure (private mode) both helpers degrade to "not consumed", and the in-component
  * ref still provides the previous apply-once-per-mount behavior.
  */
-type RouteStateField = "agentId" | "workspace";
+type RouteStateField = "agentId" | "workspace" | "tripId";
 function loadAppliedRouteKey(field: RouteStateField): string | null {
   try {
     return sessionStorage.getItem(`penguin.chatRouteApplied.${field}`);
@@ -246,7 +246,19 @@ export function DraftView({
   // on invalid value" effect would let the former write B in one render while the
   // latter, still judging by the stale closure's invalid value, writes the default
   // Agent and clobbers B.
-  const routeState = location.state as { agentId?: string; workspace?: string } | null;
+  const routeState = location.state as {
+    agentId?: string;
+    workspace?: string;
+    tripId?: string;
+  } | null;
+  /**
+   * The Trip this draft belongs to, carried from the sidebar's "new trip" / a trip's "+".
+   * Read straight from route state rather than cached: it is not a preference the person is
+   * choosing on this screen, it is which journey they clicked to start from. A refresh that
+   * loses it lands on an ordinary floating draft, which is the honest fallback — better than
+   * silently attaching the conversation to a journey the person is no longer looking at.
+   */
+  const draftTripId = routeState?.tripId ?? null;
   const stateAgentId = routeState?.agentId;
   const appliedStateKey = useRef<string | null>(null);
   /** One-shot marker for the project-default Agent (seeding precedence, see below). */
@@ -640,6 +652,9 @@ export function DraftView({
           body.provider = modelRef.provider;
         }
         if (workspace.trim()) body.workspace = workspace.trim();
+        // The Session joins its Trip at creation. Membership is a column on the session row,
+        // so this decides nothing about where the conversation's files or memory live.
+        if (draftTripId !== null) body.tripId = draftTripId;
         const created = await api.createSession(projectId, agentId, body);
         createdId = created.session.sessionId;
         // Promote before starting the task. Otherwise a fast first agent browser call races main,
@@ -681,6 +696,7 @@ export function DraftView({
       approvalMode,
       modelRef,
       workspace,
+      draftTripId,
       add,
       discardDraft,
       navigate,

@@ -372,12 +372,22 @@ export function agentSessionsRoutes(deps: AppDeps): Hono<AppEnv> {
       // An explicitly specified Workspace must be an existing directory (never auto-created); reachability is determined by file permissions.
       workspace = await assertWorkspaceAllowed({ workspace });
     }
+    // Starting a conversation inside a Trip. The Trip must exist and belong to this Project:
+    // an unchecked id would produce a conversation filed under a journey nobody can open.
+    const tripId = optionalString(body, "tripId", { minLen: 1, label: "tripId" });
+    if (tripId !== undefined) {
+      const trip = deps.tripService.requireTrip(c.var.user.userId, tripId);
+      if (trip.projectId !== projectId) {
+        throw badRequest("A conversation can only join a trip in its own Project.");
+      }
+    }
     const session = await deps.sessionService.createSession({
       projectId,
       agentId,
       ...(modelId !== undefined ? { modelId } : {}),
       ...(provider !== undefined ? { provider } : {}),
       ...(workspace !== undefined ? { workspace } : {}),
+      ...(tripId !== undefined ? { tripId } : {}),
       ...(approvalMode !== undefined ? { approvalMode } : {}),
     });
     return c.json({ session } satisfies SessionCreateResponse, 201);

@@ -1,19 +1,30 @@
 /**
- * Single-column sidebar, top to bottom:
- * Project switcher -> new chat (default_agent draft) + fixed nav (Agents / models / cost center /
- * Trace) -> Session area with two grouping modes (a small toggle in the section header; the
- * choice and each Project's group collapse and pin state persist in localStorage): by Workspace
- * (the default; groups loaded Sessions by their
- * Workspace path, temporary workspaces merged into one trailing group, header "+" starts a
- * draft in that Workspace) or by Agent (group header = Agent name + new chat + Agent settings;
- * shows all Agents, including empty groups). Groups can be pinned via the header's hover pin
- * toggle: pinned groups sort before unpinned within their mode, keeping each partition's own
- * order -> bottom user config (theme / language / logout).
- * Desktop keeps it pinned as the left column; mobile puts the whole thing in a drawer.
- * New chats always enter draft state (/chat/new, route state specifies the Agent and optionally
- * the Workspace): Model / Workspace / approval mode are all chosen on the draft input card, so
- * there's no longer a separate "quick / advanced" pair of new-chat dialogs.
- * Color scheme is white/gray-based: active state uses a solid gray fill, running status uses a small color dot, no large blocks of color.
+ * Single-column sidebar, top to bottom: Project switcher -> new trip + new chat -> the Trip
+ * list -> loose questions -> bottom user config, with the engine console behind an entry there.
+ *
+ * The first-class object is the **Trip**: each group is a journey, its header carries the
+ * identity a traveller recognizes it by (destination, dates), and its rows are that journey's
+ * conversations. A Trip with no conversations yet still shows — it exists the moment it is
+ * created, and hiding it until its first message would make the click look inert.
+ *
+ * A conversation belonging to no Trip is not an error state: it lands in the trailing "loose
+ * questions" group, which disappears entirely when empty. "Is the rail pass worth it?" should
+ * not be forced to become a journey, and a conversation that turns out to be one can be moved
+ * in afterwards from its row menu — membership is a column on the session, so moving it never
+ * touches where its files or its memory live.
+ *
+ * Group collapse and pin state persist per Project in localStorage; pinned groups sort first,
+ * each partition keeping its own order. Within a group, subagent / scheduled / archived
+ * conversations stay in collapsed folders that load on first expand.
+ *
+ * Agents / Models / Usage / Traces / Benchmark are the engine's console, not a traveller's
+ * navigation: they live behind the settings row at the bottom. They remain fully reachable —
+ * demoted, not removed.
+ *
+ * Desktop keeps the sidebar pinned as the left column; mobile puts the whole thing in a drawer.
+ * New chats always enter draft state (/chat/new; route state carries the Agent and, for a new
+ * conversation inside a Trip, that Trip). Colour scheme is white/gray-based: active state is a
+ * solid gray fill, running status a small dot, no large blocks of colour.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -22,6 +33,7 @@ import type {
   SessionCategory,
   SessionCategoryCounts,
   SessionInfo,
+  TripSummary,
 } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
 import { desktopBrowserBridge } from "../../lib/desktop-bridge";
@@ -35,34 +47,24 @@ import { ACCENT_SWATCHES, useTheme } from "../../state/theme";
 import type { Accent, Currency, FontScale, ThemeMode } from "../../state/theme";
 import { agentDisplayName, projectDisplayName, useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
+import { tripDisplayName, useTrips } from "../../state/trips";
+import { tripMetaLine } from "../../lib/trip-format";
 import {
   FOLDER_CATEGORIES,
+  SCRATCH_GROUP_KEY,
   SIDEBAR_GROUP_PAGE_SIZE,
   SIDEBAR_PAGE_SIZE,
-  aggregateWorkspaceCounts,
-  groupSessionsByWorkspace,
+  groupSessionsByTrip,
   partitionSessions,
   pinnedFirst,
   sessionCategory,
-  workspaceGroupKey,
 } from "../../lib/session-grouping";
 import type { FolderCategory, SessionPartition } from "../../lib/session-grouping";
 import { Switch } from "../ui/switch";
 import { Dropdown } from "../ui/dropdown";
 import { AgentAvatar } from "../ui/agent-avatar";
 import { ChevronDown, GEAR_ICON, NAV_ICONS } from "../ui/icons";
-import {
-  FOLDER_ICON,
-  FOLDER_OPEN_ICON,
-  FolderSection,
-  GroupHeader,
-  GroupModeToggle,
-  Icon,
-  MoreRow,
-  initialGroupMode,
-  storeGroupMode,
-} from "../ui/group-list";
-import type { GroupMode } from "../ui/group-list";
+import { FolderSection, GroupHeader, Icon, MoreRow } from "../ui/group-list";
 import { toastError, toastInfo, toastSuccess } from "../ui/toast";
 import { Truncated } from "../ui/truncated";
 import { Badge } from "../ui/badge";
@@ -89,6 +91,10 @@ import { forceUpdateCheck, updateCheckOutcome, useVersionInfo } from "../../lib/
 
 /** New-chat pencil (the pinned "New chat" button and the collapsed rail share it). */
 export const NEW_CHAT_ICON = "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z";
+
+/** A Trip: a suitcase (lid handle + body with a clasp). The product's first-class object. */
+export const TRIP_ICON =
+  "M9 6V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6M4 6h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM10 11h4";
 
 /** Pushpin (lucide pin: head + body + stem), the group-header pin toggle / pinned indicator. */
 const PIN_ICON =
@@ -183,7 +189,6 @@ export function Sidebar({
     sessions,
     byAgent,
     countsByAgent,
-    workspaceCountsByAgent,
     isLoadedFor,
     hasMoreFor,
     loadMoreFor,
@@ -193,6 +198,7 @@ export function Sidebar({
     showCliSessions,
     setShowCliSessions,
   } = useSessions();
+  const { trips, loading: tripsLoading, byId: tripsById, create: createTrip } = useTrips();
   const chatMatch = useMatch("/chat/:sessionId");
   const activeSessionId = chatMatch?.params.sessionId ?? null;
 
@@ -248,16 +254,16 @@ export function Sidebar({
    * ProxySettingsDialog.
    */
   const [proxySettingsOpen, setProxySettingsOpen] = useState(false);
+  /** Whether the engine console's entries are revealed (collapsed by default: they are not a traveller's navigation). */
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const currentProjectId = currentProject?.projectId ?? null;
   const collapseStoreKey = currentProjectId === null ? null : collapsedGroupsKey(currentProjectId);
   const pinStoreKey = currentProjectId === null ? null : pinnedGroupsKey(currentProjectId);
-  /** Grouping mode of the Session list (Workspace by default; the choice persists across sessions). */
-  const [groupMode, setGroupModeState] = useState<GroupMode>(initialGroupMode);
-  /** Collapsed groups (expanded by default), keyed by Agent id or Workspace group key depending on the mode; persisted per Project. */
+  /** Collapsed groups (expanded by default), keyed by trip id (or the scratch key); persisted per Project. */
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(() =>
     loadGroupSet(collapseStoreKey),
   );
-  /** Pinned groups (sorted before unpinned within their mode), keyed like collapsedGroups; persisted per Project. */
+  /** Pinned groups (sorted before unpinned), keyed like collapsedGroups; persisted per Project. */
   const [pinnedGroups, setPinnedGroups] = useState<ReadonlySet<string>>(() =>
     loadGroupSet(pinStoreKey),
   );
@@ -273,7 +279,7 @@ export function Sidebar({
   const [pendingLoads, setPendingLoads] = useState<ReadonlySet<string>>(new Set());
   /** Per-group display cap for active rows (keyed by group key; absent = SIDEBAR_PAGE_SIZE). "More" raises it a page at a time. */
   const [groupCaps, setGroupCaps] = useState<ReadonlyMap<string, number>>(new Map());
-  /** How many GROUPS render (#139: dozens of Agents/Workspaces made the list too tall to scan); "more groups" raises it a page at a time, reset per Project and on a mode switch. */
+  /** How many GROUPS render (#139: dozens of groups made the list too tall to scan); "more groups" raises it a page at a time, reset per Project. */
   const [groupCap, setGroupCap] = useState(SIDEBAR_GROUP_PAGE_SIZE);
   /** Session pending delete confirmation (null = none). */
   const [deletingSession, setDeletingSession] = useState<SessionInfo | null>(null);
@@ -288,36 +294,28 @@ export function Sidebar({
   const [renameBusy, setRenameBusy] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
 
-  const setGroupMode = (mode: GroupMode) => {
-    storeGroupMode(mode);
-    setGroupModeState(mode);
-    // The two modes have unrelated group lists: restart the reveal window.
-    setGroupCap(SIDEBAR_GROUP_PAGE_SIZE);
-  };
-
-  /** Workspace groups (workspace mode): computed from the flat list, temp directories merged last. */
-  const workspaceGroups = useMemo(() => groupSessionsByWorkspace(sessions), [sessions]);
-
-  /** Workspace-mode per-group exact server totals (folded from the per-Agent per-Workspace counts). */
-  const workspaceGroupCounts = useMemo(
-    () => aggregateWorkspaceCounts(workspaceCountsByAgent),
-    [workspaceCountsByAgent],
+  /**
+   * Trip groups, plus the trailing scratch group when any conversation belongs to no Trip.
+   * Seeded from the Trip list so a journey with no conversations yet still appears.
+   */
+  const tripGroups = useMemo(
+    () =>
+      groupSessionsByTrip(
+        sessions,
+        trips.map((t) => t.tripId),
+      ),
+    [sessions, trips],
   );
 
-  // Pinned groups first within each mode; inside each partition the existing order is kept
-  // (recency for Workspace groups, the configured Agent order for Agents).
-  const orderedAgents = useMemo(
-    () => pinnedFirst(agents, (a) => a.agentId, pinnedGroups),
-    [agents, pinnedGroups],
-  );
-  const orderedWorkspaceGroups = useMemo(
-    () => pinnedFirst(workspaceGroups, (g) => g.key, pinnedGroups),
-    [workspaceGroups, pinnedGroups],
+  // Pinned groups first; inside each partition the existing order is kept (the Trip list's
+  // own recency order, with loose questions last).
+  const orderedTripGroups = useMemo(
+    () => pinnedFirst(tripGroups, (g) => g.key, pinnedGroups),
+    [tripGroups, pinnedGroups],
   );
 
-  /** Group key of a Session under the current mode (collapse / archived-open state). */
-  const sessionGroupKey = (s: SessionInfo) =>
-    groupMode === "agent" ? s.agentId : workspaceGroupKey(s.workspace);
+  /** Group key of a Session (collapse / archived-open state): its Trip, or the scratch group. */
+  const sessionGroupKey = (s: SessionInfo) => s.tripId ?? SCRATCH_GROUP_KEY;
 
   const toggleGroup = (key: string) => {
     // Computed outside the state updater (theme.tsx convention): the persistence write is a
@@ -390,16 +388,18 @@ export function Sidebar({
     if (!s) return;
     const category = sessionCategory(s);
     if (category === "active" || category === "archived") return;
-    const guard = `${groupMode}\0${activeSessionId}`;
+    // The guard also carries the group key: a conversation moved to another Trip belongs to a
+    // different folder, and its new one must be allowed to auto-expand once as well.
+    const groupKey = s.tripId ?? SCRATCH_GROUP_KEY;
+    const guard = `${groupKey}\0${activeSessionId}`;
     if (lastAutoExpandedRef.current === guard) return;
     lastAutoExpandedRef.current = guard;
-    const groupKey = groupMode === "agent" ? s.agentId : workspaceGroupKey(s.workspace);
     const key = folderKey(groupKey, category);
     setOpenFolders((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
     // Same on-demand load a click-expand does, for this Session's own Agent (siblings of
     // other contributing Agents stay behind the folder's "More").
     if (!isLoadedFor(s.agentId, category)) void loadMoreFor([s.agentId], category);
-  }, [activeSessionId, sessions, groupMode, isLoadedFor, loadMoreFor]);
+  }, [activeSessionId, sessions, isLoadedFor, loadMoreFor]);
 
   /** Archive / unarchive: persists immediately and updates in place (fails silently; the next list refresh self-corrects). */
   const toggleArchive = async (s: SessionInfo) => {
@@ -482,7 +482,7 @@ export function Sidebar({
    * The workspace-mode group header's "+" additionally carries that group's Workspace path
    * ("" = a temporary workspace), pre-filling the draft's Workspace selection the same way.
    */
-  const newChat = (agentId?: string, workspace?: string) => {
+  const newChat = (agentId?: string, tripId?: string) => {
     // Typed-but-unsent text in the ACTIVE new-chat draft becomes a parked draft
     // conversation first (a row in the list below, sendable anytime — draft-sessions.ts),
     // so this click always lands on an empty composer and never silently shelves content.
@@ -490,10 +490,25 @@ export function Sidebar({
     if (agentId) setCurrentAgentId(agentId);
     const state = {
       ...(agentId ? { agentId } : {}),
-      ...(workspace !== undefined ? { workspace } : {}),
+      ...(tripId !== undefined ? { tripId } : {}),
     };
     navigate(`/chat/${DRAFT_SESSION_ID}`, Object.keys(state).length > 0 ? { state } : undefined);
     onNavigate?.();
+  };
+
+  /**
+   * New trip: creates it immediately with no identity yet, then lands on a draft attached to
+   * it. Nothing is asked for up front — the person states the journey in their own sentence,
+   * and the trip's fields are filled from what they said rather than from a form they had to
+   * complete before being allowed to start.
+   */
+  const newTrip = async () => {
+    try {
+      const trip = await createTrip();
+      newChat(defaultAgentId, trip.tripId);
+    } catch (e) {
+      toastError(apiErrorText(e));
+    }
   };
 
   /** Confirmed parked-draft deletion: drops the entry; a deleted draft that is open falls back to the plain new-chat page. */
@@ -509,8 +524,18 @@ export function Sidebar({
   /** Target of the menu's "New chat": default_agent, falling back to the first Agent (if the list isn't ready yet, resolution is deferred to the draft page). */
   const defaultAgentId = (agents.find((a) => a.agentId === "default_agent") ?? agents[0])?.agentId;
 
-  /** A Session always needs an Agent, so the workspace-mode "+" uses the current Agent, falling back to default_agent. */
-  const workspaceNewChatAgentId = currentAgent?.agentId ?? defaultAgentId;
+  /** A Session always needs an Agent, so a trip's "+" uses the current Agent, falling back to default_agent. */
+  const tripNewChatAgentId = currentAgent?.agentId ?? defaultAgentId;
+
+  /** Moves a conversation into a Trip, between Trips, or out of one (null). */
+  const moveSessionToTrip = async (s: SessionInfo, tripId: string | null) => {
+    try {
+      const res = await api.setSessionTrip(s.sessionId, tripId);
+      replace(res.session);
+    } catch (e) {
+      toastError(apiErrorText(e));
+    }
+  };
 
   const openSession = (s: SessionInfo) => {
     // Cross-group click: the current Agent follows this Session's own Agent.
@@ -518,13 +543,13 @@ export function Sidebar({
     go(`/chat/${s.sessionId}`);
   };
 
-  /** agentId → display name (row hint tooltips in workspace mode). */
+  /** agentId → display name (row hint tooltips, where the group no longer names the Agent). */
   const agentNameById = useMemo(
     () => new Map(agents.map((a) => [a.agentId, agentDisplayName(a)])),
     [agents],
   );
 
-  /** Session rows shared by both modes; withAgentHint adds a small Agent avatar per row (workspace mode, where the group no longer names the Agent). */
+  /** Session rows; withAgentHint adds a small Agent avatar per row when several Agents can appear. */
   const renderRows = (rows: SessionInfo[], withAgentHint: boolean) => (
     <ul className="space-y-0.5">
       {rows.map((s) => (
@@ -541,6 +566,8 @@ export function Sidebar({
           }}
           onDelete={(x) => setDeletingSession(x)}
           onToggleArchive={(x) => void toggleArchive(x)}
+          trips={trips}
+          onMoveToTrip={(x, tripId) => void moveSessionToTrip(x, tripId)}
         />
       ))}
     </ul>
@@ -549,15 +576,13 @@ export function Sidebar({
   /**
    * Collapsed-by-default lazy folder (subagent / scheduled / archived): nothing is
    * fetched until the first expand, and once open the folder pages independently with
-   * its own "More" row. Everything is driven by the group's **own** exact server share
-   * (`totals` — the Agent's counts in agent mode, the per-Workspace fold in workspace
-   * mode): the folder exists only while its share is non-zero, the label shows that
-   * share, and "More" shows only while loaded rows fall short of it — an Agent's
-   * content in *other* Workspaces can never surface a folder here. The folder's "More"
-   * pages independently of the active list's; in workspace mode a fetched page can land
-   * rows in other groups' folders too, so one click may grow this folder by fewer than
-   * a full page — the row shows a loading state while the fetch runs and stays until
-   * this group's share is fully loaded.
+   * its own "More" row.
+   *
+   * A Trip group has no server-side per-category totals — the server pages Sessions by
+   * Agent, and a Trip cuts across Agents — so `totals` is undefined here and every count
+   * comes from the rows actually loaded. That degrades honestly: a folder appears only
+   * once one of its conversations is in hand, its label counts what is really there, and
+   * "More" reveals further loaded rows without claiming a server page it cannot address.
    */
   const renderFolder = (
     groupKey: string,
@@ -771,20 +796,28 @@ export function Sidebar({
         </Dropdown>
       </div>
 
-      {/* New chat: the only pinned entry besides the Project switcher above and the user row
-          below. No background fill, the same gray hover/active styling as the nav items,
-          distinguished only by its position and font-medium; shows the same gray active state
-          while on the draft page.
+      {/* The two ways to start, pinned above the scroller. "New trip" leads because the Trip
+          is the product's object; "New chat" stays beside it, quieter, because a loose
+          question must not be pushed through a journey it does not need.
           The gap to the scroll area below is this block's OWN pb-2, not padding inside the
           scroller: padding-top there belongs to the scrollable content and slides away with
-          it, so a scrolled nav entry ended up flush against this pinned button, the two
-          labels touching. Outside the scroller the 8px stays put at every scroll offset —
-          the same text-to-text rhythm two adjacent nav rows have. */}
-      <div className="shrink-0 px-2 pb-2 pt-2">
+          it, leaving a scrolled row flush against this button. Outside the scroller the 8px
+          stays put at every scroll offset. */}
+      <div className="shrink-0 space-y-0.5 px-2 pb-2 pt-2">
+        <button
+          type="button"
+          onClick={() => void newTrip()}
+          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+        >
+          <span className="text-gray-500 dark:text-gray-400">
+            <Icon d={TRIP_ICON} />
+          </span>
+          {S.trip.newTrip}
+        </button>
         <button
           type="button"
           onClick={() => newChat(defaultAgentId)}
-          className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 ${
+          className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
             activeSessionId === DRAFT_SESSION_ID
               ? "bg-gray-200/70 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
               : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
@@ -808,37 +841,12 @@ export function Sidebar({
           overflow-y-auto and stretch the **document**, so expanding "More" / a source
           folder made the whole page scroll (composer pushed up, blank space below). */}
       <div className="relative min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        <nav className="space-y-0.5">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => onNavigate?.()}
-              className={({ isActive }) =>
-                `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
-                  isActive
-                    ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-                    : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-                }`
-              }
-            >
-              <span className="text-gray-500 dark:text-gray-400">
-                <Icon d={item.icon} />
-              </span>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Section header: list label + grouping-mode toggle (the choice persists in localStorage).
-            The separator above it spans the sidebar's full width (-mx-2 undoes the scroller's
-            padding, px-3 puts the row's own inset back), as it did when it sat on the scroller's
-            top edge — it now travels with the list instead of framing a pinned nav. */}
-        <div className="-mx-2 mt-3 flex items-center justify-between border-t border-gray-200 px-3 pt-2 dark:border-gray-800">
+        {/* Section header. The separator spans the sidebar's full width (-mx-2 undoes the
+            scroller's padding, px-3 puts the row's own inset back). */}
+        <div className="-mx-2 mt-1 flex items-center justify-between border-t border-gray-200 px-3 pt-2 dark:border-gray-800">
           <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            {S.chat.sessionList}
+            {S.trip.trips}
           </span>
-          <GroupModeToggle value={groupMode} onChange={setGroupMode} />
         </div>
 
         {/* Parked draft conversations (unsent new chats, newest first): pinned above both
@@ -874,142 +882,127 @@ export function Sidebar({
           </div>
         )}
 
-        {groupMode === "agent" ? (
-          loading && agents.length === 0 ? (
-            <SkeletonList rows={5} />
-          ) : (
-            orderedAgents.slice(0, groupCap).map((agent) => {
-              const parts = partitionSessions(byAgent.get(agent.agentId) ?? []);
-              const collapsed = collapsedGroups.has(agent.agentId);
-              const pinned = pinnedGroups.has(agent.agentId);
-              return (
-                <div key={agent.agentId} className="pt-2.5">
-                  {/* Group header: collapse toggle (Agent name) + pin + new chat + Agent settings. */}
-                  <GroupHeader
-                    open={!collapsed}
-                    onToggle={() => toggleGroup(agent.agentId)}
-                    icon={
-                      <AgentAvatar
-                        id={agent.agentId}
-                        name={agentDisplayName(agent)}
-                        size={18}
-                        className="shrink-0 rounded"
-                      />
-                    }
-                    label={agentDisplayName(agent)}
-                    uppercase
-                    actions={
-                      <>
-                        <GroupPinButton pinned={pinned} onToggle={() => togglePin(agent.agentId)} />
-                        {/* New chat: enters draft state directly with this group's Agent (all options live on the draft input card) */}
-                        <button
-                          type="button"
-                          title={S.chat.newSessionMenu}
-                          aria-label={S.chat.newSessionMenu}
-                          onClick={() => newChat(agent.agentId)}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                        >
-                          <Icon d="M12 5v14M5 12h14" size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title={S.agent.settings}
-                          onClick={() => go(`/agents/${agent.agentId}`)}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                        >
-                          <Icon d={GEAR_ICON} size={16} />
-                        </button>
-                      </>
-                    }
-                  />
-
-                  {collapsed
-                    ? null
-                    : renderGroupBody(
-                        agent.agentId,
-                        parts,
-                        false,
-                        countsByAgent.get(agent.agentId),
-                        () => [agent.agentId],
-                      )}
-                </div>
-              );
-            })
-          )
-        ) : null}
-        {groupMode === "agent" && orderedAgents.length > groupCap
-          ? moreGroupsRow(orderedAgents.length)
-          : null}
-        {groupMode === "agent" ? null : loading && sessions.length === 0 ? (
+        {loading && sessions.length === 0 && tripsLoading ? (
           <SkeletonList rows={5} />
-        ) : orderedWorkspaceGroups.length === 0 ? (
-          <p className="px-2.5 pt-3 text-xs text-gray-400 dark:text-gray-600">
-            {S.chat.noSessions}
-          </p>
+        ) : orderedTripGroups.length === 0 ? (
+          <p className="px-2.5 pt-3 text-xs text-gray-400 dark:text-gray-600">{S.trip.noTrips}</p>
         ) : (
-          orderedWorkspaceGroups.slice(0, groupCap).map((group) => {
+          orderedTripGroups.slice(0, groupCap).map((group) => {
             const parts = partitionSessions(group.sessions);
             const collapsed = collapsedGroups.has(group.key);
             const pinned = pinnedGroups.has(group.key);
-            /** This group's exact server share (per-Workspace fold) and its per-category fetch fan-out. */
-            const counts = workspaceGroupCounts.get(group.key);
+            const trip = group.tripId === null ? null : tripsById.get(group.tripId);
+            // A group whose Trip vanished (deleted in another window) renders as loose
+            // questions rather than disappearing with its conversations inside it.
+            const isScratch = trip === undefined || trip === null;
+            const name = trip ? tripDisplayName(trip, S.trip.untitled) : S.trip.scratch;
+            const meta = trip ? tripMetaLine(trip, S.trip.meta) : "";
+            // A Trip cuts across Agents, so every count here comes from loaded rows and the
+            // fetch fan-out is the Agents actually contributing them.
             const contributingAgents = [...new Set(group.sessions.map((s) => s.agentId))];
-            const agentsFor = (category: SessionCategory) => [
-              ...new Set([...(counts?.agents[category] ?? []), ...contributingAgents]),
-            ];
             return (
               <div key={group.key} className="pt-2.5">
-                {/* Group header: collapse toggle (folder icon + directory basename + count, full
-                    path in the tooltip; the count = the group's active conversations only, exact
-                    server share, loaded rows win a disagreement — the folders never feed it) +
-                    pin + new chat in this Workspace. */}
                 <GroupHeader
                   open={!collapsed}
                   onToggle={() => toggleGroup(group.key)}
                   icon={
-                    /* Folder opens and closes with the group */
                     <span className="shrink-0 text-gray-400 dark:text-gray-500">
-                      <Icon d={collapsed ? FOLDER_ICON : FOLDER_OPEN_ICON} size={15} />
+                      <Icon d={isScratch ? NEW_CHAT_ICON : TRIP_ICON} size={15} />
                     </span>
                   }
-                  label={group.temp ? S.chat.tempWorkspaces : group.label}
-                  count={Math.max(counts?.totals.active ?? 0, parts.active.length)}
-                  {...(group.fullPath !== null ? { title: group.fullPath } : {})}
+                  label={name}
+                  uppercase={isScratch}
+                  count={parts.active.length}
+                  {...(trip && !trip.dirExists ? { title: S.trip.folderMissing(trip.dir) } : {})}
                   actions={
                     <>
                       <GroupPinButton pinned={pinned} onToggle={() => togglePin(group.key)} />
-                      {/* New chat in this Workspace: pre-fills the group's path in the draft ("" = temporary workspace); the Agent is the current one, falling back to default_agent */}
-                      <button
-                        type="button"
-                        title={S.chat.newSessionInWorkspace}
-                        aria-label={S.chat.newSessionInWorkspace}
-                        onClick={() => newChat(workspaceNewChatAgentId, group.fullPath ?? "")}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                      >
-                        <Icon d="M12 5v14M5 12h14" size={18} />
-                      </button>
+                      {!isScratch && (
+                        <>
+                          {/* New conversation inside this journey: it inherits the trip's
+                              identity, so nothing has to be restated. */}
+                          <button
+                            type="button"
+                            title={S.trip.newChatInTrip}
+                            aria-label={S.trip.newChatInTrip}
+                            onClick={() => newChat(tripNewChatAgentId, trip.tripId)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                          >
+                            <Icon d="M12 5v14M5 12h14" size={18} />
+                          </button>
+                        </>
+                      )}
                     </>
                   }
                 />
 
-                {/* A workspace group can span Agents: the group body fans folder loads and "More"
-                    out per category to the Agents whose share of THIS group is non-zero (plus the
-                    Agents already contributing loaded rows) — the active list and each folder
-                    page independently. */}
+                {/* The identity line: where / when / who / budget, only for what is set.
+                    A trip stated in one sentence often has just a destination, and padding
+                    the line with "dates not set" would make that look unfinished. */}
+                {!collapsed && meta !== "" && (
+                  <p className="truncate px-2.5 pb-1 text-[11px] text-gray-400 dark:text-gray-500">
+                    {meta}
+                  </p>
+                )}
+                {!collapsed && trip && !trip.dirExists && (
+                  <p className="truncate px-2.5 pb-1 text-[11px] text-amber-600 dark:text-amber-500">
+                    {S.trip.folderMissingShort}
+                  </p>
+                )}
+
                 {collapsed
                   ? null
-                  : renderGroupBody(group.key, parts, true, counts?.totals, agentsFor)}
+                  : renderGroupBody(group.key, parts, true, undefined, () => contributingAgents)}
               </div>
             );
           })
         )}
-        {groupMode === "workspace" && orderedWorkspaceGroups.length > groupCap
-          ? moreGroupsRow(orderedWorkspaceGroups.length)
-          : null}
+        {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom user config */}
+      {/* Bottom: the engine console, then user config. The console is the engine's surface,
+          not a traveller's navigation — demoted to a collapsed group here rather than removed,
+          because everything in it is still needed to run and debug an agent. */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
+        <button
+          type="button"
+          onClick={() => setConsoleOpen((v) => !v)}
+          aria-expanded={consoleOpen}
+          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-gray-500 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+        >
+          <span className="text-gray-400 dark:text-gray-500">
+            <Icon d={GEAR_ICON} size={16} />
+          </span>
+          <span className="min-w-0 flex-1 text-left">{S.nav.developerConsole}</span>
+          <span
+            className={`text-gray-400 transition-transform duration-150 ${consoleOpen ? "rotate-180" : ""}`}
+          >
+            <ChevronDown />
+          </span>
+        </button>
+        {consoleOpen && (
+          <nav className="mb-1 space-y-0.5 pl-3">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => onNavigate?.()}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
+                    isActive
+                      ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                      : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+                  }`
+                }
+              >
+                <span className="text-gray-500 dark:text-gray-400">
+                  <Icon d={item.icon} />
+                </span>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
         <Dropdown
           open={userOpen}
           setOpen={setUserOpen}
@@ -1399,18 +1392,27 @@ function SessionRow({
   onRename,
   onDelete,
   onToggleArchive,
+  trips,
+  onMoveToTrip,
 }: {
   s: SessionInfo;
   active: boolean;
-  /** Agent display name; when set (workspace mode) a small avatar keeps the Agent context visible on the row. */
+  /** Agent display name; when set, a small avatar keeps the Agent context visible on the row. */
   agentHint?: string;
   onOpen: (s: SessionInfo) => void;
   onRename: (s: SessionInfo) => void;
   onDelete: (s: SessionInfo) => void;
   onToggleArchive: (s: SessionInfo) => void;
+  /** Every Trip of this Project — the menu's move targets. */
+  trips: readonly TripSummary[];
+  /** Attach to a Trip, move between Trips, or detach (null). */
+  onMoveToTrip: (s: SessionInfo, tripId: string | null) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const actionBtn =
     "flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 opacity-0 transition-all duration-150 focus-visible:opacity-100 group-hover:opacity-100";
+  /** Where this conversation could go: every Trip except the one it is already in. */
+  const moveTargets = trips.filter((t) => t.tripId !== s.tripId);
   return (
     <li>
       <div
@@ -1451,8 +1453,63 @@ function SessionRow({
             </span>
           )}
         </button>
-        {/* Action group: rename + archive/unarchive + delete */}
+        {/* Action group: move-to-trip + rename + archive/unarchive + delete */}
         <div className="flex shrink-0 items-center">
+          {/* Trip membership. It sits first because it is the one action that changes what
+              this conversation *is* rather than how it is displayed — and because moving a
+              conversation is safe: it writes one column, leaving the conversation's files
+              and memory exactly where they were. */}
+          {(moveTargets.length > 0 || s.tripId !== null) && (
+            <Dropdown
+              open={menuOpen}
+              setOpen={setMenuOpen}
+              menuClass="right-0 top-full mt-1 w-48 origin-top-right"
+              button={
+                <button
+                  type="button"
+                  title={S.trip.moveToTrip}
+                  aria-label={S.trip.moveToTrip}
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className={`${actionBtn} hover:bg-gray-300/60 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200 ${
+                    menuOpen ? "opacity-100" : ""
+                  }`}
+                >
+                  <Icon d={TRIP_ICON} size={14} />
+                </button>
+              }
+            >
+              <p className="px-3.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                {S.trip.moveToTrip}
+              </p>
+              {moveTargets.map((t) => (
+                <button
+                  key={t.tripId}
+                  type="button"
+                  className={menuItemClass}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onMoveToTrip(s, t.tripId);
+                  }}
+                >
+                  <Truncated text={tripDisplayName(t, S.trip.untitled)} />
+                </button>
+              ))}
+              {s.tripId !== null && (
+                <div className="mt-1 border-t border-gray-100 pt-1 dark:border-gray-800">
+                  <button
+                    type="button"
+                    className={menuItemClass}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onMoveToTrip(s, null);
+                    }}
+                  >
+                    {S.trip.removeFromTrip}
+                  </button>
+                </div>
+              )}
+            </Dropdown>
+          )}
           <button
             type="button"
             title={S.chat.renameSession}

@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-26] The sidebar becomes a list of trips: conversations group by the journey they belong to, trips with no conversations yet still show, loose questions keep their own trailing group, and the engine console demotes into a collapsed entry at the bottom. ([details](2026-08-26-sidebar-trips.md))
 - [2026-08-26] Trips exist in the server: a `trips` table owning a directory, `sessions.trip_id` for membership, routes to create/patch/delete a trip and to attach, move or detach a conversation — re-homing writes one column and never touches a session's workspace. ([details](2026-08-26-trip-backend.md))
 - [2026-08-26] Product direction settled: travel-agent is an open-source consumer travel application and the Trip becomes its first-class object — a server entity that owns a directory, with five rejected alternatives recorded and a P0–P5 plan. ([details](2026-08-26-trip-container-direction.md))
 - [2026-08-26] Research: a live walkthrough of mindtrip.ai answers the five open design-flow questions (chip dialogs, trip creation, trip hub, chat↔trip membership, no-draft contrast) as §13 of the Mindtrip study, and flags workspace re-parenting as the one hard tension for the Trip-as-Workspace mapping. ([details](2026-08-26-mindtrip-design-walkthrough-research.md))

@@ -26,6 +26,39 @@ export const en: Strings = {
     expandGroup: "Expand",
     pinGroup: "Pin group",
     unpinGroup: "Unpin group",
+    developerConsole: "Settings · developer console",
+  },
+
+  /** Trips: the product's first-class object. Shared by the sidebar, trip cards and the move menu. */
+  trip: {
+    trips: "Trips",
+    newTrip: "New trip",
+    noTrips: "No trips yet. One sentence is enough to start.",
+    untitled: "Untitled trip",
+    /** Conversations belonging to no trip — an ordinary state, not a backlog. */
+    scratch: "Loose questions",
+    newChatInTrip: "New conversation in this trip",
+    moveToTrip: "Move to trip",
+    removeFromTrip: "Remove from trip",
+    folderMissing: (dir: string) => `Trip folder not found: ${dir}`,
+    folderMissingShort: "Folder moved or deleted",
+    meta: {
+      dateRange: (start: string, end: string) => `${start} – ${end}`,
+      dateFrom: (start: string) => `from ${start}`,
+      dateUntil: (end: string) => `until ${end}`,
+      flexible: (days: number, month: string) => `${days} days in ${month}`,
+      flexibleAnyMonth: (days: number) => `${days} days, dates flexible`,
+      flexibleMonthOnly: (month: string) => `in ${month}`,
+      travellers: (n: number) => (n === 1 ? "1 traveller" : `${n} travellers`),
+      budgetTiers: {
+        any: "Any budget",
+        low: "On a budget",
+        mid: "Sensibly priced",
+        high: "Upscale",
+        luxury: "Luxury",
+      },
+      separator: " · ",
+    },
   },
 
   settings: {

@@ -78,6 +78,10 @@ import type {
   TraceAnalysisResponse,
   TraceEventsResponse,
   TraceImportRequest,
+  TripCreateRequest,
+  TripPatchRequest,
+  TripResponse,
+  TripsResponse,
   TraceImportResponse,
   UiPrefs,
   UpdateCheckResponse,
@@ -396,6 +400,37 @@ export const patchSession = (sessionId: string, body: SessionPatchRequest) =>
 
 export const deleteSession = (sessionId: string) =>
   apiFetch<void>(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+
+// Trip ------------------------------------------------------------------------
+
+export const listTrips = (projectId: string) =>
+  apiFetch<TripsResponse>(`/api/projects/${encodeURIComponent(projectId)}/trips`);
+
+export const createTrip = (projectId: string, body: TripCreateRequest = {}) =>
+  apiFetch<TripResponse>(`/api/projects/${encodeURIComponent(projectId)}/trips`, {
+    method: "POST",
+    body,
+  });
+
+export const getTrip = (tripId: string) =>
+  apiFetch<TripResponse>(`/api/trips/${encodeURIComponent(tripId)}`);
+
+export const patchTrip = (tripId: string, body: TripPatchRequest) =>
+  apiFetch<TripResponse>(`/api/trips/${encodeURIComponent(tripId)}`, { method: "PATCH", body });
+
+/** Removes the Trip; its conversations survive as floating ones and its folder stays on disk. */
+export const deleteTrip = (tripId: string) =>
+  apiFetch<void>(`/api/trips/${encodeURIComponent(tripId)}`, { method: "DELETE" });
+
+export const listTripSessions = (tripId: string) =>
+  apiFetch<SessionsResponse>(`/api/trips/${encodeURIComponent(tripId)}/sessions`);
+
+/** Attach to a Trip, move between Trips, or detach (`null`). Never changes the workspace. */
+export const setSessionTrip = (sessionId: string, tripId: string | null) =>
+  apiFetch<SessionResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/trip`, {
+    method: "PUT",
+    body: { tripId },
+  });
 
 /** Windowed history request: the newest N units (tail), or the N units before a cursor. */
 export type MessagesPageQuery =

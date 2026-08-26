@@ -28,6 +28,39 @@ export const zh = {
     expandGroup: "展开",
     pinGroup: "置顶分组",
     unpinGroup: "取消置顶",
+    developerConsole: "设置 · 开发者控制台",
+  },
+
+  /** 行程：产品的第一对象。侧边栏、行程卡片与归属菜单共用这组文案。 */
+  trip: {
+    trips: "行程",
+    newTrip: "新行程",
+    noTrips: "还没有行程。说一句话就能开始。",
+    untitled: "未命名行程",
+    /** 不属于任何行程的对话分组：它是正常状态，不是待办。 */
+    scratch: "随手问",
+    newChatInTrip: "在此行程中新建对话",
+    moveToTrip: "移入行程",
+    removeFromTrip: "移出行程",
+    folderMissing: (dir: string) => `找不到行程文件夹：${dir}`,
+    folderMissingShort: "文件夹已移动或删除",
+    meta: {
+      dateRange: (start: string, end: string) => `${start} 至 ${end}`,
+      dateFrom: (start: string) => `${start} 出发`,
+      dateUntil: (end: string) => `${end} 前返回`,
+      flexible: (days: number, month: string) => `${month} 内 ${days} 天`,
+      flexibleAnyMonth: (days: number) => `${days} 天，时间灵活`,
+      flexibleMonthOnly: (month: string) => `${month} 内`,
+      travellers: (n: number) => `${n} 人`,
+      budgetTiers: {
+        any: "预算不限",
+        low: "经济",
+        mid: "舒适",
+        high: "高档",
+        luxury: "奢华",
+      },
+      separator: " · ",
+    },
   },
 
   settings: {

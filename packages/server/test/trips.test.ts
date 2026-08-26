@@ -222,6 +222,24 @@ describe("trips", () => {
     expect(t.deps.sessionsRepo.findById("s-guard")?.tripId).toBeNull();
   });
 
+  it("rejects creating a conversation in a trip the caller cannot open", async () => {
+    const { cookie } = await provisionUser(t.app, "stranger");
+    const stranger = apiClient(t.app, cookie);
+    const created = await stranger.post("/api/projects/stranger-default_project/trips", {});
+    const foreign = ((await created.json()) as TripResponse).trip;
+
+    const res = await api.post(`/api/projects/${projectId}/agents/default_agent/sessions`, {
+      tripId: foreign.tripId,
+    });
+    // 404 rather than 403: a trip in another Project is not something to be told about.
+    expect(res.status).toBe(404);
+
+    const unknown = await api.post(`/api/projects/${projectId}/agents/default_agent/sessions`, {
+      tripId: "t-nope",
+    });
+    expect(unknown.status).toBe(404);
+  });
+
   it("lists a trip's conversations, newest first", async () => {
     const trip = await createTrip({ destination: "Hakone" });
     t.deps.sessionsRepo.insert(

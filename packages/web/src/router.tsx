@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "./state/auth";
 import { ProjectProvider } from "./state/project";
 import { SessionsProvider } from "./state/sessions";
+import { TripsProvider } from "./state/trips";
 import { AppLayout } from "./components/layout/app-layout";
 import { LoginPage } from "./pages/login";
 import { ChatPage } from "./features/chat/chat-page";
@@ -27,7 +28,9 @@ function RequireAuth() {
   return (
     <ProjectProvider>
       <SessionsProvider>
-        <AppLayout />
+        <TripsProvider>
+          <AppLayout />
+        </TripsProvider>
       </SessionsProvider>
     </ProjectProvider>
   );

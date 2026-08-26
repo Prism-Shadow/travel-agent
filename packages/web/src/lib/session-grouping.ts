@@ -226,6 +226,51 @@ export function groupSessionsByWorkspace<T extends { workspace: string; createdA
   return groups;
 }
 
+/** Group key of the trailing group holding conversations that belong to no Trip. */
+export const SCRATCH_GROUP_KEY = "\0scratch";
+
+export interface TripGroup<T = SessionInfo> {
+  /** Stable group key: the trip id, or SCRATCH_GROUP_KEY for the no-trip group. */
+  key: string;
+  /** The Trip this group stands for; null for the scratch group. */
+  tripId: string | null;
+  /** Member Sessions, newest first (createdAt desc). */
+  sessions: T[];
+}
+
+/**
+ * Groups conversations by the Trip they belong to.
+ *
+ * `tripIds` seeds the result so that a Trip with no conversations yet still gets a group — a
+ * trip created from one sentence is empty for the moment before its first message, and a
+ * sidebar that hid it then would look like the click did nothing. The order follows `tripIds`,
+ * which the server already returns newest-first, so a trip's position does not jump when its
+ * conversations change.
+ *
+ * Conversations belonging to no Trip fall into a single trailing scratch group; a conversation
+ * whose `tripId` names a Trip this Project cannot see is treated the same way, because the
+ * alternative is a row that exists in the store and appears nowhere.
+ */
+export function groupSessionsByTrip<T extends { tripId: string | null; createdAt: string }>(
+  sessions: T[],
+  tripIds: readonly string[],
+): TripGroup<T>[] {
+  const byKey = new Map<string, TripGroup<T>>();
+  for (const tripId of tripIds) byKey.set(tripId, { key: tripId, tripId, sessions: [] });
+  const scratch: TripGroup<T> = { key: SCRATCH_GROUP_KEY, tripId: null, sessions: [] };
+  for (const s of sessions) {
+    const group = s.tripId === null ? scratch : byKey.get(s.tripId);
+    (group ?? scratch).sessions.push(s);
+  }
+  const byCreatedDesc = (a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0);
+  const groups = [...byKey.values()];
+  for (const g of groups) g.sessions.sort((a, b) => byCreatedDesc(a.createdAt, b.createdAt));
+  scratch.sessions.sort((a, b) => byCreatedDesc(a.createdAt, b.createdAt));
+  // The scratch group trails the Trips and is omitted entirely when empty: "loose questions"
+  // is a real place, but an empty one is noise above the fold.
+  return scratch.sessions.length > 0 ? [...groups, scratch] : groups;
+}
+
 /**
  * Stable pinned-first partition for sidebar groups: items whose key is in `pinned`
  * come first, each partition preserving the input order (recency for Workspace
