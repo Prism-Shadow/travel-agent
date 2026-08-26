@@ -10,7 +10,7 @@
  * label/sentence or in a proper name (Agent State, AgentHub). zh keeps "Agent" as-is.
  */
 export const zh = {
-  appName: "PenguinHarness",
+  appName: "Travel Agent",
 
   nav: {
     chat: "对话",

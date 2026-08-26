@@ -8,7 +8,7 @@
 import type { Strings } from "./strings";
 
 export const en: Strings = {
-  appName: "PenguinHarness",
+  appName: "Travel Agent",
 
   nav: {
     chat: "Chat",

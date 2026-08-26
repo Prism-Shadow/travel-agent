@@ -1,6 +1,14 @@
 /**
- * Single-column sidebar, top to bottom: Project switcher -> new trip + new chat -> the Trip
- * list -> loose questions -> bottom user config, with the engine console behind an entry there.
+ * Single-column sidebar, top to bottom: the application's name -> new trip + new chat -> the
+ * Trip list -> loose questions -> bottom user config, with the engine console behind an entry
+ * there.
+ *
+ * The top slot is the app's name, not a Project switcher, while only one Project exists: a
+ * dropdown with a single choice is furniture, and a role badge announcing that you own the only
+ * thing that exists says nothing. The switcher reappears as soon as a second Project does —
+ * hiding one that exists would strand it. Creating Projects and editing their settings live in
+ * the developer console with the rest of the engine's surfaces, where they stay reachable
+ * because Project settings still holds the default model.
  *
  * The first-class object is the **Trip**: each group is a journey, its header carries the
  * identity a traveller recognizes it by (destination, dates), and its rows are that journey's
@@ -733,67 +741,55 @@ export function Sidebar({
             <Icon d="M15 6l-6 6 6 6M4 4v16" size={18} />
           </button>
         )}
-        <Dropdown
-          open={projectOpen}
-          setOpen={setProjectOpen}
-          className="min-w-0 flex-1"
-          menuClass="left-0 right-0 top-full mt-1 origin-top"
-          button={
-            <button
-              type="button"
-              onClick={() => setProjectOpen(!projectOpen)}
-              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-base font-semibold transition-colors duration-150 hover:bg-gray-200/70 dark:hover:bg-gray-800"
-            >
-              <span className="min-w-0 flex-1 truncate text-left">
-                {currentProject ? projectDisplayName(currentProject) : S.common.loading}
-              </span>
-              <span className="text-gray-400">
-                <ChevronDown />
-              </span>
-            </button>
-          }
-        >
-          {projects.map((p) => (
-            <button
-              key={p.projectId}
-              type="button"
-              onClick={() => {
-                setCurrentProjectId(p.projectId);
-                setProjectOpen(false);
-              }}
-              className={`flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left text-sm transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                p.projectId === currentProject?.projectId ? "font-semibold" : ""
-              }`}
-            >
-              <span className="truncate">{projectDisplayName(p)}</span>
-              <Badge tone="gray">{p.role}</Badge>
-            </button>
-          ))}
-          <div className="mt-1.5 border-t border-gray-100 pt-1.5 dark:border-gray-800">
-            <button
-              type="button"
-              className={menuItemClass}
-              onClick={() => {
-                setProjectOpen(false);
-                setCreateProjectOpen(true);
-              }}
-            >
-              + {S.project.create}
-            </button>
-            {currentProject && (
+        {/* With one Project there is nothing to switch between, so this is the application's
+            name, not a control: a dropdown offering a single choice — and a badge announcing
+            that you own the only thing that exists — is furniture. The switcher returns the
+            moment a second Project does, because hiding one that exists would make it
+            unreachable. Creating Projects and editing their settings live in the developer
+            console below, with the rest of the engine's surfaces. */}
+        {projects.length <= 1 ? (
+          <span className="min-w-0 flex-1 truncate px-2 py-1.5 text-base font-semibold">
+            {S.appName}
+          </span>
+        ) : (
+          <Dropdown
+            open={projectOpen}
+            setOpen={setProjectOpen}
+            className="min-w-0 flex-1"
+            menuClass="left-0 right-0 top-full mt-1 origin-top"
+            button={
               <button
                 type="button"
-                className={menuItemClass}
-                onClick={() => {
-                  setProjectOpen(false);
-                  setProjectSettingsOpen(true);
-                }}
+                onClick={() => setProjectOpen(!projectOpen)}
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-base font-semibold transition-colors duration-150 hover:bg-gray-200/70 dark:hover:bg-gray-800"
               >
-                {S.project.settings}
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {currentProject ? projectDisplayName(currentProject) : S.common.loading}
+                </span>
+                <span className="text-gray-400">
+                  <ChevronDown />
+                </span>
               </button>
-            )}
-          </div>
-        </Dropdown>
+            }
+          >
+            {projects.map((p) => (
+              <button
+                key={p.projectId}
+                type="button"
+                onClick={() => {
+                  setCurrentProjectId(p.projectId);
+                  setProjectOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left text-sm transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                  p.projectId === currentProject?.projectId ? "font-semibold" : ""
+                }`}
+              >
+                <span className="truncate">{projectDisplayName(p)}</span>
+                <Badge tone="gray">{p.role}</Badge>
+              </button>
+            ))}
+          </Dropdown>
+        )}
       </div>
 
       {/* The two ways to start, pinned above the scroller. "New trip" leads because the Trip
@@ -1012,6 +1008,31 @@ export function Sidebar({
                 {item.label}
               </NavLink>
             ))}
+            {/* Projects are a tenancy concept, not a traveller's: they live here, where they
+                stay reachable — Project settings still holds the default model and the
+                new-chat defaults. */}
+            {currentProject && (
+              <button
+                type="button"
+                onClick={() => setProjectSettingsOpen(true)}
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-gray-600 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+              >
+                <span className="text-gray-500 dark:text-gray-400">
+                  <Icon d={GEAR_ICON} />
+                </span>
+                {S.project.settings}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCreateProjectOpen(true)}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-gray-600 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+            >
+              <span className="text-gray-500 dark:text-gray-400">
+                <Icon d="M12 5v14M5 12h14" />
+              </span>
+              {S.project.create}
+            </button>
           </nav>
         )}
         <Dropdown
