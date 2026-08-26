@@ -79,7 +79,7 @@ describe("skills api", () => {
     }
     // Members within a group follow the SKILL_GROUPS list order (as ungrouped by loadSkillGroups).
     expect(body.groups[0]!.skills.map((s) => s.name)).toEqual(["penguin-browser"]);
-    expect(body.groups[1]!.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
+    expect(body.groups[1]!.skills.map((s) => s.name)).toEqual(["trip-workspace", "amap-lbs-skill"]);
     const skills = body.groups.flatMap((g) => g.skills);
     for (const skill of skills) {
       expect(skill.name.length).toBeGreaterThan(0);
@@ -105,7 +105,11 @@ describe("skills api", () => {
     const res = await member.post(url, { names: ["penguin-browser"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
-    expect(body.skills.map((s) => s.name)).toEqual(["amap-lbs-skill", "penguin-browser"]);
+    expect(body.skills.map((s) => s.name)).toEqual([
+      "amap-lbs-skill",
+      "penguin-browser",
+      "trip-workspace",
+    ]);
     // The installed list likewise passes through the short description and icon
     // (icon.svg is copied on install, identical to the library's original).
     const installed = body.skills.find((s) => s.name === "penguin-browser")!;
@@ -130,7 +134,7 @@ describe("skills api", () => {
     expect((await member.delete(`${url}/penguin-browser`)).status).toBe(204);
     await expect(fs.access(path.dirname(skillFile("penguin-browser")))).rejects.toThrow();
     const after = (await (await member.get(url)).json()) as AgentSkillsResponse;
-    expect(after.skills.map((s) => s.name)).toEqual(["amap-lbs-skill"]);
+    expect(after.skills.map((s) => s.name)).toEqual(["amap-lbs-skill", "trip-workspace"]);
 
     // Deleting a Skill that isn't installed (or was already uninstalled) → 404.
     expect((await member.delete(`${url}/penguin-browser`)).status).toBe(404);
@@ -152,7 +156,11 @@ describe("skills api", () => {
     const res = await owner.post(url, { names: ["penguin-browser"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
-    expect(body.skills.map((s) => s.name)).toEqual(["amap-lbs-skill", "penguin-browser"]);
+    expect(body.skills.map((s) => s.name)).toEqual([
+      "amap-lbs-skill",
+      "penguin-browser",
+      "trip-workspace",
+    ]);
     expect(await fs.readFile(file, "utf8")).toBe(librarySkill("penguin-browser")!.content);
   });
 

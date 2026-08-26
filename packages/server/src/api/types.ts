@@ -923,6 +923,22 @@ export interface TripAttachRequest {
   tripId: string | null;
 }
 
+/**
+ * The Trip's itinerary as the trip page reads it.
+ *
+ * `exists: false` is an ordinary answer, not an error: a journey has no plan until the agent
+ * has written one, and the page says so rather than showing a failure. The two states are kept
+ * distinct from "the folder is gone" (`TripSummary.dirExists`), which means something else
+ * entirely and deserves different words.
+ */
+export interface TripItineraryResponse {
+  exists: boolean;
+  /** Raw markdown; "" when absent. The model owns this file; the app only renders it. */
+  markdown: string;
+  /** Last modification time, ISO; absent when the file does not exist. */
+  updatedAt?: string;
+}
+
 export interface SessionInfo {
   sessionId: string;
   projectId: string;

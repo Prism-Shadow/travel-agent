@@ -930,6 +930,17 @@ export function Sidebar({
                           >
                             <Icon d="M12 5v14M5 12h14" size={18} />
                           </button>
+                          {/* The journey itself: its identity, its conversations, and the
+                              itinerary the agent has written so far. */}
+                          <button
+                            type="button"
+                            title={S.trip.openTrip}
+                            aria-label={S.trip.openTrip}
+                            onClick={() => go(`/trips/${trip.tripId}`)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                          >
+                            <Icon d="M9 6l6 6-6 6" size={16} />
+                          </button>
                         </>
                       )}
                     </>

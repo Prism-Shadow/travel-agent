@@ -151,5 +151,17 @@ export function tripsRoutes(deps: AppDeps): Hono<AppEnv> {
     return c.json({ sessions: await deps.sessionService.listByTrip(trip.tripId) });
   });
 
+  /**
+   * The Trip's itinerary. Read-only on purpose: `itinerary.md` belongs to the model, and this
+   * application renders it rather than editing it. A missing file answers 200 with
+   * `exists: false` — a journey has no plan until the agent writes one, which is a state to
+   * show, not a failure to report.
+   */
+  app.get("/:tripId/itinerary", async (c) => {
+    const tripId = pathParam(c, "tripId");
+    const trip = deps.tripService.requireTrip(c.var.user.userId, tripId);
+    return c.json(await deps.tripService.readItinerary(trip));
+  });
+
   return app;
 }

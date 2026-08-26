@@ -19,6 +19,7 @@ import { TracesPage } from "./features/traces/traces-page";
 import { BenchmarkPage } from "./features/benchmark/benchmark-page";
 import { AdminUsersPage } from "./features/admin/admin-users-page";
 import { PrivateProfilePage } from "./features/private-profile/private-profile-page";
+import { TripPage } from "./features/trips/trip-page";
 
 /** Route guard: shows blank while initializing, redirects to /login when not authenticated. */
 function RequireAuth() {
@@ -51,6 +52,7 @@ export function AppRouter() {
         <Route element={<RequireAuth />}>
           <Route index element={<Navigate to="/chat" replace />} />
           <Route path="/chat/:sessionId?" element={<ChatPage />} />
+          <Route path="/trips/:tripId" element={<TripPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/agents/:agentId" element={<AgentSettingsPage />} />
           <Route path="/models" element={<ModelsPage />} />

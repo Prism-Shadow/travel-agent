@@ -16,7 +16,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { TripBudgetTier, TripSummary, TripWhen, TripWho } from "../api/types.js";
+import type {
+  TripBudgetTier,
+  TripItineraryResponse,
+  TripSummary,
+  TripWhen,
+  TripWho,
+} from "../api/types.js";
 import { HttpError } from "../http/errors.js";
 import type { TripPatch, TripRow, TripsRepo } from "../db/repos/trips.js";
 import type { SessionsRepo } from "../db/repos/sessions.js";
@@ -27,6 +33,9 @@ const TRIP_JSON_VERSION = 1;
 
 /** Name a Trip carries until it has a destination or the person renames it. */
 const UNTITLED_TRIP_NAME = "Untitled trip";
+
+/** The model's plan for the journey, in the Trip's own folder. */
+const ITINERARY_FILENAME = "itinerary.md";
 
 /**
  * Directory basename for a new Trip: a readable slug of the destination, suffixed with the
@@ -188,6 +197,27 @@ export class TripService {
     this.deps.trips.insert(row);
     await this.writeTripJson(row);
     return this.toSummary(row);
+  }
+
+  /**
+   * Reads the Trip's `itinerary.md`.
+   *
+   * A missing file is a state, not a failure: a journey has no plan until the agent writes one.
+   * A folder the person moved away answers the same way — `TripSummary.dirExists` is what tells
+   * those two apart, and it deserves different words on screen.
+   *
+   * Read directly rather than through the workspace-file service: this is not a Workspace and
+   * has no Session, and the only path this ever opens is one fixed name inside the Trip's own
+   * directory.
+   */
+  async readItinerary(row: TripRow): Promise<TripItineraryResponse> {
+    const file = path.join(row.dir, ITINERARY_FILENAME);
+    try {
+      const [content, stat] = await Promise.all([fs.readFile(file, "utf8"), fs.stat(file)]);
+      return { exists: true, markdown: content, updatedAt: stat.mtime.toISOString() };
+    } catch {
+      return { exists: false, markdown: "" };
+    }
   }
 
   async list(userId: string, projectId: string): Promise<TripSummary[]> {

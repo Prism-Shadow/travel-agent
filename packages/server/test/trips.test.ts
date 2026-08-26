@@ -256,6 +256,39 @@ describe("trips", () => {
     expect(sessions.map((s) => s.sessionId)).toEqual(["s-new", "s-old"]);
   });
 
+  it("serves the itinerary the agent wrote, and reports its absence as a state", async () => {
+    const trip = await createTrip({ destination: "Kanazawa" });
+
+    // A journey has no plan until the agent writes one: absence is 200 + exists:false, not a
+    // 404 the page would have to render as a failure.
+    const before = await api.get(`/api/trips/${trip.tripId}/itinerary`);
+    expect(before.status).toBe(200);
+    expect(await before.json()).toMatchObject({ exists: false, markdown: "" });
+
+    await fs.writeFile(path.join(trip.dir, "itinerary.md"), "# Day 1\n\nKenroku-en\n", "utf8");
+    const after = await api.get(`/api/trips/${trip.tripId}/itinerary`);
+    const body = (await after.json()) as { exists: boolean; markdown: string; updatedAt?: string };
+    expect(body.exists).toBe(true);
+    expect(body.markdown).toBe("# Day 1\n\nKenroku-en\n");
+    expect(body.updatedAt).toBeTypeOf("string");
+  });
+
+  it("reports a missing folder's itinerary as absent rather than failing", async () => {
+    const trip = await createTrip({ destination: "Toyama" });
+    await fs.rm(trip.dir, { recursive: true, force: true });
+    const res = await api.get(`/api/trips/${trip.tripId}/itinerary`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ exists: false });
+  });
+
+  it("does not serve another user's itinerary", async () => {
+    const trip = await createTrip({ destination: "Matsumoto" });
+    const { cookie } = await provisionUser(t.app, "nosy");
+    expect((await apiClient(t.app, cookie).get(`/api/trips/${trip.tripId}/itinerary`)).status).toBe(
+      404,
+    );
+  });
+
   it("deleting a trip detaches its conversations and leaves the person's files alone", async () => {
     const trip = await createTrip({ destination: "Nikko" });
     t.deps.sessionsRepo.insert(sessionRow("s-kept", { tripId: trip.tripId }));

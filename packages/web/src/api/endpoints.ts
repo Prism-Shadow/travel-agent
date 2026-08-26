@@ -79,6 +79,7 @@ import type {
   TraceEventsResponse,
   TraceImportRequest,
   TripCreateRequest,
+  TripItineraryResponse,
   TripPatchRequest,
   TripResponse,
   TripsResponse,
@@ -424,6 +425,10 @@ export const deleteTrip = (tripId: string) =>
 
 export const listTripSessions = (tripId: string) =>
   apiFetch<SessionsResponse>(`/api/trips/${encodeURIComponent(tripId)}/sessions`);
+
+/** The trip's `itinerary.md`. Read-only: that file belongs to the model. */
+export const getTripItinerary = (tripId: string) =>
+  apiFetch<TripItineraryResponse>(`/api/trips/${encodeURIComponent(tripId)}/itinerary`);
 
 /** Attach to a Trip, move between Trips, or detach (`null`). Never changes the workspace. */
 export const setSessionTrip = (sessionId: string, tripId: string | null) =>

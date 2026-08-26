@@ -38,6 +38,19 @@ export const en: Strings = {
     /** Conversations belonging to no trip — an ordinary state, not a backlog. */
     scratch: "Loose questions",
     newChatInTrip: "New conversation in this trip",
+    openTrip: "Open trip",
+    notFound: "This trip no longer exists. It may have been deleted elsewhere.",
+    backToChat: "Back to chat",
+    rename: "Rename",
+    deleteTrip: "Delete trip",
+    deleteTripConfirm: (name: string) =>
+      `Delete the trip "${name}"? Its conversations stay (they become loose questions), and the trip folder on disk is not deleted \u2014 those files are yours.`,
+    conversations: "Conversations",
+    noConversations: "No conversations in this trip yet.",
+    itinerary: "Itinerary",
+    noItinerary:
+      "No itinerary yet. The agent writes it as the work produces something worth keeping.",
+    itineraryUpdated: (when: string) => `updated ${when}`,
     moveToTrip: "Move to trip",
     removeFromTrip: "Remove from trip",
     folderMissing: (dir: string) => `Trip folder not found: ${dir}`,

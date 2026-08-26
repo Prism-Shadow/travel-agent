@@ -40,6 +40,18 @@ export const zh = {
     /** 不属于任何行程的对话分组：它是正常状态，不是待办。 */
     scratch: "随手问",
     newChatInTrip: "在此行程中新建对话",
+    openTrip: "打开行程",
+    notFound: "找不到这个行程。它可能已在别处被删除。",
+    backToChat: "返回对话",
+    rename: "重命名",
+    deleteTrip: "删除行程",
+    deleteTripConfirm: (name: string) =>
+      `删除行程「${name}」？它的对话会保留下来（变成「随手问」），磁盘上的行程文件夹也不会被删除——那些文件是你的。`,
+    conversations: "对话",
+    noConversations: "这个行程还没有对话。",
+    itinerary: "行程单",
+    noItinerary: "还没有行程单。agent 在工作产生值得留存的内容时会写入它。",
+    itineraryUpdated: (when: string) => `更新于 ${when}`,
     moveToTrip: "移入行程",
     removeFromTrip: "移出行程",
     folderMissing: (dir: string) => `找不到行程文件夹：${dir}`,
