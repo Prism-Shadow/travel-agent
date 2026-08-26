@@ -36,7 +36,10 @@ nodeGypRebuild: false
 afterPack: scripts/apply-fuses.mjs
 
 mac:
-  category: public.app-category.developer-tools
+  # LSApplicationCategoryType, which decides where Launchpad and the App Store file the app.
+  # It was developer-tools, from when this shell was the engine's; the product is a travel
+  # application.
+  category: public.app-category.travel
   # Brand icon (rendered from packages/web/public/penguin-logo.svg by
   # scripts/render-icon.mjs, committed): electron-builder converts the 1024px PNG to
   # icns itself (app-builder-lib iconConverter; >=512px required).

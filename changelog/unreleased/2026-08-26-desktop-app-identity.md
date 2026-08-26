@@ -25,6 +25,5 @@ development install comes back logged out with an empty vault, and that is the i
 taken deliberately because nothing has been released and no one is running this yet. Once there
 are installs, a rename like this needs a migration instead.
 
-Not changed, and worth a separate look: `mac.category` is still
-`public.app-category.developer-tools`, which described the engine's shell rather than a travel
-application.
+- `mac.category` becomes `public.app-category.travel`. It was `developer-tools`, from when this
+  shell was the engine's; the category is what Launchpad and the App Store file the app under.
