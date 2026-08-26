@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-26] The desktop application's own identity becomes Travel Agent — app name, bundle id, executables and dialogs; this relocates `userData`, taken deliberately while nothing is released. ([details](2026-08-26-desktop-app-identity.md))
 - [2026-08-26] The app calls itself Travel Agent instead of the engine it is built on, and the Project switcher appears only when there is more than one Project — creating and configuring them moves into the developer console. ([details](2026-08-26-app-name-and-project-switcher.md))
 - [2026-08-26] A spatial claim in a trip's plan can carry the map that proves it: the agent renders it into the trip folder and relative images in `itinerary.md` resolve there — no map credential ever reaches the browser. ([details](2026-08-26-trip-map-evidence.md))
 - [2026-08-26] The trip page (`/trips/:tripId`) shows a journey's identity, its conversations and the itinerary the agent wrote; the itinerary is rendered, never edited, and its absence is a state rather than an error. ([details](2026-08-26-trip-page.md))

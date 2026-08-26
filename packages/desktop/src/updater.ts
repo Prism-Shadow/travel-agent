@@ -80,7 +80,7 @@ export function initUpdater(getWindow: () => BrowserWindow | null): void {
       manualCheckInFlight = false;
       void dialog.showMessageBox({
         type: "info",
-        message: "PenguinHarness is up to date.",
+        message: "Travel Agent is up to date.",
         detail: `Version ${app.getVersion()} is the latest release.`,
         buttons: ["OK"],
       });
@@ -168,7 +168,7 @@ async function promptRestart(version: string, parent: BrowserWindow | null): Pro
   const options = {
     type: "info" as const,
     message: `Version ${version} is ready to install.`,
-    detail: "PenguinHarness will restart to finish updating. Running tasks will be interrupted.",
+    detail: "Travel Agent will restart to finish updating. Running tasks will be interrupted.",
     buttons: ["Restart now", "Later"],
     defaultId: 0,
     cancelId: 1,

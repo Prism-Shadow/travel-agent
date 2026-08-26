@@ -68,11 +68,11 @@ import {
   restartDelayMs,
 } from "./util.js";
 
-app.setName("PenguinHarness");
+app.setName("Travel Agent");
 // Windows toasts (the web app's task-completion notifications) need the AppUserModelID
 // of the installed shortcuts; electron-builder stamps them with the appId. Keep in sync
 // with electron-builder.yml.
-if (process.platform === "win32") app.setAppUserModelId("com.prismshadow.penguinharness");
+if (process.platform === "win32") app.setAppUserModelId("com.prismshadow.travelagent");
 
 let win: BrowserWindow | null = null;
 let server: EmbeddedServer | null = null;
@@ -129,7 +129,7 @@ let restartAttempts = 0;
 
 function fatal(context: string, err: unknown): void {
   const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
-  dialog.showErrorBox("PenguinHarness", `${context}\n\n${detail}`);
+  dialog.showErrorBox("Travel Agent", `${context}\n\n${detail}`);
   app.exit(1);
 }
 
@@ -596,7 +596,7 @@ if (!app.requestSingleInstanceLock()) {
       // First launch only: offer the CLI commands once; the menu entry remains.
       // Skipped in smoke mode — a modal dialog would hang the automated run.
       if (process.env.PENGUIN_DESKTOP_SMOKE !== "1") await maybeOfferCliInstall(win);
-    })().catch((err) => fatal("PenguinHarness failed to start.", err)),
+    })().catch((err) => fatal("Travel Agent failed to start.", err)),
   );
 }
 

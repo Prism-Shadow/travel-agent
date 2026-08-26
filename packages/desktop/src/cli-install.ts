@@ -49,7 +49,7 @@ export function currentCliInstallKind(): CliInstallKind | null {
 function showResult(win: BrowserWindow | null, ok: boolean, detail: string): void {
   const opts = {
     type: ok ? ("info" as const) : ("error" as const),
-    title: "PenguinHarness",
+    title: "Travel Agent",
     message: ok
       ? "The 'penguin-browser' command is installed."
       : "Could not install the CLI command.",
@@ -209,7 +209,7 @@ export async function maybeOfferCliInstall(win: BrowserWindow | null): Promise<v
   }
   const opts = {
     type: "question" as const,
-    title: "PenguinHarness",
+    title: "Travel Agent",
     message: "Install the 'penguin-browser' command?",
     detail:
       "Puts the penguin-browser CLI bundled with this app on your PATH. You can do this later from the application menu: Install CLI Commands.",

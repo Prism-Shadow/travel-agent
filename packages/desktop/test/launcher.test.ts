@@ -104,7 +104,7 @@ describe("appImageBootstrapJs", () => {
 });
 
 describe("mergeWindowsUserPath", () => {
-  const bin = "C:\\Program Files\\PenguinHarness\\resources\\app\\bin";
+  const bin = "C:\\Program Files\\Travel Agent\\resources\\app\\bin";
 
   it("appends to an existing value with a semicolon", () => {
     expect(mergeWindowsUserPath("C:\\other", bin)).toBe(`C:\\other;${bin}`);
@@ -126,7 +126,7 @@ describe("mergeWindowsUserPath", () => {
 
   it("matches case-insensitively and ignores quotes and trailing slashes", () => {
     expect(
-      mergeWindowsUserPath(`c:\\program files\\penguinharness\\RESOURCES\\app\\BIN`, bin),
+      mergeWindowsUserPath(`c:\\program files\\travel agent\\RESOURCES\\app\\BIN`, bin),
     ).toBeNull();
     expect(mergeWindowsUserPath(`"${bin}"`, bin)).toBeNull();
     expect(mergeWindowsUserPath(`${bin}\\`, bin)).toBeNull();

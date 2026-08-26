@@ -17,19 +17,20 @@ export const BROWSER_CLI_ENTRY_RELPATH = "node_modules/penguin-browser/dist/cli.
 export const EXTENSION_DIR_RELPATH = "resources/penguin-browser-extension";
 
 /**
- * Platform executable names, fixed by electron-builder.yml: productName PenguinHarness
- * (macOS bundle executable and Windows .exe) and linux.executableName penguin-harness.
+ * Platform executable names, fixed by electron-builder.yml: productName "Travel Agent"
+ * (macOS bundle executable and Windows .exe) and linux.executableName travel-agent. The macOS
+ * and Windows names contain a space, so every interpolation of them stays quoted.
  */
-export const MAC_EXECUTABLE = "PenguinHarness";
-export const WIN_EXECUTABLE = "PenguinHarness.exe";
-export const LINUX_EXECUTABLE = "penguin-harness";
+export const MAC_EXECUTABLE = "Travel Agent";
+export const WIN_EXECUTABLE = "Travel Agent.exe";
+export const LINUX_EXECUTABLE = "travel-agent";
 
 /**
  * POSIX launcher, staged as `<app>/bin/penguin` (chmod 755). Resolves its own real
  * location first (PATH exposure is a symlink on macOS/deb), then finds the Electron
  * executable at the platform's fixed position relative to the app directory:
- * - macOS: app dir is `<bundle>/Contents/Resources/app` → `../../MacOS/PenguinHarness`
- * - Linux: app dir is `<install>/resources/app` → `../../penguin-harness`
+ * - macOS: app dir is `<bundle>/Contents/Resources/app` → `../../MacOS/Travel Agent`
+ * - Linux: app dir is `<install>/resources/app` → `../../travel-agent`
  */
 export function posixLauncherScript(
   command = "penguin-browser",
