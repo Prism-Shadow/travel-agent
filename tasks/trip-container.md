@@ -110,23 +110,35 @@ The map's job here is not a planning canvas; it is evidence for a claim. When th
 hotel is close to the station — the constraint our own starter prompt uses — the map is what makes
 that checkable. It does not take the right-hand pane: that belongs to the in-app browser.
 
-- [ ] **P5.0 spike (0.5d, blocking).** Whether Amap's static-map endpoint covers the need (it is
-      *not* part of the vendored `amap-lbs-skill` today, which produces REST results and shareable
-      links); and how a browser-usable key is obtained — the vault's `AMAP_KEY` is a Web Service
-      key, which is a different credential class from a JS API key. Outcome decides static images
-      (preferred: no SDK, embeddable in a message) versus an interactive SDK.
-- [ ] **P5.1 data path (1.5d).** Places reach coordinates by the *agent* geocoding through the
-      existing skill and writing the result into the trip directory; the frontend renders, it does
-      not parse prose. Fix the storage shape.
-- [ ] **P5.2 trip overview map (1.5d).** The trip page renders the trip's known places. No map at
-      all when there are no coordinates.
-- [ ] **P5.3 spatial evidence in conversation (1.5d).** A message-level map with the distance or
-      duration fact beside it, so a spatial claim in a rationale can be checked.
-- Boundary, to be recorded: no draggable itinerary canvas, no prices on the map, no heat-map
-  exploration.
-- Known limitation: Amap is strong in mainland China — which is exactly where the target scenarios
-  live (Ctrip, Fliggy, Xiaohongshu) — and weak elsewhere. P5 promises spatial evidence for
-  mainland-China scenes only; an international base map is a later, separate question.
+- [x] **P5.0 spike — done, and it changed the shape.** The question was which credential a
+      browser-side map would need. The answer is that no browser-side map should exist: `AMAP_KEY`
+      is a Web Service key living in the *agent's* vault, reaching the agent's command environment
+      and nothing else. Putting a map in the frontend would have meant a second credential class
+      (a JS API key) exposed to the browser, or a server proxy reaching into a vault whose gates
+      are fail-closed behind the unresolved isolation decision. Both are worse than the
+      alternative: **the agent renders the map and the app renders the file.** That is the same
+      ownership split the rest of the trip folder already has, and no key ever reaches the
+      browser.
+- [x] **P5.1 data path.** `places.json` (coordinates the agent geocoded) and `map.png` (the
+      rendered static map) are artifacts the agent writes into the trip folder, taught by the
+      `trip-workspace` skill. The frontend renders; it does not geocode, and it does not parse
+      prose.
+- [x] **P5.2 the map on the trip page.** `GET /api/trips/:tripId/file` serves the trip folder
+      through the existing workspace-file reader — inheriting its symlink-aware confinement and
+      its rule that scriptable content is served as plain text — and relative image names in
+      `itinerary.md` resolve to it. `![map](map.png)` beside the fact it evidences renders inline.
+      No coordinates, no file, no map: nothing is drawn and nothing claims to be missing.
+- [x] **P5.3 spatial evidence.** Delivered by the same mechanism rather than a separate
+      message-level widget: the agent embeds the map in the itinerary at the point the claim is
+      made ("400 m from Ginza station" with the map beside it), so the evidence lives next to the
+      assertion it supports and outlives the conversation that produced it. A widget bound to a
+      message would have shown the same picture and lost it as soon as the thread scrolled.
+- Boundary, recorded in the skill: no draggable itinerary canvas, no prices on the map, no
+  heat-map exploration. The map answers a claim; it is not a planning surface.
+- Known limitation, stated in the skill so the agent acts on it: Amap covers mainland China well
+  — which is where the target scenarios live (Ctrip, Fliggy, Xiaohongshu) — and elsewhere poorly.
+  Outside the mainland the agent states the distance and its source instead of drawing a map that
+  would be wrong or empty. An international base map is a later, separate question.
 
 ## Acceptance for the whole plan
 

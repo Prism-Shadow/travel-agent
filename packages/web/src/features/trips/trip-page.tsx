@@ -43,6 +43,20 @@ export function TripPage() {
   const [nameText, setNameText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  /**
+   * Relative image names in `itinerary.md` point at files in the trip's folder. Absolute and
+   * data URLs are left alone: this resolves the document's own neighbours, it does not decide
+   * what the document may reference.
+   */
+  const resolveTripImage = useCallback(
+    (src: string) => {
+      if (tripId === undefined) return src;
+      if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith("//")) return src;
+      return api.tripFileUrl(tripId, src.replace(/^\.\//, ""));
+    },
+    [tripId],
+  );
+
   const load = useCallback(async () => {
     if (tripId === undefined) return;
     try {
@@ -191,7 +205,9 @@ export function TripPage() {
           <SkeletonList rows={3} />
         ) : itinerary.exists ? (
           <article className="prose-chat mt-3">
-            <Md text={itinerary.markdown} />
+            {/* Images in the itinerary are files beside it in the trip's own folder — a map
+                the agent rendered, a screenshot it kept — so relative names resolve there. */}
+            <Md text={itinerary.markdown} resolveImageSrc={resolveTripImage} />
           </article>
         ) : (
           // Not an error: the agent writes this file as the work produces something worth

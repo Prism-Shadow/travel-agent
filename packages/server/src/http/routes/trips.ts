@@ -163,5 +163,32 @@ export function tripsRoutes(deps: AppDeps): Hono<AppEnv> {
     return c.json(await deps.tripService.readItinerary(trip));
   });
 
+  /**
+   * A file from the Trip's own folder — what makes `![map](map.png)` inside `itinerary.md`
+   * render on the trip page, and what serves any other artifact the agent leaves there.
+   *
+   * Reuses the workspace file reader with the Trip's directory as the root, so it inherits
+   * that reader's symlink-aware confinement and its rule that scriptable content (html, svg)
+   * is served as plain text: files here are agent-generated and are not to be trusted with
+   * this origin.
+   */
+  app.get("/:tripId/file", async (c) => {
+    const tripId = pathParam(c, "tripId");
+    const trip = deps.tripService.requireTrip(c.var.user.userId, tripId);
+    const rel = c.req.query("path") ?? "";
+    const { data, fileName, contentType, scriptable } = await deps.workspaceFiles.read(
+      trip.dir,
+      rel,
+    );
+    return new Response(new Uint8Array(data), {
+      status: 200,
+      headers: {
+        "Content-Type": scriptable ? "text/plain; charset=utf-8" : contentType,
+        "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  });
+
   return app;
 }

@@ -281,6 +281,32 @@ describe("trips", () => {
     expect(await res.json()).toMatchObject({ exists: false });
   });
 
+  it("serves a file from the trip folder, and refuses to escape it", async () => {
+    const trip = await createTrip({ destination: "Sendai" });
+    await fs.writeFile(path.join(trip.dir, "map.png"), "not-really-a-png", "utf8");
+
+    const ok = await api.get(`/api/trips/${trip.tripId}/file?path=map.png`);
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toBe("not-really-a-png");
+
+    // The folder is the boundary: an agent-written document naming a path outside it gets
+    // nothing, whichever way it spells the escape.
+    expect((await api.get(`/api/trips/${trip.tripId}/file?path=../trip.json`)).status).not.toBe(
+      200,
+    );
+    expect((await api.get(`/api/trips/${trip.tripId}/file?path=/etc/hosts`)).status).not.toBe(200);
+    expect((await api.get(`/api/trips/${trip.tripId}/file?path=missing.png`)).status).toBe(404);
+  });
+
+  it("does not serve another user's trip files", async () => {
+    const trip = await createTrip({ destination: "Aomori" });
+    await fs.writeFile(path.join(trip.dir, "map.png"), "x", "utf8");
+    const { cookie } = await provisionUser(t.app, "peeker");
+    expect(
+      (await apiClient(t.app, cookie).get(`/api/trips/${trip.tripId}/file?path=map.png`)).status,
+    ).toBe(404);
+  });
+
   it("does not serve another user's itinerary", async () => {
     const trip = await createTrip({ destination: "Matsumoto" });
     const { cookie } = await provisionUser(t.app, "nosy");

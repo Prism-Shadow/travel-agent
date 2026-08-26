@@ -12,7 +12,7 @@
  * re-render (new string instance, streaming=false) highlights each block exactly once.
  * Inline code keeps the default rendering (`.md-body code` styling).
  */
-import { isValidElement, memo } from "react";
+import { isValidElement, memo, useMemo } from "react";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components, ExtraProps } from "react-markdown";
@@ -82,18 +82,46 @@ const SETTLED_COMPONENTS: Components = {
   a: MdLink,
 };
 
+/**
+ * Image adapter used only when a caller supplies `resolveImageSrc`.
+ *
+ * A document written by the agent refers to the files beside it by name — `![map](map.png)` in
+ * a trip's `itinerary.md`. Only the caller knows what those names resolve to, so the mapping is
+ * passed in rather than assumed here. An absolute or data URL is left exactly as written: this
+ * rewrites relative names, it does not police what a document may point at.
+ */
+function mdImage(resolve: (src: string) => string) {
+  return function MdImage({
+    node: _node,
+    src,
+    ...imgProps
+  }: ComponentPropsWithoutRef<"img"> & ExtraProps) {
+    const resolved = typeof src === "string" && src !== "" ? resolve(src) : src;
+    // eslint-disable-next-line jsx-a11y/alt-text -- alt comes through imgProps from the markdown
+    return <img {...imgProps} src={resolved} className="max-w-full rounded-lg" loading="lazy" />;
+  };
+}
+
 export const Md = memo(function Md({
   text,
   streaming = false,
+  resolveImageSrc,
 }: {
   text: string;
   streaming?: boolean;
+  /**
+   * Maps a relative image path in the document to a URL that serves it. Omit it and images are
+   * left untouched — which is what the chat does, and why the frozen component maps above stay
+   * in play there: building a fresh map per render would remount every code block mid-stream.
+   */
+  resolveImageSrc?: (src: string) => string;
 }) {
+  const components = useMemo<Components>(() => {
+    const base = streaming ? STREAMING_COMPONENTS : SETTLED_COMPONENTS;
+    return resolveImageSrc ? { ...base, img: mdImage(resolveImageSrc) } : base;
+  }, [streaming, resolveImageSrc]);
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={streaming ? STREAMING_COMPONENTS : SETTLED_COMPONENTS}
-    >
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
       {text}
     </ReactMarkdown>
   );

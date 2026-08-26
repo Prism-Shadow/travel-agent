@@ -37,6 +37,8 @@ and is not the trip.
 | --- | --- | --- |
 | `trip.json` | **The app** | Destination, dates, travellers, budget tier. Read it; never write it. |
 | `itinerary.md` | **You** | The plan: what happens on which day, and why. |
+| `places.json` | **You** | Coordinates of the places in the plan (optional; see below). |
+| `map.png` | **You** | A rendered map of those places (optional; see below). |
 
 `trip.json` is written by the application when the person edits the trip's chips. If the journey's
 details are wrong or missing, say so and let them correct it — editing the file yourself would be
@@ -109,6 +111,52 @@ Write to the trip folder when something happened that should outlive this conver
 
 Do not write after every message. A conversation that only answered a question changes nothing
 about the journey.
+
+## Spatial claims: show, do not assert
+
+When the plan depends on where something is — "this hotel is close to the station", "these two
+are walkable" — a claim in prose is something the person has to take on trust. A map is the
+evidence for it.
+
+This is worth doing when a spatial fact is actually load-bearing (choosing between hotels by
+location, checking a day's stops are near each other). It is not worth doing for decoration.
+
+1. **Geocode** the places with the `amap-lbs-skill` (mainland China; it needs the user's
+   `AMAP_KEY` from the vault). Record what you found:
+
+   ```json
+   {
+     "version": 1,
+     "places": [
+       { "name": "Shinjuku Station", "lng": 139.7005, "lat": 35.6909, "note": "nearest station" }
+     ]
+   }
+   ```
+
+2. **Render** a static map to `map.png` in the trip folder, using the same Web Service key:
+
+   ```bash
+   curl -s -o "<trip folder>/map.png" \
+     "https://restapi.amap.com/v3/staticmap?size=750*400&zoom=13&markers=mid,,A:139.7005,35.6909&key=$AMAP_KEY"
+   ```
+
+   The key stays in your environment and in the request. It must never be written into
+   `itinerary.md`, `places.json`, or any file in the folder.
+
+3. **Reference it from the plan**, with the fact beside it:
+
+   ```markdown
+   ![Hotel and station](map.png)
+
+   Hotel Celestine is 400 m from Ginza station — about a 5 minute walk.
+   ```
+
+   Relative image names in `itinerary.md` resolve to the trip's own folder, so the map appears
+   inline on the trip page.
+
+**Coverage, honestly.** Amap covers mainland China well and other countries poorly. Outside the
+mainland, do not produce a map that would be wrong or empty — state the distance you found and
+its source instead. A missing map is better than a misleading one.
 
 ## What this skill does not do
 

@@ -430,6 +430,13 @@ export const listTripSessions = (tripId: string) =>
 export const getTripItinerary = (tripId: string) =>
   apiFetch<TripItineraryResponse>(`/api/trips/${encodeURIComponent(tripId)}/itinerary`);
 
+/**
+ * URL of a file in the trip's folder — used as an `<img src>`, so this returns the address
+ * rather than fetching. The session cookie authenticates the browser's own request.
+ */
+export const tripFileUrl = (tripId: string, relPath: string) =>
+  `/api/trips/${encodeURIComponent(tripId)}/file?path=${encodeURIComponent(relPath)}`;
+
 /** Attach to a Trip, move between Trips, or detach (`null`). Never changes the workspace. */
 export const setSessionTrip = (sessionId: string, tripId: string | null) =>
   apiFetch<SessionResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/trip`, {

@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-26] A spatial claim in a trip's plan can carry the map that proves it: the agent renders it into the trip folder and relative images in `itinerary.md` resolve there — no map credential ever reaches the browser. ([details](2026-08-26-trip-map-evidence.md))
 - [2026-08-26] The trip page (`/trips/:tripId`) shows a journey's identity, its conversations and the itinerary the agent wrote; the itinerary is rendered, never edited, and its absence is a state rather than an error. ([details](2026-08-26-trip-page.md))
 - [2026-08-26] Constraint chips become a trip's identity (edited once, inherited by every conversation in the journey), and a new built-in `trip-workspace` skill has the agent read and maintain the trip's own folder. ([details](2026-08-26-trip-identity-and-skill.md))
 - [2026-08-26] The sidebar becomes a list of trips: conversations group by the journey they belong to, trips with no conversations yet still show, loose questions keep their own trailing group, and the engine console demotes into a collapsed entry at the bottom. ([details](2026-08-26-sidebar-trips.md))
