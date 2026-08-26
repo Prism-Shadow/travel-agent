@@ -38,6 +38,9 @@ export function testConfig(root: string): ServerConfig {
     // the server's own port, so keep it realistic rather than 0.
     port: 7364,
     dbPath: ":memory:",
+    // Under the test's own temp root: a test that creates a Trip must never be able to
+    // write into a real person's folders.
+    tripsDir: path.join(root, "trips"),
     previewOrigin: null,
     // Points to a nonexistent directory: static hosting is disabled in tests.
     webDist: path.join(root, "__no_web_dist__"),

@@ -28,6 +28,10 @@ export function openDatabase(dbPath: string): DatabaseSync {
   // touches an existing table, so they are ALTERed in here. Keep the list in sync with
   // schema.ts; drop entries only in a release allowed to break existing web.db files.
   ensureColumn(db, "sessions", "client", "TEXT");
+  // No REFERENCES clause: SQLite cannot add a column with a foreign key to an existing
+  // table. Fresh databases get the constraint from SCHEMA_SQL; upgraded ones enforce
+  // the same rule in TripService, which is the only writer.
+  ensureColumn(db, "sessions", "trip_id", "TEXT");
   ensureColumn(db, "sessions", "has_trace", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "auth_sessions", "via", "TEXT");
   ensureColumn(db, "trace_files", "page_stats", "TEXT");

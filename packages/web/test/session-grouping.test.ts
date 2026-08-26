@@ -44,6 +44,7 @@ function session(
     provider: "custom",
     modelId: "claude-4-8",
     workspace,
+    tripId: null,
     approvalMode: "allow-all",
     createdAt,
     status: "idle",

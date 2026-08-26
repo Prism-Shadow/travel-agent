@@ -544,6 +544,32 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
     } satisfies SessionResponse);
   });
 
+  /**
+   * Attach this conversation to a Trip, move it to another, or detach it (`tripId: null`).
+   *
+   * A separate route from PATCH because it is a different kind of change: the other fields
+   * are settings of the conversation, while this is its place in the product's object model.
+   * It writes one column — the conversation's `workspace`, its Trace and its memory scope are
+   * untouched, which is why re-homing is representable at all.
+   */
+  app.put("/:sessionId/trip", async (c) => {
+    const row = resolveSession(c);
+    const body = await readJson(c);
+    if (!("tripId" in body)) {
+      throw new HttpError(400, "no_update", "tripId is required (null detaches the conversation).");
+    }
+    const raw = body.tripId;
+    if (raw !== null && typeof raw !== "string") {
+      throw new HttpError(400, "invalid_trip_id", "tripId must be a string or null.");
+    }
+    deps.tripService.setSessionTrip(c.var.user.userId, row.sessionId, raw);
+    const updated: SessionRow = { ...row, tripId: raw };
+    const hasTrace = await deps.sessionService.hasTrace(updated);
+    return c.json({
+      session: await deps.sessionService.toInfo(updated, hasTrace),
+    } satisfies SessionResponse);
+  });
+
   app.delete("/:sessionId", async (c) => {
     const row = resolveSession(c);
     // Mark as being deleted and converge active runs (beginSessionDeletion): new

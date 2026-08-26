@@ -42,10 +42,24 @@ CREATE TABLE IF NOT EXISTS agents (           -- index only; name/description li
   created_at TEXT NOT NULL,
   PRIMARY KEY (project_id, agent_id)
 );
+CREATE TABLE IF NOT EXISTS trips (       -- travel-agent's own first-class object: a journey that owns a directory
+  trip_id     TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,                   -- display name; seeded from the destination, renameable
+  destination TEXT NOT NULL DEFAULT '',        -- free text, possibly several places ('Tokyo, Osaka'); '' = not set yet
+  when_json   TEXT,                            -- JSON TripWhen: {kind:'dates',start,end} | {kind:'flexible',days,month}; NULL = not set
+  who_json    TEXT,                            -- JSON TripWho: {adults,children,infants}; NULL = not set
+  budget      TEXT,                            -- price tier: any|low|mid|high|luxury; NULL = not set
+  dir         TEXT NOT NULL,                   -- absolute path of the directory this Trip owns (trip.json + itinerary.md live there)
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trips_project_created ON trips(project_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS sessions (
   session_id    TEXT PRIMARY KEY,
   project_id    TEXT NOT NULL,
   agent_id      TEXT NOT NULL,
+  trip_id       TEXT REFERENCES trips(trip_id) ON DELETE SET NULL,  -- owning Trip; NULL = a floating ("scratch") conversation. Membership is mutable BY DESIGN: it is a foreign key precisely so that attach/move/detach never touch the session's workspace (see docs/decisions/proposed/2026-08-26-trip-as-server-entity-owning-a-directory.md)
   provider      TEXT NOT NULL,                     -- provider group of the session model (paired with model_id as a model reference)
   model_id      TEXT NOT NULL,                     -- upstream model id (sent to AgentHub as-is; never concatenate <provider>/<id>)
   workspace     TEXT NOT NULL,

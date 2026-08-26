@@ -14,6 +14,13 @@ export interface SessionRow {
   /** Upstream model_id of the session's model (sent as-is to AgentHub; never concatenated). */
   modelId: string;
   workspace: string;
+  /**
+   * Owning Trip, or null for a floating ("scratch") conversation. Deliberately separate from
+   * `workspace`: membership changes over a conversation's life (a scratch chat becomes a trip,
+   * or moves between trips), while `workspace` is fixed at Session creation by the engine and
+   * is recorded in the append-only Trace. Re-homing writes this column and nothing else.
+   */
+  tripId?: string | null;
   approvalMode: ApprovalMode;
   /** Auto-generated session title; NULL = not yet generated (frontend shows "New Conversation"). */
   title: string | null;
@@ -40,6 +47,7 @@ function mapRow(r: Record<string, unknown>): SessionRow {
     provider: r.provider as string,
     modelId: r.model_id as string,
     workspace: r.workspace as string,
+    tripId: (r.trip_id as string | null) ?? null,
     approvalMode: r.approval_mode as ApprovalMode,
     title: (r.title as string | null) ?? null,
     archivedAt: (r.archived_at as string | null) ?? null,
@@ -55,8 +63,8 @@ export class SessionsRepo {
   insert(row: SessionRow): void {
     this.db
       .prepare(
-        `INSERT INTO sessions (session_id, project_id, agent_id, provider, model_id, workspace, approval_mode, title, client, has_trace, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (session_id, project_id, agent_id, provider, model_id, workspace, trip_id, approval_mode, title, client, has_trace, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         row.sessionId,
@@ -65,6 +73,7 @@ export class SessionsRepo {
         row.provider,
         row.modelId,
         row.workspace,
+        row.tripId ?? null,
         row.approvalMode,
         row.title,
         row.client ?? null,
@@ -147,6 +156,30 @@ export class SessionsRepo {
     this.db
       .prepare("UPDATE sessions SET title = ? WHERE session_id = ? AND title IS NULL")
       .run(title, sessionId);
+  }
+
+  /**
+   * Attach to a Trip, move between Trips, or detach (null). The only write that changes a
+   * conversation's Trip membership; `workspace` is never touched by it.
+   */
+  setTripId(sessionId: string, tripId: string | null): void {
+    this.db.prepare("UPDATE sessions SET trip_id = ? WHERE session_id = ?").run(tripId, sessionId);
+  }
+
+  /** Detaches every conversation of a Trip (used when the Trip row is deleted). */
+  clearTrip(tripId: string): void {
+    this.db.prepare("UPDATE sessions SET trip_id = NULL WHERE trip_id = ?").run(tripId);
+  }
+
+  /** A Trip's conversations, newest first. */
+  listByTrip(tripId: string): SessionRow[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM sessions WHERE trip_id = ?
+         ORDER BY created_at DESC, session_id DESC`,
+      )
+      .all(tripId);
+    return rows.map(mapRow);
   }
 
   /** Archive / unarchive (archivedAt = ISO or NULL). */

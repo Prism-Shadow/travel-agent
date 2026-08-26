@@ -27,6 +27,16 @@ export interface ServerConfig {
    * than the browser's (dev serves the SPA on a different port; see resolvePreviewTarget).
    */
   port: number;
+  /**
+   * Root directory Trip folders are created under (PENGUIN_TRIPS_DIR).
+   *
+   * Defaults to `<root>/trips` so that every entry point which redirects the data root —
+   * `pnpm dev` pointing at `~/.penguin/dev-data`, and tests — keeps its Trips with it and
+   * can never write into a real person's folders. The packaged desktop app sets this
+   * explicitly to a user-visible location: a trip is a folder its owner can find, back up
+   * and keep, which is the point of building this in the open.
+   */
+  tripsDir: string;
   /** SQLite database path; ":memory:" for test injection. */
   dbPath: string;
   /** Frontend static assets directory; whether it's enabled is decided by checking existence when the app is assembled. */
@@ -102,7 +112,7 @@ function normalizePreviewOrigin(raw: string | undefined): string | null {
   return url.origin;
 }
 
-/** Parses server config from environment variables (PORT / HOST / PENGUIN_HOME / PENGUIN_WEB_DIST / PENGUIN_WEB_DB / PENGUIN_PREVIEW_ORIGIN / PENGUIN_SEED_ADMIN_PASSWORD / PENGUIN_DESKTOP_TOKEN / PENGUIN_PORT_FILE). */
+/** Parses server config from environment variables (PORT / HOST / PENGUIN_HOME / PENGUIN_WEB_DIST / PENGUIN_WEB_DB / PENGUIN_TRIPS_DIR / PENGUIN_PREVIEW_ORIGIN / PENGUIN_SEED_ADMIN_PASSWORD / PENGUIN_DESKTOP_TOKEN / PENGUIN_PORT_FILE). */
 export function resolveServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const root = env.PENGUIN_HOME ?? resolveRoot();
   // An empty PORT string is treated as unset (the common `.env` case of an empty
@@ -123,6 +133,7 @@ export function resolveServerConfig(env: NodeJS.ProcessEnv = process.env): Serve
     host,
     port,
     dbPath: env.PENGUIN_WEB_DB ?? path.join(root, "web.db"),
+    tripsDir: env.PENGUIN_TRIPS_DIR?.trim() || path.join(root, "trips"),
     webDist: env.PENGUIN_WEB_DIST ?? defaultWebDist(),
     previewOrigin: normalizePreviewOrigin(env.PENGUIN_PREVIEW_ORIGIN),
     // An empty/whitespace value is treated as unset (→ random seed password). Desktop

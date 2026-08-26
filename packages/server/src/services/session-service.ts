@@ -87,6 +87,7 @@ export class SessionService {
       provider: row.provider,
       modelId: row.modelId,
       workspace: row.workspace,
+      tripId: row.tripId ?? null,
       approvalMode: row.approvalMode,
       ...(row.title !== null ? { title: row.title } : {}),
       ...(source !== undefined ? { source } : {}),
@@ -157,6 +158,12 @@ export class SessionService {
    * totals broken down by Workspace path — so the sidebar can label the collapsed
    * folders (and a workspace group can know its own share) without loading them.
    */
+  /** A Trip's conversations, newest first — what the sidebar's trip card lists. */
+  async listByTrip(tripId: string): Promise<SessionInfo[]> {
+    const rows = this.deps.sessions.listByTrip(tripId);
+    return Promise.all(rows.map((row) => this.toInfo(row, row.hasTrace === true)));
+  }
+
   async listSessions(
     projectId: string,
     agentId: string,
@@ -304,6 +311,8 @@ export class SessionService {
     /** The provider group for `modelId`; always paired with modelId, never inferred. */
     provider?: string;
     workspace?: string;
+    /** Owning Trip; omitted for a floating conversation. Validated by the route guard. */
+    tripId?: string;
     approvalMode?: ApprovalMode;
     /** Session source marker (schedule when triggered by a scheduled task; defaults to user-created). */
     source?: "schedule";
@@ -373,6 +382,7 @@ export class SessionService {
       provider: session.provider,
       modelId: session.modelId,
       workspace: session.workspaceDir,
+      tripId: args.tripId ?? null,
       approvalMode: args.approvalMode ?? "allow-all",
       title: null,
       // Everything created through this service is the Web App's (schedule runs included);

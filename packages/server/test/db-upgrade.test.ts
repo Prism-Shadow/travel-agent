@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 
 describe("openDatabase column upgrade", () => {
-  it("adds client/has_trace to a sessions table formed before the columns existed", () => {
+  it("adds client/has_trace/trip_id to a sessions table formed before the columns existed", () => {
     const dbPath = path.join(dir, "web.db");
     // A database formed by the pre-#139 schema: sessions without client / has_trace.
     const old = new sqlite.DatabaseSync(dbPath);
@@ -74,6 +74,17 @@ describe("openDatabase column upgrade", () => {
         createdAt: "2026-01-02T00:00:00.000Z",
       });
       expect(repo.findById("session-new")!.client).toBe("cli");
+      // trip_id came in through the same guard: a legacy row is floating, and re-homing
+      // works on the upgraded table. The ALTERed column carries no REFERENCES clause
+      // (SQLite cannot add one), so TripService is what keeps the reference honest.
+      expect(legacy!.tripId).toBeNull();
+      repo.setTripId("session-legacy", "t-abc12345");
+      expect(repo.findById("session-legacy")!.tripId).toBe("t-abc12345");
+      expect(repo.listByTrip("t-abc12345").map((r) => r.sessionId)).toEqual(["session-legacy"]);
+      // The workspace is untouched by re-homing, on upgraded databases too.
+      expect(repo.findById("session-legacy")!.workspace).toBe("/w");
+      repo.clearTrip("t-abc12345");
+      expect(repo.findById("session-legacy")!.tripId).toBeNull();
       expect(repo.listByAgent("p1", "a1", { webOnly: true }).map((r) => r.sessionId)).toEqual([
         "session-legacy",
       ]);
@@ -92,6 +103,7 @@ describe("openDatabase column upgrade", () => {
       const cols = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
       expect(cols.filter((c) => c.name === "client")).toHaveLength(1);
       expect(cols.filter((c) => c.name === "has_trace")).toHaveLength(1);
+      expect(cols.filter((c) => c.name === "trip_id")).toHaveLength(1);
     } finally {
       db.close();
     }

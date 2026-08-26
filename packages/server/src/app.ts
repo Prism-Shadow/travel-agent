@@ -27,6 +27,7 @@ import { SchedulesRepo } from "./db/repos/schedules.js";
 import { ServerSettingsRepo } from "./db/repos/server-settings.js";
 import { SessionsRepo } from "./db/repos/sessions.js";
 import type { SessionRow } from "./db/repos/sessions.js";
+import { TripsRepo } from "./db/repos/trips.js";
 import { TraceIndexRepo } from "./db/repos/trace-index.js";
 import { UiPrefsRepo } from "./db/repos/ui-prefs.js";
 import { UsageRepo } from "./db/repos/usage.js";
@@ -51,6 +52,7 @@ import { authRoutes } from "./http/routes/auth.js";
 import { meRoutes } from "./http/routes/me.js";
 import { eventsRoutes, userChannelKey } from "./http/routes/events.js";
 import { projectsRoutes } from "./http/routes/projects.js";
+import { projectTripsRoutes, tripsRoutes } from "./http/routes/trips.js";
 import { membersRoutes } from "./http/routes/members.js";
 import { modelsRoutes } from "./http/routes/models.js";
 import { chatDefaultsRoutes } from "./http/routes/chat-defaults.js";
@@ -87,6 +89,7 @@ import { SnapshotService } from "./services/snapshot-service.js";
 import { ProjectConfigService } from "./services/project-config-service.js";
 import { ProjectService } from "./services/project-service.js";
 import { SessionService } from "./services/session-service.js";
+import { TripService } from "./services/trip-service.js";
 import { TraceIndexService } from "./services/trace-index.js";
 import { TraceService } from "./services/trace-service.js";
 import { UpdateCheckService } from "./services/update-check-service.js";
@@ -108,6 +111,7 @@ export interface AppDeps {
   config: ServerConfig;
   db: DatabaseSync;
   sessionsRepo: SessionsRepo;
+  tripsRepo: TripsRepo;
   prefsRepo: UiPrefsRepo;
   /** Admin-level server-global settings (currently the proxy switches and address). */
   serverSettingsRepo: ServerSettingsRepo;
@@ -119,6 +123,7 @@ export interface AppDeps {
   agentConfigService: AgentConfigService;
   memoryService: MemoryService;
   sessionService: SessionService;
+  tripService: TripService;
   traceService: TraceService;
   /** Trace-file index (derived cache + reconciler); routes use it for delete-time coherence. */
   traceIndex: TraceIndexService;
@@ -174,6 +179,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
   const membersRepo = new MembersRepo(db);
   const agentsRepo = new AgentsRepo(db);
   const sessionsRepo = new SessionsRepo(db);
+  const tripsRepo = new TripsRepo(db);
   const usageRepo = new UsageRepo(db);
   const errorsRepo = new ErrorsRepo(db);
   const prefsRepo = new UiPrefsRepo(db);
@@ -352,6 +358,12 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     onPasswordChanged,
     ...(overrides.now ? { now: overrides.now } : {}),
   });
+  const tripService = new TripService({
+    trips: tripsRepo,
+    sessions: sessionsRepo,
+    projectService,
+    tripsDir: config.tripsDir,
+  });
   const sessionService = new SessionService({
     root: config.root,
     sessions: sessionsRepo,
@@ -383,6 +395,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     config,
     db,
     sessionsRepo,
+    tripsRepo,
     prefsRepo,
     serverSettingsRepo,
     authService,
@@ -393,6 +406,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     agentConfigService,
     memoryService,
     sessionService,
+    tripService,
     traceService,
     traceIndex,
     usageService,
@@ -526,6 +540,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   // Skill library listing: readable once logged in, not nested under a Project prefix.
   app.route("/api/skills", skillLibraryRoutes());
   app.route("/api/projects", projectsRoutes(deps));
+  app.route("/api/projects/:projectId/trips", projectTripsRoutes(deps));
+  app.route("/api/trips", tripsRoutes(deps));
   app.route("/api/projects/:projectId/members", membersRoutes(deps));
   app.route("/api/projects/:projectId/models", modelsRoutes(deps));
   app.route("/api/projects/:projectId/chat-defaults", chatDefaultsRoutes(deps));
