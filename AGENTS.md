@@ -7,16 +7,28 @@ Reason from first principles, end to end. When the evidence does not support a c
 
 ## Product Direction
 
-travel-agent is the glue between **PenguinHarness** (the agent engine) and **penguin-browser** (the
-visible in-app browser, plus an optional connection to the user's own Chrome).
+travel-agent is an **open-source consumer travel application** built on **PenguinHarness** (the
+agent engine) and **penguin-browser** (the visible in-app browser, plus an optional connection to
+the user's own Chrome). It is the only place those two are joined.
 
-The shape of the product is one interaction: a user says one sentence; the agent searches, reduces
-the option space to a few representatives **each with a reason**, waits for a click that is also
-authorization, fills the form, and **stops on the payment page**.
+Its first-class object is the **Trip**: a journey the person is taking, which owns a directory on
+their own disk and gathers the conversations, identity (where / when / who / budget) and itinerary
+belonging to that journey. Conversations are the instrument; the Trip is what accumulates.
+
+Its core interaction is unchanged and remains the thing the product is judged on: a user says one
+sentence; the agent searches, reduces the option space to a few representatives **each with a
+reason**, waits for a click that is also authorization, fills the form, and **stops on the payment
+page**.
+
+What makes it worth building in the open is that it drives real pages with the person's own
+browser and accounts: it reaches sites no API partnership covers, and the money never leaves their
+hands. A trip is a folder they can back up, move, or keep after uninstalling.
 
 It does **not** do price watching, auto-rebooking, ticket-sniping, or anything else that needs a
-long-lived process. Ctrip is a demo scene, not the product. Do not frame this as a generic
-browser-automation platform or a scraping tool.
+long-lived process, and it does not keep a booking or receipt ledger — the run stops at the payment
+page and cannot observe the outcome. It is not a proprietary POI database, an inspiration feed, a
+creator platform, or a generic browser-automation and scraping tool. Ctrip is a demo scene, not the
+product.
 
 ## Hard Rules
 

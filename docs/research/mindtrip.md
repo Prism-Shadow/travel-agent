@@ -239,7 +239,101 @@ collection and trip are three sibling artifact kinds with different lifecycles.
    product"; travel-agent's one-sentence-to-payment-page shape needs only chips + the trip's
    conversations + bookings.
 
-## 附：时间线速查
+## 13. Addendum (2026-08-26): the five unanswered design flows, walked first-hand
+
+| | |
+| --- | --- |
+| Method | Live walkthrough of mindtrip.ai with our own logged-in account (Chrome takeover via playwriter), 2026-08-26. Working screenshots in gitignored `artifacts/research-mindtrip/` (local evidence, not repository documentation). A test trip "Trip to Tokyo" (`t-5E1Fay71`) with two chats was created on the account and left in place for re-verification |
+| Why | §12 settled the chat×trip containment; five interaction-level questions remained open, each mapped to a pending travel-agent design decision (trip birth, trip.json schema, in-trip drafts, chip dialogs, home starter content) |
+
+### 13.1 Chat home and the constraint chips
+
+- Home = greeting ("Where to today, Youhai?"), "Ask anything" composer, chip row **Where / When /
+  Who / Budget** plus a separate **"Create a trip"** CTA; a "Jump back in" carousel mixing three
+  artifact kinds (Guide / Trip / Chat); a personalized "For you in <city>" POI feed below.
+- **Mindtrip has no draft state.** Touching a chip (or New chat) materializes a chat URL
+  (`/chat/NNNNNNN`) before any message is sent. Contrast: travel-agent's draft-first design,
+  where the Session exists only after the first send.
+- The chip dialogs, field by field:
+  - **Where**: Location combobox with real POI autocomplete (city / prefecture / station area /
+    neighborhood / bay all appear), Clear, a "Road trip?" toggle, Save. Single location at chat
+    level; multi-location lives in the trip form.
+  - **When**: tabs **Dates** (range calendar) | **Flexible** ("How many days?" stepper +
+    "Travel anytime" + independent month checkboxes — **multiple months selectable**, rolling 12).
+    The chip renders a compact summary ("5 days in Oct").
+  - **Who**: four steppers — Adults 13+, Children 2–12, Infants under 2, **Pets** (with a
+    "Bringing a service animal?" info affordance). Chip: "2 travelers".
+  - **Budget**: five radios — Any budget / £ On a budget / ££ Sensibly priced / £££ Upscale /
+    ££££ Luxury. Chip: "$$". First-hand confirmation of `trip-constraints.ts`'s "Mindtrip's
+    Budget dialog verbatim" note.
+- **Chips are bidirectional.** Asking a fresh chat "Is the Japan Rail Pass still worth buying in
+  2026?" auto-filled Where = "Japan" and recentered the map: the model infers constraints from
+  prose, the chip renders the judgment, the dialog lets the user overwrite it.
+- The map pane materializes the moment a destination exists (with live weather) and its pins
+  follow conversation content (a day-trips answer produced Hakone / Fuji / Nikko pins carrying
+  community-guide author avatars).
+
+### 13.2 Trip creation ("Create a trip" → "What's the plan?")
+
+- Form fields: **Destination** (seeded from the chat's Where chip; Change; "+ Add location";
+  "Road trip?" toggle), **Timing** (seeded from the When chip; "Select dates" alternative),
+  **Trip preferences** free text (0/2000 characters, voice input). Create.
+- **Who and Budget are not on the form** — yet after Create the trip carries all four chips:
+  the trip adopts the chat's chip values wholesale. Structured trip identity = destination +
+  timing; everything else is prose or adopted context.
+- After Create the URL becomes `/chat/NNN?tripSheet=1&tripTab=itinerary` — the trip opens as a
+  **sheet over the chat**, not a navigation away. The chat is renamed ("Untitled — Trip to
+  Tokyo"), the chip row gains **Preferences** and a **"Trip 0"** saved-items badge, and the
+  composer greeting changes to "What else do we need for this trip?".
+
+### 13.3 Trip hub
+
+- `/trip/t-XXXXXXXX`: editable title, the four chips, **proactive AI** ("Thinking about your
+  trip…", then an opener — "Tokyo is a brilliant choice for five days in October. Want help
+  picking the first things to add to your plan?" — with three suggestion pills), an embedded
+  "Ask anything else…" composer, the "Chats N" list, the six modules (Ideas / Itinerary /
+  Bookings / Media / Trip preferences / Calendar), map, Invite / Share.
+- The hub's embedded composer **routes into the trip's existing chat** — it does not spawn a new
+  one. Chats auto-rename by topic after the first exchange ("Day Trips from Tokyo").
+
+### 13.4 Chat↔trip membership is a first-class mutable edge
+
+- In-trip chat title menu: **View trip / Move to another trip / Remove from trip / Rename chat /
+  Delete chat**.
+- Floating chat title menu: **Move to trip** (submenu: **New trip** | each existing trip) /
+  Rename / Delete.
+- Promotion tested live: moving the floating "Japan Rail Pass" chat into Trip to Tokyo
+  **replaced the chat's own chips** (Japan / — / — / —) with the trip's (Tokyo / 5 days in Oct /
+  2 travelers / $$). Adoption is total — trip metadata wins; the breadcrumb gains the owning
+  trip; the hub's counter reads "Chats 2".
+- Sidebar "Chats" flyout: Search, then **New chat and New trip side by side** as sibling creation
+  actions, a Trips section, and a flat Chats list where **every row is labeled with its owning
+  trip**.
+
+### 13.5 What this settles for travel-agent (cross-ref §12.3)
+
+1. **Scratch + promotion validated, with a warning.** Floating chats are first-class; promotion
+   is a menu action ("Move to trip", offering new-or-existing); demotion exists too ("Remove
+   from trip"). But in the Trip-as-Workspace mapping, re-parenting a conversation means
+   **reassigning its workspace**, which the engine locks at Session creation and which carries
+   the memory scope with it. Mindtrip's mutable edge is cheap because trips are DB rows; ours
+   is not. Decide the promotion story (copy vs. re-point vs. one-way) before P2, not after.
+2. **Bidirectional chips are Hard-Rule-4-shaped.** "Model infers → chip renders → user can
+   overwrite" is exactly "the model judges; code only enforces". If adopted, model-proposed
+   updates to `trip.json` identity fields cross the UI-ownership boundary we drew — resolve as:
+   UI owns the write, model may *propose* (a rendered suggestion, not a write path).
+3. **Trip form minimalism supports the minimal `trip.json`.** Destination + timing structured,
+   the rest prose — matches the planned schema; do not grow identity fields beyond what the
+   sidebar card renders.
+4. **No-draft vs. draft-first is a real fork, not a detail.** Mindtrip's chips live on a real
+   chat immediately, so model inference can fill them before any trip exists. Our draft has no
+   session to infer into; chip auto-fill would have to wait for the first send. Keep draft-first
+   (it is what makes "no default trip" clean), but note the cost consciously.
+5. **Not ours to copy** (same verdict as §12.5): the proactive hub AI, suggestion pills, the
+   "Trip N" badge, and the six-module hub serve "planning as the product"; travel-agent's core
+   loop needs chips + the trip's conversations + bookings.
+
+## 附:时间线速查
 
 | 时间 | 事件 |
 | --- | --- |

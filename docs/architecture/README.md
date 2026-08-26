@@ -1,10 +1,17 @@
 # travel-agent architecture, as built
 
-The product is one interaction: a user says one sentence; the agent searches, reduces the options
-to a few representatives with reasons, waits for a click that is also authorization, fills the
-form, and stops on the payment page. This document maps the processes and packages that carry that
-interaction, and where the depth lives for each part. It is a living reference — update it in the
-same change that makes it wrong.
+travel-agent is an open-source consumer travel application. Its core interaction is one exchange: a
+user says one sentence; the agent searches, reduces the options to a few representatives with
+reasons, waits for a click that is also authorization, fills the form, and stops on the payment
+page. This document maps the processes and packages that carry that interaction, and where the
+depth lives for each part. It is a living reference — update it in the same change that makes it
+wrong.
+
+The product's first-class object is becoming the **Trip** — a server entity that owns a directory
+and gathers a journey's conversations, identity and itinerary. That is decided but not yet built:
+see [the decision note](../decisions/proposed/2026-08-26-trip-as-server-entity-owning-a-directory.md)
+and [`tasks/trip-container.md`](../../tasks/trip-container.md). Everything below describes what
+exists today, where the largest object is still the conversation.
 
 ## Process topology
 

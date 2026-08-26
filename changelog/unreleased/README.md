@@ -1,5 +1,8 @@
 # Unreleased
 
+- [2026-08-26] Product direction settled: travel-agent is an open-source consumer travel application and the Trip becomes its first-class object — a server entity that owns a directory, with five rejected alternatives recorded and a P0–P5 plan. ([details](2026-08-26-trip-container-direction.md))
+- [2026-08-26] Research: a live walkthrough of mindtrip.ai answers the five open design-flow questions (chip dialogs, trip creation, trip hub, chat↔trip membership, no-draft contrast) as §13 of the Mindtrip study, and flags workspace re-parenting as the one hard tension for the Trip-as-Workspace mapping. ([details](2026-08-26-mindtrip-design-walkthrough-research.md))
+
 - [2026-08-21] Session switches always announce to main (the one-behind stale-scope shape of issue 0008 loses its only identified writer, and the transition is now logged), and the e2e's draft step polls for navigation instead of sleeping 250 ms — the red CI run's exact failure. ([details](2026-08-21-announce-always-and-e2e-poll.md))
 - [2026-08-21] Issue 0009 opened and closed same-day: deleting a conversation now drops its browser scope over a new `iab:drop-session` channel — live views, relay claims, dormant pages and per-scope state no longer leak until restart. ([details](2026-08-21-issue-0009-deleted-session-leaks.md))
 - [2026-08-21] The browser pane follows the conversation: agents may start browsing in a hidden conversation's own strip (`IAB_SESSION_NOT_VISIBLE` retired, skill v10), and the pane's open state is per conversation instead of one leaking global flag. ([details](2026-08-21-pane-follows-conversation.md))
