@@ -9,26 +9,14 @@ Reason from first principles, end to end. When the evidence does not support a c
 
 travel-agent is an **open-source consumer travel application** built on **PenguinHarness** (the
 agent engine) and **penguin-browser** (the visible in-app browser, plus an optional connection to
-the user's own Chrome). It is the only place those two are joined.
+the user's own Chrome). It is the only place those two are joined. Its first-class object is the
+**Trip**; the interaction it is judged on is one sentence → a few represented options, each with a
+reason → a click that is also authorization → the form filled → **a stop at the payment page**.
 
-Its first-class object is the **Trip**: a journey the person is taking, which owns a directory on
-their own disk and gathers the conversations, identity (where / when / who / budget) and itinerary
-belonging to that journey. Conversations are the instrument; the Trip is what accumulates.
-
-Its core interaction is unchanged and remains the thing the product is judged on: a user says one
-sentence; the agent searches, reduces the option space to a few representatives **each with a
-reason**, waits for a click that is also authorization, fills the form, and **stops on the payment
-page**.
-
-What makes it worth building in the open is that it drives real pages with the person's own
-browser and accounts: it reaches sites no API partnership covers, and the money never leaves their
-hands. A trip is a folder they can back up, move, or keep after uninstalling.
-
-It does **not** do price watching, auto-rebooking, ticket-sniping, or anything else that needs a
-long-lived process, and it does not keep a booking or receipt ledger — the run stops at the payment
-page and cannot observe the outcome. It is not a proprietary POI database, an inspiration feed, a
-creator platform, or a generic browser-automation and scraping tool. Ctrip is a demo scene, not the
-product.
+The goal, the requirements that keep that sentence true, and the scope table of what this product
+adopts and declines — with the reason for each — are the root of the spec graph:
+**[`SPEC.md`](SPEC.md)**. Read it before proposing a feature; it is what settles whether the
+feature belongs here at all.
 
 ## Hard Rules
 
@@ -105,6 +93,8 @@ Read the project's own documents before inferring behavior from code.
 
 | Topic | Document |
 | --- | --- |
+| What the product must do, and the scope it declines | [`SPEC.md`](SPEC.md) |
+| What a module owns and may depend on | that package's `SPEC.md` |
 | Where any piece of prose belongs (the tier table) | [`docs/AGENTS.md`](docs/AGENTS.md) |
 | Project architecture, as built | [`docs/architecture/README.md`](docs/architecture/README.md) |
 | In-app browser architecture, as built | [`docs/architecture/iab-in-app-browser.md`](docs/architecture/iab-in-app-browser.md) |
@@ -115,6 +105,11 @@ Read the project's own documents before inferring behavior from code.
 | Lessons that must not be learned twice | [`tasks/lessons.md`](tasks/lessons.md) |
 | In-flight plans and working ledgers | [`tasks/`](tasks/README.md) |
 | Contribution rules, quality gates, release process | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+
+Specs are navigable as a graph: a file whose frontmatter carries `id` and `type` is a spec node,
+linked by `parent` and `depends-on`, and the `spec_*` tools walk it. A spec states what is true now
+and never narrates — the rule, and what is deliberately not yet a node, are in
+[`docs/AGENTS.md`](docs/AGENTS.md).
 
 Records versus living docs: `changelog/`, `docs/research/` and `docs/postmortem/` are
 **dated records** — do not rewrite them to match today's code. READMEs,

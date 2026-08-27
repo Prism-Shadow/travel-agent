@@ -1,3 +1,13 @@
+---
+id: arch-travel-agent
+type: architecture-design
+status: active
+title: travel-agent architecture, as built
+parent: goal-travel-agent
+tags:
+  - architecture
+---
+
 # travel-agent architecture, as built
 
 travel-agent is an open-source consumer travel application. Its core interaction is one exchange: a

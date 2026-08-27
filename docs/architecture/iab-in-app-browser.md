@@ -1,3 +1,14 @@
+---
+id: arch-iab
+type: architecture-design
+status: active
+title: How the in-app browser works
+parent: arch-travel-agent
+tags:
+  - architecture
+  - browser
+---
+
 # How the in-app browser (IAB) works
 
 > Mermaid diagrams explaining how the "browser inside the app" actually operates. Open this file in

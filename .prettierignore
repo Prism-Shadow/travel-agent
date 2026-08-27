@@ -3,6 +3,10 @@ node_modules/
 dist/
 pnpm-lock.yaml
 
+# Agent scratch: git-ignored by its own nested .gitignore, which Prettier does not read
+# (Prettier consults the root .gitignore only), so a working file there would fail format:check.
+.thinkrail/
+
 # docs-only area (mostly Chinese; not machine-formatted)
 specs/
 *.md
