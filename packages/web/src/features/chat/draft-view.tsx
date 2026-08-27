@@ -699,6 +699,7 @@ export function DraftView({
         // one step; rolled back below if anything after this fails, so a failed send leaves no
         // empty trip — the same contract the empty-Session cleanup already has.
         let tripId = draftTripId;
+        let tripDir = draftTrip?.dir;
         if (tripId === null && isNewTripDraft) {
           const patch = constraintsToTripPatch(trip);
           const created = await createTrip({
@@ -709,6 +710,7 @@ export function DraftView({
           });
           tripId = created.tripId;
           createdTripId = created.tripId;
+          tripDir = created.dir;
         }
         // The Session joins its Trip at creation. Membership is a column on the session row,
         // so this decides nothing about where the conversation's files or memory live.
@@ -719,7 +721,19 @@ export function DraftView({
         // which would still be showing the draft scope and correctly refuse the hidden Session.
         await onReassignBrowserScope(createdId);
         browserReassigned = true;
-        const res = await api.postTask(createdId, { input, ...(goal ? { goal } : {}) });
+        // The trip's folder is named here, not by the composer: for a journey created by this
+        // very send there was no folder to name when the message was composed. Without this the
+        // trip-workspace skill has no path to act on and never touches the trip at all — which
+        // is what happened to every trip started from "new trip" until it was caught by reading
+        // a real message the agent had received.
+        const withTripFolder =
+          tripDir === undefined
+            ? input
+            : applyTripPrefix(input, EMPTY_TRIP_CONSTRAINTS, S.chat.tripChips, tripDir);
+        const res = await api.postTask(createdId, {
+          input: withTripFolder,
+          ...(goal ? { goal } : {}),
+        });
         add(created.session);
         if (keepDraft) {
           browserScopeIdRef.current = createDraftBrowserScopeId();
@@ -758,6 +772,7 @@ export function DraftView({
       modelRef,
       workspace,
       draftTripId,
+      draftTrip,
       isNewTripDraft,
       trip,
       createTrip,
@@ -777,11 +792,9 @@ export function DraftView({
 
   const sendWithTrip = useCallback(
     async (input: TaskInputPart[], goal: { budget: number } | null): Promise<boolean> => {
-      const ok = await onSend(
-        applyTripPrefix(input, trip, S.chat.tripChips, draftTrip?.dir),
-        false,
-        goal,
-      );
+      // Chips only. The trip's folder line is added by onSend, which is the first moment the
+      // folder is known for a journey this send is about to create.
+      const ok = await onSend(applyTripPrefix(input, trip, S.chat.tripChips), false, goal);
       // Only the floating chips are scratch to be cleared; a Trip's identity outlives the send.
       if (ok && draftTrip === null) setLocalTrip(EMPTY_TRIP_CONSTRAINTS);
       return ok;

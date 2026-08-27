@@ -136,6 +136,14 @@ needed.
   and `packages/web` stayed green: the library's contents are asserted by name in more than one
   package. The full run costs a couple of minutes and is the only thing that answers "what else
   believed the old shape".
+- **Read what the agent actually received.** A prompt mechanism can be fully wired, fully typed
+  and fully tested and still deliver nothing: the trip-folder line was composed from a trip that
+  did not exist yet at compose time, so it was silently absent from every real message, and the
+  skill depending on it never ran. The trace file holds the message as sent — open it before
+  believing a prompt feature works.
+- **A class name that does not exist fails silently.** `prose-chat` styled nothing; markdown
+  rendered flat for a whole phase. CSS has no compiler to tell you, so grep the stylesheet for a
+  class before using it, and look at the page once.
 - **A test that supplies what the UI never supplies proves nothing about the product.** Trip
   folders were designed to be named for the destination, and the unit test passed one in at
   creation — but the flow created the trip *before* asking, so every real folder got the

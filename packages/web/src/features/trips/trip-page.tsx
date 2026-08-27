@@ -204,7 +204,10 @@ export function TripPage() {
         {itinerary === null ? (
           <SkeletonList rows={3} />
         ) : itinerary.exists ? (
-          <article className="prose-chat mt-3">
+          // `md-body` is the repository's one markdown stylesheet (styles.css) — the same one
+          // the transcript uses, so an itinerary reads here exactly as it does in the reply
+          // that produced it.
+          <article className="md-body mt-3 text-base leading-relaxed text-gray-800 dark:text-gray-100">
             {/* Images in the itinerary are files beside it in the trip's own folder — a map
                 the agent rendered, a screenshot it kept — so relative names resolve there. */}
             <Md text={itinerary.markdown} resolveImageSrc={resolveTripImage} />
