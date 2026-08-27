@@ -164,6 +164,14 @@ needed.
   replaced" are conditions, and a delay only makes them true while the machine is fast enough. Hold
   the condition open with a gate the test releases, or wait for the terminal state — both flaky
   browser tests were a timer standing in for a state, in two different disguises.
+- **A test file that rebinds one port across tests should send `Connection: close`.** Node's
+  `fetch` pools keep-alive sockets per origin, so a socket opened against test N's server is
+  offered to test N+1's first request on the same port, and undici does not retry a POST whose
+  write already reached a dead socket. `security.test.ts` failed exactly there once, and a
+  standalone reproduction never fired — so the fix was chosen for the property it guarantees (no
+  socket outlives its server) rather than for a pinned cause. **When a class can be removed more
+  cheaply than its instance can be reproduced, remove the class** and say in the test which of the
+  two you did.
 - **Prove the class, not the instance.** When a static search says a file is unused, confirm it
   covers dynamic `import()` too — two `browser-cli` modules looked dead and are lazily imported by
   `cli.ts` on purpose, so that `--help` works without browser dependencies installed.

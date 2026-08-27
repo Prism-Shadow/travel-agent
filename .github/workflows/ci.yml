@@ -158,9 +158,10 @@ jobs:
 
       # This suite launches a real Chromium through the vendored Playwright fork, and a GitHub
       # runner ships none — every browser-backed file failed at setup with "Executable doesn't
-      # exist at ~/.cache/ms-playwright/chromium-1209". `docs/verification/phase-00.md` recorded
-      # this gap when the fork was vendored and nothing closed it; nobody hit it because Actions had
-      # never been enabled on this repository until now.
+      # exist at ~/.cache/ms-playwright/chromium-1209". The verification note written when the fork
+      # was vendored (since retired with the rest of that series, 90b5d3b) recorded this gap and
+      # nothing closed it; nobody hit it because Actions had never been enabled on this repository
+      # until now.
       #
       # `playwright-core`, not `playwright`: the dependency is @xmorse/playwright-core, and its
       # `install` resolves the browser build its own version pins (verified with --dry-run to be

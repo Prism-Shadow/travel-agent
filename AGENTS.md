@@ -174,12 +174,14 @@ it would otherwise keep serving the browser the previous core.
 Dev entry points that touch data default to `~/.penguin/dev-data`, separate from an installed app's
 `~/.penguin/data`. Never point them at real user state.
 
-CI is two workflows. `ci.yml` runs on every push to main and every pull request — **paused today**,
-see the gate above. `pre-release.yml` is manual and holds what is only worth paying for before a
-build ships — the Windows suite. This repository is private, so Actions minutes are billed, and
-Windows bills at 2x, macOS at 10x: a full run is 16 billed minutes across its three jobs, which at
-four to nine pushes a day is what made pausing worth considering. Pushing once per batch of commits
-costs one run instead of one per push, and is the lever that does not trade away verification.
+CI is three workflows. `ci.yml` runs on every push to main and every pull request — **paused
+today**, see the gate above. `pre-release.yml` is manual and holds what is only worth paying for
+before a build ships — the Windows suite. `desktop-build.yml` is manual too, and nothing calls it
+since the upstream release chain was removed; it produces the three-OS Electron installers as
+workflow artifacts. This repository is private, so Actions minutes are billed, and Windows bills at
+2x, macOS at 10x: a full `ci.yml` run is 16 billed minutes across its three jobs, which at four to
+nine pushes a day is what made pausing worth considering. Pushing once per batch of commits costs
+one run instead of one per push, and is the lever that does not trade away verification.
 
 Pull requests branch from `main` and keep to one topic; new user-facing behaviour comes with tests,
 and with the spec update that keeps Hard Rule 2 true.

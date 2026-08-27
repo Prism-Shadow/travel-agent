@@ -7,6 +7,24 @@ import { EXTENSION_IDS } from '../src/shared/utils.js'
 
 const TEST_PORT = 19999
 
+// Every request in this file goes to one host:port, and every test starts its own relay on it, so
+// the suite repeatedly tears a server down and binds the same port again. Node's fetch (undici)
+// pools keep-alive sockets per origin: a socket opened against test N's server is offered to test
+// N+1's first request, and a POST is not retried once its write has reached a socket the old
+// server has since closed. That is the shape of the one failure seen here — `fetch failed: read
+// ECONNRESET` on the first POST of the test that follows three GETs, during a full parallel run.
+//
+// Not proven: a standalone reproduction of that reset, with and without CPU load, did not produce
+// it in 600 attempts, so the pooled-socket account is the best-supported explanation rather than a
+// demonstrated one. What `Connection: close` does guarantee is that no socket outlives the server
+// that served it, which removes the whole class regardless of which member of it fired.
+const fetchOnce = (url: string, init: Parameters<typeof fetch>[1] = {}) => {
+  return fetch(url, {
+    ...init,
+    headers: { ...(init.headers as Record<string, string> | undefined), connection: 'close' },
+  })
+}
+
 async function killProcessOnPort(port: number): Promise<void> {
   try {
     await killPortProcess({ port })
@@ -132,13 +150,13 @@ describe('Security Tests', () => {
     const second = await connectExtension('profile-b')
 
     try {
-      const firstStatus = await fetch(
+      const firstStatus = await fetchOnce(
         `http://127.0.0.1:${TEST_PORT}/extension/status?browser=Chrome&installId=profile-a`,
       ).then((response) => response.json())
-      const secondStatus = await fetch(
+      const secondStatus = await fetchOnce(
         `http://127.0.0.1:${TEST_PORT}/extension/status?browser=Chrome&installId=profile-b`,
       ).then((response) => response.json())
-      const missingStatus = await fetch(
+      const missingStatus = await fetchOnce(
         `http://127.0.0.1:${TEST_PORT}/extension/status?browser=Chrome&installId=profile-c`,
       ).then((response) => response.json())
 
@@ -168,7 +186,7 @@ describe('Security Tests', () => {
     method?: string
     headers?: Record<string, string>
   }) => {
-    return fetch(`http://127.0.0.1:${TEST_PORT}${path}`, {
+    return fetchOnce(`http://127.0.0.1:${TEST_PORT}${path}`, {
       method,
       headers,
       body: method === 'POST' ? JSON.stringify({ sessionId: '1', code: 'true' }) : undefined,
@@ -288,7 +306,7 @@ describe('Security Tests', () => {
     expect(bearerOk.status).toBe(200)
 
     // Correct token via query param → pass middleware
-    const queryOk = await fetch(`http://127.0.0.1:${TEST_PORT}/cli/sessions?token=${secretToken}`)
+    const queryOk = await fetchOnce(`http://127.0.0.1:${TEST_PORT}/cli/sessions?token=${secretToken}`)
     expect(queryOk.status).toBe(200)
 
     // Token also enforced on /recording/*
@@ -313,19 +331,19 @@ describe('Security Tests', () => {
     server = await startPenguinBrowserCDPRelayServer({ port: TEST_PORT, token: secretToken, logger })
 
     for (const path of ['/version', '/extension/status', '/extensions/status', '/json/version', '/json/list']) {
-      const unauthorized = await fetch(`http://127.0.0.1:${TEST_PORT}${path}`)
+      const unauthorized = await fetchOnce(`http://127.0.0.1:${TEST_PORT}${path}`)
       expect(unauthorized.status, path).toBe(401)
 
-      const authorized = await fetch(`http://127.0.0.1:${TEST_PORT}${path}`, {
+      const authorized = await fetchOnce(`http://127.0.0.1:${TEST_PORT}${path}`, {
         headers: { Authorization: `Bearer ${secretToken}` },
       })
       expect(authorized.status, path).toBe(200)
     }
 
-    const queryAuthorized = await fetch(`http://127.0.0.1:${TEST_PORT}/version?token=${secretToken}`)
+    const queryAuthorized = await fetchOnce(`http://127.0.0.1:${TEST_PORT}/version?token=${secretToken}`)
     expect(queryAuthorized.status).toBe(200)
 
-    const extensionStatus = await fetch(`http://127.0.0.1:${TEST_PORT}/extension/status`, {
+    const extensionStatus = await fetchOnce(`http://127.0.0.1:${TEST_PORT}/extension/status`, {
       headers: { Origin: `chrome-extension://${EXTENSION_IDS[0]}` },
     })
     expect(extensionStatus.status).toBe(200)
