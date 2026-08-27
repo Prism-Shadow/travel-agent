@@ -5,13 +5,14 @@
  * whole design: membership of a conversation is `sessions.trip_id`, so attaching, moving and
  * detaching are single updates that never touch a Session's `workspace` — which the engine
  * fixes at creation, records in the append-only Trace, and derives memory scope from. See
- * `docs/decisions/proposed/2026-08-26-trip-as-server-entity-owning-a-directory.md`.
+ * `docs/decisions/implemented/2026-08-26-trip-as-server-entity-owning-a-directory.md`.
  *
  * Ownership of content is split the same way everywhere else in this product: the row is the
  * writer of identity (where / when / who / budget) and `trip.json` is its rendered mirror for
  * the agent to read; everything else in the directory — `itinerary.md` and whatever else the
- * work produces — belongs to the model. The service never writes those, and never deletes the
- * directory: those files are the person's, and a deleted Trip leaves them behind on purpose.
+ * work produces — belongs to the model. The service never writes those, and never deletes a
+ * directory that holds them: those files are the person's, and a deleted Trip leaves them behind
+ * on purpose. The one directory it does remove is a pristine one — see `removeDirIfPristine`.
  */
 import fs from "node:fs/promises";
 import path from "node:path";

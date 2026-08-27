@@ -85,7 +85,9 @@ defect.
 
 Ownership is split the same way everywhere: the server writes what it renders (the row and its
 `trip.json` mirror); the model owns the documents. Deleting a Trip detaches its conversations and
-never touches the folder — those files are the person's.
+leaves the folder alone whenever the journey put anything in it — those files are the person's. A
+folder holding nothing but the `trip.json` the server itself wrote is removed with the row, so a
+trip that never started leaves no husk behind.
 
 ## The payment stop
 

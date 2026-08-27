@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   session_id    TEXT PRIMARY KEY,
   project_id    TEXT NOT NULL,
   agent_id      TEXT NOT NULL,
-  trip_id       TEXT REFERENCES trips(trip_id) ON DELETE SET NULL,  -- owning Trip; NULL = a floating ("scratch") conversation. Membership is mutable BY DESIGN: it is a foreign key precisely so that attach/move/detach never touch the session's workspace (see docs/decisions/proposed/2026-08-26-trip-as-server-entity-owning-a-directory.md)
+  trip_id       TEXT REFERENCES trips(trip_id) ON DELETE SET NULL,  -- owning Trip; NULL = a floating ("scratch") conversation. Membership is mutable BY DESIGN: it is a foreign key precisely so that attach/move/detach never touch the session's workspace (see docs/decisions/implemented/2026-08-26-trip-as-server-entity-owning-a-directory.md)
   provider      TEXT NOT NULL,                     -- provider group of the session model (paired with model_id as a model reference)
   model_id      TEXT NOT NULL,                     -- upstream model id (sent to AgentHub as-is; never concatenate <provider>/<id>)
   workspace     TEXT NOT NULL,

@@ -31,7 +31,9 @@ Details:
   source rather than drawing a map that would be wrong or empty.
 
 Records: the decision note graduates to `docs/decisions/implemented/` with what shipped, its
-deferrals and what now pins the behaviour; `tasks/trip-container.md` is deleted (the work shipped
+deferrals and what now pins the behaviour — and the three source comments that cite it
+(`db/schema.ts`, `db/repos/trips.ts`, `services/trip-service.ts`) follow it there, so the citation
+still resolves; the changelog entries that cite the old path are dated records and keep it; `tasks/trip-container.md` is deleted (the work shipped
 and the changelog keeps the record); the architecture README gains the Trip as built; and two
 lessons are recorded — run every package's suite, and give same-millisecond rows a tiebreak that
 means something.

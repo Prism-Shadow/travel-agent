@@ -4,7 +4,7 @@
  * The row is the writer of a Trip's identity; `trip.json` inside `dir` is a rendered mirror
  * of it (TripService keeps the two in step). Membership of a conversation is a nullable
  * `sessions.trip_id`, never the session's workspace: that is the whole point of the entity
- * (docs/decisions/proposed/2026-08-26-trip-as-server-entity-owning-a-directory.md).
+ * (docs/decisions/implemented/2026-08-26-trip-as-server-entity-owning-a-directory.md).
  *
  * `when` and `who` are stored as JSON text because they are small closed shapes the UI owns
  * whole — there is no query that filters on a traveller count or a flexible month, so columns
@@ -151,7 +151,8 @@ export class TripsRepo {
    * Deletes the row. Conversations that belonged to it are detached rather than deleted
    * (`ON DELETE SET NULL` on fresh databases; TripService clears them explicitly so
    * upgraded databases, whose added column carries no constraint, behave identically).
-   * The directory on disk is never touched — those files are the person's.
+   * The directory on disk is not this layer's concern: TripService decides its fate (it keeps a
+   * folder the journey wrote to, and removes a pristine one).
    */
   deleteById(tripId: string): void {
     this.db.prepare("DELETE FROM trips WHERE trip_id = ?").run(tripId);

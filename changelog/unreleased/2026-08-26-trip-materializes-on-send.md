@@ -19,7 +19,9 @@ Details:
   cleanup already had. Deleting a trip now also removes its directory **when nothing but our own
   `trip.json` is in it**; a folder holding an itinerary, a map, or any other file is never
   touched. Without that second half the rollback had simply moved the junk from empty rows to
-  orphaned folders.
+  orphaned folders. The living documents that state this contract — the architecture README, the
+  decision note's consequences, and the trip service's own header, which had flatly contradicted
+  the method 250 lines below it — now say the same thing.
 - Two pieces of the consumer surface that the sidebar work claimed and missed: the collapsed rail
   no longer lists the five engine console routes, and the draft screen no longer asks for an
   Agent or a Workspace. Both still resolve from the Project's new-chat defaults, and both remain

@@ -133,7 +133,9 @@ conversation read `trip.json` and `itinerary.md` before it starts work.
   workspaces, so engine memory scope cannot carry trip continuity — the skill-read files do. If
   that proves too weak in use, the answer is a better trip document, not a workspace re-point.
 - **Trip folders are the person's.** Deleting a trip detaches its conversations and leaves the
-  directory untouched. `PENGUIN_TRIPS_DIR` defaults to `<root>/trips` so every entry point that
+  directory alone once the journey has put anything in it; a directory holding nothing but the
+  `trip.json` this service wrote is our own leftover and goes with the row, so an abandoned trip
+  accumulates no husks. `PENGUIN_TRIPS_DIR` defaults to `<root>/trips` so every entry point that
   redirects the data root keeps its trips with it; only a packaged desktop app claims
   `~/Penguin Trips`.
 - **The server schema grew, which is a change to a pinned package.** It is additive — a new
