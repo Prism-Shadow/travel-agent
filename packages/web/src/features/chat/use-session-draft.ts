@@ -33,8 +33,6 @@ export function useSessionDraft(sessionId: string | null): {
   onHandoffTargetChange: (agentId: string | null) => void;
   /** Staged `/model` switch target change (picked/removed); like the handoff target, a discrete action writes immediately. */
   onPendingModelChange: (ref: ModelRefDto | null) => void;
-  /** Selected-skills change (wired directly to ChatInput's onSkillsChange; a discrete action writes immediately). */
-  onSkillsChange: (names: string[]) => void;
   /** Discard the current session's draft after a successful send. */
   discard: () => void;
 } {
@@ -46,7 +44,6 @@ export function useSessionDraft(sessionId: string | null): {
   const textRef = useRef(initial.text ?? "");
   const handoffRef = useRef<string | null>(initial.handoffAgentId ?? null);
   const switchModelRef = useRef<ModelRefDto | null>(initial.switchModelRef ?? null);
-  const skillsRef = useRef<string[]>(initial.skills ?? []);
   const timer = useRef<number | null>(null);
 
   const cancelPending = useCallback(() => {
@@ -62,15 +59,13 @@ export function useSessionDraft(sessionId: string | null): {
     const text = textRef.current;
     const handoffAgentId = handoffRef.current;
     const pendingModel = switchModelRef.current;
-    const skills = skillsRef.current;
-    if (!text && !handoffAgentId && !pendingModel && skills.length === 0) {
+    if (!text && !handoffAgentId && !pendingModel) {
       clearDraft(key);
       return;
     }
     const data: DraftCache = { text };
     if (handoffAgentId) data.handoffAgentId = handoffAgentId;
     if (pendingModel) data.switchModelRef = pendingModel;
-    if (skills.length > 0) data.skills = skills;
     saveDraft(key, data);
   }, [cancelPending, key]);
 
@@ -81,7 +76,6 @@ export function useSessionDraft(sessionId: string | null): {
     textRef.current = initial.text ?? "";
     handoffRef.current = initial.handoffAgentId ?? null;
     switchModelRef.current = initial.switchModelRef ?? null;
-    skillsRef.current = initial.skills ?? [];
     return () => {
       if (timer.current !== null) {
         window.clearTimeout(timer.current);
@@ -121,23 +115,13 @@ export function useSessionDraft(sessionId: string | null): {
     [persistNow],
   );
 
-  const onSkillsChange = useCallback(
-    (names: string[]) => {
-      skillsRef.current = names;
-      // Same as the handoff target: discrete action writes immediately.
-      persistNow();
-    },
-    [persistNow],
-  );
-
   const discard = useCallback(() => {
     cancelPending();
-    // Also clear the text, the selected skills and both staged switch chips: ChatInput's
-    // clear after a successful send doesn't fire a callback (same convention as
-    // onTextChange); without this, a later flush triggered by any discrete action (a skill
-    // toggle, a staged chip) would resurrect the already-sent text or selection.
+    // Also clear the text and both staged switch chips: ChatInput's clear after a successful
+    // send doesn't fire a callback (same convention as onTextChange); without this, a later
+    // flush triggered by any discrete action (a staged chip) would resurrect the already-sent
+    // text.
     textRef.current = "";
-    skillsRef.current = [];
     handoffRef.current = null;
     switchModelRef.current = null;
     if (key) clearDraft(key);
@@ -148,7 +132,6 @@ export function useSessionDraft(sessionId: string | null): {
     onTextChange,
     onHandoffTargetChange,
     onPendingModelChange,
-    onSkillsChange,
     discard,
   };
 }

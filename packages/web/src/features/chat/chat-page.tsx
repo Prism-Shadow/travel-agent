@@ -439,7 +439,6 @@ export function ChatPage() {
     onTextChange: onDraftTextChange,
     onHandoffTargetChange: onDraftHandoffChange,
     onPendingModelChange: onDraftPendingModelChange,
-    onSkillsChange: onDraftSkillsChange,
     discard: discardSessionDraft,
   } = useSessionDraft(selected?.sessionId ?? null);
 
@@ -1294,10 +1293,6 @@ export function ChatPage() {
       agents={agents}
       currentAgentId={selected.agentId}
       skills={agentSkills}
-      {...(sessionDraft.skills && sessionDraft.skills.length > 0
-        ? { initialSkills: sessionDraft.skills }
-        : {})}
-      onSkillsChange={onDraftSkillsChange}
       onHandoff={onHandoff}
       initialText={sessionDraft.text ?? ""}
       onTextChange={onDraftTextChange}

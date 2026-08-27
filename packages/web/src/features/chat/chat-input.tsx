@@ -84,7 +84,6 @@ import { Dropdown } from "../../components/ui/dropdown";
 import { GlyphIcon } from "../../components/ui/glyph-icon";
 import { noAutofill } from "../../components/ui/input";
 import { toastError, toastInfo } from "../../components/ui/toast";
-import { SkillIcon } from "../skills/skill-icon-view";
 import { ZoomableImage } from "../../components/ui/image-zoom";
 import { ProviderLogo } from "../../components/ui/provider-logo";
 import { sameModelRef } from "../models/model-grouping";
@@ -92,13 +91,6 @@ import { filterAgents, stagedSendRoute } from "./agent-handoff";
 import { ModelMenuList, ModelSelect, PickerList, modelLabel } from "./model-select";
 import { matchSlash, removeSlashToken } from "./slash-token";
 import { SELECTABLE_THINKING_LEVELS, thinkingLevelLabel } from "./thinking-level";
-import {
-  BOOK_ICON,
-  buildSkillsMessage,
-  filterSkills,
-  localizedShortText,
-  skillSlashItems,
-} from "./skill-use";
 import { GOAL_ICON, UNLIMITED_BUDGET, parseBudgetInput } from "./goal-use";
 import {
   caretOnFirstLine,
@@ -492,134 +484,13 @@ function SteerModeRow({
   );
 }
 
-/**
- * Multi-select skills dropdown (bottom toolbar, after approval mode): styled like the model
- * selector — button = book icon + "Skills" label + selected-count badge (no badge at 0; when the
- * card is narrower than @md the label hides, leaving just icon + badge); menu = top search box
- * (filters by name and localized description) + option rows (name in monospace + truncated
- * description + selected checkmark). Multi-select semantics: clicking a row toggles its
- * selection and **the menu stays open**; closes on Escape / click outside (built into Dropdown).
- * Shows empty-state copy when no skills are installed (prompting to add some from the skill
- * library). Popup direction depends on context (same as the approval mode selector).
+/*
+ * There is no skills picker. Every skill in this product is built in and the model finds the
+ * one it needs by reading the library itself — in three real runs the agent opened
+ * penguin-browser/SKILL.md and trip-workspace/SKILL.md with no `[use_skills]` block in the
+ * message. Asking a traveller which skill to use was asking a question only the engine could
+ * answer. Historical messages that do carry the block still render through parseSkillsMessage.
  */
-function SkillSelect({
-  skills,
-  selected,
-  onToggle,
-  disabled,
-  direction = "up",
-}: {
-  skills: SkillMetadataItem[];
-  selected: string[];
-  onToggle: (name: string) => void;
-  disabled: boolean;
-  direction?: "up" | "down";
-}) {
-  const { locale } = useLocale();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const filtered = filterSkills(skills, locale, query);
-  return (
-    <Dropdown
-      open={open}
-      setOpen={setOpen}
-      // As wide as reasonably possible so descriptions stay readable; portal placement clamps
-      // it to the viewport, so the old hand-tuned anchor-offset clamps are no longer needed.
-      menuClass="w-[26rem]"
-      portal={{ direction, align: "left" }}
-      button={
-        <button
-          type="button"
-          aria-label={S.chat.skillsSelect}
-          title={S.chat.skillsSelect}
-          disabled={disabled}
-          onClick={() => {
-            const next = !open;
-            setOpen(next);
-            if (next) setQuery(""); // Always start from the full list each time it opens
-          }}
-          className="flex h-8 max-w-44 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-        >
-          <GlyphIcon d={BOOK_ICON} size={14} className="shrink-0" />
-          {/* When the card is narrower than @md, only the icon + badge remain (title shows the full name). */}
-          <span className="hidden min-w-0 truncate @md:block">{S.chat.skillsSelect}</span>
-          {/* Selected-count badge (the chip row above the input mirrors the selection too). */}
-          {selected.length > 0 && (
-            <span className="shrink-0 rounded-full bg-gray-200/80 px-1.5 py-px font-mono text-[10px] font-semibold text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">
-              {selected.length}
-            </span>
-          )}
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            className="shrink-0"
-            aria-hidden
-          >
-            <path
-              d="M3 4.5l3 3 3-3"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      }
-    >
-      {/* Quick search: filters by skill name and localized description */}
-      <div className="border-b border-gray-100 px-2 pb-1.5 pt-0.5 dark:border-gray-800">
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={S.chat.skillsSearchPlaceholder}
-          aria-label={S.chat.skillsSearchPlaceholder}
-          {...noAutofill}
-          className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none dark:text-gray-200 dark:placeholder:text-gray-500"
-        />
-      </div>
-      <div className="max-h-56 overflow-y-auto">
-        {skills.length === 0 ? (
-          <p className="px-3 py-1.5 text-xs text-gray-400">{S.chat.skillsEmptyHint}</p>
-        ) : filtered.length === 0 ? (
-          <p className="px-3 py-1.5 text-xs text-gray-400">{S.chat.skillsNoMatch}</p>
-        ) : (
-          filtered.map((s) => {
-            const on = selected.includes(s.name);
-            return (
-              <button
-                key={s.name}
-                type="button"
-                aria-pressed={on}
-                onClick={() => onToggle(s.name)}
-                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                  on
-                    ? "font-medium text-gray-900 dark:text-gray-100"
-                    : "text-gray-600 dark:text-gray-400"
-                }`}
-              >
-                {/* Each skill's custom icon (icon.svg, sanitized and inlined; falls back to the book icon if missing). */}
-                <SkillIcon
-                  icon={s.icon}
-                  size={14}
-                  className="shrink-0 text-gray-400 dark:text-gray-500"
-                />
-                <span className="shrink-0 font-mono">{s.name}</span>
-                {/* Prefers the short description (falls back to the full description if missing), per the UI language. */}
-                <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
-                  {localizedShortText(locale, s)}
-                </span>
-                <span className="w-3 shrink-0 text-center">{on ? "✓" : ""}</span>
-              </button>
-            );
-          })
-        )}
-      </div>
-    </Dropdown>
-  );
-}
 
 /**
  * Picture glyph (24×24 line path) for the "+" menu's image-upload entry: the framing rectangle
@@ -868,8 +739,6 @@ export function ChatInput({
   agents,
   currentAgentId,
   skills,
-  initialSkills,
-  onSkillsChange,
   onHandoff,
   initialText,
   onTextChange,
@@ -1006,12 +875,6 @@ export function ChatInput({
   skills: SkillMetadataItem[];
   /**
    * Initially selected skill names (draft restore; the skill library page's quick-invoke writes
-   * this into the draft cache): read once on mount; once the installed list is ready, names not
-   * in that list are pruned.
-   */
-  initialSkills?: string[];
-  /** Callback when selected skills change (check/prune; the clear after a successful send does not call back, same as onTextChange). */
-  onSkillsChange?: (names: string[]) => void;
   /** Draft's initial text (restored on mount; paired with onTextChange for draft auto-caching). */
   initialText?: string;
   /**
@@ -1096,8 +959,6 @@ export function ChatInput({
   // kept only in component state would disappear on a session switch while the text it belongs
   // to came back — and Enter would then post that text to the current session on the old model.
   const [pendingModel, setPendingModel] = useState<ModelInfo | null>(null);
-  // Selected skills (dropdown checklist, multi-select): initial value comes from draft restore (quick-invoke pre-selection), cleared on successful send.
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(initialSkills ?? []);
   // Cursor position (tracked via onChange/onSelect): the slash menu matches the token at the caret.
   const [caret, setCaret] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1115,8 +976,7 @@ export function ChatInput({
     images.length > 0 ||
     attachments.length > 0 ||
     target !== null ||
-    pendingModel !== null ||
-    selectedSkills.length > 0;
+    pendingModel !== null;
   // Goal mode (engaged via the "+" menu or /goal): the text body becomes the objective. It is
   // exclusive with a staged /agent or /model switch (engaging either clears the other); attached
   // images ride along (core folds them into the objective as path lines) and selected skills ride
@@ -1292,18 +1152,6 @@ export function ChatInput({
     }
   }, [steerPending, running, steeringDeliveredCount]);
 
-  /** Toggle a skill on/off (shared by dropdown option clicks and the slash skill command); the change callback lets the parent write it into the draft. */
-  const toggleSkill = useCallback(
-    (name: string) => {
-      const next = selectedSkills.includes(name)
-        ? selectedSkills.filter((n) => n !== name)
-        : [...selectedSkills, name];
-      setSelectedSkills(next);
-      onSkillsChange?.(next);
-    },
-    [selectedSkills, onSkillsChange],
-  );
-
   /** The slash token currently under the caret (kept in a ref so command run() closures always remove the live token). */
   const slashMatchRef = useRef<ReturnType<typeof matchSlash>>(null);
   const commands = useMemo<SlashCommand[]>(() => {
@@ -1364,28 +1212,10 @@ export function ChatInput({
             },
           ]
         : []),
-      // Each installed skill gets its own entry: `/<skill_name>` toggles that skill's selection (without sending), description follows the UI language.
-      ...skillSlashItems(skills, locale).map((s) => ({
-        cmd: s.cmd,
-        desc: s.desc,
-        run: () => {
-          clearInput();
-          toggleSkill(s.name);
-        },
-      })),
+      // No `/<skill_name>` entries: with the picker gone this was the last way to put a skill
+      // into a selection nothing displays, which is a state the person cannot see or undo.
     ];
-  }, [
-    onCompact,
-    onSwitchModel,
-    models,
-    agents,
-    onTextChange,
-    skills,
-    locale,
-    toggleSkill,
-    toggleGoal,
-    goalOn,
-  ]);
+  }, [onCompact, onSwitchModel, models, agents, onTextChange, locale, toggleGoal, goalOn]);
   // Positional matching: a slash opens the menu from any caret position; running a command
   // removes just the token, leaving the rest of the text intact. Doesn't reopen after Escape
   // until the caret sits on a different token; suppressed while a switch picker is open (the
@@ -1559,23 +1389,6 @@ export function ChatInput({
   }, []);
 
   // Installed skills change (Agent switch triggers a refetch: parent clears first, then
-  // updates): the selection keeps only skills that are still available — the tick where it's
-  // cleared wipes the whole selection, so nothing lingers across Agents. The first tick on mount
-  // is skipped: at that point the installed list hasn't been fetched yet (skills is empty), and
-  // pruning would wrongly clear initialSkills (quick-invoke pre-selection); prune only once the
-  // list is ready for the first time (the parent's clear uses functional setState to preserve
-  // reference identity, so an empty-to-empty clear doesn't trigger this effect).
-  const skillsPruneReady = useRef(false);
-  useEffect(() => {
-    if (!skillsPruneReady.current) {
-      skillsPruneReady.current = true;
-      if (skills.length === 0) return;
-    }
-    const next = selectedSkills.filter((n) => skills.some((s) => s.name === n));
-    if (next.length === selectedSkills.length) return;
-    setSelectedSkills(next);
-    onSkillsChange?.(next);
-  }, [skills, selectedSkills, onSkillsChange]);
 
   /**
    * The two chips are restored from the draft cache by two effects that fire whenever their own
@@ -1642,15 +1455,12 @@ export function ChatInput({
       setBusy(true);
       try {
         // Attached images go with the objective (see the goalOn declaration above).
-        const goalInput: TaskInputPart[] = [
-          { type: "text", text: buildSkillsMessage(selectedSkills, t) },
-        ];
+        const goalInput: TaskInputPart[] = [{ type: "text", text: t }];
         for (const url of images) goalInput.push({ type: "image_url", imageUrl: url });
         const ok = await onSend(goalInput, { budget: goalBudget! });
         if (ok) {
           setText("");
           setImages([]);
-          setSelectedSkills([]);
           toggleGoal(false);
         }
       } finally {
@@ -1673,16 +1483,7 @@ export function ChatInput({
     // skills invocation when skills are selected, otherwise the model-switch line for a staged
     // switch. A handoff needs no fallback: its first message may legitimately be nothing but
     // the [handoff_from] source block.
-    const bodyText =
-      t !== ""
-        ? t
-        : selectedSkills.length > 0
-          ? S.chat.skillsAutoMessage(selectedSkills)
-          : switchModel
-            ? S.chat.modelSwitchAutoMessage
-            : t;
-    // With non-empty selected skills: the text body is replaced with a [use_skills] block + the text (every branch wraps its body the same way).
-    const body = buildSkillsMessage(selectedSkills, bodyText);
+    const body = t !== "" ? t : switchModel ? S.chat.modelSwitchAutoMessage : t;
     const input: TaskInputPart[] = [];
     if (body) input.push({ type: "text", text: body });
     appendAttachmentParts(input, images, attachments);
@@ -1703,7 +1504,6 @@ export function ChatInput({
         setAttachments([]);
         setTarget(null);
         setPendingModel(null);
-        setSelectedSkills([]);
       }
     } finally {
       setBusy(false);
@@ -2156,7 +1956,7 @@ export function ChatInput({
         {/* Chip row above the text body: the staged switch target (an /agent handoff or a
             /model fork — never both) followed by the selected skills, all sharing the same
             chip look. Remove buttons recolor the x on hover (no background wash). */}
-        {(target !== null || pendingModel !== null || selectedSkills.length > 0 || goalOn) && (
+        {(target !== null || pendingModel !== null || goalOn) && (
           <div className="mb-1 flex flex-wrap items-center gap-1">
             {/* Goal-mode chip: the budget stays compact as a value button; its editor is a
                 fixed upward popover so it never covers the objective textarea below. */}
@@ -2322,31 +2122,6 @@ export function ChatInput({
                 </button>
               </span>
             )}
-            {selectedSkills.map((name) => {
-              const meta = skills.find((sk) => sk.name === name);
-              return (
-                <span
-                  key={name}
-                  className="anim-pop flex max-w-48 items-center gap-1 rounded-md bg-gray-100 py-0.5 pl-2 pr-1 font-mono text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                  {...(meta ? { title: localizedShortText(locale, meta) } : {})}
-                >
-                  <SkillIcon
-                    icon={meta?.icon}
-                    size={13}
-                    className="shrink-0 text-gray-500 dark:text-gray-400"
-                  />
-                  <span className="truncate">{name}</span>
-                  <button
-                    type="button"
-                    aria-label={`${S.chat.skillRemove} ${name}`}
-                    onClick={() => toggleSkill(name)}
-                    className="shrink-0 rounded p-0.5 text-gray-400 transition-colors duration-150 hover:text-gray-700 dark:hover:text-gray-200"
-                  >
-                    ×
-                  </button>
-                </span>
-              );
-            })}
           </div>
         )}
 
@@ -2476,14 +2251,6 @@ export function ChatInput({
               value={approvalMode}
               onChange={onChangeApprovalMode}
               disabled={modeSaving}
-              direction={models && onChangeModel ? "down" : "up"}
-            />
-            {/* Multi-select skills dropdown (after approval mode): selected state is conveyed via the button badge. */}
-            <SkillSelect
-              skills={skills}
-              selected={selectedSkills}
-              onToggle={toggleSkill}
-              disabled={running || compacting || busy}
               direction={models && onChangeModel ? "down" : "up"}
             />
             {/* Help text: shown only when the card is wide enough (@lg); it never competes for

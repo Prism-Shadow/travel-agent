@@ -6,7 +6,12 @@
  * format shared by the frontend, the backend and the core prompt template, so its producer
  * and parser live in core's marker module (`@prismshadow/penguin-core/markers`) and are
  * re-exported below for this feature's existing importers. What stays local is the UI-only
- * part: icon path, UI-language text selection, dropdown filtering and slash command items.
+ * part: the icon path and UI-language text selection.
+ *
+ * There is no skills picker and no `/<skill_name>` command: skills are built in and the model
+ * finds the one it needs. `buildSkillsMessage` survives for the home screen's starter cards,
+ * which name the skill their scenario needs, and the parser for rendering messages that carry
+ * the block.
  */
 import type { SkillMetadataItem } from "@prismshadow/penguin-server/api";
 
@@ -43,45 +48,4 @@ export function localizedShortText(locale: "zh" | "en", s: SkillDescLike): strin
     return s.shortDescriptionZh || s.shortDescription || s.description;
   }
   return s.shortDescription || s.description;
-}
-
-/**
- * Search filter for the skills dropdown (pure function, shared by chat-input's SkillSelect and
- * unit tests): case-insensitive substring match against the skill name and localized
- * description; an empty query (including whitespace-only) returns the full list.
- */
-export function filterSkills(
-  skills: SkillMetadataItem[],
-  locale: "zh" | "en",
-  query: string,
-): SkillMetadataItem[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return skills;
-  // Match target matches what's displayed: name + localized short text (zh can match the Chinese short description, en is always English).
-  return skills.filter(
-    (s) =>
-      s.name.toLowerCase().includes(q) || localizedShortText(locale, s).toLowerCase().includes(q),
-  );
-}
-
-/** Skill command item for the slash menu (`/<skill_name>` toggles that skill's selection). */
-export interface SkillSlashItem {
-  /** Skill name (the run action toggles selection by name). */
-  name: string;
-  /** Menu command: `/<skill_name>` (slash filtering matches on this prefix). */
-  cmd: string;
-  /** Menu description: the skill's short description first, falling back to the full description if missing (per the UI language; truncated by the menu's own styling if too long). */
-  desc: string;
-}
-
-/** Assembles installed skills into slash command items (pure function, shared by chat-input's commands and unit tests). */
-export function skillSlashItems(
-  skills: SkillMetadataItem[],
-  locale: "zh" | "en",
-): SkillSlashItem[] {
-  return skills.map((s) => ({
-    name: s.name,
-    cmd: `/${s.name}`,
-    desc: localizedShortText(locale, s),
-  }));
 }

@@ -1,24 +1,18 @@
 /**
- * Skill UI-language text and slash command assembly (pure functions shared by
- * chat-input and the agent settings Skills tab):
+ * Skill UI-language text selection (pure functions shared by the agent settings Skills tab
+ * and the starter-card path):
  * - localizedText: uses the Chinese value when locale is zh and it's non-empty, otherwise
  *   falls back to English (an empty-string Chinese value counts as missing);
  * - localizedShortText: prefers the short description (language takes priority over
  *   length), falling back to the full description when missing;
- * - skillSlashItems: installed skills -> `/<skill_name>` command items, preferring the
- *   short description in the UI language;
- * - filterSkills: search filter for the skill dropdown (matches name and localized
- *   description, case-insensitive);
  * - skillsAutoMessage: auto-invoke text (zh/en dictionaries).
+ *
+ * The dropdown filter and the `/<skill_name>` command items are gone with the picker itself:
+ * every skill here is built in, so there was nothing left for a person to choose.
  */
 import { describe, expect, it } from "vitest";
 import type { SkillMetadataItem } from "@prismshadow/penguin-server/api";
-import {
-  filterSkills,
-  localizedShortText,
-  localizedText,
-  skillSlashItems,
-} from "../src/features/chat/skill-use";
+import { localizedShortText, localizedText } from "../src/features/chat/skill-use";
 import { zh } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 
@@ -67,91 +61,6 @@ describe("localizedShortText (short description first, falling back to the full 
     expect(localizedShortText("en", { ...full, shortDescription: "" })).toBe(
       "Create agents from requirements",
     );
-  });
-});
-
-describe("skillSlashItems (slash skill command item assembly)", () => {
-  const skills: SkillMetadataItem[] = [
-    {
-      name: "agent-creation",
-      description: "Create agents from requirements",
-      version: 1,
-      updated: "2026-07-01",
-    },
-    { name: "penguin-sdk", description: "Develop with the Penguin SDK", version: 2, updated: "" },
-  ];
-
-  it("one item per skill: cmd is /<skill_name>, desc follows the UI language (falling back to English without a Chinese short description)", () => {
-    expect(skillSlashItems(skills, "zh")).toEqual([
-      { name: "agent-creation", cmd: "/agent-creation", desc: "Create agents from requirements" },
-      { name: "penguin-sdk", cmd: "/penguin-sdk", desc: "Develop with the Penguin SDK" },
-    ]);
-    expect(skillSlashItems(skills, "en")).toEqual([
-      { name: "agent-creation", cmd: "/agent-creation", desc: "Create agents from requirements" },
-      { name: "penguin-sdk", cmd: "/penguin-sdk", desc: "Develop with the Penguin SDK" },
-    ]);
-  });
-
-  it("an empty list yields an empty array", () => {
-    expect(skillSlashItems([], "zh")).toEqual([]);
-  });
-
-  it("cmd prefix matching (slash filter convention): /agent-opt hits /agent-optimization", () => {
-    const items = skillSlashItems(
-      [{ name: "agent-optimization", description: "Optimize agents", version: 1, updated: "" }],
-      "en",
-    );
-    expect(items[0]!.cmd.startsWith("/agent-opt")).toBe(true);
-  });
-
-  it("desc prefers the short description (falling back to the full one when missing)", () => {
-    const withShort: SkillMetadataItem[] = [
-      {
-        name: "agent-creation",
-        description: "Create agents from requirements",
-        shortDescription: "Create agents",
-        shortDescriptionZh: "创建 Agent",
-        version: 1,
-        updated: "",
-      },
-    ];
-    expect(skillSlashItems(withShort, "zh")[0]!.desc).toBe("创建 Agent");
-    expect(skillSlashItems(withShort, "en")[0]!.desc).toBe("Create agents");
-  });
-});
-
-describe("filterSkills (search filter for the skill dropdown)", () => {
-  const skills: SkillMetadataItem[] = [
-    {
-      name: "agent-creation",
-      description: "Create agents from requirements",
-      version: 1,
-      updated: "2026-07-01",
-    },
-    { name: "penguin-sdk", description: "Develop with the Penguin SDK", version: 2, updated: "" },
-  ];
-
-  it("an empty query (including pure whitespace) returns everything", () => {
-    expect(filterSkills(skills, "zh", "")).toEqual(skills);
-    expect(filterSkills(skills, "en", "   ")).toEqual(skills);
-  });
-
-  it("filters by name substring (case-insensitive): sdk leaves only penguin-sdk", () => {
-    expect(filterSkills(skills, "en", "sdk").map((s) => s.name)).toEqual(["penguin-sdk"]);
-    expect(filterSkills(skills, "en", "SDK").map((s) => s.name)).toEqual(["penguin-sdk"]);
-  });
-
-  it("filters by display copy: zh matches the Chinese short description, en always uses English", () => {
-    const withZh = [{ ...skills[0]!, shortDescriptionZh: "把需求变成 Agent" }, skills[1]!];
-    expect(filterSkills(withZh, "zh", "需求").map((s) => s.name)).toEqual(["agent-creation"]);
-    expect(filterSkills(withZh, "en", "需求")).toEqual([]);
-    expect(filterSkills(skills, "en", "requirements").map((s) => s.name)).toEqual([
-      "agent-creation",
-    ]);
-  });
-
-  it("no match yields an empty array", () => {
-    expect(filterSkills(skills, "zh", "nonexistent")).toEqual([]);
   });
 });
 

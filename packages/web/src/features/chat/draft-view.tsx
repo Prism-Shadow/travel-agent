@@ -194,15 +194,6 @@ export function DraftView({
   // Mutable because example-task sends preserve the typed draft: its old strip becomes the sent
   // Session's strip, while the still-cached draft must receive a fresh empty strip for next time.
   const browserScopeIdRef = useRef(browserScopeId);
-  /**
-   * Selected skills (prefilled by "quick invoke" from the Skills page + checked in
-   * the input area): passed to ChatInput as the initial selection via initialSkills
-   * on mount, then written back through onSkillsChange and persisted immediately
-   * (discrete clicks) — survives a refresh; cleared along with the whole draft on
-   * successful send, kept on failure so it can be resent.
-   */
-  const skillsRef = useRef<string[]>(cached.skills ?? []);
-
   // —— Project new-chat defaults ([default_chat]) ——
   // Fetched once per Project mount (fail-soft: an error reads as "no defaults", so the
   // draft keeps working). They prefill the seams below with the precedence
@@ -530,7 +521,6 @@ export function DraftView({
     };
     if (agentId) data.agentId = agentId;
     if (modelRef) data.modelRef = modelRef;
-    if (skillsRef.current.length > 0) data.skills = skillsRef.current;
     // A parked draft writes back into its own list entry; the active draft into its slot.
     if (draftId !== undefined) saveDraftSession(userId, projectId, draftId, data);
     else saveDraft(draftKey(userId, projectId), data);
@@ -555,12 +545,6 @@ export function DraftView({
     },
     [cancelPendingSave],
   );
-
-  /** Skill checklist change: writes back to the ref and persists immediately (discrete click, same convention as Agent/Model and other options). */
-  const onSkillsChange = useCallback((names: string[]) => {
-    skillsRef.current = names;
-    persistRef.current();
-  }, []);
 
   // Unmount: if there's still unsaved body text, flush it (so a route change/page switch doesn't lose the last few keystrokes).
   useEffect(
@@ -599,8 +583,6 @@ export function DraftView({
    */
   const discardDraft = useCallback(() => {
     cancelPendingSave();
-    // Clear the preselected skills too: any subsequent write (e.g. the unmount flush) must not resurrect a selection that's already been sent.
-    skillsRef.current = [];
     // The unmount flush routes through persistNow, which would otherwise write the
     // just-sent content back (into the parked entry, resurrecting a deleted row): with
     // the text gone the flush becomes an idempotent empty-shell write.
@@ -886,10 +868,6 @@ export function DraftView({
               agents={agents}
               {...(agentId ? { currentAgentId: agentId } : {})}
               skills={agentSkills}
-              {...(cached.skills && cached.skills.length > 0
-                ? { initialSkills: cached.skills }
-                : {})}
-              onSkillsChange={onSkillsChange}
               initialText={cached.text ?? ""}
               onTextChange={onTextChange}
             />
