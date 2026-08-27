@@ -164,6 +164,14 @@ needed.
   replaced" are conditions, and a delay only makes them true while the machine is fast enough. Hold
   the condition open with a gate the test releases, or wait for the terminal state — both flaky
   browser tests were a timer standing in for a state, in two different disguises.
+- **A gate step that can skip is a gate step that must announce.** `pnpm test:e2e` exited 0 while
+  the live-model test never ran: `dotenv/config` resolves `.env` from `process.cwd()`, which is
+  `packages/core` for that suite, so the repository-root `.env` AGENTS.md points at was never read
+  — and vitest prints the same "1 skipped" whether the key is missing or the suite was never opted
+  into. This matters more now that the local gate has replaced CI: read what a green step
+  *asserted*, not just its exit code, and make the skip say so out loud. `ci.yml`'s xvfb step got
+  this right from the start ("refuses to skip when CI=true, so this step cannot go green by quietly
+  deciding it could not run"); the live e2e did not.
 - **A test file that rebinds one port across tests should send `Connection: close`.** Node's
   `fetch` pools keep-alive sockets per origin, so a socket opened against test N's server is
   offered to test N+1's first request on the same port, and undici does not retry a POST whose

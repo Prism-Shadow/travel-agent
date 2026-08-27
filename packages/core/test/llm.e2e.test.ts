@@ -6,12 +6,20 @@
  * The key comes from .env (gitignored) or an environment variable; the provider is picked
  * by whichever key is available (CI uses DeepSeek).
  */
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 import { describe, expect, it } from "vitest";
 
 import { GenerativeModel } from "../src/llm/index.js";
 import { toolCallOutput, userText } from "../src/omnimessage/index.js";
 import type { OmniMessage, ToolCallPayload } from "../src/omnimessage/index.js";
+
+// `dotenv/config` resolves `.env` from `process.cwd()`, which is `packages/core` when this suite
+// runs through `pnpm test:e2e` — so the repository-root `.env` that AGENTS.md tells you to put the
+// key in was never read, and the live test skipped while the command still exited 0. Load the
+// package-local file first (dotenv does not overwrite an already-set variable, so the more specific
+// file still wins) and then the root one.
+loadDotenv({ quiet: true });
+loadDotenv({ path: new URL("../../../.env", import.meta.url), quiet: true });
 
 /** Picks a provider in order by available key; AgentHub routes by modelId and auto-reads the matching env var. */
 const PROVIDERS = [
@@ -21,6 +29,17 @@ const PROVIDERS = [
 const provider = PROVIDERS.find((p) => process.env[p.key]);
 const runLive = process.env.PENGUIN_E2E === "1" && provider !== undefined;
 const maybe = runLive ? it : it.skip;
+
+// Opting in and getting a skip anyway is the one outcome that must not be quiet: the command
+// exits 0 either way, and vitest reports "1 skipped" whether the key is missing or the suite was
+// never opted into. CI tolerates the missing key on purpose (`ci.yml`'s live-e2e job exits 0 with
+// a message), so this says the same thing out loud rather than turning it into a failure.
+if (process.env.PENGUIN_E2E === "1" && provider === undefined) {
+  console.warn(
+    `[llm.e2e] PENGUIN_E2E=1 but no provider key is set (${PROVIDERS.map((p) => p.key).join(" or ")}); ` +
+      "the live test is SKIPPED, not passing. Put the key in the repository-root .env.",
+  );
+}
 
 describe(`GenerativeModel live e2e (${provider?.modelId ?? "skipped"})`, () => {
   maybe(
