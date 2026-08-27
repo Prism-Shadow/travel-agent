@@ -146,14 +146,22 @@ that looks related:
 ```bash
 node packages/desktop/scripts/check-debug-switches.mjs && \
 pnpm build && pnpm format:check && pnpm typecheck && pnpm test && \
+pnpm --filter @prismshadow/penguin-web test:e2e && \
 pnpm --filter @prismshadow/penguin-desktop test:e2e && \
 pnpm test:e2e
 ```
 
-About three minutes, and it reproduces every CI step except one: **Linux**. The in-app browser e2e
+About twenty minutes, most of it the web browser suite, and it reproduces every CI step except
+one: **Linux**. The in-app browser e2e
 needs `xvfb-run` only on Linux and runs natively on macOS; the live-model e2e needs
 `DEEPSEEK_API_KEY` in `.env` (leave `ANTHROPIC_API_KEY` empty, or the run takes the Claude path
 instead of the one CI used).
+
+The web browser suite is in that list as of 2026-08-28, and its absence is why it is worth naming
+here: `pnpm test` does not run Playwright, and neither this gate nor `ci.yml` invoked
+`packages/web/e2e` at all, so twenty-one of its specs were free to go red and stay red without a
+single gate noticing. A suite nothing runs is not a slower gate; it is a suite that does not
+exist.
 
 Two things this gate does **not** cover, and neither is a reason to skip it:
 

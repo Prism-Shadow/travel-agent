@@ -274,25 +274,22 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   });
   expect(put.ok(), "put models").toBeTruthy();
 
-  // --- No sessions yet: the rail renders all 7 entries, "last conversation" disabled ---
+  // --- No sessions yet: the rail renders its two entries, "last conversation" disabled ---
+  //
+  // Two, not the seven it once had. Agents, Models, Cost Center, Trajectories and Evaluation
+  // Center are the engine's console, not a traveller's navigation, and they moved behind the
+  // settings row at the bottom of the expanded sidebar. The collapsed rail is what remains when
+  // there is room for almost nothing: it holds only what someone on a trip would reach for.
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat`);
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
   const rail = page.locator("aside nav");
   const entries = rail.locator("a, button");
-  await expect(entries).toHaveCount(7);
+  await expect(entries).toHaveCount(2);
   await expect(rail.getByRole("button", { name: "Last conversation" })).toBeDisabled();
 
   // --- Order and tooltips (en): aria-label defines the order, title carries the same copy ---
-  const EN = [
-    "Last conversation",
-    "New chat",
-    "Agents",
-    "Models",
-    "Cost Center",
-    "Trajectories",
-    "Evaluation Center",
-  ];
+  const EN = ["Last conversation", "New chat"];
   const attrs = (name) =>
     entries.evaluateAll((els, n) => els.map((el) => el.getAttribute(n)), name);
   expect(await attrs("aria-label"), "rail order (en)").toEqual(EN);
@@ -341,22 +338,27 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
     ACTIVE_FILL,
   );
 
-  // --- Page entries navigate and highlight like the pinned nav ---
-  await rail.getByRole("link", { name: "Models" }).click();
-  await expect(page).toHaveURL(`${BASE}/models`);
-  await expect(rail.getByRole("link", { name: "Models" })).toHaveClass(ACTIVE_FILL);
+  // --- No console routes here: those pages are reached from the settings row, not the rail ---
+  await expect(rail.getByRole("link", { name: "Models" })).toHaveCount(0);
+  await expect(rail.getByRole("link", { name: "Agents" })).toHaveCount(0);
 
   // --- zh: tooltips follow the product-specified wording ---
   await page.addInitScript(() => localStorage.setItem("penguin.lang", "zh"));
   await page.reload();
-  await expect(entries).toHaveCount(7);
-  const ZH = ["最近一次对话", "新建对话", "智能体", "模型库", "成本中心", "轨迹观测", "评估中心"];
+  await expect(entries).toHaveCount(2);
+  const ZH = ["最近一次对话", "新建对话"];
   expect(await attrs("aria-label"), "rail order (zh)").toEqual(ZH);
   expect(await attrs("title"), "rail tooltips (zh)").toEqual(ZH);
 
   // --- Expand: the rail's top button (localized) restores the pinned sidebar ---
+  //
+  // Scoped to the sidebar that holds the rail. A bare `aside` is ambiguous now: the draft screen
+  // renders a second one, the "jump back in" column, and a strict locator resolves to both.
   await page.getByRole("button", { name: "展开侧栏" }).click();
-  await expect(page.locator("aside")).toHaveClass(/w-64/);
+  const pinned = page
+    .locator("aside")
+    .filter({ has: page.getByRole("button", { name: "收起侧栏" }) });
+  await expect(pinned).toHaveClass(/w-64/);
   await expect(page.getByRole("button", { name: "收起侧栏" })).toBeVisible();
 });
 

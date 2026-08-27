@@ -18,39 +18,74 @@ import { test, expect } from "@playwright/test";
 import { provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
+const MOCK = process.env.MOCK_URL;
 const U = "skillsuser";
 const P = "password123";
 
-const SKILLS = ["penguin-browser"];
+// The full built-in set, asserted by name and sorted: this list is the contract between the
+// skills package and every agent created here, and a skill added or renamed must show up as a
+// failure right here rather than silently changing what ships.
+const SKILLS = ["amap-lbs-skill", "penguin-browser", "trip-workspace"];
 
 test("skills: built-in on every agent, and nowhere for a person to choose one", async ({
   page,
 }) => {
-  const { projectId } = await provisionAndLogin(page, { username: U, password: P });
+  // `provisionAndLogin(ctx, userId, password)` takes a request context and two positional
+  // arguments, and returns the user — not the project. The project is looked up separately, as
+  // every other spec here does.
+  await provisionAndLogin(page.request, U, P);
+  const projects = await (await page.request.get(`${BASE}/api/projects`)).json();
+  const projectId = projects.projects[0].projectId;
+
+  // The default model has to point at the mock LLM, or the send below reaches nothing.
+  await page.request.put(`${BASE}/api/projects/${projectId}/models`, {
+    data: {
+      defaultModel: { provider: "custom", modelId: "claude-4-8" },
+      models: [
+        {
+          provider: "custom",
+          modelId: "claude-4-8",
+          baseUrl: `${MOCK}/v1`,
+          apiKey: "test",
+          api: "anthropic-messages",
+        },
+      ],
+    },
+  });
 
   // —— Built-in policy: the skill ships with every agent, including one created just now. ——
   const created = await page.request.post(`${BASE}/api/projects/${projectId}/agents`, {
     data: { agentId: "agent_helper", name: "helper" },
   });
-  expect(created.ok(), "create helper agent").toBeTruthy();
+  // 409 is "already exists", which is success for what this asserts: the built-in set is checked
+  // on an agent that exists, not on one this run happened to create. Tolerating it lets the spec
+  // be re-run against a server that is already seeded — the same idempotency `provisionUser` uses.
+  expect(
+    created.ok() || created.status() === 409,
+    `create helper agent: ${created.status()}`,
+  ).toBeTruthy();
   for (const agentId of ["default_agent", "agent_helper"]) {
     const res = await (
       await page.request.get(`${BASE}/api/projects/${projectId}/agents/${agentId}/skills`)
     ).json();
-    expect(
-      res.skills.map((s) => s.name),
-      `${agentId} built-in skills`,
-    ).toEqual(SKILLS);
+    expect(res.skills.map((s) => s.name).sort(), `${agentId} built-in skills`).toEqual(SKILLS);
   }
 
   // —— The sidebar has no skill-library entry (the skill is built-in, nothing to manage). ——
+  //
+  // Nor an Agents link: the engine's own surfaces — agents, models, settings — moved behind the
+  // single developer-console entry when the sidebar became a list of trips. What a traveller
+  // sees at this level is trips and conversations, and nothing that names the machinery.
   await page.goto(`${BASE}/chat`);
-  await expect(page.getByRole("link", { name: "智能体" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /开发者控制台/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "技能库" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "智能体" })).toHaveCount(0);
 
   // —— Draft state: no picker in the toolbar, and no slash command for a skill. ——
   await page.goto(`${BASE}/chat/new`);
-  const ta = page.getByPlaceholder(/输入消息|告诉我/);
+  // The draft screen has its own placeholder: it asks where you want to go, not how to operate a
+  // text box. `inputPlaceholder` is what an active conversation shows.
+  const ta = page.getByPlaceholder(/告诉我想去哪里/);
   await ta.waitFor();
   await expect(page.getByRole("button", { name: "技能", exact: true })).toHaveCount(0);
   await expect(page.locator('button[aria-label="Skills"]')).toHaveCount(0);
@@ -81,5 +116,14 @@ test("skills: built-in on every agent, and nowhere for a person to choose one", 
   const messages = await (
     await page.request.get(`${BASE}/api/sessions/${sess.session.sessionId}/messages`)
   ).json();
-  expect(JSON.stringify(messages), "no marker block reaches storage").not.toContain("[use_skills]");
+  // Scoped to the user's own message, not the whole payload. The literal `[use_skills]` also
+  // appears in the system prompt, where the Skills section explains that a message may begin with
+  // one — so a substring search over the transcript matches every session ever recorded and
+  // proves nothing about this one.
+  const userText = messages.messages
+    .filter((m) => m.type === "model_msg" && m.payload?.role === "user")
+    .map((m) => m.payload?.text ?? "")
+    .join("\n");
+  expect(userText, "the user message reached storage").toContain("你好");
+  expect(userText, "no marker block was added to it").not.toContain("[use_skills]");
 });

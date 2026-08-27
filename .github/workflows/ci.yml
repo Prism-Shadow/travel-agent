@@ -99,6 +99,13 @@ jobs:
       - name: Unit tests (vitest)
         run: pnpm -r --filter='!penguin-browser' test
 
+      # The consumer UI's own browser suite, against a mock LLM. It ran nowhere until 2026-08-28 —
+      # not in this workflow and not in the local pre-push gate — so its specs could go red and
+      # stay red through any number of merges. `pnpm test` cannot stand in for it: that is vitest,
+      # and none of these specs are vitest.
+      - name: Web end-to-end (Playwright, mock LLM)
+        run: pnpm --filter @prismshadow/penguin-web test:e2e
+
       # Electron needs unprivileged user namespaces for its sandbox, and Ubuntu 23.10+ restricts
       # them through AppArmor by default — on the 24.04 runner that makes Chromium die before it
       # initialises, in under a second, with *both* output streams empty. (The first run of this
