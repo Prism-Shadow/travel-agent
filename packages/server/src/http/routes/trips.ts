@@ -138,9 +138,9 @@ export function tripsRoutes(deps: AppDeps): Hono<AppEnv> {
     return c.json({ trip: await deps.tripService.patch(c.var.user.userId, tripId, fields) });
   });
 
-  app.delete("/:tripId", (c) => {
+  app.delete("/:tripId", async (c) => {
     const tripId = pathParam(c, "tripId");
-    deps.tripService.delete(c.var.user.userId, tripId);
+    await deps.tripService.delete(c.var.user.userId, tripId);
     return c.body(null, 204);
   });
 

@@ -336,6 +336,27 @@ describe("trips", () => {
     );
   });
 
+  it("deleting a trip that was never used leaves no empty folder behind", async () => {
+    // The rollback path: a send that fails after the trip was created deletes it, and the
+    // folder must go with it. Otherwise every failed send leaves a husk holding one file
+    // nothing references — the junk this whole flow was rearranged to stop producing.
+    const trip = await createTrip({ destination: "Kanazawa" });
+    expect(await fs.readdir(trip.dir)).toEqual(["trip.json"]);
+
+    expect((await api.delete(`/api/trips/${trip.tripId}`)).status).toBe(204);
+    await expect(fs.stat(trip.dir)).rejects.toThrow();
+  });
+
+  it("keeps the folder when anything but our own trip.json is in it", async () => {
+    // Even a file nobody recognizes means hands off: erring towards keeping a folder costs
+    // an empty directory, erring the other way costs someone's trip.
+    const trip = await createTrip({ destination: "Takayama" });
+    await fs.writeFile(path.join(trip.dir, ".DS_Store"), "", "utf8");
+
+    expect((await api.delete(`/api/trips/${trip.tripId}`)).status).toBe(204);
+    expect(await fs.readdir(trip.dir)).toContain(".DS_Store");
+  });
+
   it("deleting a trip detaches its conversations and leaves the person's files alone", async () => {
     const trip = await createTrip({ destination: "Nikko" });
     t.deps.sessionsRepo.insert(sessionRow("s-kept", { tripId: trip.tripId }));

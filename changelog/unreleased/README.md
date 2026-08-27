@@ -1,5 +1,6 @@
 # Unreleased
 
+- [2026-08-26] A trip is created by its first message rather than by the click that opens it — so its folder is named for the destination, an abandoned click leaves nothing, and a failed send rolls the trip back including its untouched folder. ([details](2026-08-26-trip-materializes-on-send.md))
 - [2026-08-26] Core's port table drops three rows naming packages this fork does not have (landing, docs, CLI), names the server as the constant's only consumer, and adds the desktop's ephemeral port; comment-only. ([details](2026-08-26-port-table-matches-this-fork.md))
 - [2026-08-26] The desktop application's own identity becomes Travel Agent — app name, bundle id, executables and dialogs; this relocates `userData`, taken deliberately while nothing is released. ([details](2026-08-26-desktop-app-identity.md))
 - [2026-08-26] The app calls itself Travel Agent instead of the engine it is built on, and the Project switcher appears only when there is more than one Project — creating and configuring them moves into the developer console. ([details](2026-08-26-app-name-and-project-switcher.md))

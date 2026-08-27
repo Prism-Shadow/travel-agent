@@ -136,6 +136,20 @@ needed.
   and `packages/web` stayed green: the library's contents are asserted by name in more than one
   package. The full run costs a couple of minutes and is the only thing that answers "what else
   believed the old shape".
+- **A test that supplies what the UI never supplies proves nothing about the product.** Trip
+  folders were designed to be named for the destination, and the unit test passed one in at
+  creation — but the flow created the trip *before* asking, so every real folder got the
+  `trip-<date>` fallback. The function was right and the product was wrong, and only clicking it
+  showed that. When a test constructs the input, ask which caller constructs it that way.
+- **Create the heavy object when the commitment happens, not when the button is clicked.** A
+  Trip is a row, a directory and files; hanging that on a click produced junk from every
+  abandoned click, and left the object unnamed because nothing was known yet. The conversation
+  had it right all along — the Session is created by the first message — and the answer was to
+  copy that shape rather than invent one.
+- **Rolling back a create must undo everything the create made.** Deleting the trip row on a
+  failed send left its directory orphaned, which moved the junk rather than removing it. The rule
+  that made it safe: clean up only what we ourselves wrote (a folder holding nothing but the
+  app's own `trip.json`), and never touch a folder with anything else in it.
 - **Two rows created in the same millisecond need a tiebreak that means something.** A list
   ordered `created_at DESC, <id> DESC` shuffles between reads when the id is random — the sidebar
   showed trips in a different order each refresh. Break the tie on insertion order (SQLite's

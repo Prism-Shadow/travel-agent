@@ -16,7 +16,6 @@ import { useSessions } from "../../state/sessions";
 import { useCompletionNotifications } from "../../state/use-completion-notifications";
 import { Drawer } from "../ui/drawer";
 import { GlyphIcon } from "../ui/glyph-icon";
-import { NAV_ICONS } from "../ui/icons";
 import { NEW_CHAT_ICON, Sidebar } from "./sidebar";
 import { DRAFT_SESSION_ID } from "../../features/chat/chat-page";
 import { parkActiveDraft } from "../../features/chat/draft-sessions";
@@ -74,15 +73,6 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
     navigate(`/chat/${DRAFT_SESSION_ID}`, agentId ? { state: { agentId } } : undefined);
   };
 
-  /** Page entries (rail positions 3-7): same routes, same labels as the pinned nav. */
-  const pages: ReadonlyArray<{ to: string; label: string; icon: string }> = [
-    { to: "/agents", label: S.nav.agents, icon: NAV_ICONS.agents },
-    { to: "/models", label: S.nav.models, icon: NAV_ICONS.models },
-    { to: "/usage", label: S.nav.usage, icon: NAV_ICONS.usage },
-    { to: "/traces", label: S.nav.traces, icon: NAV_ICONS.traces },
-    { to: "/benchmark", label: S.nav.benchmark, icon: NAV_ICONS.benchmark },
-  ];
-
   return (
     <div className="flex h-full flex-col items-center gap-1 py-2.5">
       <button
@@ -127,18 +117,11 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
         >
           <GlyphIcon d={NEW_CHAT_ICON} size={18} />
         </button>
-        {/* 3-8. Page entries */}
-        {pages.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            title={item.label}
-            aria-label={item.label}
-            className={({ isActive }) => railItemClass(isActive)}
-          >
-            <GlyphIcon d={item.icon} size={18} />
-          </NavLink>
-        ))}
+        {/* The rail stops here. Since the engine console was demoted it carries only ways to
+            start and to get back: expand, the last conversation, a new one. Agents / Models /
+            Usage / Traces / Benchmark live behind the console entry in the expanded sidebar;
+            listing them here would put the engine back in front of a traveller in the one
+            place it is hardest to notice it happened. */}
       </nav>
       <button
         type="button"

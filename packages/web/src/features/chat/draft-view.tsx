@@ -100,7 +100,7 @@ import {
   type ChatDefaultsChangedDetail,
 } from "./chat-defaults-event";
 import { effectiveThinkingLevel } from "./thinking-level";
-import { WorkspaceSelect, pillClass } from "./workspace-select";
+import { pillClass } from "./workspace-select";
 import { sameModelRef } from "../models/model-grouping";
 
 /** Coalescing window for writing body text to the cache: keystrokes are frequent, so a short batch accumulates before persisting (option changes are still written immediately). */
@@ -620,18 +620,7 @@ export function DraftView({
     else clearDraft(draftKey(userId, projectId));
   }, [cancelPendingSave, userId, projectId, draftId, modelRef]);
 
-  const selectAgent = (a: AgentSummary) => {
-    touchedRef.current.agent = true; // an explicit pick outranks a late-arriving project default
-    setAgentId(a.agentId);
-    // Follow through to the global current Agent: keeps the sidebar memory and stats convention consistent.
-    setCurrentAgentId(a.agentId);
-  };
-
-  /** User edits routed through these two so a late-arriving project default cannot clobber them. */
-  const changeWorkspace = useCallback((path: string) => {
-    touchedRef.current.workspace = true;
-    setWorkspace(path);
-  }, []);
+  /** User edits routed through this so a late-arriving project default cannot clobber them. */
   const changeApprovalMode = useCallback((mode: ApprovalMode) => {
     touchedRef.current.approval = true;
     setApprovalMode(mode);
@@ -833,7 +822,6 @@ export function DraftView({
     [inspirationBusy, onSend],
   );
 
-  const selectedAgent = agents.find((a) => a.agentId === agentId) ?? null;
   const travellerName = (userId ?? "").split("@")[0]?.trim() ?? "";
 
   // Capability info for the currently selected model (vision/context window) switches instantly with the selection (matched by paired reference).
@@ -904,14 +892,12 @@ export function DraftView({
               onTextChange={onTextChange}
             />
 
-            <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
-              <AgentSelect agents={agents} selected={selectedAgent} onSelect={selectAgent} />
-              <WorkspaceSelect
-                projectId={projectId}
-                workspace={workspace}
-                onChange={changeWorkspace}
-              />
-            </div>
+            {/* Agent and Workspace are the engine's vocabulary, and neither is a choice a
+                traveller has any basis to make before their first sentence. Both still resolve
+                — from the Project's new-chat defaults — and both remain configurable in the
+                developer console; they are simply not asked for here. The journey's own
+                directory is the Trip's, and it is decided by starting a trip, not by picking a
+                path. */}
           </div>
 
           <div className="mt-6 w-full">
@@ -1013,90 +999,3 @@ function VersionLine() {
 }
 
 /** Agent selection (pill dropdown): avatar + name, menu opens downward with an internal scroll cap. */
-function AgentSelect({
-  agents,
-  selected,
-  onSelect,
-}: {
-  agents: AgentSummary[];
-  selected: AgentSummary | null;
-  onSelect: (agent: AgentSummary) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Dropdown
-      open={open}
-      setOpen={setOpen}
-      menuClass="left-0 top-full mt-1 w-72 max-w-[calc(100vw-2rem)] origin-top-left"
-      button={
-        <button
-          type="button"
-          title={S.chat.chooseAgent}
-          aria-label={S.chat.chooseAgent}
-          onClick={() => setOpen(!open)}
-          className={pillClass}
-        >
-          {selected ? (
-            <AgentAvatar
-              id={selected.agentId}
-              name={agentDisplayName(selected)}
-              size={16}
-              className="shrink-0 rounded"
-            />
-          ) : null}
-          <span className="min-w-0 truncate">
-            {selected ? agentDisplayName(selected) : S.common.loading}
-          </span>
-          <Chevron open={open} size={12} className="shrink-0 text-gray-400" />
-        </button>
-      }
-    >
-      <div className="max-h-56 overflow-y-auto">
-        {agents.length === 0 && (
-          <p className="px-3 py-1.5 text-xs text-gray-400">{S.common.loading}</p>
-        )}
-        {agents.map((a) => {
-          const active = a.agentId === selected?.agentId;
-          return (
-            <button
-              key={a.agentId}
-              type="button"
-              aria-pressed={active}
-              onClick={() => {
-                onSelect(a);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <AgentAvatar
-                id={a.agentId}
-                name={agentDisplayName(a)}
-                size={20}
-                className="shrink-0 rounded"
-              />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block truncate text-xs ${
-                    active
-                      ? "font-medium text-gray-900 dark:text-gray-100"
-                      : "text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {agentDisplayName(a)}
-                </span>
-                {a.description && (
-                  <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">
-                    {a.description}
-                  </span>
-                )}
-              </span>
-              <span className="w-4 shrink-0 text-center text-xs text-gray-500 dark:text-gray-400">
-                {active ? "✓" : ""}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </Dropdown>
-  );
-}

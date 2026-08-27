@@ -37,6 +37,9 @@ const UNTITLED_TRIP_NAME = "Untitled trip";
 /** The model's plan for the journey, in the Trip's own folder. */
 const ITINERARY_FILENAME = "itinerary.md";
 
+/** The identity mirror this service writes — the one file in a Trip folder that is ours. */
+const TRIP_JSON_FILENAME = "trip.json";
+
 /**
  * Directory basename for a new Trip: a readable slug of the destination, suffixed with the
  * travel month when one is known (`tokyo-2026-10`). A Trip created before its destination is
@@ -129,7 +132,7 @@ export class TripService {
     };
     try {
       await fs.writeFile(
-        path.join(row.dir, "trip.json"),
+        path.join(row.dir, TRIP_JSON_FILENAME),
         `${JSON.stringify(body, null, 2)}\n`,
         "utf8",
       );
@@ -240,16 +243,43 @@ export class TripService {
   }
 
   /**
-   * Deletes the Trip row and detaches its conversations, which survive as floating chats.
-   * The directory is deliberately left on disk: it holds the person's itinerary, and this
-   * application does not delete a folder it does not own the contents of.
+   * Removes the Trip's directory **only when nothing but our own `trip.json` is in it**.
+   *
+   * The two halves of this rule are both load-bearing. A folder holding an itinerary, a map,
+   * or anything else the model or the person put there is never deleted — those files are the
+   * person's, and a trip they used is theirs to keep even after they remove it from the app.
+   * But a folder containing only the skeleton this service wrote is *our* leftover, and
+   * leaving it behind is how a failed send silently accumulates husks: `kyoto`, `kyoto-2`,
+   * `kyoto-3`, each holding one file nothing references.
+   *
+   * Anything unexpected — an unreadable directory, an extra file, even a `.DS_Store` — means
+   * hands off. Erring towards leaving a folder costs an empty directory; erring the other way
+   * costs someone's trip.
    */
-  delete(userId: string, tripId: string): void {
+  private async removeDirIfPristine(dir: string): Promise<void> {
+    try {
+      const entries = await fs.readdir(dir);
+      const ours =
+        entries.length === 0 || (entries.length === 1 && entries[0] === TRIP_JSON_FILENAME);
+      if (!ours) return;
+      await fs.rm(dir, { recursive: true, force: true });
+    } catch {
+      /* Gone already, or not ours to read: leave it exactly as it is. */
+    }
+  }
+
+  /**
+   * Deletes the Trip row and detaches its conversations, which survive as floating chats.
+   * The directory survives with them whenever it holds anything the journey produced; an
+   * untouched one is removed, so a trip that never got started leaves nothing behind.
+   */
+  async delete(userId: string, tripId: string): Promise<void> {
     const row = this.requireTrip(userId, tripId);
     // Explicit rather than relying on ON DELETE SET NULL: databases formed before the
     // column existed got it through ALTER TABLE, which cannot carry a foreign key.
     this.deps.sessions.clearTrip(row.tripId);
     this.deps.trips.deleteById(row.tripId);
+    await this.removeDirIfPristine(row.dir);
   }
 
   /**
