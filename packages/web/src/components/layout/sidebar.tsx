@@ -206,9 +206,12 @@ export function Sidebar({
     showCliSessions,
     setShowCliSessions,
   } = useSessions();
-  const { trips, loading: tripsLoading, byId: tripsById } = useTrips();
+  const { trips, loading: tripsLoading, byId: tripsById, remove: removeTrip } = useTrips();
   const chatMatch = useMatch("/chat/:sessionId");
   const activeSessionId = chatMatch?.params.sessionId ?? null;
+  /** The trip whose page is open, if any — read through the router rather than `window.location`. */
+  const tripMatch = useMatch("/trips/:tripId");
+  const openTripId = tripMatch?.params.tripId ?? null;
 
   const [projectOpen, setProjectOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -294,6 +297,9 @@ export function Sidebar({
   const [deletingBusy, setDeletingBusy] = useState(false);
   /** Parked draft conversation pending delete confirmation (null = none). */
   const [deletingDraft, setDeletingDraft] = useState<DraftSessionEntry | null>(null);
+  /** Trip pending delete confirmation (null = none). */
+  const [deletingTrip, setDeletingTrip] = useState<TripSummary | null>(null);
+  const [deletingTripBusy, setDeletingTripBusy] = useState(false);
   /** Parked draft conversations of this user × Project, newest first (reactive module store). */
   const draftEntries = useDraftSessions(user?.userId ?? null, currentProjectId);
   /** Session currently being renamed (null = none) and the title being typed. */
@@ -521,6 +527,27 @@ export function Sidebar({
    */
   const newTrip = () => {
     newChat(defaultAgentId, { newTrip: true });
+  };
+
+  /**
+   * Confirmed trip deletion. The conversations are deliberately not refetched: they keep the
+   * trip id they were loaded with, and the grouping already files a conversation whose trip is
+   * absent under loose questions — which is exactly where they now belong. Someone standing on
+   * the deleted trip's page is moved off it, since that page has nothing left to show.
+   */
+  const confirmDeleteTrip = async () => {
+    if (!deletingTrip) return;
+    setDeletingTripBusy(true);
+    const target = deletingTrip;
+    try {
+      await removeTrip(target.tripId);
+      setDeletingTrip(null);
+      if (openTripId === target.tripId) navigate("/chat");
+    } catch (e) {
+      toastError(apiErrorText(e));
+    } finally {
+      setDeletingTripBusy(false);
+    }
   };
 
   /** Confirmed parked-draft deletion: drops the entry; a deleted draft that is open falls back to the plain new-chat page. */
@@ -932,6 +959,23 @@ export function Sidebar({
                           </button>
                           {/* The journey itself: its identity, its conversations, and the
                               itinerary the agent has written so far. */}
+                          {/* Deleting a journey is not the same as deleting its work: the
+                              conversations survive as loose questions and the folder stays on
+                              disk unless nothing was ever put in it. The confirmation says so,
+                              because the button alone cannot. */}
+                          <button
+                            type="button"
+                            title={S.trip.deleteTrip}
+                            aria-label={S.trip.deleteTrip}
+                            onClick={() => setDeletingTrip(trip)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-red-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-red-400"
+                          >
+                            {/* Trash can, the same glyph the conversation rows use. */}
+                            <Icon
+                              d="M4 6h16M9 6V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6M6 6v13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6M10 10.5v6M14 10.5v6"
+                              size={15}
+                            />
+                          </button>
                           <button
                             type="button"
                             title={S.trip.openTrip}
@@ -1298,6 +1342,24 @@ export function Sidebar({
           }}
         />
       </Modal>
+
+      {/* Delete trip confirmation. The copy carries the two facts a person needs before
+          agreeing: their conversations are not deleted with it, and neither is the folder
+          unless the journey never held anything. */}
+      <ConfirmModal
+        open={deletingTrip !== null}
+        title={S.trip.deleteTrip}
+        confirmLabel={S.common.delete}
+        busy={deletingTripBusy}
+        onClose={() => (deletingTripBusy ? undefined : setDeletingTrip(null))}
+        onConfirm={() => void confirmDeleteTrip()}
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {deletingTrip
+            ? S.trip.deleteTripConfirm(tripDisplayName(deletingTrip, S.trip.untitled))
+            : ""}
+        </p>
+      </ConfirmModal>
 
       {/* Delete chat confirmation (shared ConfirmModal) */}
       <ConfirmModal

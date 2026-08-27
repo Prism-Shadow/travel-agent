@@ -44,7 +44,7 @@ export const en: Strings = {
     rename: "Rename",
     deleteTrip: "Delete trip",
     deleteTripConfirm: (name: string) =>
-      `Delete the trip "${name}"? Its conversations stay (they become loose questions), and the trip folder on disk is not deleted \u2014 those files are yours.`,
+      `Delete the trip "${name}"? Its conversations stay (they become loose questions). The folder on disk is kept if the journey put anything in it — those files are yours; one that was never written to is removed with the trip.`,
     conversations: "Conversations",
     noConversations: "No conversations in this trip yet.",
     itinerary: "Itinerary",

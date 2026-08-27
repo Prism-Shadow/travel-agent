@@ -46,7 +46,7 @@ export const zh = {
     rename: "重命名",
     deleteTrip: "删除行程",
     deleteTripConfirm: (name: string) =>
-      `删除行程「${name}」？它的对话会保留下来（变成「随手问」），磁盘上的行程文件夹也不会被删除——那些文件是你的。`,
+      `删除行程「${name}」？它的对话会保留（变成「随手问」）。磁盘上的文件夹只要装过东西就留着——那些文件是你的；从未写入过任何内容的空文件夹会一并清掉。`,
     conversations: "对话",
     noConversations: "这个行程还没有对话。",
     itinerary: "行程单",
