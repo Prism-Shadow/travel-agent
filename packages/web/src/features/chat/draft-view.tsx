@@ -53,18 +53,14 @@ import type {
 } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
-import { formatMonthDay } from "../../lib/format";
 import { apiErrorText } from "../../lib/api-error";
 import { useAuth } from "../../state/auth";
-import { useLocale } from "../../state/locale";
 import { agentDisplayName, useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { AgentAvatar } from "../../components/ui/agent-avatar";
 import { Chevron } from "../../components/ui/chevron";
 import { Dropdown } from "../../components/ui/dropdown";
-import { PenguinLogo } from "../../components/ui/penguin-logo";
 import { toastError } from "../../components/ui/toast";
-import { useVersionInfo } from "../../lib/use-version-info";
 import { ChatInput } from "./chat-input";
 import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
@@ -847,15 +843,8 @@ export function DraftView({
       className="anim-fade flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#fcfcfb] dark:bg-gray-950"
       style={{ scrollbarGutter: "stable both-edges" }}
     >
-      <header className="flex min-h-14 shrink-0 items-center justify-between px-5 py-3 md:px-7">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <PenguinLogo className="h-7 w-7 shrink-0 rounded-lg" />
-          <h1 className="truncate text-sm font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-            {S.appName}
-          </h1>
-        </div>
-        <VersionLine />
-      </header>
+      {/* No brand bar here. The sidebar already names the application, and a build version
+          belongs to the developer console, not above a traveller's first sentence. */}
 
       <div className="draft-welcome-layout flex min-h-144 flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
         <section className="draft-welcome-primary mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
@@ -965,50 +954,5 @@ export function DraftView({
  */
 const versionBadgeClass =
   "ml-1.5 inline-block align-super text-[10px] leading-4 text-gray-400 dark:text-gray-500";
-
-/**
- * Quiet version line under the brand subtitle: `vX.Y.Z · Last updated Jul 26`
- * (localized per dictionary). The product name is not repeated here — the brand wordmark
- * sits directly above, and the sidebar's version footer is bare `vX.Y.Z` too. The date is
- * the running version's release
- * date, stamped into core's BUILD_DATE at build time — displayed as-is, no network;
- * dev builds and releases that predate the stamping (v0.1.2 and earlier) carry null
- * and show the version alone. When the update check knows a newer release, a small
- * superscript badge follows, linking to the release page (this surface's affordance; the
- * sidebar user menu instead routes its single update row into the update dialog).
- * Fetching starts on mount — useVersionInfo caches at module level, so after the first
- * resolution anywhere in the app this renders instantly and never refetches. Nothing
- * renders until the version resolves (no placeholder flicker under the brand).
- */
-function VersionLine() {
-  const { locale } = useLocale();
-  const { version, update } = useVersionInfo(true);
-  if (version === null) return null;
-  const date = version.buildDate;
-  return (
-    <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-      {`v${version.version}${
-        date !== null ? ` · ${S.update.lastUpdated(formatMonthDay(date, locale))}` : ""
-      }`}
-      {update !== null &&
-        update.updateAvailable &&
-        update.latestVersion !== null &&
-        (update.releaseUrl !== null ? (
-          <a
-            href={update.releaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={S.update.newVersion(update.latestVersion)}
-            aria-label={S.update.newVersion(update.latestVersion)}
-            className={`${versionBadgeClass} hover:underline`}
-          >
-            {S.update.newVersionBadge}
-          </a>
-        ) : (
-          <span className={versionBadgeClass}>{S.update.newVersionBadge}</span>
-        ))}
-    </p>
-  );
-}
 
 /** Agent selection (pill dropdown): avatar + name, menu opens downward with an internal scroll cap. */

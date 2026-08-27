@@ -694,13 +694,9 @@ export function Sidebar({
     const activePending = pendingLoads.has(loadKey(groupKey, "active"));
     return (
       <>
-        {empty ? (
-          <p className="px-2.5 py-1 text-xs text-gray-400 dark:text-gray-600">
-            {S.chat.noSessions}
-          </p>
-        ) : (
-          renderRows(shownActive, withAgentHint)
-        )}
+        {/* An empty group says so once, in the count beside its name. A second line spelling
+            out "no conversations yet" underneath repeats what the `0` already said. */}
+        {empty ? null : renderRows(shownActive, withAgentHint)}
 
         {/* Load/reveal more (kept adjacent to the active list it extends, above the folders) */}
         {hasMore && (
@@ -868,17 +864,9 @@ export function Sidebar({
           overflow-y-auto and stretch the **document**, so expanding "More" / a source
           folder made the whole page scroll (composer pushed up, blank space below). */}
       <div className="relative min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {/* Section header. The separator spans the sidebar's full width (-mx-2 undoes the
-            scroller's padding, px-3 puts the row's own inset back). */}
-        <div className="-mx-2 mt-1 flex items-center justify-between border-t border-gray-200 px-3 pt-2 dark:border-gray-800">
-          <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            {S.trip.trips}
-          </span>
-        </div>
-
-        {/* Parked draft conversations (unsent new chats, newest first): pinned above both
-            grouping modes — they belong to no Agent or Workspace until sent. Hidden
-            entirely while there are none. */}
+        {/* Unsent drafts, newest first. A section of its own, above the trips: a draft
+            belongs to no journey yet — that is what makes it a draft — so listing it under
+            the Trips heading said something untrue about it. Hidden entirely while empty. */}
         {draftEntries.length > 0 && (
           <div className="pt-2.5">
             <GroupHeader
@@ -908,6 +896,14 @@ export function Sidebar({
             )}
           </div>
         )}
+
+        {/* Section header. The separator spans the sidebar's full width (-mx-2 undoes the
+            scroller's padding, px-3 puts the row's own inset back). */}
+        <div className="-mx-2 mt-1 flex items-center justify-between border-t border-gray-200 px-3 pt-2 dark:border-gray-800">
+          <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            {S.trip.trips}
+          </span>
+        </div>
 
         {loading && sessions.length === 0 && tripsLoading ? (
           <SkeletonList rows={5} />
