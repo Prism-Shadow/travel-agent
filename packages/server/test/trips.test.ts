@@ -389,4 +389,125 @@ describe("trips", () => {
     expect(renamed.status).toBe(200);
     expect(((await renamed.json()) as TripResponse).trip.name).toBe("Otaru winter");
   });
+
+  // The agent may fill a destination the chips left blank, and may never overwrite one the
+  // person gave. Both halves are asserted here because the safety of the whole arrangement is
+  // the second half: a model that misreads a sentence can only ever fill in an empty field.
+  const writeMirror = async (dir: string, patch: Record<string, unknown>) => {
+    const file = path.join(dir, "trip.json");
+    const body = JSON.parse(await fs.readFile(file, "utf8")) as Record<string, unknown>;
+    await fs.writeFile(file, `${JSON.stringify({ ...body, ...patch }, null, 2)}\n`, "utf8");
+  };
+
+  it("adopts a destination the agent wrote into a blank one, and renames an untitled trip", async () => {
+    const trip = await createTrip({});
+    expect(trip.name).toBe("Untitled trip");
+    expect(trip.destination).toBe("");
+
+    await writeMirror(trip.dir, { destination: "Shanghai" });
+
+    const res = await api.get(`/api/trips/${trip.tripId}`);
+    expect(res.status).toBe(200);
+    const after = ((await res.json()) as TripResponse).trip;
+    expect(after.destination).toBe("Shanghai");
+    expect(after.name).toBe("Shanghai");
+
+    // Adoption writes through to the row, so a second read is not a second adoption.
+    const mirror = JSON.parse(await fs.readFile(path.join(trip.dir, "trip.json"), "utf8")) as {
+      destination: string;
+      name: string;
+    };
+    expect(mirror.destination).toBe("Shanghai");
+    expect(mirror.name).toBe("Shanghai");
+  });
+
+  it("never lets the agent overwrite a destination or a name the person gave", async () => {
+    const trip = await createTrip({ destination: "Kyoto", name: "Autumn in Kyoto" });
+
+    await writeMirror(trip.dir, { destination: "Osaka", name: "Osaka trip" });
+
+    const res = await api.get(`/api/trips/${trip.tripId}`);
+    const after = ((await res.json()) as TripResponse).trip;
+    expect(after.destination, "the person's destination stands").toBe("Kyoto");
+    expect(after.name, "and so does their name").toBe("Autumn in Kyoto");
+  });
+
+  it("keeps a name the person chose even while adopting a blank destination", async () => {
+    const trip = await createTrip({ name: "Business trip" });
+    expect(trip.destination).toBe("");
+
+    await writeMirror(trip.dir, { destination: "Shanghai" });
+
+    const after = ((await (await api.get(`/api/trips/${trip.tripId}`)).json()) as TripResponse)
+      .trip;
+    expect(after.destination, "the blank is filled").toBe("Shanghai");
+    expect(after.name, "but a name they chose is not a blank").toBe("Business trip");
+  });
+
+  it("refuses to adopt when the person answered while the mirror was being read", async () => {
+    const trip = await createTrip({});
+    await writeMirror(trip.dir, { destination: "Shanghai" });
+
+    // The race the re-read closes: adoption captures the row, awaits the file, and only then
+    // writes. A PATCH landing inside that window is the person answering for themselves, and the
+    // earlier snapshot must not be allowed to win. Issuing both without awaiting the first is
+    // what puts the PATCH inside the read.
+    const [, patched] = await Promise.all([
+      api.get(`/api/trips/${trip.tripId}`),
+      api.patch(`/api/trips/${trip.tripId}`, { destination: "Kyoto" }),
+    ]);
+    expect(patched.status).toBe(200);
+
+    const after = ((await (await api.get(`/api/trips/${trip.tripId}`)).json()) as TripResponse)
+      .trip;
+    expect(after.destination, "the person's answer stands").toBe("Kyoto");
+  });
+
+  it("adopts through the project list as well as a single get", async () => {
+    const trip = await createTrip({});
+    await writeMirror(trip.dir, { destination: "Nara" });
+
+    const body = (await (
+      await api.get(`/api/projects/${projectId}/trips`)
+    ).json()) as TripsResponse;
+    const listed = body.trips.find((t) => t.tripId === trip.tripId);
+    expect(listed?.destination).toBe("Nara");
+    expect(listed?.name).toBe("Nara");
+  });
+
+  it("adopts the destination and nothing else, however much the mirror claims", async () => {
+    const trip = await createTrip({});
+    await writeMirror(trip.dir, {
+      destination: "Osaka",
+      when: { kind: "dates", start: "2027-01-01", end: "2027-01-09" },
+      who: { adults: 9, children: 9 },
+      budget: "high",
+      tripId: "t-somebody-elses",
+    });
+
+    const after = ((await (await api.get(`/api/trips/${trip.tripId}`)).json()) as TripResponse)
+      .trip;
+    expect(after.destination, "the one field it may write").toBe("Osaka");
+    expect(after.when, "dates are a commitment, not an observation").toBeNull();
+    expect(after.who).toBeNull();
+    expect(after.budget).toBeNull();
+    expect(after.tripId, "identity is not the mirror's to claim").toBe(trip.tripId);
+  });
+
+  it("ignores a mirror that is missing, unreadable or not JSON", async () => {
+    const trip = await createTrip({});
+    await fs.writeFile(path.join(trip.dir, "trip.json"), "not json at all", "utf8");
+    const after = ((await (await api.get(`/api/trips/${trip.tripId}`)).json()) as TripResponse)
+      .trip;
+    expect(after.destination).toBe("");
+    expect(after.name).toBe("Untitled trip");
+
+    // A missing mirror is the ordinary case for a folder the person moved, and it has to read as
+    // "nothing to adopt" rather than as an error.
+    const gone = await createTrip({});
+    await fs.rm(path.join(gone.dir, "trip.json"));
+    const stillBlank = ((await (await api.get(`/api/trips/${gone.tripId}`)).json()) as TripResponse)
+      .trip;
+    expect(stillBlank.destination).toBe("");
+  });
 });

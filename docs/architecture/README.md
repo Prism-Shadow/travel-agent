@@ -82,7 +82,7 @@ server index
   sessions  + trip_id (nullable)   ← attach / move / detach is one UPDATE
 
 ~/Penguin Trips/tokyo-2026-10/
-  trip.json      identity, written by the server, read by the agent
+  trip.json      identity, written by the server; the agent may fill a blank destination
   itinerary.md   the plan, written by the model, rendered by the app
   places.json · map.png   optional, written by the model as evidence for a spatial claim
 ```
@@ -94,7 +94,12 @@ resolve absolute paths unchanged. A conversation belonging to no Trip is an ordi
 defect.
 
 Ownership is split the same way everywhere: the server writes what it renders (the row and its
-`trip.json` mirror); the model owns the documents. Deleting a Trip detaches its conversations and
+`trip.json` mirror); the model owns the documents. One exception, and it is one-directional: the
+model may write `destination` into `trip.json` when it is empty, and the server adopts that on the
+next read of the trip. A blank may be filled; a value the person gave is never overwritten, and no
+other field is adopted. That is what lets a Trip described only in a sentence — "I'm going to
+Shanghai tomorrow" — stop being called *Untitled trip*
+([decision](../decisions/implemented/2026-08-28-the-agent-may-fill-a-blank-destination.md)). Deleting a Trip detaches its conversations and
 leaves the folder alone whenever the journey put anything in it — those files are the person's. A
 folder holding nothing but the `trip.json` the server itself wrote is removed with the row, so a
 trip that never started leaves no husk behind.

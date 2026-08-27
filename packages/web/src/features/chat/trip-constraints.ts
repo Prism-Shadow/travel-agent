@@ -71,18 +71,40 @@ export function tripToConstraints(trip: TripSummary): TripConstraints {
  * `null`: the chips are a complete statement of the trip's identity, so a field the person
  * emptied has to be cleared on the Trip rather than left at its previous value.
  */
-export function constraintsToTripPatch(c: TripConstraints): {
+export function constraintsToTripPatch(
+  c: TripConstraints,
+  previous?: TripConstraints,
+): Partial<{
   destination: string;
   when: TripWhen | null;
   who: TripWho | null;
   budget: TripBudgetTier | null;
-} {
-  return {
+}> {
+  const full = {
     destination: c.where.trim(),
     when: whenIsSet(c.when) ? c.when : null,
     who: c.who,
     budget: c.budget,
   };
+  if (!previous) return full;
+
+  // Only what this edit changed. Sending the whole identity made every chip edit a write of all
+  // four fields from whatever the component last rendered — and the destination the agent may
+  // have filled in since is not in that snapshot, so touching the budget silently reverted it.
+  // The server refuses to overwrite a destination, but it cannot defend against a client that
+  // claims the blank is still the person's current answer.
+  const before = {
+    destination: previous.where.trim(),
+    when: whenIsSet(previous.when) ? previous.when : null,
+    who: previous.who,
+    budget: previous.budget,
+  };
+  const patch: Partial<typeof full> = {};
+  if (full.destination !== before.destination) patch.destination = full.destination;
+  if (JSON.stringify(full.when) !== JSON.stringify(before.when)) patch.when = full.when;
+  if (full.who !== before.who) patch.who = full.who;
+  if (full.budget !== before.budget) patch.budget = full.budget;
+  return patch;
 }
 
 /** Locale copy the composer needs (structural contract for strings.ts / strings-en.ts). */

@@ -3,8 +3,8 @@ name: trip-workspace
 description: Read and maintain the files of the Trip a conversation belongs to. A Trip is the traveller's journey - it owns a folder on their own disk holding trip.json (its identity, written by the app) and itinerary.md (the plan, written by you). Use at the start of any conversation that belongs to a Trip, and whenever a decision, a comparison or a booking-page result should outlive the conversation that produced it.
 short_description: Work in the trip folder - read what the journey knows, write what you decide.
 short_description_zh: 在行程文件夹中工作——读取行程已知信息，写回你的决定。
-version: 1
-updated: 2026-08-26T00:00:00Z
+version: 2
+updated: 2026-08-28T00:00:00Z
 ---
 
 # Trip workspace
@@ -35,14 +35,34 @@ and is not the trip.
 
 | File | Owner | Meaning |
 | --- | --- | --- |
-| `trip.json` | **The app** | Destination, dates, travellers, budget tier. Read it; never write it. |
+| `trip.json` | **The app**, except a blank destination | Destination, dates, travellers, budget tier. Read it. Write only the one case below. |
 | `itinerary.md` | **You** | The plan: what happens on which day, and why. |
 | `places.json` | **You** | Coordinates of the places in the plan (optional; see below). |
 | `map.png` | **You** | A rendered map of those places (optional; see below). |
 
-`trip.json` is written by the application when the person edits the trip's chips. If the journey's
-details are wrong or missing, say so and let them correct it — editing the file yourself would be
-overwritten and would put the app and the folder out of step.
+`trip.json` is written by the application when the person edits the trip's chips. If a detail is
+**wrong**, say so and let them correct it — overwriting their answer would put the app and the
+folder out of step, and they know where they are going better than you do.
+
+### The one field you may write: an empty destination
+
+A Trip is created by the first message, and its identity comes from those chips. Someone who
+writes "I'm going to Shanghai tomorrow" and never fills the chips gets a trip called *Untitled
+trip* — the destination was in the sentence, and only the form was listened to. You read that
+sentence. You can fix it.
+
+When `destination` in `trip.json` is empty **and the conversation has made the destination
+unambiguous**, write the file back with `destination` filled in, keeping every other field exactly
+as it was. The app adopts it the next time it reads the trip, and renames the folder's trip if it
+is still called *Untitled trip*.
+
+The rule the app enforces, so you can rely on it: **a blank may be filled, a value is never
+overwritten.** Your write cannot damage an answer the person gave. That is also why this is the
+only field — dates, party size and budget are commitments they make, not observations you can
+read off a sentence.
+
+Do not guess. "Somewhere warm in March" is not a destination; Shanghai is. If the conversation has
+not settled it, leave the file alone and ask.
 
 ## Reading trip.json
 
@@ -160,8 +180,9 @@ its source instead. A missing map is better than a misleading one.
 
 ## What this skill does not do
 
-- It does not create, rename or delete Trips. The person does that in the app.
-- It does not write `trip.json`.
+- It does not create or delete Trips. The person does that in the app.
+- It does not write `trip.json`, except to fill in a destination that is blank — see above.
+- It does not decide dates, party size or budget. Those are the person's commitments.
 - It does not delete anything in the trip folder. Those files are the person's.
 - It does not keep a booking ledger. This product stops at the payment page and cannot see whether
   the payment went through; a file claiming a booking exists would be a guess.

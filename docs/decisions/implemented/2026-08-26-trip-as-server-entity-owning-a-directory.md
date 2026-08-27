@@ -50,7 +50,7 @@ server index
   sessions  + trip_id (nullable)
 
 disk  ~/Penguin Trips/<trip>/
-  trip.json      identity fields, written by the server, read by the agent
+  trip.json      identity fields, written by the server; the agent may fill a blank destination
   itinerary.md   the model's document
 
 agent  reads and writes the trip directory by absolute path, taught by a trip skill
@@ -81,6 +81,15 @@ identity change — this is how Mindtrip's chips behave, where a destination is 
 (§13.1) — but a proposal is rendered as an existing `selection` card and applied by the person's
 click, never written by the agent directly. That keeps Hard Rule 4 intact: the model judges, code
 enforces only where the model is inside the threat model.
+
+> **Narrowed on 2026-08-28.** One field is no longer routed through a card: the model may write
+> `destination` into `trip.json` when it is empty, and the server adopts it into a blank only.
+> The reason is that a card never appeared — a Trip whose destination was stated in the opening
+> sentence sat as *Untitled trip* indefinitely. Hard Rule 4 still holds, because the enforcement
+> is in the server rather than in the instructions: a model that ignores the rule cannot overwrite
+> anything.
+> See
+> [the agent may fill a blank destination](2026-08-28-the-agent-may-fill-a-blank-destination.md).
 
 Trip continuity likewise comes from the model, not from engine machinery: a trip skill has each
 conversation read `trip.json` and `itinerary.md` before it starts work.

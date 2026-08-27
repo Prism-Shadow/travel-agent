@@ -142,6 +142,60 @@ export class TripService {
     }
   }
 
+  /**
+   * Adopts a destination the agent discovered, but only into a blank.
+   *
+   * A Trip is created by the first message, and its identity comes from the chips above the
+   * composer. Someone who writes "I'm going to Shanghai tomorrow" and never touches the chips
+   * gets a Trip called "Untitled trip" — the destination was in the sentence, and the naming
+   * only listened to the form. The model reading that sentence knows the answer; it just had no
+   * way to say so.
+   *
+   * So the agent may now write `trip.json`, and this reconciles it on read. The rule is
+   * deliberately one-directional: **a blank may be filled, a value may never be overwritten.**
+   * The person's chip always beats the model's inference, and a model that misreads a sentence
+   * can only ever fill in something that was empty. There is no watcher and no polling — the
+   * mirror is read where a Trip is already being read.
+   *
+   * Only `destination`, and the `name` that defaults from it. Dates, party size and budget are
+   * commitments rather than observations; a model that guesses those from conversation would be
+   * writing the person's intent rather than recording it.
+   */
+  private async adoptAgentIdentity(row: TripRow): Promise<TripRow> {
+    if (row.destination) return row;
+    let mirror: { destination?: unknown };
+    try {
+      mirror = JSON.parse(
+        await fs.readFile(path.join(row.dir, TRIP_JSON_FILENAME), "utf8"),
+      ) as typeof mirror;
+    } catch {
+      return row; // no mirror, unreadable, or not JSON: nothing to adopt
+    }
+    const destination = typeof mirror.destination === "string" ? mirror.destination.trim() : "";
+    if (!destination) return row;
+
+    // Re-read before deciding. `row` was captured before the file read above, and a person can
+    // PATCH their own destination in that window — writing the earlier snapshot's conclusion over
+    // their answer, which is exactly the overwrite this whole design promises cannot happen. The
+    // check that matters is against the row as it is now, not as it was when the read started.
+    // From here on there is no await: better-sqlite3 is synchronous, so nothing can interleave
+    // between this read and the update below.
+    const current = this.deps.trips.findById(row.tripId);
+    if (!current || current.destination) return current ?? row;
+
+    const patch: TripPatch = { destination };
+    // The name follows the destination only while it is still the placeholder: a Trip the person
+    // named themselves keeps that name, exactly as an explicit name beats a destination at create.
+    if (current.name === UNTITLED_TRIP_NAME) patch.name = destination;
+    const updatedAt = new Date().toISOString();
+    this.deps.trips.update(row.tripId, patch, updatedAt);
+    const updated = this.deps.trips.findById(row.tripId) ?? current;
+    // Re-render the mirror so it carries the row's shape again, including the fields the agent
+    // did not write.
+    await this.writeTripJson(updated);
+    return updated;
+  }
+
   private async toSummary(row: TripRow): Promise<TripSummary> {
     return {
       tripId: row.tripId,
@@ -227,11 +281,11 @@ export class TripService {
   async list(userId: string, projectId: string): Promise<TripSummary[]> {
     this.deps.projectService.requireProjectAccess(userId, projectId);
     const rows = this.deps.trips.listByProject(projectId);
-    return Promise.all(rows.map((r) => this.toSummary(r)));
+    return Promise.all(rows.map(async (r) => this.toSummary(await this.adoptAgentIdentity(r))));
   }
 
   async get(userId: string, tripId: string): Promise<TripSummary> {
-    return this.toSummary(this.requireTrip(userId, tripId));
+    return this.toSummary(await this.adoptAgentIdentity(this.requireTrip(userId, tripId)));
   }
 
   async patch(userId: string, tripId: string, patch: TripPatch): Promise<TripSummary> {

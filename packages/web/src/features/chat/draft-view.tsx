@@ -643,9 +643,14 @@ export function DraftView({
       }
       // The Trip is the store of record; a failed write must not leave the chips showing a
       // value the journey does not actually have, so nothing is set optimistically here.
-      void patchTrip(draftTrip.tripId, constraintsToTripPatch(next)).catch((e: unknown) =>
-        toastError(apiErrorText(e)),
-      );
+      //
+      // The previous value is passed so the patch carries only what this edit changed. Sending
+      // all four fields meant editing the budget also wrote the destination as this component
+      // last saw it — reverting one the agent had filled in since, which no server-side rule can
+      // catch because it arrives looking like the person's own answer.
+      const patch = constraintsToTripPatch(next, tripToConstraints(draftTrip));
+      if (Object.keys(patch).length === 0) return;
+      void patchTrip(draftTrip.tripId, patch).catch((e: unknown) => toastError(apiErrorText(e)));
     },
     [draftTrip, patchTrip],
   );

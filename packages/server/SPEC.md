@@ -35,6 +35,12 @@ Two things live here, and keeping them distinguishable is this module's main dis
   and its `trip.json` mirror; the model owns `itinerary.md` and everything else the work produces.
   The server never edits the model's documents. It deletes a trip directory only when nothing but
   its own `trip.json` is in it.
+- **The one field the model may write back.** The model may set `destination` in `trip.json` when
+  it is empty. The server adopts it on the next read of that trip, and only into a blank: a value
+  the person gave is never overwritten, and no other field is ever adopted. Enforced in
+  `TripService.adoptAgentIdentity`, not in the skill, so a model that ignores its instructions
+  still cannot overwrite anything
+  ([decision](../../docs/decisions/implemented/2026-08-28-the-agent-may-fill-a-blank-destination.md)).
 - **The interaction-card contract** (`src/interaction/`, DTOs in `src/api/types.ts`) — stated in
   full below, because nothing else in the repository states it.
 - **The index.** SQLite holds indexes and aggregates only. Agent State, Traces and Workspaces stay

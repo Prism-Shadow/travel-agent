@@ -218,4 +218,44 @@ describe("chips as a trip's identity", () => {
       }).when,
     ).toBeNull();
   });
+
+  // With a previous value, the patch carries only what this edit changed. The destination is the
+  // field this protects: the agent may fill a blank one between renders, and a patch that resends
+  // the component's stale snapshot would revert it while looking like the person's own answer —
+  // which no server-side rule can distinguish or refuse.
+  describe("constraintsToTripPatch with a previous value", () => {
+    const base: TripConstraints = {
+      ...EMPTY_TRIP_CONSTRAINTS,
+      where: "Shanghai",
+      budget: "mid",
+    };
+
+    it("sends only the changed field", () => {
+      const next: TripConstraints = { ...base, budget: "high" };
+      expect(constraintsToTripPatch(next, base)).toEqual({ budget: "high" });
+    });
+
+    it("does not resend a destination this edit did not touch", () => {
+      const next: TripConstraints = { ...base, who: { adults: 2, children: 0, infants: 0 } };
+      expect(constraintsToTripPatch(next, base)).not.toHaveProperty("destination");
+    });
+
+    it("sends the destination when it really is what changed", () => {
+      const next: TripConstraints = { ...base, where: "Suzhou" };
+      expect(constraintsToTripPatch(next, base)).toEqual({ destination: "Suzhou" });
+    });
+
+    it("is empty when nothing changed, so no write is issued at all", () => {
+      expect(constraintsToTripPatch(base, base)).toEqual({});
+    });
+
+    it("still sends everything when there is no previous value (first write)", () => {
+      expect(Object.keys(constraintsToTripPatch(base)).sort()).toEqual([
+        "budget",
+        "destination",
+        "when",
+        "who",
+      ]);
+    });
+  });
 });
