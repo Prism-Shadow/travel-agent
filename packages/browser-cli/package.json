@@ -15,7 +15,7 @@
     "cli": "vite-node src/cli.ts",
     "typecheck": "tsc && tsc -p tsconfig.test.json",
     "mcp": "vite-node src/cli.ts",
-    "test": "vitest run --no-file-parallelism",
+    "test": "vitest run",
     "test:update": "vitest run -u",
     "test:watch": "vitest"
   },

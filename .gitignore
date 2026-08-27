@@ -33,6 +33,10 @@ cache/
 packages/web/test-results/
 packages/web/playwright-report/
 
+# JUnit reports: CI asks for one so a failure's diff survives the log, and running that same
+# command locally leaves the file behind.
+browser-cli-results.xml
+
 # blog images staged locally by the landing capture/render scripts, then uploaded to
 # the community repo's blog-assets/ — never committed here (see lib/links.ts)
 packages/landing/.blog-assets/

@@ -68,8 +68,11 @@ needed.
   `.worktree/<task>` — which this repository *mandates* — makes `spec_validate` report every spec id
   as a duplicate until the worktree is removed; the graph is fine, the scan is not. And `rg`
   respects `.gitignore`, so grepping those same directories returns a confident empty result unless
-  you pass `--no-ignore` — a false negative, which is the worst of the three. Before trusting a
-  tool's answer about an ignored path, know which ignore file it reads.
+  you pass `--no-ignore` — a false negative, which is the worst of the three. `rg` also hides
+  **dot-directories** by default, so a repository-wide sweep silently skips `.github/`: a
+  deletion sweep that reported "no references left" had never looked at the workflows. Before
+  trusting a tool's answer about a path, know which ignore rules it applies — for `rg`, that is
+  `--no-ignore --hidden`.
 
 - **Never compute a package-relative path by counting directories.**
   `path.join(__dirname, '..', 'dist', …)` encodes how deep the asking file sits. Nine files in
@@ -80,6 +83,21 @@ needed.
   sweeping for stale deep paths after a move, grep **both spellings** — the package name
   (`penguin-browser/dist/`) and the directory name (`browser-cli/dist/`): the 08-19 regrouping
   sweep used only the first and missed the desktop e2e harness, which then broke CI.
+- **An inherited flag is a decision nobody made — and it will not defend itself, so nobody
+  re-opens it.** `browser-cli`'s test script carried `--no-file-parallelism` from the day the
+  package was vendored; the commit that brought it in never mentions it, and it cost 4x on every
+  run for weeks — 5 1/2 minutes against one, and it was the longest job in CI. Meanwhile the
+  suite's own harness had gone to real trouble to be parallel-safe (an atomic build lock, per-port
+  dist directories), so the flag contradicted the code it was protecting. When a config line makes
+  a build slow, check `git log -S` for it: if the commit that added it does not say why, it was
+  imported, not chosen.
+
+- **A comment that says "temporarily" is what makes a thing permanent.** The same CI job sat
+  `continue-on-error` behind fourteen lines explaining exactly why that was temporary and naming
+  the condition to end it. Nine clean runs later it was still there — the note reads as considered,
+  so nobody deletes it, and the better the note the longer it survives. Put an expiry that a
+  machine can see, or accept that the state is permanent and write it as such.
+
 - **A cancelled batch-push CI run validates nothing.** Commits accumulated locally and pushed
   together get one run for the head commit; if a follow-up push auto-cancels it, every commit in
   the batch lands unverified and the next completed run blames whoever pushed last. After a

@@ -88,10 +88,9 @@ jobs:
       - name: Typecheck (tsc)
         run: pnpm typecheck
 
-      # Everything except penguin-browser, whose relay suite needs a real Chromium and a real
-      # display and is currently unreliable on a shared runner — it runs in its own job below so a
-      # timing-sensitive click cannot block a merge. Excluding it here rather than marking this job
-      # continue-on-error keeps a genuine failure in the other eight packages fatal.
+      # Everything except penguin-browser: its suite needs a real Chromium, so it installs one and
+      # runs in the job below — beside this one rather than after it. That job blocks a merge like
+      # this one does; the split is for wall-clock, not for leniency.
       - name: Unit tests (vitest)
         run: pnpm -r --filter='!penguin-browser' test
 
@@ -120,7 +119,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb
           pnpm --filter @prismshadow/penguin-desktop test:e2e
 
-  # penguin-browser, reported but not blocking — for now.
+  # penguin-browser, beside the job above rather than after it.
   #
   # This job was split out when the suite was red and the failures were written down here as
   # "properties of the runner, not of the code". **That was wrong**, and the correction is worth
@@ -129,16 +128,17 @@ jobs:
   # emulation the process under test could not observe, an unguarded read of a log the healthy run
   # never writes, a third party's page height pinned in an inline snapshot, and — the one that made
   # the set of failures move between runs — every suite truncating a *shared* CDP log that vitest's
-  # parallel workers were all writing to. All are fixed; the suite now passes 550/550.
+  # parallel workers were all writing to. All are fixed.
   #
-  # The job stays non-blocking for a short while only, because the last of those was a race and one
-  # green run is not proof. Fold it back into the job above once a few CI runs have come back clean;
-  # leaving it non-blocking indefinitely would recreate the thing it was meant to prevent — a result
-  # nobody reads.
+  # Blocking again since 2026-08-27, after nine consecutive green runs: a result that cannot fail a
+  # merge is a result nobody reads, which is what the note here warned about while it sat
+  # non-blocking for nine days. It stays a **separate** job rather than being folded into the one
+  # above — the earlier note asked for folding, but folding was only ever the means: it would put
+  # this suite's minute behind that job's six instead of beside it, and what needed to end was the
+  # unread result, not the split.
   browser-cli:
-    name: penguin-browser (non-blocking)
+    name: penguin-browser
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -169,26 +169,28 @@ jobs:
       - name: Install Chromium for Playwright
         run: pnpm --filter penguin-browser exec playwright-core install chromium
 
+      # Files run in parallel, which is what this suite's own harness was built for: the extension
+      # build takes an atomic `mkdir` lock across worker processes and each worker builds into a
+      # per-port dist. The package script carried `--no-file-parallelism` anyway — inherited with
+      # the vendored code, explained nowhere — and dropping it cut the suite from ~5 1/2 minutes to
+      # about one, measured green five runs in a row before the flag was removed.
       - name: Unit tests (penguin-browser)
-        run: pnpm --filter penguin-browser test
+        run: pnpm --filter penguin-browser test --reporter=default --reporter=junit --outputFile.junit=browser-cli-results.xml
 
-      # What a snapshot failure actually was, when it only happens here.
+      # A failure's diff, written where the log cannot lose it.
       #
-      # Vitest prints an Expected/Received diff for `toMatchFileSnapshot`, but on this runner the
-      # failure block arrives interleaved with the summary writer and the diff is lost — a
-      # `getPageMarkdown` snapshot failed with the log carrying the code frame and nothing else,
-      # while the same command passed locally. Re-running the suite with `-u` rewrites the snapshot
-      # files with what *this machine* produced, so `git diff` is the difference, exactly.
-      #
-      # Diagnostic only: it runs after the job has already failed, changes nothing that is kept
-      # (the checkout is thrown away), and cannot turn a red job green — `if: failure()` and the
-      # trailing `|| true` keep it from affecting the outcome either way.
-      - name: Snapshot diff (diagnostic, on failure only)
+      # A `getPageMarkdown` file-snapshot once failed here carrying the code frame and no diff: the
+      # failure block arrived interleaved with the summary writer and the Expected/Received was
+      # gone. A reporter that writes to its own file is the direct answer. This step used to re-run
+      # the entire suite with `-u` to recover the same information from `git diff`, on a checkout
+      # that is thrown away.
+      - name: Test report (on failure only)
         if: failure()
-        run: |
-          pnpm --filter penguin-browser exec vitest run --no-file-parallelism -u || true
-          echo "--- snapshot files as this runner produced them ---"
-          git --no-pager diff -- 'packages/browser-cli/**/snapshots/**' 'packages/browser-cli/**/*.snap' || true
+        uses: actions/upload-artifact@v4
+        with:
+          name: penguin-browser-results
+          path: "**/browser-cli-results.xml"
+          if-no-files-found: ignore
 
   # The live-model end-to-end, on main only.
   #

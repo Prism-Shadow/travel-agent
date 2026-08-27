@@ -55,3 +55,9 @@ production edge.
 Being vendored, this package keeps its own formatting (`.prettierignore` excludes it) and its own
 independently-managed version, which encodes CLI/relay compatibility rather than the product
 release. `src/README.md` maps the source layout; this document states the contract.
+
+Its suite launches real Chromium instances and **runs its files in parallel**, which the harness is
+built for: the extension build is serialized across worker processes by an atomic `mkdir` lock and
+each worker builds into a per-port dist directory (`test/test-utils.ts`). Anything added here that
+shares a file between workers has to say how it is serialized — a shared CDP log that every suite
+truncated is what once made this suite's failures move between runs.
