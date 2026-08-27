@@ -24,7 +24,13 @@ import type {
 } from "../../lib/desktop-bridge";
 import { computeOcclusion, occludePane, subscribeToOcclusion } from "../../lib/pane-occlusion";
 import { occlusionEntries } from "../../lib/pane-occlusion";
-import { applySessionSwitch, isCurrentAnswer, isScopeSettled } from "./browser-pane-scope";
+import {
+  applySessionSwitch,
+  beginSwitch,
+  isCurrentAnswer,
+  isScopeSettled,
+  latestSwitchSeq,
+} from "./browser-pane-scope";
 import {
   DEFAULT_PANE_FRACTION,
   canSplit,
@@ -453,27 +459,29 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   // conversation this is, so the native view is off screen for the whole switch rather than showing
   // the previous conversation's page over the new one's chat while the round trip is in flight.
   //
-  // Answers are matched to requests by a counter: two route changes in quick succession can settle
-  // out of order, and a late answer for the conversation the user has already left must not be
-  // taken as confirmation of the one they are in.
-  const switchRequest = useRef(0);
+  // Answers are matched to requests by a sequence number: two route changes in quick succession can
+  // settle out of order, and a late answer for the conversation the user has already left must not
+  // be taken as confirmation of the one they are in. The same number is sent to main as the stamp
+  // that lets it reject a stale announce, so it lives in the scope module rather than in a ref here:
+  // a per-mount counter restarting would make main refuse every announce after a remount.
+  //
   // A layout effect, not an effect: this runs in the commit that changed the route, before the
   // browser paints it. An ordinary effect fires *after* the new conversation is on screen, which is
   // one frame of the previous conversation's page sitting over it.
   useLayoutEffect(() => {
     if (!bridge) return;
-    const request = ++switchRequest.current;
+    const stamp = beginSwitch();
     setConfirmedScope(null);
     void applySessionSwitch({
       hide: () => bridge.hideNow(),
-      announce: (id) => bridge.setSession(id),
+      announce: (id) => bridge.setSession(id, stamp),
       sessionId,
-      isCurrent: () => isCurrentAnswer(request, switchRequest.current),
+      isCurrent: () => isCurrentAnswer(stamp.seq, latestSwitchSeq()),
       onHidden: () => {
         lastSent.current = "none";
       },
     }).then((scope) => {
-      if (!isCurrentAnswer(request, switchRequest.current)) return;
+      if (!isCurrentAnswer(stamp.seq, latestSwitchSeq())) return;
       setConfirmedScope(scope);
     });
   }, [bridge, sessionId]);
@@ -553,7 +561,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
         // so deliberately skip this confirmation — setting the draft normally would clear main's
         // one-shot rollback record before it can move the tabs back.
         if (bridge && sessionId !== null && nextSessionId !== sessionId) {
-          const confirmed = await bridge.setSession(sessionId);
+          const confirmed = await bridge.setSession(sessionId, beginSwitch());
           if (confirmed !== sessionId) {
             throw new Error("The draft browser scope was not ready to be promoted");
           }

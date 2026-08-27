@@ -18,6 +18,30 @@
  * Kept pure and separate from the hook so all three can be posed directly; the hook holds only the
  * request counter that feeds `isCurrentAnswer`.
  */
+import type { SwitchStamp } from "../../lib/desktop-bridge";
+
+/**
+ * The switch sequence, module-scoped rather than per-hook on purpose.
+ *
+ * The hook's own request counter answers "is this reply for the switch I am still waiting on", and
+ * a counter that restarts when the hook remounts answers that correctly. The stamp *main* compares
+ * against cannot restart: main would then refuse every announce made after a remount, which is a
+ * worse failure than the stale announce it exists to reject. So the sequence lives here, for as
+ * long as the document does, and carries that document's identity with it.
+ */
+const SWITCH_EPOCH = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+let switchSeq = 0;
+
+/** Opens a switch: bumps the sequence and returns the stamp naming it. */
+export function beginSwitch(): SwitchStamp {
+  switchSeq += 1;
+  return { epoch: SWITCH_EPOCH, seq: switchSeq };
+}
+
+/** The sequence number of the most recently opened switch. */
+export function latestSwitchSeq(): number {
+  return switchSeq;
+}
 
 export interface ScopeInput {
   /** The browser scope the renderer is on. Null on the session list. */

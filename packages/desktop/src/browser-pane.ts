@@ -324,6 +324,18 @@ function delay(ms: number): Promise<void> {
   });
 }
 
+/**
+ * Which conversation switch an announce belongs to (issue 0008).
+ *
+ * `seq` is monotonic within one renderer document; `epoch` names that document, so a reload starts a
+ * fresh sequence that is adopted rather than compared. Declared here rather than imported: the
+ * desktop shell does not depend on the web app's source, and this is the wire shape it validates.
+ */
+export interface SwitchStamp {
+  epoch: string;
+  seq: number;
+}
+
 /** Renderer-created owner for a browser strip before its server Session exists. */
 const DRAFT_BROWSER_SCOPE_PREFIX = "draft-scope-";
 
@@ -374,6 +386,13 @@ export class BrowserPane {
   private occluded = false;
   /** The conversation the renderer is showing. Null means no conversation is open. */
   private activeSession: string | null = null;
+  /**
+   * The newest switch stamp applied, so an older announce can be refused (issue 0008).
+   *
+   * Null until the first stamped announce, which is also what keeps every internal and test caller
+   * of `setActiveSession` working unchanged: an unstamped call is applied and moves nothing here.
+   */
+  private lastSwitchStamp: SwitchStamp | null = null;
   /**
    * The one promotion that may still be rolled back if posting the first task fails.
    *
@@ -1332,8 +1351,34 @@ export class BrowserPane {
 
   // --- session and task lifecycle -------------------------------------------
 
-  /** Which conversation the renderer is showing. */
-  setActiveSession(sessionId: string | null): void {
+  /**
+   * Which conversation the renderer is showing.
+   *
+   * The stamp is what makes this safe to believe. Ordering knowledge used to live entirely in the
+   * renderer — it numbered its switches so it could tell which *reply* was current — while main,
+   * which holds the state that gets corrupted, took whatever arrived last. Issue 0008 was that
+   * asymmetry: the pane twice reported a scope exactly one conversation behind, and no writer could
+   * be pinned because every writer was permitted. An announce older than the one already applied is
+   * now refused, so the failure is unrepresentable whatever produced it — and the refusal is logged,
+   * which is what will finally name the writer if one is still out there.
+   *
+   * A stamp from a different epoch is a new document (a reload), and is adopted rather than
+   * compared: sequences are only comparable within the document that minted them.
+   */
+  setActiveSession(sessionId: string | null, stamp?: SwitchStamp): void {
+    if (stamp) {
+      const stale =
+        this.lastSwitchStamp !== null &&
+        this.lastSwitchStamp.epoch === stamp.epoch &&
+        stamp.seq < this.lastSwitchStamp.seq;
+      if (stale) {
+        this.log(
+          `ignored stale set-session ${sessionId ?? "none"} (seq ${stamp.seq} < ${this.lastSwitchStamp?.seq})`,
+        );
+        return;
+      }
+      this.lastSwitchStamp = stamp;
+    }
     if (this.activeSession === sessionId) {
       // The route has caught up with a successful promotion. Its one-shot rollback window is over.
       this.pendingDraftPromotion = null;

@@ -210,8 +210,10 @@ const api = {
    * Answers with the scope main is now showing, so a renderer that changed route twice in quick
    * succession can tell which switch this reply belongs to.
    */
-  setSession: (sessionId: string | null): Promise<string | null> =>
-    ipcRenderer.invoke("iab:set-session", sessionId),
+  setSession: (
+    sessionId: string | null,
+    stamp: { epoch: string; seq: number },
+  ): Promise<string | null> => ipcRenderer.invoke("iab:set-session", { sessionId, stamp }),
 
   /** Promote the active draft's browser strip to its newly-created Session (or roll it back). */
   reassignSession: (sessionId: string): Promise<string> =>

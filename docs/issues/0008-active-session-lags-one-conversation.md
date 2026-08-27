@@ -77,10 +77,51 @@ bug no longer locks agents out — its remaining damage is a late strip render. 
 the stale writer with a transition log) remains open; this issue now tracks only that
 correctness bug.
 
-## Fix directions to decide
+## Status update (2026-08-27) — the class is closed; the writer is still not pinned
 
-1. Fix the lag itself (once the writer is pinned) — necessary regardless.
+The writer was never found, and the fix stopped depending on finding it.
+
+What static analysis established: `activeSession` has exactly two writers, `setActiveSession` and
+`reassignActiveSession`, both driven from the renderer over IPC, and no path through today's code
+produces a stale write. What it also established is why that search could never have been
+conclusive: **main had no ordering knowledge at all.** The renderer numbered its switches — but only
+to decide which *reply* to believe; the number was never sent. Main, which holds the state that gets
+corrupted, applied whatever arrived last.
+
+Both recorded symptoms were then reproduced at the unit level, which had not been done before:
+
+| Sequence | `activeSession` afterwards |
+| --- | --- |
+| promote `draft-scope-aaa` → `session-B`, then a late announce naming the draft scope | `draft-scope-aaa` |
+| `session-A` → draft → promote to `session-B`, then a late announce naming `session-A` | `session-A` |
+
+Those are the two rows of the table at the top of this issue, produced on demand. So whatever sent
+the late announce, it was permitted — and the fix is to stop permitting it rather than to keep
+hunting the sender.
+
+**The stamp.** The renderer's switch sequence is now sent with each announce, and main refuses one
+older than the stamp it last applied. The sequence moved out of the hook and into the scope module
+so it survives a remount; a stamp from a different epoch is a new document and is adopted wholesale,
+because refusing it would leave the pane stuck on the old conversation for the rest of the run.
+Refusals are logged, so if a late announce is still being sent, the log now names it.
+
+Four tests pin this in `packages/desktop/test/browser-pane-behaviour.test.ts`; the two symptom tests
+were confirmed red against the un-stamped code before the guard landed. The contract is in
+[`packages/desktop/SPEC.md`](../../packages/desktop/SPEC.md).
+
+## What is left
+
+The original correctness question — *which* code path sent an announce out of order — is still open,
+and may have been closed by the 2026-08-21 announce fix. It is no longer load-bearing: the state it
+produced is now unrepresentable. If the refusal log ever fires, that line names the writer; if it
+never fires, there is nothing left to find. This issue can close on either.
+
+Direction 2 below shipped on 2026-08-21 and is recorded for context.
+
+## Fix directions (historical)
+
+1. Fix the lag itself (once the writer is pinned) — superseded: the class was closed without
+   pinning it, by moving the ordering guard to the side that holds the state.
 2. Product decision: let an agent open tabs into its own conversation's non-displayed strip
    (visible immediately on switching back, plus a sidebar cue), reserving the hard refusal for
-   the case the strip model genuinely cannot represent. This dissolves the entire failure class
-   rather than the one writer.
+   the case the strip model genuinely cannot represent. **Shipped 2026-08-21.**

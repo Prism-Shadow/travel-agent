@@ -65,6 +65,19 @@ export interface DesktopPaneState {
   /** Pages left behind by a run that did not shut down cleanly, awaiting the user's answer. */
 }
 
+/**
+ * Which conversation switch an announce belongs to.
+ *
+ * `seq` is monotonic within one document; `epoch` identifies that document. A reload starts a fresh
+ * sequence, which main adopts wholesale rather than rejecting as older — without the epoch, a
+ * remount would restart the count and main would refuse every announce after it, which is a worse
+ * failure than the one this guards against (issue 0008).
+ */
+export interface SwitchStamp {
+  epoch: string;
+  seq: number;
+}
+
 export type DesktopBackend = "iab" | "extension";
 
 /** How a task ended, as far as its tabs are concerned. */
@@ -119,8 +132,12 @@ export interface DesktopBrowserBridge {
    *
    * Answers with the scope main is now showing, which is how the renderer tells a stale reply from
    * the current one when the route changed twice in a row.
+   *
+   * The stamp is the other direction of the same problem: the reply tells the *renderer* which
+   * switch answered, and the stamp tells *main* which switch is speaking, so an announce composed
+   * before a later one cannot overwrite it (issue 0008).
    */
-  setSession(sessionId: string | null): Promise<string | null>;
+  setSession(sessionId: string | null, stamp: SwitchStamp): Promise<string | null>;
   /** Promote the active draft browser strip to its new Session, or roll back that exact move. */
   reassignSession(sessionId: string): Promise<string>;
   /** A deleted conversation's strip, dormant pages and per-scope choices go with it. */

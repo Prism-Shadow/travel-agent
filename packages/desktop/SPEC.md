@@ -48,6 +48,14 @@ knows the other is there.
 
 ## What this shell enforces
 
+- **Which conversation the pane is showing, against announces that arrive out of order.** The
+  renderer numbers each conversation switch and sends that stamp with the announce; main refuses one
+  older than the stamp it last applied, and logs the refusal. A stamp from a different epoch is a
+  new renderer document and is adopted rather than compared — a per-mount counter that restarted
+  would otherwise make main refuse every later announce, which is worse than the staleness it
+  guards. Ordering knowledge and the state it protects now live on the same side of the process
+  boundary; before, the renderer numbered its switches and main took whatever arrived last
+  ([issue 0008](../../docs/issues/0008-active-session-lags-one-conversation.md)).
 - **The backend choice**, whose contract is [[goal-travel-agent]] requirement 5. This package is
   where it is honoured: the relay serves the conversation's selected backend or reports it
   unavailable, and never substitutes the other one.

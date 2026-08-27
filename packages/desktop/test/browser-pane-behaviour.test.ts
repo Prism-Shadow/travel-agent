@@ -2179,3 +2179,57 @@ describe("a renderer that has gone", () => {
     ).not.toThrow();
   });
 });
+
+/**
+ * Issue 0008 — the pane reported a scope exactly one conversation behind, twice in the wild, and no
+ * writer could be pinned because every writer was permitted: `setActiveSession` took whatever
+ * arrived last. Ordering knowledge lived only in the renderer, which numbered its switches to tell
+ * which *reply* was current, while main held the state that got corrupted.
+ *
+ * Both shapes below reproduce the two states the issue recorded, and both were green — that is,
+ * wrong — before the stamp existed.
+ */
+describe("stale conversation announces", () => {
+  const active = (pane: Pane): string | null => pane.state().sessionScope;
+  const stamp = (seq: number, epoch = "doc-1") => ({ epoch, seq });
+
+  it("refuses an announce for the draft scope that has already been promoted", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("draft-scope-aaa", stamp(2));
+    pane.setRequested(true);
+    pane.reassignActiveSession("session-B");
+    expect(active(pane)).toBe("session-B");
+
+    // The layout effect's announce for the draft, still in flight when the send promoted it.
+    pane.setActiveSession("draft-scope-aaa", stamp(1));
+    expect(active(pane)).toBe("session-B");
+  });
+
+  it("refuses an announce naming the conversation left two switches ago", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-A", stamp(1));
+    pane.setRequested(true);
+    pane.setActiveSession("draft-scope-bbb", stamp(2));
+    pane.reassignActiveSession("session-B");
+    expect(active(pane)).toBe("session-B");
+
+    pane.setActiveSession("session-A", stamp(1));
+    expect(active(pane)).toBe("session-B");
+  });
+
+  it("adopts a fresh sequence from a new document instead of refusing it", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-A", stamp(7));
+    // A reload restarts the count. Refusing this would leave the pane stuck on the old conversation
+    // for the rest of the session — a worse failure than the one the stamp guards against.
+    pane.setActiveSession("session-B", stamp(1, "doc-2"));
+    expect(active(pane)).toBe("session-B");
+  });
+
+  it("still applies an unstamped announce, so internal callers are unaffected", () => {
+    const { pane } = makePane();
+    pane.setActiveSession("session-A", stamp(5));
+    pane.setActiveSession("session-B");
+    expect(active(pane)).toBe("session-B");
+  });
+});

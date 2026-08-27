@@ -119,6 +119,29 @@ export function parseOptionalId(value: unknown, name: string): string | null {
   return value === null ? null : parseId(value, name);
 }
 
+/** The object payloads carry, so a channel can grow a field without changing its shape again. */
+export function parseRecord(value: unknown, name: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${name} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+/**
+ * Which conversation switch an announce belongs to (issue 0008).
+ *
+ * Validated rather than trusted, like every other renderer-supplied value here: a malformed stamp
+ * is refused outright instead of being read as "no stamp", because silently dropping the ordering
+ * information would restore exactly the behaviour the stamp exists to prevent.
+ */
+export function parseSwitchStamp(value: unknown): { epoch: string; seq: number } {
+  const record = parseRecord(value, "stamp");
+  return {
+    epoch: parseId(record.epoch, "stamp.epoch"),
+    seq: assertFiniteNumber(record.seq, "stamp.seq"),
+  };
+}
+
 export function parseUrl(value: unknown, name: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`${name} must be a non-empty string`);
@@ -298,7 +321,11 @@ export function installBrowserIpc({
     // its first send. Where a real Session's downloads go is *not* taken from here: the project and
     // agent come from the server, through the supervisor, because a renderer-supplied triple is a
     // relationship nobody has checked.
-    pane.setActiveSession(parseOptionalId(payload, "sessionId"));
+    const record = parseRecord(payload, "set-session payload");
+    pane.setActiveSession(
+      parseOptionalId(record.sessionId, "sessionId"),
+      parseSwitchStamp(record.stamp),
+    );
     // Echoed back so the renderer can tell *which* switch this answer belongs to: two route changes
     // in quick succession would otherwise leave it unable to know whether the later one landed.
     return pane.state().sessionScope;
