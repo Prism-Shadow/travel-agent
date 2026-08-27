@@ -106,7 +106,6 @@ Read the project's own documents before inferring behavior from code.
 | Competitor and product research snapshots | [`docs/research/`](docs/research/) |
 | Lessons that must not be learned twice | [`tasks/lessons.md`](tasks/lessons.md) |
 | In-flight plans and working ledgers | [`tasks/`](tasks/README.md) |
-| Contribution rules, quality gates, release process | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
 Specs are navigable as a graph: a file whose frontmatter carries `id` and `type` is a spec node,
 linked by `parent` and `depends-on`, and the `spec_*` tools walk it. A spec states what is true now
@@ -115,11 +114,13 @@ and never narrates — the rule, and what is deliberately not yet a node, are in
 
 Records versus living docs: git history, `docs/research/` and `docs/postmortem/` are
 **dated records** — do not rewrite them to match today's code. READMEs, the specs,
-`CONTRIBUTING.md`, `docs/architecture/`, `docs/decisions/` and source comments are **living** —
+`docs/architecture/`, `docs/decisions/` and source comments are **living** —
 update them in the same change that makes them wrong (an implemented decision note keeps its facts
 current; the decision itself is superseded by a new note, never rewritten).
 
 ## Commands
+
+Needs Node >= 24 and pnpm 11. Copy `.env.example` to `.env` for model credentials in development.
 
 ```bash
 pnpm install
@@ -127,13 +128,30 @@ pnpm build          # build first: core's exports point at dist/
 pnpm dev            # backend + web together
 pnpm desktop        # Electron shell
 
-pnpm format:check   # CI runs these three on every PR
+pnpm format:check   # CI runs these three on every push and PR
 pnpm typecheck
 pnpm test
+
+npx playwright install chromium                   # once, for the e2e suites
+pnpm --filter @prismshadow/penguin-web test:e2e   # browser e2e against a mock LLM
+pnpm test:e2e                                     # core live-model e2e; needs DEEPSEEK_API_KEY
 ```
+
+Every `dev:*` command runs `scripts/dev-prebuild.mjs` first, behind a lock that serializes
+concurrent invocations: it keeps `pnpm install` current, prebuilds the workspace deps, dedupes
+back-to-back builds so `pnpm dev` installs and builds exactly once, and clears the web app's Vite
+dep cache when skills or core output changed — that cache is keyed by lockfile and config only, so
+it would otherwise keep serving the browser the previous core.
 
 Dev entry points that touch data default to `~/.penguin/dev-data`, separate from an installed app's
 `~/.penguin/data`. Never point them at real user state.
+
+CI is two workflows. `ci.yml` runs on every push to main and every pull request. `pre-release.yml`
+is manual and holds what is only worth paying for before a build ships — the Windows suite. This
+repository is private, so Actions minutes are billed, and Windows bills at 2x, macOS at 10x.
+
+Pull requests branch from `main` and keep to one topic; new user-facing behaviour comes with tests,
+and with the spec update that keeps Hard Rule 2 true.
 
 ## Agent Artifacts
 

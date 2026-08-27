@@ -60,6 +60,17 @@ needed.
 
 ## Build, workspace and layout
 
+- **A git-ignored directory is invisible to git and fully visible to everything else — and each
+  tool disagrees about it.** Three of them, measured on one afternoon: Prettier reads only the
+  *root* `.gitignore`, so `.thinkrail/`'s own nested one did not stop `pnpm format:check` failing on
+  agent scratch (it never reached CI, which is why it would have been diagnosed slowly — fixed by
+  listing the directory in `.prettierignore`). The spec tools walk the tree, so a linked worktree at
+  `.worktree/<task>` — which this repository *mandates* — makes `spec_validate` report every spec id
+  as a duplicate until the worktree is removed; the graph is fine, the scan is not. And `rg`
+  respects `.gitignore`, so grepping those same directories returns a confident empty result unless
+  you pass `--no-ignore` — a false negative, which is the worst of the three. Before trusting a
+  tool's answer about an ignored path, know which ignore file it reads.
+
 - **Never compute a package-relative path by counting directories.**
   `path.join(__dirname, '..', 'dist', …)` encodes how deep the asking file sits. Nine files in
   `browser-cli` used it and read as correct for years only because every module sat directly under

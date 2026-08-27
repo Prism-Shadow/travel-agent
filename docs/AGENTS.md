@@ -52,6 +52,11 @@ same commit — and if its absence is itself load-bearing (as with the retired c
 machinery in [[module-server]]), the spec says it is absent and why, rather than staying silent and
 letting an old document answer the question.
 
+`spec_validate` scans the working tree, including git-ignored directories. A linked worktree under
+`.worktree/` — where root `AGENTS.md` requires them to live — is a second checkout of every spec, so
+the report comes back with every id duplicated. That is the scan, not the graph: check the paths it
+names before believing it, and re-run once the worktree is removed.
+
 Today the graph covers the four packages carrying travel-agent's own concepts — `server`, `web`,
 `desktop`, `browser-cli` — plus the two architecture documents and the root. `core`, `skills` and
 `browser-extension` have no node: `core` is a pinned upstream snapshot this project does not design,
