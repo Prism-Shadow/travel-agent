@@ -5,7 +5,7 @@
  * nothing it reads enters this session, and they cannot see each other. Three are given the same
  * model and thinking level and different *questions*, because the signal we want is disagreement
  * about the change, not disagreement about the reviewer. The fourth, `review-ci`, does not judge
- * at all — it runs the repository's real pre-push gate and reports exit codes, which matters here
+ * at all — it runs the pre-push gate's stages and reports exit codes, which matters here
  * because GitHub Actions is paused and nothing else verifies a push.
  *
  * The reviewers live in `.pi/agents/review-*.md` as ordinary agent definitions — frontmatter for
@@ -24,6 +24,7 @@
  * says so.
  */
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -34,7 +35,7 @@ import { Box, Text } from "@earendil-works/pi-tui";
  * The roster, in report order. Names match `.pi/agents/<name>.md`.
  *
  * `review-ci` is a different kind of participant from the other three and is marked so. They read
- * the diff and judge it; it runs the real pre-push gate and reports exit codes. Opinions and
+ * the diff and judge it; it runs the gate's stages and reports exit codes. Opinions and
  * facts are both wanted, but a reader must not mistake one for the other — so the report labels
  * it, and it gets the time a full build and test run actually takes.
  */
@@ -217,7 +218,7 @@ const TMUX_PREFIX = "ta-review-";
  * sessions — two independent facts, because closing a pane the person opened themselves would be
  * far worse than leaving one of ours behind.
  */
-async function closePreviousRun(pi: ExtensionAPI, cwd: string): Promise<void> {
+async function closePreviousRun(pi: ExtensionAPI, cwd: string, keepDir: string): Promise<void> {
   const sh = (cmd: string) => pi.exec("sh", ["-c", cmd], { cwd });
 
   const panes = await (async () => {
@@ -268,7 +269,20 @@ async function closePreviousRun(pi: ExtensionAPI, cwd: string): Promise<void> {
   await sh(
     `tmux ls -F '#{session_name}' 2>/dev/null | grep '^${TMUX_PREFIX}' | xargs -I{} tmux kill-session -t {} 2>/dev/null; true`,
   );
-  await sh(`rm -rf "\${TMPDIR:-/tmp}"/subagent-review-* 2>/dev/null; true`);
+  // Every run directory except the one this run is about to fill. The first version of this line
+  // was a bare `subagent-review-*` glob, and the caller creates its directory *before* calling
+  // here — so the cleanup deleted the logs of the run it was preparing, `writeFileSync` failed
+  // with ENOENT, the catch in setupPanes swallowed it, and the review silently fell back to no
+  // panes. A sweep has to know what is alive.
+  //
+  // Compared by basename, not by path: `$TMPDIR` carries a trailing slash on macOS, so `find`
+  // prints `…/T//subagent-review-x` while Node's `path.dirname` yields `…/T/subagent-review-x`.
+  // The second attempt used `! -path` against the latter, matched nothing, and deleted the live
+  // directory exactly as before — a fix that tested clean in isolation and did nothing in place.
+  const keep = path.basename(keepDir);
+  await sh(
+    `for d in "\${TMPDIR:-/tmp}"/subagent-review-*; do [ -d "$d" ] || continue; [ "$(basename "$d")" = ${JSON.stringify(keep)} ] && continue; rm -rf "$d"; done 2>/dev/null; true`,
+  );
 }
 
 async function setupPanes(
@@ -282,8 +296,9 @@ async function setupPanes(
   if ((await pi.exec("sh", ["-c", "command -v tmux"], { cwd })).code !== 0) return null;
 
   // Exactly one review is visible at a time: whatever the last run left is removed before this
-  // one puts anything on screen.
-  await closePreviousRun(pi, cwd);
+  // one puts anything on screen. The directory holding this run's logs is named so it survives.
+  const runDir = logs[0] ? path.dirname(logs[0].file) : "";
+  await closePreviousRun(pi, cwd, runDir);
 
   const session = `${TMUX_PREFIX}${Date.now()}`;
   try {
@@ -328,9 +343,13 @@ async function setupPanes(
     await pi.exec("herdr", ["pane", "rename", paneId, PANE_LABEL], { cwd });
     await pi.exec("herdr", ["pane", "run", paneId, `tmux attach -t ${session}`], { cwd });
     return { session, paneId };
-  } catch {
+  } catch (err) {
     // A display that cannot be set up is not a reason to abandon the review; it runs headless and
-    // the report says so.
+    // the report says so. It is logged rather than swallowed: this catch hid an ENOENT for a whole
+    // run — the sweep above had deleted the logs it was about to write — and a silent fallback
+    // looks exactly like "panes are not supported here", which is a different and much less
+    // fixable problem.
+    console.error("[subagent-review] pane setup failed, continuing headless:", err);
     await pi.exec("tmux", ["kill-session", "-t", session], { cwd }).catch?.(() => undefined);
     return null;
   }
@@ -435,6 +454,56 @@ function finish(
     };
   }
   return { label, diff, stat: stat.trim(), paths };
+}
+
+/**
+ * A fingerprint of the working tree, taken twice: once beside the diff snapshot and once when the
+ * reviewers are done.
+ *
+ * The reviewers read — and `review-ci` builds and tests — the files as they are on disk, minutes
+ * after the diff was taken. If the person kept editing meanwhile, the findings and the gate result
+ * describe some state between the two, and a verdict on that is worth nothing unless it is
+ * labelled as such. This is the only basis the report has for saying so.
+ *
+ * Four inputs, because three of them miss something on their own: `HEAD` (a commit landing during
+ * the run moves every path at once), the porcelain status (files appearing, vanishing or being
+ * staged), the tracked diff (content, which status reports only as a flag), and size plus mtime
+ * for each untracked file, whose content `git diff HEAD` never sees.
+ *
+ * Returns null when it cannot be measured — no git, no repository, no commit. An absent
+ * measurement claims nothing: the caller warns only when two fingerprints exist and differ.
+ */
+async function treeFingerprint(pi: ExtensionAPI, cwd: string): Promise<string | null> {
+  try {
+    const run = async (args: string[]) => (await pi.exec("git", args, { cwd })).stdout ?? "";
+    const head = await pi.exec("git", ["rev-parse", "HEAD"], { cwd });
+    if (head.code !== 0) return null;
+
+    const hash = createHash("sha256")
+      .update(head.stdout ?? "")
+      .update(await run(["status", "--porcelain", "-z", "--untracked-files=all"]))
+      .update(await run(["diff", "HEAD"]));
+
+    // -z for the same CJK reason as collectDiff: git C-quotes any non-ASCII path by default, and
+    // the quoted form names a file that does not exist.
+    const untracked = (await run(["ls-files", "--others", "--exclude-standard", "-z"]))
+      .split("\0")
+      .filter(Boolean)
+      .sort();
+    for (const file of untracked) {
+      let mark = "gone";
+      try {
+        const s = fs.statSync(path.join(cwd, file));
+        mark = `${s.size}:${s.mtimeMs}`;
+      } catch {
+        // Listed a moment ago and unreadable now. That is itself movement, and reads as one.
+      }
+      hash.update(`\0${file}\0${mark}`);
+    }
+    return hash.digest("hex");
+  } catch {
+    return null;
+  }
 }
 
 /** Runs one reviewer to completion, reading the JSON event stream for its final text and cost. */
@@ -693,6 +762,11 @@ export default function (pi: ExtensionAPI) {
       }
       const { label, diff, stat, paths } = collected;
 
+      // Taken here, beside the snapshot it belongs to. Everything after this point runs while the
+      // person is free to keep editing the same files; the second reading happens when the
+      // reviewers report, and the two together are what the report's warning stands on.
+      const treeAtStart = await treeFingerprint(pi, cwd);
+
       // `review-ci` builds and runs every suite for about three minutes. When the change touches
       // nothing any gate executes, that proves only that the repository still compiles — which was
       // not in question. It is dropped, and the report says so, because a reader must be able to
@@ -860,6 +934,11 @@ export default function (pi: ExtensionAPI) {
           });
         }
 
+        // Read before the report is written, and only trusted against a start fingerprint that
+        // exists: an unmeasurable tree produces silence, not a warning nobody can act on.
+        const treeAfter = await treeFingerprint(pi, cwd);
+        const treeMoved = treeAtStart !== null && treeAfter !== null && treeAfter !== treeAtStart;
+
         const totalCost = results.reduce((sum, r) => sum + r.costUsd, 0);
         const elapsed = Math.round((Date.now() - startedAll) / 1000);
         const report = [
@@ -890,7 +969,7 @@ export default function (pi: ExtensionAPI) {
           ...results.flatMap((r) => [
             `---`,
             ``,
-            `## ${r.name} — ${r.kind === "execution" ? "ran the gate" : "read the diff"}${r.error ? ", DID NOT REPORT" : ""}  _(${Math.round(r.durationMs / 1000)}s, $${r.costUsd.toFixed(4)})_`,
+            `## ${r.name} — ${r.kind === "execution" ? "ran the gate stages it is allowed to" : "read the diff"}${r.error ? ", DID NOT REPORT" : ""}  _(${Math.round(r.durationMs / 1000)}s, $${r.costUsd.toFixed(4)})_`,
             ``,
             ...(r.error ? [`> **Unreliable: ${r.error}**`, ``] : []),
             r.text || `(no output)`,
@@ -921,8 +1000,16 @@ export default function (pi: ExtensionAPI) {
         // `agent.state.messages` *and* persists the entry, so the report is in context the moment
         // it exists and survives a restart.
         //
-        // `triggerTurn` stays off: arriving is not a reason to interrupt. The report is simply
-        // there, and the next thing said happens with it already in view.
+        // `triggerTurn: false` is not decoration — omitting the options object entirely is what
+        // made this unreliable. `sendCustomMessage` reads `options?.triggerTurn !== false`, and
+        // with no options that is `undefined !== false`, i.e. true: a report finishing while the
+        // assistant happened to be mid-answer took the *steer* branch instead, was queued into a
+        // run that had already made its last model call, and was never consumed. Passing it
+        // explicitly forces the append-and-persist branch whatever the session is doing, so the
+        // report is in context the moment it exists rather than only when the timing was lucky.
+        //
+        // It also keeps the promise the flag makes: arriving is not a reason to interrupt. The
+        // report is simply there, and the next thing said happens with it already in view.
         //
         // All of it guarded. By now the command that started this has returned, and the session
         // may have been replaced by /new, /resume, /fork or /reload — after which these calls
@@ -930,12 +1017,25 @@ export default function (pi: ExtensionAPI) {
         // already left is acceptable; taking down pi with an unhandled rejection is not.
         safely(() => {
           pi.appendEntry("subagent-review", { report, headline });
-          pi.sendMessage({ customType: "subagent-review", content: report, display: false });
+          pi.sendMessage(
+            { customType: "subagent-review", content: report, display: false },
+            { triggerTurn: false },
+          );
           ctx.ui.notify(headline, clean === results.length ? "info" : "warning");
         });
       };
 
-      void run();
+      // The last unguarded promise in this file, and the one that mattered: building the report
+      // threw a ReferenceError for `treeMoved` — referenced, never defined, and nothing
+      // typechecks `.pi/` — which surfaced as an unhandled rejection minutes after the command had
+      // returned and took the whole editor down with it. The name is defined above; this is the
+      // class. Every other call into pi here is already wrapped in `safely` for the same reason,
+      // and detached background work must not be able to end the session that started it.
+      void run().catch((err) => {
+        release();
+        console.error("[subagent-review] the review failed:", err);
+        safely(() => ctx.ui.notify(`subagent-review failed: ${String(err)}`, "error"));
+      });
       ctx.ui.notify(
         `Reviewing ${label} with ${roster.length} agents in the background— keep working; the report lands here.`,
         "info",

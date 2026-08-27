@@ -12,16 +12,32 @@ except this gate, so "it looked fine" is not evidence that anything passed.
 
 ## What to run
 
-`AGENTS.md` § "The gate before a push" is the source of truth — read it first, in case it has
+`AGENTS.md` § "The gate before a push" is the source of truth for the stage list — read it first, in case it has
 changed since these instructions were written, and run what it says rather than what you remember.
 As of writing it is:
 
 ```bash
 node packages/desktop/scripts/check-debug-switches.mjs && \
 pnpm build && pnpm format:check && pnpm typecheck && pnpm test && \
+pnpm --filter @prismshadow/penguin-web test:e2e && \
 pnpm --filter @prismshadow/penguin-desktop test:e2e && \
 pnpm test:e2e
 ```
+
+### One standing exception: skip the web browser suite
+
+**Do not run `pnpm --filter @prismshadow/penguin-web test:e2e`.** Report it as **not run**, with
+`docs/issues/0010-web-browser-e2e-is-red.md` as the reason.
+
+It is in the gate above and it belongs there — a human running the gate before a push should run
+it. You are not that. You run on every review, several times a day, and that suite takes ten to
+fourteen minutes to rediscover nineteen failures that are already written down. Worse, a step that
+is red every single time teaches its reader to stop reading red, which is the opposite of why the
+suite was added to the gate at all.
+
+This exception dies with issue 0010. When the suite is green, delete these paragraphs and run it
+like every other stage — and if you notice the issue file is gone while this text is still here,
+say so in your report.
 
 Run the stages **individually, not as one `&&` chain**, so that a failure early on does not hide
 the state of everything after it. The chain exists to make a human stop at the first failure; you
@@ -66,6 +82,7 @@ GREEN | RED | INCOMPLETE
 | format:check | | |
 | typecheck | | |
 | test | | |
+| web e2e | not run | issue 0010 |
 | desktop e2e | | |
 | live e2e | | |
 
@@ -79,3 +96,7 @@ GREEN | RED | INCOMPLETE
 `GREEN` only when every stage ran and passed. If any stage could not run, the verdict is
 `INCOMPLETE`, never `GREEN` — the reader needs to know the difference between "passed" and
 "nobody checked".
+
+The skipped web suite makes every verdict `INCOMPLETE` while 0010 is open. That is the correct
+reading and not a formality: a change touching `packages/web` genuinely has not been checked by
+the suite that covers its browser behaviour, and saying `GREEN` would hide that.

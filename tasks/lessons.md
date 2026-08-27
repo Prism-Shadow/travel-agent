@@ -150,6 +150,17 @@ needed.
   directory. Two minutes and sixteen steps before the browser opened, all downstream of one stale
   launcher. A prerequisite check must execute the thing (`penguin-browser session list`), and a
   broken install must end in one honest sentence to the user, not a filesystem hunt.
+- **No gate typechecks `.pi/`.** The root config owns no files and references only `packages/*`, so
+  extension source is checked by nothing: `/subagent-review` shipped with `treeMoved` used in the
+  report it builds and defined nowhere, which one `tsc` run prints as TS2304. That line executes
+  only when the reviewers finish, so the `ReferenceError` arrived seven minutes in, inside the
+  detached promise that outlives the command — an unhandled rejection, which is how a missing
+  variable in agent tooling terminated the editor instead of one review. Two habits follow: check
+  an edited extension by hand (`npx tsc --noEmit --skipLibCheck --target esnext --module nodenext
+  --moduleResolution nodenext .pi/extensions/<name>/index.ts`, ignoring the TS2307s for the pi
+  packages), and give every detached promise a `.catch` — the file already wrapped each individual
+  call into pi in a `safely` helper for exactly this reason, and still died on the one promise that
+  had no guard around the whole of it.
 
 ## Testing and verification
 
