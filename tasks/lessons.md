@@ -83,6 +83,14 @@ needed.
   sweeping for stale deep paths after a move, grep **both spellings** — the package name
   (`penguin-browser/dist/`) and the directory name (`browser-cli/dist/`): the 08-19 regrouping
   sweep used only the first and missed the desktop e2e harness, which then broke CI.
+- **A speedup measured on your laptop is not a speedup on the runner.** Removing
+  `--no-file-parallelism` cut `browser-cli` from 202s to 52s locally and changed CI by three
+  seconds. The suite drives a real Chromium per file, so it is CPU-bound, and the numbers say it
+  plainly once you look: 311s of test time inside 331s of wall clock is a parallelism of 1.06 on a
+  two-core runner, against 5.6 on a fourteen-core laptop. Before predicting a CI effect from a
+  local one, divide by the machine — and read `Duration` against the reported `tests` total, which
+  is the parallelism actually achieved.
+
 - **An inherited flag is a decision nobody made — and it will not defend itself, so nobody
   re-opens it.** `browser-cli`'s test script carried `--no-file-parallelism` from the day the
   package was vendored; the commit that brought it in never mentions it, and it cost 4x on every

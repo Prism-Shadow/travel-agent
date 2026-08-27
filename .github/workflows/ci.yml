@@ -172,8 +172,14 @@ jobs:
       # Files run in parallel, which is what this suite's own harness was built for: the extension
       # build takes an atomic `mkdir` lock across worker processes and each worker builds into a
       # per-port dist. The package script carried `--no-file-parallelism` anyway — inherited with
-      # the vendored code, explained nowhere — and dropping it cut the suite from ~5 1/2 minutes to
-      # about one, measured green five runs in a row before the flag was removed.
+      # the vendored code and explained nowhere — so it was removed, green five runs in a row.
+      #
+      # **It changed nothing here, and that is worth knowing before someone tries it again.** Every
+      # file in this suite drives a real Chromium, so the work is CPU-bound, and a standard runner
+      # has two cores to spread it over: the run reports ~311s of test time in ~331s of wall clock,
+      # a parallelism of 1.06. On a 14-core laptop the same suite reports 5.6 and finishes in under
+      # a minute instead of 202s. The flag was worth removing for whoever runs the suite locally;
+      # the length of this step is the runner, not the flag.
       - name: Unit tests (penguin-browser)
         run: pnpm --filter penguin-browser test --reporter=default --reporter=junit --outputFile.junit=browser-cli-results.xml
 
