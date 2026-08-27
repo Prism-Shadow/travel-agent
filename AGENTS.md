@@ -128,7 +128,7 @@ pnpm build          # build first: core's exports point at dist/
 pnpm dev            # backend + web together
 pnpm desktop        # Electron shell
 
-pnpm format:check   # CI runs these three on every push and PR
+pnpm format:check
 pnpm typecheck
 pnpm test
 
@@ -136,6 +136,34 @@ npx playwright install chromium                   # once, for the e2e suites
 pnpm --filter @prismshadow/penguin-web test:e2e   # browser e2e against a mock LLM
 pnpm test:e2e                                     # core live-model e2e; needs DEEPSEEK_API_KEY
 ```
+
+## The gate before a push
+
+**GitHub Actions CI is paused** (`ci.yml`, disabled manually on 2026-08-27; re-enable with
+`gh workflow enable ci.yml`). Nothing verifies a push but this, so run it — all of it, not the part
+that looks related:
+
+```bash
+node packages/desktop/scripts/check-debug-switches.mjs && \
+pnpm build && pnpm format:check && pnpm typecheck && pnpm test && \
+pnpm --filter @prismshadow/penguin-desktop test:e2e && \
+pnpm test:e2e
+```
+
+About three minutes, and it reproduces every CI step except one: **Linux**. The in-app browser e2e
+needs `xvfb-run` only on Linux and runs natively on macOS; the live-model e2e needs
+`DEEPSEEK_API_KEY` in `.env` (leave `ANTHROPIC_API_KEY` empty, or the run takes the Claude path
+instead of the one CI used).
+
+Two things this gate does **not** cover, and neither is a reason to skip it:
+
+- **Linux-only behaviour** — Electron's sandbox under the AppArmor userns restriction, path and
+  line-ending differences. `pre-release.yml` (manual) holds the Windows suite for the same reason.
+- **The agent loop.** `pnpm test:e2e` is one test: it asks a real model for a short reply and checks
+  the stream and the token usage. It proves the model is reachable. It does not prove a task runs
+  end to end — that acceptance run was withdrawn on 2026-08-18 and has no replacement.
+
+Re-enable CI before anything ships.
 
 Every `dev:*` command runs `scripts/dev-prebuild.mjs` first, behind a lock that serializes
 concurrent invocations: it keeps `pnpm install` current, prebuilds the workspace deps, dedupes
@@ -146,9 +174,12 @@ it would otherwise keep serving the browser the previous core.
 Dev entry points that touch data default to `~/.penguin/dev-data`, separate from an installed app's
 `~/.penguin/data`. Never point them at real user state.
 
-CI is two workflows. `ci.yml` runs on every push to main and every pull request. `pre-release.yml`
-is manual and holds what is only worth paying for before a build ships — the Windows suite. This
-repository is private, so Actions minutes are billed, and Windows bills at 2x, macOS at 10x.
+CI is two workflows. `ci.yml` runs on every push to main and every pull request — **paused today**,
+see the gate above. `pre-release.yml` is manual and holds what is only worth paying for before a
+build ships — the Windows suite. This repository is private, so Actions minutes are billed, and
+Windows bills at 2x, macOS at 10x: a full run is 16 billed minutes across its three jobs, which at
+four to nine pushes a day is what made pausing worth considering. Pushing once per batch of commits
+costs one run instead of one per push, and is the lever that does not trade away verification.
 
 Pull requests branch from `main` and keep to one topic; new user-facing behaviour comes with tests,
 and with the spec update that keeps Hard Rule 2 true.

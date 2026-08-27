@@ -1,6 +1,11 @@
 # CI for travel-agent: security guard -> build -> style -> typecheck -> unit tests -> in-app
 # browser end-to-end. One Ubuntu job on every push to main and every pull request.
 #
+# **This workflow is disabled** (manually, 2026-08-27) and will not run until someone runs
+# `gh workflow enable ci.yml`. A run costs 16 billed minutes across its three jobs and this
+# repository pushes four to nine times on an active day; the local gate that replaces it, and what
+# that gate does not cover, are in AGENTS.md. Re-enable before anything ships.
+#
 # Shaped by two facts this fork has and upstream did not.
 #
 # **This repository is private, so Actions minutes are billed** — and billed with multipliers:
