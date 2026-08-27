@@ -163,6 +163,13 @@ here: `pnpm test` does not run Playwright, and neither this gate nor `ci.yml` in
 single gate noticing. A suite nothing runs is not a slower gate; it is a suite that does not
 exist.
 
+**That step fails today.** Nineteen of those specs are still red — issue
+[0010](docs/issues/0010-web-browser-e2e-is-red.md) — so this gate cannot currently be run to
+completion, and nothing may be pushed on the strength of it. The step is listed anyway rather than
+held back until the specs are fixed: a suite kept out of the gate to keep the gate green is
+precisely how these nineteen became invisible, and the cost of that is now written down instead of
+repeated.
+
 Two things this gate does **not** cover, and neither is a reason to skip it:
 
 - **Linux-only behaviour** — Electron's sandbox under the AppArmor userns restriction, path and
@@ -224,6 +231,7 @@ its postmortem when one exists.
 | # | Problem |
 | --- | --- |
 | [0008](docs/issues/0008-active-session-lags-one-conversation.md) | The pane's active session lags one conversation behind (stale-writer unpinned); impact reduced to a late strip render since the visibility gate was retired |
+| [0010](docs/issues/0010-web-browser-e2e-is-red.md) | Nineteen `packages/web/e2e` specs assert a product from before the trip sidebar; the suite ran nowhere until it joined the gate, so **the gate cannot pass until they are fixed** |
 
 ## Editing Workflow
 
