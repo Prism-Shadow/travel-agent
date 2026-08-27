@@ -32,7 +32,6 @@
 import { isEventMessage, isPartialPayload } from "@prismshadow/penguin-core/omnimessage";
 import type { OmniMessage, ToolCallPayload } from "@prismshadow/penguin-core/omnimessage";
 import type {
-  GoalServerEvent,
   MessagesLiveTail,
   MessagesPageInfo,
   PendingSteeringInfo,
@@ -143,8 +142,6 @@ export interface StreamControllerDeps {
   onSessionTitle?: (sessionId: string, title: string) => void;
   /** A new session has been registered (sub-sessions are pushed along the parent session's channel; used to refresh the Session list). */
   onSessionCreated?: (sessionId: string) => void;
-  /** Goal-mode progress (goal_started / goal_round / goal_finished): drives the chat page's goal banner. */
-  onGoalEvent?: (ev: GoalServerEvent) => void;
   /** Local clock (injectable for tests). */
   now?: () => number;
 }
@@ -634,12 +631,6 @@ export function createStreamController(deps: StreamControllerDeps): StreamContro
       }
       if (ev.type === "session_created") {
         deps.onSessionCreated?.(ev.sessionId);
-        return;
-      }
-      // Goal progress only affects the banner (UI state, not the transcript model): forwarded
-      // immediately at any phase, never buffered — same treatment as session_title.
-      if (ev.type === "goal_started" || ev.type === "goal_round" || ev.type === "goal_finished") {
-        deps.onGoalEvent?.(ev);
         return;
       }
       if (phase === "buffering") {

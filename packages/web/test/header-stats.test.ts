@@ -1,7 +1,7 @@
 /**
  * advanceCostStat / applyUsageFetch unit tests: the chat toolbar's cost chip must never
  * disappear (or visibly dip and recover) for a session once shown — across Task boundaries
- * (goal rounds zero the live buckets while the server stays `running`), across refetches
+ * (a new Task zeroes the live buckets while the server stays `running`), across refetches
  * that return no row (the idle blip between queued follow-ups), and across transient
  * pricing/model gaps — while a mid-run fetch reconciles the base without double-counting
  * the running Task (live-at-fetch snapshot). Semantics documented in
@@ -26,11 +26,11 @@ const obs = (over: Partial<CostStatObservation> = {}): CostStatObservation => ({
 });
 
 describe("advanceCostStat (chat header cost chip)", () => {
-  it("keeps the running total across a goal-round boundary (buckets zeroed, no session cost yet)", () => {
+  it("keeps the running total across a Task boundary (buckets zeroed, no session cost yet)", () => {
     const hold = createCostStatHold();
-    // Round 1 accrues live cost on a fresh session (nothing fetched — the goal keeps it running).
+    // The first Task accrues live cost on a fresh session (nothing fetched yet).
     expect(advanceCostStat(hold, obs({ taskOpen: true, liveUsd: 0.3 })).costText).toBe("$0.3000");
-    // Round boundary: the [goal round] user text starts a new Task in the same batch — the
+    // Task boundary: a new user text starts a new Task in the same batch — the
     // client sees taskCount+1 with the live buckets already reset to zero.
     expect(advanceCostStat(hold, obs({ taskCount: 2, taskOpen: true, liveUsd: 0 })).costText).toBe(
       "$0.3000",

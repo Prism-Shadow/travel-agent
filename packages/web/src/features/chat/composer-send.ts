@@ -3,10 +3,10 @@
  *
  * Pulled out of ChatInput for the same reason as `stagedSendRoute`: the decision has more
  * inputs than it looks (two send channels, a mode toggle, a staged switch, a dead model key,
- * a goal draft) and every one of them can take a channel away. Inline, that made a specific
+ * a staged switch) and every one of them can take a channel away. Inline, that made a specific
  * mistake easy to repeat — deriving Stop from "is the composer empty" instead of "does this
  * send have anywhere to go". Those agree only while every non-empty draft is sendable, and
- * several are not: a goal objective is an objective rather than a message for the turn under
+ * several are not: a staged switch belongs to the conversation it is about to open rather than
  * way, a rejected model key refuses everything, and a staged `/model` fork waits for idle.
  * Where they disagreed the button showed a permanently disabled Send *in place of* Stop, so
  * the run could not be sent to or stopped without emptying the composer first.
@@ -26,8 +26,6 @@ export type MidRunAction =
 export interface MidRunComposerState {
   /** A send started from this composer is in flight (ChatInput's `busy`). */
   sending: boolean;
-  /** The goal chip is engaged: the body is an objective, which no mid-run channel carries. */
-  goalOn: boolean;
   /** The model API rejected this Session's credentials — nothing can be sent at all. */
   modelAuthDead: boolean;
   /** The host wired a steer channel (`onSteer`); the draft page does not. */
@@ -65,9 +63,9 @@ export interface MidRunComposerState {
  */
 export function midRunAction(s: MidRunComposerState): MidRunAction {
   if (s.sending) return "disabled";
-  // A goal draft and a dead key close both channels; a blocked `/model` fork closes the queue
+  // A dead key closes both channels; a blocked `/model` fork closes the queue
   // (see stagedSendRoute) and cannot reach steering anyway, since a staged chip rules it out.
-  const open = !s.goalOn && !s.modelAuthDead;
+  const open = !s.modelAuthDead;
   const canSteer =
     open &&
     s.canSteerChannel &&

@@ -70,7 +70,6 @@ import { advanceCostStat, applyUsageFetch, createCostStatHold } from "./header-s
 import type { CostStatDisplay } from "./header-stats";
 import { buildInputHistory } from "./input-history";
 import { buildOutline } from "./outline-model";
-import { GoalStatusBanner } from "./goal-banner";
 import { InteractionCards } from "./interaction-cards";
 import { handoffMessage, modelSwitchMessage } from "./agent-handoff";
 import { sameModelRef } from "../models/model-grouping";
@@ -896,7 +895,7 @@ export function ChatPage() {
   );
 
   const onSend = useCallback(
-    async (input: TaskInputPart[], goal: { budget: number } | null): Promise<boolean> => {
+    async (input: TaskInputPart[]): Promise<boolean> => {
       if (!selected) return false;
       try {
         // An explicitly picked per-turn thinking level rides on each task; "" (untouched)
@@ -904,7 +903,6 @@ export function ChatPage() {
         // keep taking effect mid-session until the user pins a level.
         const res = await api.postTask(selected.sessionId, {
           input,
-          ...(goal ? { goal } : {}),
           ...(turnThinkingLevel
             ? { thinkingLevel: turnThinkingLevel as TaskCreateRequest["thinkingLevel"] }
             : {}),
@@ -1761,11 +1759,6 @@ export function ChatPage() {
                     </div>
                     <div className="shrink-0 border-t border-gray-200 bg-white px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 md:pb-3 dark:border-gray-800 dark:bg-gray-950">
                       <div className="mx-auto max-w-3xl">
-                        {/* Goal banner docked above the composer: an in-flight goal's progress
-                            (restored on load while still active), or the terminal state reached
-                            during this page's lifetime. The stop button is the composer's
-                            regular stop (one abort ends the whole goal loop). */}
-                        {stream.goal && <GoalStatusBanner goal={stream.goal} />}
                         {/* The agent's own questions, above the composer: a choice, a purchase to
                             confirm, a code it will not type. Not a modal — the agent is still
                             working in the browser beside this, and blocking the page would undo

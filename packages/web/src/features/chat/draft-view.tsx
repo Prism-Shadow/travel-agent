@@ -651,11 +651,7 @@ export function DraftView({
   );
 
   const onSend = useCallback(
-    async (
-      input: TaskInputPart[],
-      keepDraft = false,
-      goal: { budget: number } | null = null,
-    ): Promise<boolean> => {
+    async (input: TaskInputPart[], keepDraft = false): Promise<boolean> => {
       if (!agentId || sendingRef.current) return false;
       sendingRef.current = true;
       setSending(true);
@@ -710,7 +706,6 @@ export function DraftView({
             : applyTripPrefix(input, EMPTY_TRIP_CONSTRAINTS, S.chat.tripChips, tripDir);
         const res = await api.postTask(createdId, {
           input: withTripFolder,
-          ...(goal ? { goal } : {}),
         });
         add(created.session);
         if (keepDraft) {
@@ -769,10 +764,10 @@ export function DraftView({
   const [exampleBusy, setExampleBusy] = useState<ExampleTaskId | null>(null);
 
   const sendWithTrip = useCallback(
-    async (input: TaskInputPart[], goal: { budget: number } | null): Promise<boolean> => {
+    async (input: TaskInputPart[]): Promise<boolean> => {
       // Chips only. The trip's folder line is added by onSend, which is the first moment the
       // folder is known for a journey this send is about to create.
-      const ok = await onSend(applyTripPrefix(input, trip, S.chat.tripChips), false, goal);
+      const ok = await onSend(applyTripPrefix(input, trip, S.chat.tripChips), false);
       // Only the floating chips are scratch to be cleared; a Trip's identity outlives the send.
       if (ok && draftTrip === null) setLocalTrip(EMPTY_TRIP_CONSTRAINTS);
       return ok;

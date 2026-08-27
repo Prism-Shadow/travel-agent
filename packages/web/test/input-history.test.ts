@@ -29,15 +29,12 @@ const assistant = (text: string): ChatItem => ({
 
 describe("buildInputHistory", () => {
   it("collects typed prompts and steering in order, skipping machine-injected texts", () => {
-    const goalRound1 = `[goal]\nround: 1\nobjective: fix it\n[/goal]\nfix the bug`;
-    const goalRound2 = `[goal]\nround: 2\nobjective: fix it\n[/goal]\nfix the bug`;
     const items: ChatItem[] = [
       user("first question"),
       assistant("answer"),
       user(handoffMessage({ agentId: "agent-a", sessionId: "session-1", workspace: "/tmp/w" })),
       user(buildScheduledMessage("nightly", "2026-08-01T00:00:00Z", "scheduled prompt")),
-      user(goalRound1),
-      user(goalRound2),
+      user("fix the bug"),
       steering("please also check the tests"),
       user(buildSkillsMessage(["my-skill"], "with a skill")),
       user("first question"),

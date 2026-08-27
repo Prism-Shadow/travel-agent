@@ -15,8 +15,6 @@
  *   state a numeric ceiling before seeing what the options cost. The tier is a preference
  *   signal for shaping the representative set, never a transaction gate; authorisation
  *   remains the click on one concrete plan.
- * - **This is unrelated to goal mode's token budget** (goal-use.ts) — same word, different
- *   thing; the two must never share UI copy or plumbing.
  *
  * "When" keeps Mindtrip's two modes because the flexible one is *more* valuable here than
  * there: "any 5 days in October" hands the agent a degree of freedom it can actually use

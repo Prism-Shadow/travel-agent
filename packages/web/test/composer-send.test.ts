@@ -14,7 +14,6 @@ import type { MidRunComposerState } from "../src/features/chat/composer-send";
 /** An active session with both channels wired, steer mode, and a one-line text draft. */
 const BASE: MidRunComposerState = {
   sending: false,
-  goalOn: false,
   modelAuthDead: false,
   canSteerChannel: true,
   canQueueChannel: true,
@@ -84,12 +83,6 @@ describe("midRunAction — Stop is the fallthrough, not a case", () => {
   // The regression this file is really for: each of these is a NON-EMPTY draft that no mid-run
   // channel will take. Keyed off "is the composer empty" they produced a permanently disabled
   // Send standing where Stop should be, so the run could not be stopped from the composer.
-  it("a goal objective leaves Stop — it is an objective, not a message for this turn", () => {
-    expect(act({ goalOn: true })).toBe("stop");
-    expect(act({ goalOn: true, followUpMode: true })).toBe("stop");
-    expect(act({ goalOn: true, hasImages: true })).toBe("stop");
-  });
-
   it("a rejected model key leaves Stop, for every draft there is", () => {
     expect(act({ modelAuthDead: true })).toBe("stop");
     expect(act({ modelAuthDead: true, followUpMode: true })).toBe("stop");
@@ -106,6 +99,5 @@ describe("midRunAction — a send already in flight", () => {
     expect(act({ sending: true })).toBe("disabled");
     // Including once the send has cleared the draft but has not settled yet.
     expect(act({ sending: true, ...EMPTY })).toBe("disabled");
-    expect(act({ sending: true, goalOn: true })).toBe("disabled");
   });
 });

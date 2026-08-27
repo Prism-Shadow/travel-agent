@@ -31,13 +31,13 @@
  * idle (it branches off a Trace that a run or a compaction is still appending to) and says so
  * above the composer rather than just disabling Send. With an empty text body the default
  * auto-message is filled in. Only one chip at a time (picking either clears the other, picking
- * the model already in use clears the staging, and both are exclusive with goal mode); a chip is
+ * the model already in use clears the staging); a chip is
  * removed via backspace at the start of the text or its x button, and both are cached with the
  * draft so they survive a session switch or reload along with the text they belong to;
  * The "+" menu carries the input add-ons: image upload, file attachment (any type, several at a
  * time — they ride the task request as base64 data URLs, and the server writes them into the
  * session scratchpad and appends an `[attached file: <path>]` line to the message, so the model
- * opens them by path), and goal mode; selected files show as removable chips above the text
+ * opens them by path); selected files show as removable chips above the text
  * body, next to the image thumbnails, and — like images — an attachments-only message is
  * sendable with no text at all.
  * The bottom toolbar provides a searchable multi-select skills dropdown (styled like the model
@@ -91,7 +91,6 @@ import { filterAgents, stagedSendRoute } from "./agent-handoff";
 import { ModelMenuList, ModelSelect, PickerList, modelLabel } from "./model-select";
 import { matchSlash, removeSlashToken } from "./slash-token";
 import { SELECTABLE_THINKING_LEVELS, thinkingLevelLabel } from "./thinking-level";
-import { GOAL_ICON, UNLIMITED_BUDGET, parseBudgetInput } from "./goal-use";
 import {
   caretOnFirstLine,
   caretOnLastLine,
@@ -507,13 +506,13 @@ interface PlusMenuItem {
   desc: string;
   /** Whether the entry is currently engaged (rendered with a check mark; clicking toggles). */
   active: boolean;
-  /** Grayed out and inert (e.g. goal mode while a run is in progress); the menu still opens. */
+  /** Grayed out and inert while a run is in progress; the menu still opens. */
   disabled?: boolean;
   onSelect: () => void;
 }
 
 /**
- * The composer's "+" extension menu: a general-purpose entry point for input add-ons (goal
+ * The composer's "+" extension menu: a general-purpose entry point for input add-ons (uploads
  * mode today; future modes, plugins, apps, files slot in as further items) plus input
  * settings (`footer`, currently the mid-run send mode row). Data-driven — the caller passes
  * the item list and footer; the menu itself knows nothing about the entries. The button is
@@ -756,10 +755,8 @@ export function ChatInput({
   status: SessionStatus;
   /**
    * Returns whether it succeeded: on failure the input draft is kept (not cleared).
-   * `goal` is non-null when goal mode is engaged: the text is the objective and the server
-   * loops the Session until the goal reaches a terminal state (budget -1 = unlimited).
    */
-  onSend: (input: TaskInputPart[], goal: { budget: number } | null) => Promise<boolean>;
+  onSend: (input: TaskInputPart[]) => Promise<boolean>;
   /**
    * Mid-run steering (session state only): while a Task is running, Enter/send queues the
    * trimmed text **and any attached images and files** for the running agent — delivered
@@ -977,22 +974,6 @@ export function ChatInput({
     attachments.length > 0 ||
     target !== null ||
     pendingModel !== null;
-  // Goal mode (engaged via the "+" menu or /goal): the text body becomes the objective. It is
-  // exclusive with a staged /agent or /model switch (engaging either clears the other); attached
-  // images ride along (core folds them into the objective as path lines) and selected skills ride
-  // round-1 message as a [use_skills] block, exactly like a normal send.
-  const [goalOn, setGoalOn] = useState(false);
-  const [goalBudgetText, setGoalBudgetText] = useState("");
-  const [goalBudgetOpen, setGoalBudgetOpen] = useState(false);
-  const [goalBudgetDraft, setGoalBudgetDraft] = useState("");
-  /** The committed budget is always valid: the popover keeps invalid edits in its local draft. */
-  const goalBudget = goalOn ? parseBudgetInput(goalBudgetText) : null;
-  const goalBudgetDraftValue = parseBudgetInput(goalBudgetDraft);
-  const goalBudgetDraftInvalid = goalBudgetDraftValue === null;
-  const goalBudgetSummary =
-    goalBudget !== null && goalBudget !== UNLIMITED_BUDGET
-      ? S.chat.goalBudgetValue(humanizeTokens(goalBudget))
-      : S.chat.goalBudgetUnlimited;
   /**
    * Where a send with a staged chip would go — and, for a `/model` fork, whether it may go at
    * all right now (see stagedSendRoute): a fork branches a NEW session off this session's
@@ -1008,91 +989,8 @@ export function ChatInput({
   // Sending is also allowed with no text at all: attachments (images or files), a staged switch
   // chip (/agent or /model) and selected skills each carry a message on their own — a handoff's
   // first message may be just a [handoff_from] source block, and the empty-text fallbacks fill in
-  // the rest (S.chat.skillsAutoMessage with skills selected, S.chat.modelSwitchAutoMessage for a
-  // staged model switch — see sendNormal). Goal mode instead requires a text objective and a
-  // parseable budget — and an open editor showing an invalid draft disables Send outright:
-  // combined with the editor refusing to close over an invalid draft (below), no click sequence
-  // can fire a goal with a stale committed budget.
-  // Images may come along with a goal objective (core folds them into `[attached image: …]`
-  // lines so they survive the rounds), but they don't substitute for the text; file
-  // attachments cannot — nothing folds those into a re-injected objective.
-  const canSend =
-    !running &&
-    !compacting &&
-    !busy &&
-    !modelAuthDead &&
-    (goalOn
-      ? text.trim().length > 0 &&
-        attachments.length === 0 &&
-        goalBudget !== null &&
-        !(goalBudgetOpen && goalBudgetDraftInvalid)
-      : draftHasContent);
-
-  /**
-   * The budget editor is a fixed upward popover. Opening copies the committed value; closing
-   * commits a valid draft — so typing a budget and clicking straight onto Send keeps it (the
-   * Send mousedown closes the popover before the click lands). An INVALID draft refuses to
-   * close: silently reverting would let the very next click fire the goal with the stale
-   * committed budget — fix the draft or cancel with Escape (cancelGoalBudget below).
-   */
-  const setGoalBudgetEditorOpen = useCallback(
-    (open: boolean) => {
-      if (open) {
-        setGoalBudgetDraft(goalBudgetText);
-        setGoalBudgetOpen(true);
-        return;
-      }
-      if (parseBudgetInput(goalBudgetDraft) === null) return;
-      setGoalBudgetText(goalBudgetDraft.trim());
-      setGoalBudgetOpen(false);
-    },
-    [goalBudgetText, goalBudgetDraft],
-  );
-
-  /**
-   * Cancel the budget editor: close WITHOUT committing (reopening re-copies the committed
-   * value). Wired to the Dropdown's window-level Escape, so it is genuinely
-   * focus-independent — including after an invalid draft refused an outside-click close and
-   * focus already left the chip (e.g. sits in the objective textarea).
-   */
-  const cancelGoalBudget = useCallback(() => {
-    setGoalBudgetOpen(false);
-    textareaRef.current?.focus();
-  }, []);
-
-  /** Commit only valid input; Enter and the check button share this path. */
-  const saveGoalBudget = useCallback(() => {
-    if (parseBudgetInput(goalBudgetDraft) === null) return;
-    setGoalBudgetText(goalBudgetDraft.trim());
-    setGoalBudgetOpen(false);
-    textareaRef.current?.focus();
-  }, [goalBudgetDraft]);
-
-  /**
-   * Engage/exit goal mode; engaging clears any staged switch chip and every attachment
-   * (genuinely exclusive: a handoff or a model switch opens another session, and the server
-   * rejects non-text goal input). Selected skills stay — they ride the round-1 message as a
-   * [use_skills] block, like a normal send.
-   */
-  const toggleGoal = useCallback(
-    (on: boolean) => {
-      setGoalOn(on);
-      setGoalBudgetOpen(false);
-      setGoalBudgetDraft("");
-      if (on) {
-        setGoalBudgetText("");
-        setTarget(null);
-        onHandoffTargetChange?.(null);
-        setPendingModel(null);
-        onPendingModelChange?.(null);
-        // Images ride a goal (folded into the objective as path lines), file attachments do not
-        // — the server refuses those, so clear them or canSend would stay silently false with
-        // the objective looking ready.
-        setAttachments([]);
-      }
-    },
-    [onHandoffTargetChange, onPendingModelChange],
-  );
+  // the rest (S.chat.modelSwitchAutoMessage for a staged model switch — see sendNormal).
+  const canSend = !running && !compacting && !busy && !modelAuthDead && draftHasContent;
 
   // Mid-run steering: while running, Enter/send queues the text **and the attached images
   // and files** for the running agent (delivered between turns as a [user_steering] user
@@ -1102,8 +1000,6 @@ export function ChatInput({
   // task-level setup, not something to hand a turn already under way. A staged /agent or
   // /model chip also blocks steering: the text belongs to the conversation that switch is
   // about to open, not to the agent running here.
-  // `!goalOn`: with the goal chip engaged the text is an OBJECTIVE — steering it into a run
-  // that happens to be active (e.g. a schedule fired) would silently repurpose it.
   //
   // Mid-run send mode (owner directive): the user chooses between "steer" (delivered mid-run
   // as a [user_steering] input) and "follow-up" (held server-side and auto-sent as an ordinary
@@ -1122,7 +1018,6 @@ export function ChatInput({
   // meaningful while running; idle/compacting is always Send, gated by canSend above.
   const midRun = midRunAction({
     sending: busy,
-    goalOn,
     modelAuthDead,
     canSteerChannel: onSteer !== undefined,
     canQueueChannel: onQueueFollowUp !== undefined,
@@ -1171,14 +1066,6 @@ export function ChatInput({
           void onCompact();
         },
       },
-      {
-        cmd: "/goal",
-        desc: S.chat.goalModeDesc,
-        run: () => {
-          clearInput();
-          toggleGoal(!goalOn);
-        },
-      },
       // Model switch (active idle session only — the parent passes onSwitchModel just there;
       // draft state has its own model picker). Gated on the model list being loaded: without
       // it the picker would open empty. Running the command consumes the /model token (like
@@ -1215,7 +1102,7 @@ export function ChatInput({
       // No `/<skill_name>` entries: with the picker gone this was the last way to put a skill
       // into a selection nothing displays, which is a state the person cannot see or undo.
     ];
-  }, [onCompact, onSwitchModel, models, agents, onTextChange, locale, toggleGoal, goalOn]);
+  }, [onCompact, onSwitchModel, models, agents, onTextChange, locale]);
   // Positional matching: a slash opens the menu from any caret position; running a command
   // removes just the token, leaving the rest of the text intact. Doesn't reopen after Escape
   // until the caret sits on a different token; suppressed while a switch picker is open (the
@@ -1277,7 +1164,7 @@ export function ChatInput({
    * staging: forking a session onto the model it already runs is nothing but a lost
    * conversation, so that pick can only mean "never mind, stay here" — leaving an earlier pick
    * armed would fork onto it on the next Enter, the opposite of what was just asked for.
-   * Exclusive with a staged handoff target and with goal mode (the latest pick wins).
+   * Exclusive with a staged handoff target (the latest pick wins).
    */
   const pickSwitchModel = (m: ModelInfo) => {
     setModelSwitchOpen(false);
@@ -1289,14 +1176,13 @@ export function ChatInput({
     stageModel(m);
     setTarget(null);
     onHandoffTargetChange?.(null);
-    setGoalOn(false);
   };
 
   /**
    * /agent pick: stages the target agent as the handoff chip — nothing is sent yet, and the
    * draft text is left alone (Enter/Send hands it to the new chat; an empty body still opens
    * one, carrying just the [handoff_from] block). Exclusive with a staged model switch and with
-   * goal mode, exactly like the model pick above; the target is cached in the draft so the chip
+   * exactly like the model pick above; the target is cached in the draft so the chip
    * survives a reload.
    */
   const pickHandoffTarget = (agent: AgentSummary) => {
@@ -1304,7 +1190,6 @@ export function ChatInput({
     setTarget(agent);
     onHandoffTargetChange?.(agent.agentId);
     stageModel(null);
-    setGoalOn(false);
     textareaRef.current?.focus();
   };
 
@@ -1396,13 +1281,13 @@ export function ChatInput({
    * first, possibly after the user has already staged something by hand. `staged` is what keeps
    * that from painting two chips at once (which sendNormal would silently resolve in favour of
    * the handoff): a restore only fills an EMPTY slot. When the user has staged a chip or turned
-   * goal mode on in the meantime, that live intent is newer than the cached one and wins — the
+   * a switch staged in the meantime, that live intent is newer than the cached one and wins — the
    * restore is dropped, not merely deferred, exactly as one pick drops the other.
    *
    * Only one of the two can be cached at a time anyway (each pick clears the other's cache
    * entry), so in the ordinary case this changes nothing.
    */
-  const staged = target !== null || pendingModel !== null || goalOn;
+  const staged = target !== null || pendingModel !== null;
 
   // Restore the cached handoff target: resolved once by id when agents becomes ready for
   // the first time (discarded if stale); a chip the user manually removes afterward is not restored again.
@@ -1439,36 +1324,8 @@ export function ChatInput({
    * normal path; the steering fallback calls this directly after the server said 409
    * not_running, when the local `status` may still lag behind).
    */
-  // `post` accepts onSend's goal parameter so onSend can be its default; the follow-up queue
-  // (fewer params) is assignable too. Non-goal calls always pass null.
-  const sendNormal = async (
-    post: (input: TaskInputPart[], goal: { budget: number } | null) => Promise<boolean> = onSend,
-  ) => {
+  const sendNormal = async (post: (input: TaskInputPart[]) => Promise<boolean> = onSend) => {
     const t = text.trim();
-    // Goal mode: the trimmed text is the objective (no images, no staged switch — both are
-    // cleared when the chip goes on). Selected skills prefix the round-1 message as a
-    // [use_skills] block, exactly like a normal send — the server strips leading marker blocks
-    // when recording the objective, and rounds after the first re-inject the objective alone.
-    if (goalOn) {
-      // Objective only: attachments were already cleared when goal mode engaged (and blocked
-      // from being added since), so there is nothing to carry here.
-      setBusy(true);
-      try {
-        // Attached images go with the objective (see the goalOn declaration above).
-        const goalInput: TaskInputPart[] = [{ type: "text", text: t }];
-        for (const url of images) goalInput.push({ type: "image_url", imageUrl: url });
-        const ok = await onSend(goalInput, { budget: goalBudget! });
-        if (ok) {
-          setText("");
-          setImages([]);
-          toggleGoal(false);
-        }
-      } finally {
-        setBusy(false);
-        textareaRef.current?.focus();
-      }
-      return;
-    }
     // A staged switch chip (from /agent or /model) redirects the send away from the current
     // Session: an agent target hands the draft to a NEW chat for that agent, a model target
     // forks this conversation onto that model. The two are mutually exclusive by construction
@@ -1496,7 +1353,7 @@ export function ChatInput({
               { provider: switchModel.provider, modelId: switchModel.modelId },
               input,
             )
-          : await post(input, null);
+          : await post(input);
       // Only clear the draft after a successful send: on failure (network / conflict / server error) keep the user's input and attachments.
       if (ok) {
         setText("");
@@ -1688,7 +1545,6 @@ export function ChatInput({
    * picked in, not the order the reads happened to finish in.
    */
   const addAttachments = (files: Iterable<File>) => {
-    if (goalOn) return; // goal input is text-only, same rule as images
     const picked: File[] = [];
     for (const file of files) {
       if (file.size > MAX_ATTACHMENT_BYTES) {
@@ -1956,121 +1812,8 @@ export function ChatInput({
         {/* Chip row above the text body: the staged switch target (an /agent handoff or a
             /model fork — never both) followed by the selected skills, all sharing the same
             chip look. Remove buttons recolor the x on hover (no background wash). */}
-        {(target !== null || pendingModel !== null || goalOn) && (
+        {(target !== null || pendingModel !== null) && (
           <div className="mb-1 flex flex-wrap items-center gap-1">
-            {/* Goal-mode chip: the budget stays compact as a value button; its editor is a
-                fixed upward popover so it never covers the objective textarea below. */}
-            {goalOn && (
-              <span className="anim-pop flex max-w-full items-center gap-1 rounded-md bg-gray-100 py-0.5 pl-2 pr-1 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-                <span className="flex shrink-0 items-center gap-1" title={S.chat.goalModeDesc}>
-                  <GlyphIcon d={GOAL_ICON} size={13} className="text-gray-500 dark:text-gray-400" />
-                  <span>{S.chat.goalMode}</span>
-                </span>
-                <span
-                  aria-hidden
-                  className="mx-0.5 h-4 w-px shrink-0 bg-gray-300 dark:bg-gray-600"
-                />
-                <Dropdown
-                  open={goalBudgetOpen}
-                  setOpen={setGoalBudgetEditorOpen}
-                  onEscape={cancelGoalBudget}
-                  className="min-w-0"
-                  menuClass="bottom-full left-1/2 -ml-32 mb-2 w-64 max-w-[calc(100vw-2rem)] origin-bottom"
-                  button={
-                    <button
-                      type="button"
-                      aria-label={goalBudgetSummary}
-                      aria-expanded={goalBudgetOpen}
-                      onClick={() => setGoalBudgetEditorOpen(!goalBudgetOpen)}
-                      className="flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-xs text-gray-600 transition-colors duration-150 hover:bg-white/80 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
-                    >
-                      <span className="truncate">{goalBudgetSummary}</span>
-                      <svg
-                        width="9"
-                        height="9"
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="shrink-0"
-                        aria-hidden
-                      >
-                        <path d="M3 4.5l3 3 3-3" />
-                      </svg>
-                    </button>
-                  }
-                >
-                  <div className="px-3 py-2">
-                    <label
-                      htmlFor="goal-budget-input"
-                      className="block text-xs font-medium text-gray-700 dark:text-gray-200"
-                    >
-                      {S.chat.goalBudgetLabel}
-                    </label>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <input
-                        id="goal-budget-input"
-                        autoFocus
-                        value={goalBudgetDraft}
-                        onChange={(e) => setGoalBudgetDraft(e.target.value)}
-                        onFocus={(e) => e.currentTarget.select()}
-                        onKeyDown={(e) => {
-                          // Escape is handled at the window level (Dropdown onEscape →
-                          // cancelGoalBudget), so it cancels no matter where focus sits.
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            saveGoalBudget();
-                          }
-                        }}
-                        placeholder={S.chat.goalBudgetPlaceholder}
-                        aria-invalid={goalBudgetDraftInvalid}
-                        aria-describedby="goal-budget-hint"
-                        {...noAutofill}
-                        title={
-                          goalBudgetDraftInvalid ? S.chat.goalBudgetInvalid : S.chat.goalBudgetHint
-                        }
-                        className={`min-w-0 flex-1 rounded-md border bg-white px-2 py-1 font-mono text-sm leading-5 placeholder:text-gray-400 focus:outline-none focus:ring-2 dark:bg-gray-950 dark:placeholder:text-gray-500 ${
-                          goalBudgetDraftInvalid
-                            ? "border-red-400 text-red-600 focus:border-red-500 focus:ring-red-400/20 dark:border-red-500 dark:text-red-400"
-                            : "border-gray-300 text-gray-800 focus:border-gray-500 focus:ring-gray-400/20 dark:border-gray-700 dark:text-gray-100 dark:focus:border-gray-500"
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        aria-label={S.chat.goalBudgetSave}
-                        title={S.chat.goalBudgetSave}
-                        disabled={goalBudgetDraftInvalid}
-                        onClick={saveGoalBudget}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-900 text-white transition-colors duration-150 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-35 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
-                      >
-                        <GlyphIcon d="M5 12l4 4L19 6" size={14} />
-                      </button>
-                    </div>
-                    <p
-                      id="goal-budget-hint"
-                      className={`mt-1.5 text-[11px] leading-4 ${
-                        goalBudgetDraftInvalid
-                          ? "text-red-500 dark:text-red-400"
-                          : "text-gray-400 dark:text-gray-500"
-                      }`}
-                    >
-                      {goalBudgetDraftInvalid ? S.chat.goalBudgetInvalid : S.chat.goalBudgetHint}
-                    </p>
-                  </div>
-                </Dropdown>
-                <button
-                  type="button"
-                  aria-label={S.chat.goalRemove}
-                  onClick={() => toggleGoal(false)}
-                  className="shrink-0 rounded p-0.5 text-gray-400 transition-colors duration-150 hover:text-gray-700 dark:hover:text-gray-200"
-                >
-                  ×
-                </button>
-              </span>
-            )}
             {/* Staged /agent handoff target: the Agent avatar (the identity tile used
                 everywhere Agents are picked) + its id, so the chip reads as "this goes to that
                 Agent" without spelling the sentence out. */}
@@ -2196,12 +1939,11 @@ export function ChatInput({
               ref={attachmentInputRef}
               type="file"
               multiple
-              disabled={goalOn}
               className="hidden"
               onChange={onPickAttachments}
             />
             {/* "+" extension menu, leading the row: input add-ons (image upload, file
-                attachment, goal mode) plus the input settings footer (mid-run send mode —
+                attachment) plus the input settings footer (mid-run send mode —
                 usable while running, which is exactly when it matters, so the button itself
                 never disables). The uploads live in here rather than as their own toolbar
                 buttons: one 8x8 slot instead of three, which is the difference between the
@@ -2213,10 +1955,7 @@ export function ChatInput({
                   icon: IMAGE_ICON,
                   label: S.chat.uploadImage,
                   // Without vision the images still send — as scratchpad file paths — so the
-                  // entry stays usable and the hint says what will happen instead. Goal mode
-                  // sends them that way on any model, since the objective is re-injected as
-                  // text every round.
-                  desc: vision && !goalOn ? S.chat.uploadImageDesc : S.chat.imagesAsPathHint,
+                  desc: vision ? S.chat.uploadImageDesc : S.chat.imagesAsPathHint,
                   active: images.length > 0,
                   onSelect: () => imageInputRef.current?.click(),
                 },
@@ -2229,19 +1968,7 @@ export function ChatInput({
                   // inlined into the conversation.
                   desc: S.chat.uploadFileDesc,
                   active: attachments.length > 0,
-                  // Unlike images, a file cannot ride a goal: nothing folds it into the
-                  // objective that every round re-injects, so the server refuses it.
-                  disabled: goalOn,
                   onSelect: () => attachmentInputRef.current?.click(),
-                },
-                {
-                  key: "goal",
-                  icon: GOAL_ICON,
-                  label: S.chat.goalMode,
-                  desc: S.chat.goalModeDesc,
-                  active: goalOn,
-                  disabled: running || compacting || busy,
-                  onSelect: () => toggleGoal(!goalOn),
                 },
               ]}
               footer={<SteerModeRow steerMode={steerMode} onChangeSteerMode={setSteerMode} />}

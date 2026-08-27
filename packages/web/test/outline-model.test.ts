@@ -1,6 +1,6 @@
 /**
  * outline-model.ts unit tests: turn segmentation into outline entries (merge of adjacent
- * user items, banner/goal-round handling, answer accumulation), the plain-text preview
+ * user items, banner handling, answer accumulation), the plain-text preview
  * reduction, and the tick rail's sliding-window bounds.
  */
 import { describe, expect, it } from "vitest";
@@ -77,13 +77,11 @@ describe("buildOutline", () => {
     expect(outline[0]).toMatchObject({ question: "real question", answer: "answer" });
   });
 
-  it("keeps one entry per goal run (later rounds merge into round 1) and includes scheduled turns", () => {
-    const round = (n: number) => `[goal]\nround: ${n}\nobjective: o\n[/goal]\ndo the thing`;
+  it("gives a scheduled turn its own entry, keyed on the task's prompt", () => {
     const items: ChatItem[] = [
-      user(round(1)),
-      assistant("round 1 reply"),
-      user(round(2)),
-      assistant("round 2 reply"),
+      user("do the thing"),
+      assistant("first reply"),
+      assistant("second reply"),
       user(buildScheduledMessage("nightly", "2026-08-01T00:00:00Z", "scheduled prompt")),
       assistant("scheduled reply"),
     ];
@@ -91,7 +89,7 @@ describe("buildOutline", () => {
     expect(outline).toHaveLength(2);
     expect(outline[0]).toMatchObject({
       question: "do the thing",
-      answer: "round 1 reply round 2 reply",
+      answer: "first reply second reply",
     });
     expect(outline[1]).toMatchObject({ question: "scheduled prompt", answer: "scheduled reply" });
   });

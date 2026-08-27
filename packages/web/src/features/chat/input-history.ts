@@ -6,7 +6,7 @@
  * prompts (protocol blocks and attachment lines stripped) and mid-run steering messages.
  * Machine-injected texts are excluded: handoff / model-switch source blocks carry no user
  * prose, scheduled-trigger prompts were authored in the schedule config rather than typed
- * here, and goal rounds past 1 are the loop re-sending an objective already in the list.
+ * here.
  * Consecutive duplicates collapse (recalling the same text twice in a row is one entry),
  * matching shell behavior.
  *
@@ -52,7 +52,6 @@ export function buildInputHistory(items: readonly ChatItem[]): string[] {
     if (item.kind === "user_text") {
       const parsed = parseUserMessageBody(item.text);
       if (!parsed || parsed.scheduled) continue;
-      if (parsed.goalRound !== undefined && parsed.goalRound > 1) continue;
       push(parsed.body);
     } else if (item.kind === "user_steering") {
       push(splitAttachments(item.text).text.trim());

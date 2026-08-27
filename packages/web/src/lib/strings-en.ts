@@ -1118,7 +1118,6 @@ export const en: Strings = {
     },
     // Trip-constraint chips: compose copy (TripChipsCopy contract in
     // trip-constraints.ts) + chip/popover UI copy. "Budget" is the trip's price TIER —
-    // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
     tripChips: {
       lineFolder: "Trip folder: ",
       lineWhere: "Where: ",
@@ -1443,7 +1442,7 @@ export const en: Strings = {
       `Using skill${names.length === 1 ? "" : "s"}: ${names.join(", ")}`,
     attachedFilesBanner: (names: string[]): string =>
       `Attached file${names.length === 1 ? "" : "s"}: ${names.join(", ")}`,
-    /** Composer "+" extension menu (image upload, file attachment, goal mode) and the goal chip. */
+    /** Composer "+" extension menu: image upload and file attachment. */
     plusMenu: "More input options",
     uploadImage: "Upload image",
     uploadImageDesc: "Attach images to this message",
@@ -1452,29 +1451,6 @@ export const en: Strings = {
     removeFile: "Remove file",
     attachmentTooLarge: (name: string): string =>
       `${name} exceeds the 10MB limit and was not attached.`,
-    goalMode: "Goal mode",
-    goalModeDesc: "Loop until the goal completes",
-    goalBudgetLabel: "Token budget",
-    goalBudgetUnlimited: "Budget unlimited",
-    goalBudgetValue: (value: string): string => `Budget ${value}`,
-    goalBudgetPlaceholder: "e.g. 500k",
-    goalBudgetHint: "Use a k/m suffix; leave blank for no budget limit",
-    goalBudgetInvalid:
-      "Invalid budget: use a positive number with an optional k/m suffix (500k, 2m)",
-    goalBudgetSave: "Save budget",
-    goalRemove: "Exit goal mode",
-    goalRoundBanner: (round: number): string => `Goal · round ${round}`,
-    /** Later rounds collapse the objective's images into this chip (round 1 shows them in full). */
-    goalRoundImages: (count: number): string =>
-      count === 1 ? "1 attached image" : `${count} attached images`,
-    goalProgress: (rounds: number, tokens: string): string => `round ${rounds} · tokens ${tokens}`,
-    goalStatus: {
-      active: "running",
-      complete: "complete",
-      blocked: "blocked",
-      budget_limited: "budget exhausted",
-      aborted: "interrupted",
-    } as Record<string, string>,
   },
 
   /** Subagents side panel: call-graph of the latest Task + the selected child conversation. */

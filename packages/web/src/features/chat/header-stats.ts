@@ -5,7 +5,7 @@
  * from the fetch effect; unit-tested in test/header-stats.test.ts.
  *
  * Why it exists: the naive `fetched sessionCost + open Task's live estimate` display blinked
- * out whenever both halves went empty at once — every goal-round boundary zeroes the live
+ * out whenever both halves went empty at once — every Task boundary zeroes the live
  * buckets while the server keeps the session `running` (so an idle-gated refetch never ran),
  * a reload mid-run started with no fetched cost at all, and a refetch resolving in the idle
  * blip between queued follow-ups could return no row and clobber a known figure with null.
@@ -14,7 +14,7 @@
  *
  *     sessionCost   (last applied fetch: absorbs everything recorded up to its resolve)
  *   + settledUsd    (live cost of Tasks finished SINCE that fetch, folded at each Task
- *                    boundary — goal rounds keep the running total instead of restarting)
+ *                    boundary — a new Task keeps the running total instead of restarting)
  *   + max(0, open Task's live estimate − liveAtFetchUsd)
  *
  * where liveAtFetchUsd snapshots the open Task's live estimate at the moment a fetch applies:
@@ -176,7 +176,7 @@ export function advanceCostStat(hold: CostStatHold, obs: CostStatObservation): C
     hold.liveAtFetchUsd = live;
     hold.lastLiveUsd = live;
   }
-  // Task boundary — a new Task started (goal rounds included) or the open one closed: fold the
+  // Task boundary — a new Task started or the open one closed: fold the
   // finished Task's un-absorbed live remainder into the settled base, so the total carries
   // across the boundary instead of restarting from the zeroed buckets.
   if (

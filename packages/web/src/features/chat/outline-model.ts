@@ -8,7 +8,7 @@
  * every assistant_text that follows until the next prompt. Consecutive user items merge
  * into one entry (a prompt's text and images arrive as separate adjacent items — they are
  * one question, not several). Machine-only texts never open an entry: handoff /
- * model-switch source blocks render as banners with no user prose, and goal rounds past 1
+ * model-switch source blocks render as banners with no user prose, and those
  * are the loop re-sending an objective whose entry (round 1) is already collecting the
  * whole run's replies. Scheduled-trigger prompts DO open one — they are real turns worth
  * jumping to, unlike in input history (which only recalls what was typed here).
@@ -117,7 +117,7 @@ export function buildOutline(items: readonly ChatItem[]): OutlineEntry[] {
       let body = "";
       if (item.kind === "user_text") {
         const parsed = parseUserMessageBody(item.text);
-        if (!parsed || (parsed.goalRound !== undefined && parsed.goalRound > 1)) {
+        if (!parsed) {
           // A banner-only item is not a question, but it still separates user runs: a real
           // prompt right after it must open its own entry, not merge across the banner.
           lastWasUser = false;

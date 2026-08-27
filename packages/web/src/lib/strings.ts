@@ -1057,7 +1057,6 @@ export const zh = {
     },
     // Trip-constraint chips: compose copy (TripChipsCopy contract in
     // trip-constraints.ts) + chip/popover UI copy. "预算" here is the trip's price TIER —
-    // never a number, and unrelated to goal mode's token budget (trip-constraints.ts header).
     tripChips: {
       lineFolder: "行程文件夹：",
       lineWhere: "目的地：",
@@ -1381,7 +1380,7 @@ export const zh = {
     skillsBanner: (names: string[]): string => `使用技能：${names.join("、")}`,
     /** Attached-file notice above a user message (file names only; the paths stay in the Trace). */
     attachedFilesBanner: (names: string[]): string => `附加文件：${names.join("、")}`,
-    /** Composer "+" extension menu (image upload, file attachment, goal mode) and the goal chip. */
+    /** Composer "+" extension menu: image upload and file attachment. */
     plusMenu: "更多输入方式",
     uploadImage: "上传图片",
     uploadImageDesc: "为本条消息附加图片",
@@ -1390,27 +1389,6 @@ export const zh = {
     removeFile: "移除文件",
     /** Toast for a picked file rejected before reading (the server's per-file cap is 10MB). */
     attachmentTooLarge: (name: string): string => `${name} 超过 10MB 上限，未添加。`,
-    goalMode: "目标模式",
-    goalModeDesc: "循环运行直至目标完成",
-    goalBudgetLabel: "Token 预算",
-    goalBudgetUnlimited: "预算不限",
-    goalBudgetValue: (value: string): string => `预算 ${value}`,
-    goalBudgetPlaceholder: "例如 500k",
-    goalBudgetHint: "支持 k/m 后缀；留空表示预算不限",
-    goalBudgetInvalid: "无效预算：应为正数，可带 k/m 后缀（500k、2m）",
-    goalBudgetSave: "保存预算",
-    goalRemove: "退出目标模式",
-    goalRoundBanner: (round: number): string => `目标 · 第 ${round} 轮`,
-    /** Later rounds collapse the objective's images into this chip (round 1 shows them in full). */
-    goalRoundImages: (count: number): string => `${count} 张附图`,
-    goalProgress: (rounds: number, tokens: string): string => `第 ${rounds} 轮 · tokens ${tokens}`,
-    goalStatus: {
-      active: "进行中",
-      complete: "已完成",
-      blocked: "受阻",
-      budget_limited: "预算耗尽",
-      aborted: "已中断",
-    } as Record<string, string>,
   },
 
   /** Subagents side panel: call-graph of the latest Task + the selected child conversation. */

@@ -31,7 +31,7 @@
  * level only, queried scoped to the stream's scroll container (item ids repeat across
  * nested subagent models, so document-wide lookups would be ambiguous). The active-entry
  * computation considers only anchors that ARE entries: banner-only messages, merged image
- * fragments and later goal rounds carry anchors too, and crossing one of those must
+ * fragments carry anchors too, and crossing one of those must
  * highlight the entry that covers it rather than nothing.
  */
 import { useEffect, useRef, useState } from "react";
@@ -127,7 +127,7 @@ export function useOutlineRailFit(
 /**
  * The entry whose exchange the reading position is inside: the last ENTRY anchor above the
  * reading line — anchors that aren't entries (banner-only messages, image fragments merged
- * into their entry, goal rounds past 1) resolve to the entry covering them by simply being
+ * into their entry) resolve to the entry covering them by simply being
  * skipped. At (or near) the bottom the newest entry wins outright: a short last turn never
  * crosses the reading line on its own.
  */
