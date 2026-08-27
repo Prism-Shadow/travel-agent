@@ -256,16 +256,25 @@ export function DraftView({
     agentId?: string;
     workspace?: string;
     tripId?: string;
+    newTrip?: boolean;
   } | null;
   /**
-   * The Trip this draft belongs to, carried from the sidebar's "new trip" / a trip's "+".
-   * Read straight from route state rather than cached: it is not a preference the person is
-   * choosing on this screen, it is which journey they clicked to start from. A refresh that
-   * loses it lands on an ordinary floating draft, which is the honest fallback — better than
-   * silently attaching the conversation to a journey the person is no longer looking at.
+   * Which journey this draft belongs to, carried from the sidebar.
+   *
+   * `tripId` names an existing Trip (a trip's "+"); `newTrip` means "new trip" was clicked and
+   * the journey does not exist yet — the first message creates it, the same way the first
+   * message creates the Session. Nothing is written until then, so a click someone thought
+   * better of leaves nothing behind, and the trip can be named for a destination the person
+   * has by then actually stated.
+   *
+   * Both are read straight from route state rather than the draft cache, for the same reason
+   * the chips are not cached: they are what the person clicked just now, not a preference of
+   * this screen. A refresh lands on an ordinary floating draft — the honest fallback, rather
+   * than silently filing the conversation under a journey they are no longer looking at.
    */
   const draftTripId = routeState?.tripId ?? null;
-  const { byId: tripsById, patch: patchTrip } = useTrips();
+  const isNewTripDraft = routeState?.newTrip === true;
+  const { byId: tripsById, patch: patchTrip, create: createTrip, remove: removeTrip } = useTrips();
   const stateAgentId = routeState?.agentId;
   const appliedStateKey = useRef<string | null>(null);
   /** One-shot marker for the project-default Agent (seeding precedence, see below). */
@@ -640,83 +649,6 @@ export function DraftView({
   // failure, so the input area keeps the draft and can resend. `keepDraft` is set by sends
   // that did not consume the composer text (the example task), so a typed-but-unsent draft
   // survives the navigation instead of being silently discarded.
-  const onSend = useCallback(
-    async (
-      input: TaskInputPart[],
-      keepDraft = false,
-      goal: { budget: number } | null = null,
-    ): Promise<boolean> => {
-      if (!agentId || sendingRef.current) return false;
-      sendingRef.current = true;
-      setSending(true);
-      let createdId: string | null = null;
-      let browserReassigned = false;
-      try {
-        const body: SessionCreateRequest = { approvalMode };
-        // Model reference is submitted as a pair (provider + modelId; falls back to the Project default when not set).
-        if (modelRef) {
-          body.modelId = modelRef.modelId;
-          body.provider = modelRef.provider;
-        }
-        if (workspace.trim()) body.workspace = workspace.trim();
-        // The Session joins its Trip at creation. Membership is a column on the session row,
-        // so this decides nothing about where the conversation's files or memory live.
-        if (draftTripId !== null) body.tripId = draftTripId;
-        const created = await api.createSession(projectId, agentId, body);
-        createdId = created.session.sessionId;
-        // Promote before starting the task. Otherwise a fast first agent browser call races main,
-        // which would still be showing the draft scope and correctly refuse the hidden Session.
-        await onReassignBrowserScope(createdId);
-        browserReassigned = true;
-        const res = await api.postTask(createdId, { input, ...(goal ? { goal } : {}) });
-        add(created.session);
-        if (keepDraft) {
-          browserScopeIdRef.current = createDraftBrowserScopeId();
-          persistRef.current();
-        } else {
-          discardDraft();
-        }
-        navigate(`/chat/${res.sessionId}`, { replace: true });
-        return true;
-      } catch (e) {
-        // The Session was created but the first message failed to send (postTask failed): delete
-        // this empty Session, otherwise every resend attempt would create another one, piling up
-        // empty sessions with no messages in the sidebar (best-effort cleanup).
-        if (createdId) void api.deleteSession(createdId).catch(() => undefined);
-        if (browserReassigned) {
-          // Keep the browser pages with the still-editable draft. Main accepts only this exact
-          // inverse of the immediately preceding promotion, so this cannot move another Session.
-          await onReassignBrowserScope(draftBrowserScope(browserScopeIdRef.current)).catch(
-            () => undefined,
-          );
-        }
-        toastError(apiErrorText(e, modelRef ? { modelId: modelRef.modelId } : {}));
-        return false;
-      } finally {
-        sendingRef.current = false;
-        setSending(false);
-      }
-    },
-    [
-      projectId,
-      agentId,
-      approvalMode,
-      modelRef,
-      workspace,
-      draftTripId,
-      add,
-      discardDraft,
-      navigate,
-      onReassignBrowserScope,
-    ],
-  );
-
-  // Example tasks: one click submits the canned prompt exactly like a hand-typed send (the
-  // busy id drives the clicked card's spinner; the shared in-flight guard and all failure
-  // handling live in onSend). keepDraft: an example never consumes the composer text, so a
-  // typed-but-unsent draft must survive. The selected model / Workspace / approval mode apply as-is.
-  const [exampleBusy, setExampleBusy] = useState<ExampleTaskId | null>(null);
-
   /**
    * Trip-constraint chips (Where/When/Who/Budget), in one of two modes.
    *
@@ -750,6 +682,110 @@ export function DraftView({
     },
     [draftTrip, patchTrip],
   );
+
+  const onSend = useCallback(
+    async (
+      input: TaskInputPart[],
+      keepDraft = false,
+      goal: { budget: number } | null = null,
+    ): Promise<boolean> => {
+      if (!agentId || sendingRef.current) return false;
+      sendingRef.current = true;
+      setSending(true);
+      let createdId: string | null = null;
+      /** Trip created by THIS send, to be rolled back if the send does not complete. */
+      let createdTripId: string | null = null;
+      let browserReassigned = false;
+      try {
+        const body: SessionCreateRequest = { approvalMode };
+        // Model reference is submitted as a pair (provider + modelId; falls back to the Project default when not set).
+        if (modelRef) {
+          body.modelId = modelRef.modelId;
+          body.provider = modelRef.provider;
+        }
+        if (workspace.trim()) body.workspace = workspace.trim();
+        // A "new trip" draft materializes its journey now, from what the chips say: this is the
+        // only moment a destination is known, and it is what lets the folder be named for the
+        // place rather than the date. Created before the Session so the Session can join it in
+        // one step; rolled back below if anything after this fails, so a failed send leaves no
+        // empty trip — the same contract the empty-Session cleanup already has.
+        let tripId = draftTripId;
+        if (tripId === null && isNewTripDraft) {
+          const patch = constraintsToTripPatch(trip);
+          const created = await createTrip({
+            destination: patch.destination,
+            when: patch.when,
+            who: patch.who,
+            budget: patch.budget,
+          });
+          tripId = created.tripId;
+          createdTripId = created.tripId;
+        }
+        // The Session joins its Trip at creation. Membership is a column on the session row,
+        // so this decides nothing about where the conversation's files or memory live.
+        if (tripId !== null) body.tripId = tripId;
+        const created = await api.createSession(projectId, agentId, body);
+        createdId = created.session.sessionId;
+        // Promote before starting the task. Otherwise a fast first agent browser call races main,
+        // which would still be showing the draft scope and correctly refuse the hidden Session.
+        await onReassignBrowserScope(createdId);
+        browserReassigned = true;
+        const res = await api.postTask(createdId, { input, ...(goal ? { goal } : {}) });
+        add(created.session);
+        if (keepDraft) {
+          browserScopeIdRef.current = createDraftBrowserScopeId();
+          persistRef.current();
+        } else {
+          discardDraft();
+        }
+        navigate(`/chat/${res.sessionId}`, { replace: true });
+        return true;
+      } catch (e) {
+        // The Session was created but the first message failed to send (postTask failed): delete
+        // this empty Session, otherwise every resend attempt would create another one, piling up
+        // empty sessions with no messages in the sidebar (best-effort cleanup).
+        if (createdId) void api.deleteSession(createdId).catch(() => undefined);
+        // A journey that never carried a message is not a journey. Only a trip created by this
+        // very send is removed — never one the draft merely belonged to.
+        if (createdTripId) void removeTrip(createdTripId).catch(() => undefined);
+        if (browserReassigned) {
+          // Keep the browser pages with the still-editable draft. Main accepts only this exact
+          // inverse of the immediately preceding promotion, so this cannot move another Session.
+          await onReassignBrowserScope(draftBrowserScope(browserScopeIdRef.current)).catch(
+            () => undefined,
+          );
+        }
+        toastError(apiErrorText(e, modelRef ? { modelId: modelRef.modelId } : {}));
+        return false;
+      } finally {
+        sendingRef.current = false;
+        setSending(false);
+      }
+    },
+    [
+      projectId,
+      agentId,
+      approvalMode,
+      modelRef,
+      workspace,
+      draftTripId,
+      isNewTripDraft,
+      trip,
+      createTrip,
+      removeTrip,
+      add,
+      discardDraft,
+      navigate,
+      onReassignBrowserScope,
+    ],
+  );
+
+  // Example tasks: one click submits the canned prompt exactly like a hand-typed send (the
+  // busy id drives the clicked card's spinner; the shared in-flight guard and all failure
+  // handling live in onSend). keepDraft: an example never consumes the composer text, so a
+  // typed-but-unsent draft must survive. The selected model / Workspace / approval mode apply as-is.
+  const [exampleBusy, setExampleBusy] = useState<ExampleTaskId | null>(null);
+
   const sendWithTrip = useCallback(
     async (input: TaskInputPart[], goal: { budget: number } | null): Promise<boolean> => {
       const ok = await onSend(

@@ -99,6 +99,27 @@ describe("trips", () => {
     expect(path.basename(second.dir)).toBe("kyoto-2");
   });
 
+  it("names the folder for the destination the sender stated, not the day they clicked", async () => {
+    // The flow this pins: "new trip" writes nothing, and the first message creates the trip
+    // from the chips — so a destination is known by then and the folder can be named for it.
+    // Creating first and asking later produced `trip-<date>` every time, because at click
+    // time there is nothing to name it after.
+    const trip = await createTrip({
+      destination: "Kyoto",
+      when: { kind: "dates", start: "2026-11-03", end: "2026-11-08" },
+    });
+    expect(path.basename(trip.dir)).toBe("kyoto-2026-11");
+    expect(trip.name).toBe("Kyoto");
+  });
+
+  it("still accepts a trip created knowing nothing, and says so honestly", async () => {
+    // Sending without filling a single chip is a real thing to do; it is not junk, and it is
+    // not pretended to be more than it is.
+    const trip = await createTrip({ destination: "", when: null, who: null, budget: null });
+    expect(trip.name).toBe("Untitled trip");
+    expect(path.basename(trip.dir)).toMatch(/^trip-\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("names the directory by date when the destination yields no ASCII slug", () => {
     const at = new Date("2026-10-12T00:00:00Z");
     expect(tripDirBasename("东京", null, at)).toBe("trip-2026-10-12");

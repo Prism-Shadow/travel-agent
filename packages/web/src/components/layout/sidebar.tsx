@@ -206,7 +206,7 @@ export function Sidebar({
     showCliSessions,
     setShowCliSessions,
   } = useSessions();
-  const { trips, loading: tripsLoading, byId: tripsById, create: createTrip } = useTrips();
+  const { trips, loading: tripsLoading, byId: tripsById } = useTrips();
   const chatMatch = useMatch("/chat/:sessionId");
   const activeSessionId = chatMatch?.params.sessionId ?? null;
 
@@ -490,7 +490,11 @@ export function Sidebar({
    * The workspace-mode group header's "+" additionally carries that group's Workspace path
    * ("" = a temporary workspace), pre-filling the draft's Workspace selection the same way.
    */
-  const newChat = (agentId?: string, tripId?: string) => {
+  /**
+   * `trip` says which journey the draft belongs to: an existing one by id, or `{ newTrip: true }`
+   * for one that the first message will create.
+   */
+  const newChat = (agentId?: string, trip?: string | { newTrip: true }) => {
     // Typed-but-unsent text in the ACTIVE new-chat draft becomes a parked draft
     // conversation first (a row in the list below, sendable anytime — draft-sessions.ts),
     // so this click always lands on an empty composer and never silently shelves content.
@@ -498,25 +502,25 @@ export function Sidebar({
     if (agentId) setCurrentAgentId(agentId);
     const state = {
       ...(agentId ? { agentId } : {}),
-      ...(tripId !== undefined ? { tripId } : {}),
+      ...(typeof trip === "string" ? { tripId: trip } : {}),
+      ...(typeof trip === "object" ? { newTrip: true } : {}),
     };
     navigate(`/chat/${DRAFT_SESSION_ID}`, Object.keys(state).length > 0 ? { state } : undefined);
     onNavigate?.();
   };
 
   /**
-   * New trip: creates it immediately with no identity yet, then lands on a draft attached to
-   * it. Nothing is asked for up front — the person states the journey in their own sentence,
-   * and the trip's fields are filled from what they said rather than from a form they had to
-   * complete before being allowed to start.
+   * New trip: lands on a draft that will *become* a trip, and creates nothing yet.
+   *
+   * The journey is materialized by the first message, exactly as a conversation is — which is
+   * what makes both of the things immediate creation got wrong go away. The folder can be named
+   * for the destination, because by then the person has said one; and a click someone thought
+   * better of leaves no empty trip and no empty directory behind.
+   *
+   * Nothing is asked for up front either way: no form stands between the click and the sentence.
    */
-  const newTrip = async () => {
-    try {
-      const trip = await createTrip();
-      newChat(defaultAgentId, trip.tripId);
-    } catch (e) {
-      toastError(apiErrorText(e));
-    }
+  const newTrip = () => {
+    newChat(defaultAgentId, { newTrip: true });
   };
 
   /** Confirmed parked-draft deletion: drops the entry; a deleted draft that is open falls back to the plain new-chat page. */
@@ -802,7 +806,7 @@ export function Sidebar({
       <div className="shrink-0 space-y-0.5 px-2 pb-2 pt-2">
         <button
           type="button"
-          onClick={() => void newTrip()}
+          onClick={newTrip}
           className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
         >
           <span className="text-gray-500 dark:text-gray-400">
