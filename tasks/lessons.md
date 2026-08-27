@@ -140,6 +140,16 @@ needed.
   green. The root `tsconfig.json` is therefore a solution-style router (`files: []` + references to
   every per-package config, test configs included); a file checked by a config not named
   `tsconfig.json` must have that config referenced there, or editors will invent a project for it.
+- **`command -v` proves a name resolves, not that it runs — never use it as a readiness probe.**
+  A pnpm global launcher is a script holding an absolute path into the checkout, so after the
+  repository moved, `command -v penguin-browser` still succeeded on an executable file whose every
+  invocation died with `Cannot find module '…/browser-cli/bin.js'`. The `penguin-browser` skill then
+  offered a *repo-relative* fallback, `node packages/browser-cli/dist/cli.js`, which can never
+  resolve because an agent's cwd is a conversation workspace rather than the repo — so the
+  documented recovery failed too and the model improvised a 32-second `find` over the home
+  directory. Two minutes and sixteen steps before the browser opened, all downstream of one stale
+  launcher. A prerequisite check must execute the thing (`penguin-browser session list`), and a
+  broken install must end in one honest sentence to the user, not a filesystem hunt.
 
 ## Testing and verification
 

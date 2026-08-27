@@ -3,8 +3,8 @@ name: penguin-browser
 description: Control the browser backend selected for a Travel Agent conversation through the Penguin Browser CLI and persistent Playwright sessions. Desktop conversations default to the visible in-app browser; the user's own Chrome is an explicit alternative for reusing that profile or an existing authorized tab. Use for interactive or authenticated browser tasks that require rendered DOM, ARIA semantics, navigation, dialogs, downloads, or visual fallback.
 short_description: Automate the conversation's selected browser backend.
 short_description_zh: 通过本地 CLI 自动化对话中由用户选择的浏览器后端。
-version: 10
-updated: 2026-08-21T00:00:00Z
+version: 11
+updated: 2026-08-28T00:00:00Z
 ---
 
 # Penguin Browser
@@ -19,15 +19,17 @@ Penguin Browser lives **in this travel-agent checkout**, not in a separate `peng
 
 ### 1. Resolve the local CLI
 
-Prefer `penguin-browser` on `PATH` (`pnpm build` at the repo root links it). If it is missing, use the built CLI in this repo:
+Prefer `penguin-browser` on `PATH` (`pnpm build` at the repo root links it). **Probe it by running it, not by looking it up:**
 
 ```bash
-command -v penguin-browser
-# fallback, from the travel-agent repo root:
-node packages/browser-cli/dist/cli.js session list
+penguin-browser session list
 ```
 
-If neither the command nor `packages/browser-cli/dist/cli.js` exists, stop and tell the user to run `pnpm build` in the travel-agent checkout (or put `penguin-browser` on `PATH`). Do not invent another checkout path.
+`command -v penguin-browser` is not a sufficient check. The launcher it finds is a small script holding an absolute path to the checkout, so after the repository is moved or renamed the name still resolves, the file is still executable, and `command -v` still succeeds — while every real call dies with `Cannot find module '…/browser-cli/bin.js'`. Only running the CLI distinguishes installed from merely present.
+
+If that command fails, **stop and tell the user**, quoting the error: they need to run `pnpm build` (or `pnpm link --global` in `packages/browser-cli`) in the travel-agent checkout. A stale launcher is repaired by relinking, and nothing you can do from here fixes it.
+
+**Do not search the filesystem for the CLI.** Your working directory is a conversation workspace, not the repository, so a repo-relative path such as `packages/browser-cli/dist/cli.js` cannot resolve from it and `find` over the home directory costs the user a minute to arrive at the same answer the error already gave. Only if the shell is *already inside the checkout* is `node packages/browser-cli/dist/cli.js` a valid alternative. Do not invent another checkout path.
 
 In every example below, `penguin-browser` means that resolved command.
 
@@ -60,10 +62,11 @@ login, SSO, certificate, profile, or an already-open tab.
 ### 3. Check the selected backend's prerequisites
 
 ```bash
-command -v penguin-browser || test -f packages/browser-cli/dist/cli.js
 lsof -nP -iTCP:19989 -sTCP:LISTEN 2>/dev/null || true
 penguin-browser session list
 ```
+
+(`session list` is the CLI probe from step 1 — it both proves the CLI runs and reports the state, so it does not need a `command -v` in front of it.)
 
 `session list` reports `CONNECTED`, `DISCONNECTED`, or `N/A` (direct/headless). A disconnected
 extension session stays visible so its state is not silently discarded, and it recovers automatically
