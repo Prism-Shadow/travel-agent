@@ -22,7 +22,7 @@ feature belongs here at all.
 
 1. **English is the repository's working language.** Everything you write is English — code,
    comments, commit messages, error and log output, test names and fixtures, package metadata, and
-   every document under `docs/`, `changelog/` and `tasks/`. This is not a preference about style; a
+   every document under `docs/` and `tasks/`, and every spec. This is not a preference about style; a
    comment or design note that only some readers can parse is documentation that does not exist for
    the rest of them.
 
@@ -36,10 +36,12 @@ feature belongs here at all.
 
    Some older documents under `docs/` are still Chinese and are being translated. Do not add to
    them in Chinese, and translate the file you are editing if the change is substantial.
-2. **Every change ships a changelog entry.** Add `changelog/unreleased/YYYY-MM-DD-<semantic-id>.md`
-   (H1 title, one-sentence summary, then details) and a one-line link in
-   `changelog/unreleased/README.md`. Related changes extend an existing entry instead of opening a
-   new file. Released folders are frozen.
+2. **Every change leaves the specs true.** There is no changelog. **What changed** is git history —
+   write the commit message as the entry: what changed, why, and what you ran to verify it.
+   **What is true** is the spec graph, rooted at [`SPEC.md`](SPEC.md) — a change that alters a
+   boundary, a contract or a decision updates the owning spec in the *same commit*, and one that
+   settles a trade-off worth remembering adds a note under `docs/decisions/`. A spec left describing
+   the old behaviour is part of the defect, not a follow-up.
 3. **The engine baseline is pinned.** `packages/core` and `packages/server` are a hard-fork snapshot
    of PenguinHarness 0.2.2 (`d14be6f`). Do not merge upstream. Do not "improve" them opportunistically
    — changes there are a deliberate decision, not a side effect.
@@ -74,8 +76,8 @@ packages/skills              Built-in skill library, incl. skills/penguin-browse
 ```
 
 `browser-cli` and `browser-extension` are a snapshot of upstream `penguin-browser` at `ba9e13b`
-(2026-08-12): upstream history stays in the upstream repo; post-import changes are recorded in
-`changelog/`.
+(2026-08-12): upstream history stays in the upstream repo; post-import changes are in this
+repository's git history.
 
 Both browser backends converge on the same relay and Playwright execution layer; they differ only in
 the debugger bridge and the profile being driven. See `docs/architecture/iab-in-app-browser.md`.
@@ -111,8 +113,8 @@ linked by `parent` and `depends-on`, and the `spec_*` tools walk it. A spec stat
 and never narrates — the rule, and what is deliberately not yet a node, are in
 [`docs/AGENTS.md`](docs/AGENTS.md).
 
-Records versus living docs: `changelog/`, `docs/research/` and `docs/postmortem/` are
-**dated records** — do not rewrite them to match today's code. READMEs,
+Records versus living docs: git history, `docs/research/` and `docs/postmortem/` are
+**dated records** — do not rewrite them to match today's code. READMEs, the specs,
 `CONTRIBUTING.md`, `docs/architecture/`, `docs/decisions/` and source comments are **living** —
 update them in the same change that makes them wrong (an implemented decision note keeps its facts
 current; the decision itself is superseded by a new note, never rewritten).
@@ -174,7 +176,8 @@ its postmortem when one exists.
    helper, route; or relay, executor, UI), update them in the same commit.
 4. Verify with the real gates — `pnpm typecheck`, the affected package's tests, and a build when the
    change touches paths, layout, or bundling. Record what you ran.
-5. Ship the changelog entry with the change, and update any living doc the change made wrong.
+5. Write the commit message as the record — what changed, why, what you ran — and update every spec
+   and living doc the change made wrong, in that same commit.
 
 ## Current State
 

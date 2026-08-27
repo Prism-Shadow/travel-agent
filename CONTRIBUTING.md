@@ -90,28 +90,14 @@ pnpm test:e2e                                        # core live-model e2e, need
   where it is the content itself: zh i18n catalogs and fields (`strings.ts` dictionaries,
   CLI `i18n.ts`, `titleZh`, `short_description_zh`), `*.zh.md` documents, and test
   literals that assert zh i18n output or exercise CJK-specific behavior.
-- **Every change ships with a changelog entry**: add
-  `changelog/<version>/YYYY-MM-DD-<semantic-id>.md` under the next unreleased version
-  (released versions' folders are frozen) — an H1 title, a one-sentence summary
-  paragraph, then details — and add a one-line link for it to that version's index,
-  `changelog/<version>/README.md`. The layout is documented in
-  [`changelog/README.md`](changelog/README.md). Related changes may share one entry
-  file (extending its details) instead of opening a new file per small change.
-- **A release ships its own announcement**: `changelog/<version>/RELEASE.md` is published
-  verbatim as the GitHub Release body. Write it during release preparation and **commit it
-  before creating the tag** — the release workflow reads it from the tag's checkout, so a
-  file added later never reaches the Release page. Without it the workflow falls back to
-  GitHub's auto-generated notes.
-- **Release prep bumps the product version**: the same `release: X.Y.Z` PR that renames
-  `changelog/unreleased/` bumps the root and the public PenguinHarness packages shipped by
-  that release (`skills`, `core`, `server`, and `cli`), plus core's `VERSION` constant
-  (`packages/core/src/index.ts`). Browser packages are private, independently versioned
-  exceptions: `browser-cli` carries the CLI/relay compatibility version, while
-  `browser-extension/package.json` stays equal to `browser-extension/manifest.json`'s
-  monotonic Chrome release sequence. The release workflow refuses a tag push whose product
-  version does not match the repo's, so a forgotten bump fails before anything is published
-  (v0.2.1 was tagged with a 0.2.0 repo, and every dev build nagged about an update until the
-  repo caught up).
+- **Every change leaves the specs true, and the commit is the record.** There is no changelog.
+  Write the commit message as the entry — what changed, why, and what you ran to verify it — and
+  update the owning `SPEC.md` in the same commit when a boundary, a contract or a decision moves.
+  See root [`AGENTS.md`](AGENTS.md) Hard Rule 2 and [`docs/AGENTS.md`](docs/AGENTS.md) for where
+  each kind of prose belongs.
+- **Nothing here is released today.** No workflow publishes to a registry and no release has been
+  cut from this fork, so there is no version-bump or announcement procedure to follow. When that
+  changes, it is designed then — not inherited from upstream's.
 - travel-agent does not maintain the PenguinHarness landing or docs sites. Both
   packages were removed on 2026-08-17, together with the Pages workflow that
   deployed penguin.ooo, and — later the same day — upstream's `release.yml` and

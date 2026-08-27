@@ -1,8 +1,8 @@
 # Agent Notes
 
 An Agent Note records a decision that shapes this codebase — the why and what was given up, the
-parts that code and the changelog cannot carry. `changelog/` still records every change (root
-AGENTS.md Hard Rule 2); a note is written **in addition** when a change decides something a
+parts that neither the code nor the spec that describes it can carry. A spec states what is true; a
+commit states what changed; a note is written **in addition** when a change decides something a
 maintainer could reasonably revisit: an architecture boundary, a contract, a default, a process,
 the rejection of an obvious alternative.
 

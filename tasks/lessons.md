@@ -3,7 +3,7 @@
 What was expensive to learn and must not be learned twice. One entry per lesson, stated so it
 applies to the next case rather than describing the one that produced it.
 
-This is not the changelog and not the issue list. `changelog/` records **what changed**;
+This is not the commit log and not the issue list. Git history records **what changed**;
 `docs/issues/` records **what is still broken**; this file records **what to do differently**. A
 lesson that is really an open defect belongs in `docs/issues/` with a link from here. The full
 narrative of an expensive failure belongs in `docs/postmortem/`: the lesson stays one sentence
@@ -78,8 +78,7 @@ needed.
   instantly (same inode) while adding, renaming, moving or deleting one does not — and the re-sync
   runs only after the injected package's `build` **succeeds**. Never put a consumer of the copy
   inside the producer's own build: that gates the sync on a build that needs the sync, and the
-  resulting deadlock cost half an hour per layout change until the nesting was dissolved
-  (2026-08-20 changelog). A workspace dependency cycle — even a devDependency carrying one type
+  resulting deadlock cost half an hour per layout change until the nesting was dissolved. A workspace dependency cycle — even a devDependency carrying one type
   import — disables pnpm's build ordering for the pair entirely (they build in parallel), so keep
   shared contract types on the side the production edge points to. If a copy is somehow stale
   anyway: `rm -f node_modules/.pnpm-workspace-state-v1.json && pnpm install`.

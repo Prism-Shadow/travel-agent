@@ -42,8 +42,8 @@ export function getBundledExtensionPath(): string {
   const packageDir = getInstalledPenguinBrowserPackageDir()
   // Source checkout first: the browser-extension sibling builds the packaged variant as its own
   // build step (topologically after this package, so the injected copy it resolves against is
-  // fresh — the nested-build deadlock this ordering replaced is recorded in the 2026-08-20
-  // changelog). A deployed app has no workspace sibling and falls through to `dist/extension`,
+  // fresh; the nested build this ordering replaced gated the sync on a build that needed it).
+  // A deployed app has no workspace sibling and falls through to `dist/extension`,
   // which desktop's stage.mjs assembles into the deployed package. Preferring the sibling also
   // means a stale pre-change `dist/extension` left in a source tree can never shadow a fresh
   // build.

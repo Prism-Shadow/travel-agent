@@ -8,6 +8,6 @@ Tracked on purpose: a plan that exists on one machine teaches nobody.
 - Other `*.md` — plans and batch ledgers for work not yet shipped.
 
 A plan lives here only while its work is in flight: when the work ships, the plan is deleted — the
-changelog keeps the record — and a plan that decided a revisitable boundary graduates to
+commit keeps the record — and a plan that decided a revisitable boundary graduates to
 [`../docs/decisions/`](../docs/decisions/README.md) first. English throughout (Hard Rule 1);
 binary working evidence belongs in gitignored `artifacts/`, never here.

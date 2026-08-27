@@ -1,14 +1,14 @@
 # Issues
 
 Open problems, one per file, numbered `NNNN-slug.md`. An issue records what is broken and what it
-costs while that is still true — working state that neither the changelog (what shipped) nor a
+costs while that is still true — working state that neither git history (what changed) nor a
 postmortem (the finished story) can hold.
 
 ## Rules
 
 - One problem per file; living until closed. Update the file as understanding improves.
-- Closing an issue means deleting its file in the change that resolves it: the fix's changelog
-  entry records the outcome, and an issue that was expensive to find or fix closes into a
+- Closing an issue means deleting its file in the change that resolves it: the fix's commit records
+  the outcome, and an issue that was expensive to find or fix closes into a
   [`../postmortem/`](../postmortem/README.md) story instead of silence.
 - Numbers are never reused, including after a file is deleted. The tree does not show the
   high-water mark; find it before numbering a new issue:

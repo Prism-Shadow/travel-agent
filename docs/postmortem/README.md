@@ -9,7 +9,7 @@ reasoning.
 
 - Closing a `docs/issues/` entry whose failure was expensive to find or fix.
 - Any incident where the interesting part is *why every gate missed it* — that narrative fits
-  neither the changelog nor a one-line lesson.
+  neither a commit message nor a one-line lesson.
 
 Skip it when the fix is its own explanation; not every closed issue earns a story.
 

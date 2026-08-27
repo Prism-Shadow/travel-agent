@@ -49,7 +49,7 @@ feeding "Object has been destroyed" into the same loop.
 
 ## Links
 
-- Fixing change: [2026-08-21 crash-reporter and popup-adoption entry](../../changelog/unreleased/2026-08-21-crash-reporter-storm.md)
+- Fixing change: commit `6976473` — "fix(desktop): adopt opener-carrying popups per Electron's contract; one crash, one record" (2026-08-21)
 - Compressed warnings: [tasks/lessons.md](../../tasks/lessons.md) — the `uncaughtException`
   detach rule, and doubles that accept fewer arguments than the real caller passes
 - Closed issue: `docs/issues/` 0007 (deleted with this change; the number is never reused)

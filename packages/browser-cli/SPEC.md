@@ -16,8 +16,8 @@ tags:
 
 penguin-browser: the CLI the agent invokes, the CDP relay both backends converge on, and the
 Playwright executor that drives a page. Vendored from upstream `penguin-browser` at `ba9e13b`
-(2026-08-12); upstream history stays in the upstream repository and post-import changes are recorded
-in [`changelog/`](../../changelog/unreleased/README.md).
+(2026-08-12); upstream history stays in the upstream repository and post-import changes are in this
+repository's git history.
 
 The agent gains no browser tool. It runs this CLI through `exec_command` like any other command,
 taught by the `penguin-browser` skill. That indirection is what lets the engine stay ignorant of the

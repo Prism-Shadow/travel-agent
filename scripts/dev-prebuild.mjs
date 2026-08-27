@@ -4,7 +4,7 @@
  * the dev servers consume (skills, core).
  *
  * dev:server and dev:web must both build packages/skills and packages/core before starting
- * (never start on stale deps — see the 2026-07-17 design changelog entry), and every dev
+ * (never start on stale deps), and every dev
  * command needs `pnpm install` to be current (a fresh clone, or a pulled lockfile change,
  * otherwise starts against missing/stale packages). But when two dev commands launch at the
  * same time in separate terminals, concurrent installs/builds would race (tsup runs with

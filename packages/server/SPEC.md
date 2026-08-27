@@ -35,11 +35,47 @@ Two things live here, and keeping them distinguishable is this module's main dis
   and its `trip.json` mirror; the model owns `itinerary.md` and everything else the work produces.
   The server never edits the model's documents. It deletes a trip directory only when nothing but
   its own `trip.json` is in it.
-- **The interaction-card contract** (`src/interaction/`, DTOs in `src/api/types.ts`): the cards the
-  agent raises, including the purchase summary a person reviews. A confirmed card acknowledges the
-  summary; it grants no authority to spend.
+- **The interaction-card contract** (`src/interaction/`, DTOs in `src/api/types.ts`) — stated in
+  full below, because nothing else in the repository states it.
 - **The index.** SQLite holds indexes and aggregates only. Agent State, Traces and Workspaces stay
   as files under the data root, shared with the engine.
+
+## The interaction contract
+
+Six kinds, and the axis is not what the agent wants to know — it is **where the person has to act,
+and whether the agent keeps working while they do**: `info_request`, `selection` and
+`commitment_confirmation` are answered in the conversation and leave the agent working;
+`secret_entry` is typed into the site's own field and pauses it; `human_challenge` and
+`browser_takeover` hand the page over.
+
+**A purchase summary is seven fields or it is not shown.** `PaymentSummary` carries the merchant
+(name and domain), the item, the amount with its currency, the site's own cancellation terms, the
+payment method, an expiry, and the task it belongs to. `model.ts` refuses to build the card when one
+is missing, and says why in the refusal — a purchase shown without its cancellation terms is one the
+person was not really shown. The domain is the eTLD+1 and is described in the code as "the field that
+judges". A payment method appears only as an alias, a brand and four digits: never a number, never a
+token.
+
+**An answer is read against the card it answers.** The card goes out over SSE and the answer comes
+back over the ordinary cookie surface, so nothing in the round trip forces them to agree;
+`outcome.ts` makes them. A field the card never offered is refused. A `selection` must name an option
+that is on the card. A `secret_entry` answer carries **nothing** back — not a value, not a note —
+because an outcome is published over SSE and replayed from a ring buffer. A `commitment_confirmation`
+is accepted with an explicit `approved: true`; missing or false is refused rather than read as a
+"no", because a refusal has its own status. The checks run before the resolution is published, so an
+invalid answer leaves the card pending and answerable rather than consuming it.
+
+**What a confirmed purchase card means, and what it does not.** It records that the person is ready
+to complete payment on the merchant page. It grants no authority to spend, and there is nothing for
+it to authorize: the agent-payment execution chain was retired with `@travel-agent/transaction`
+([decision note](../../docs/decisions/implemented/2026-08-20-retire-transaction-package.md)), and
+[[module-browser-cli]] refuses the click unconditionally.
+
+Because the agent cannot pay, **there is no consent-scope machinery, and its absence is deliberate**
+— no amount ceiling or price-tolerance field, no click-time re-check of price, terms or domain, no
+parsing of consent given in prose. Earlier development notes describe all three as shipped; they were
+removed with the execution chain they served. A design that needs them is proposing to let the agent
+pay, which is [[goal-travel-agent]] requirement 1.
 
 ## Boundary
 

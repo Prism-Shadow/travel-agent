@@ -62,8 +62,10 @@ tolerance fields are removed because they have no meaning when the agent cannot 
   through the unconditional payment gate, and the person performs the final action.
 - Interaction outcomes still validate against their card before publication; secret-entry requests
   and outcomes still carry no secret values.
-- Historical changelog and design records continue to describe the earlier experiment as history;
-  living architecture and contribution docs describe the current boundary.
+- The consent-scope machinery this package carried — a price ceiling with a tolerance the person
+  chose, a click-time re-check of price, terms and domain, and parsing of consent given in prose —
+  went with it. `packages/server/SPEC.md` records that absence as deliberate, because the earlier
+  development notes describing those mechanisms read as a current contract.
 - Reintroducing agent-triggered payment is a new product and security decision, not a flag flip.
 
 ## Testing

@@ -83,6 +83,7 @@ edits to a file's contents reach it immediately but **added, renamed, moved or d
 not**. The copy re-syncs after this package's `build` succeeds, and the extension bundles in its
 own package build, ordered after this one — so a layout change clears itself on the next
 `pnpm -r build`. Building the extension alone right after a layout change fails early with
-instructions (its `scripts/build-packaged.ts` preflight). The measurements, and the nested-build
-deadlock this ordering replaced, are in the 2026-08-20 changelog entry
-“The injected-deps build deadlock is dissolved”.
+instructions (its `scripts/build-packaged.ts` preflight). The deadlock this ordering replaced —
+bundling nested inside this package's own build, which gated the injected-copy re-sync on a build
+that needed the sync — is compressed into a lesson in
+[`tasks/lessons.md`](../../../tasks/lessons.md).
