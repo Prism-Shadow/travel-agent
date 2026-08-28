@@ -162,6 +162,21 @@ needed.
   call into pi in a `safely` helper for exactly this reason, and still died on the one promise that
   had no guard around the whole of it.
 
+- **A long-lived test harness lies in two specific ways, and both look like product bugs.** Keeping
+  one mock+server pair up turns a fourteen-minute suite into a one-second loop, which is the only
+  way a nineteen-spec repair is affordable — but a **reused database** breaks every spec asserting
+  a first-run state (a 409 from `add member` is the second run, not a regression), and a **reused
+  mock process** breaks every spec counting requests: `mock-llm.mjs` holds `quotaTurns` and
+  `malformedTurns` at module level, so a counter-driven spec sees a mock that already spent its
+  budget and succeeds immediately. Two of the five hypotheses refuted while chasing
+  `llm-errors quota-403` were this harness, not the product. Restart the pair before a stateful
+  spec, and confirm any finding against `run.sh` before believing it.
+- **A spec's comments are evidence about the past, not about the engine.** `llm-errors` documents
+  the reconnect backoff as 250/500/1000/2000/4000ms with early retries "too fast to show a
+  countdown". It is `reconnectDelayMs(base 2000)` — 2s/4s/8s/16s, every one above the ticking
+  floor, and every retry announces a countdown including the first. Reading the spec instead of
+  `context-engine.ts` sent the repair in the wrong direction twice.
+
 ## Testing and verification
 
 - A double that accepts fewer arguments than the real caller passes tests a world that cannot
