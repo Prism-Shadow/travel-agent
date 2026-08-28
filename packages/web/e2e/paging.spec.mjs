@@ -60,8 +60,11 @@ test("sidebar shows 20 sessions plus a More row; More loads the 21st and then di
   const sidebar = page.getByRole("complementary");
   // Untitled rows all read "新对话" (distinct from the nav's "新建对话", which is not matched
   // by substring). One page: exactly 20 rows.
+  // Ten, not twenty: the cap is per group, and the sidebar groups by Trip now. Twenty-one
+  // sessions belonging to no journey land together in the scratch group and that one group shows
+  // a page at a time.
   const rows = sidebar.getByText("新对话");
-  await expect(rows).toHaveCount(20);
+  await expect(rows).toHaveCount(10);
   const more = sidebar.getByRole("button", { name: "更多" });
   await expect(more).toBeVisible();
 
@@ -73,7 +76,12 @@ test("sidebar shows 20 sessions plus a More row; More loads the 21st and then di
     );
   expect(await docScrollable(), "document scrollable before 更多").toBe(false);
 
-  // More: raises the display cap and fetches the next server page → all 21 rows, no More left.
+  // More raises this group's cap by one page and fetches the next server page. Twenty-one rows
+  // therefore take two presses, and the button only disappears once the group has them all.
+  await more.click();
+  await expect(rows).toHaveCount(20);
+  await expect(more).toBeVisible();
+
   await more.click();
   await expect(rows).toHaveCount(TOTAL);
   await expect(more).toHaveCount(0);

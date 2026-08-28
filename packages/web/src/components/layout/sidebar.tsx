@@ -684,9 +684,17 @@ export function Sidebar({
     // hidden loaded rows exist, or the group's own active share isn't fully loaded yet.
     const activeAgents = agentsFor("active");
     const activeTotal = Math.max(totals?.active ?? 0, parts.active.length);
+    const moreOnServer = activeAgents.some((id) => hasMoreFor(id, "active"));
+    // Two independent reasons to offer More: rows already loaded but hidden by the cap, or rows
+    // the server still has. The second needs care when `totals` is absent, which is every Trip
+    // group — a Trip cuts across Agents, so there is no per-group count to compare against.
+    // `activeTotal` then collapses to the loaded length and `length < activeTotal` is false by
+    // construction, which silently killed More for any group holding exactly one page: twenty-one
+    // conversations showed ten, with nothing to click. Where there is no total, the per-Agent page
+    // state is the only authority, and it is enough on its own.
     const hasMore =
       parts.active.length > cap ||
-      (parts.active.length < activeTotal && activeAgents.some((id) => hasMoreFor(id, "active")));
+      (totals === undefined ? moreOnServer : parts.active.length < activeTotal && moreOnServer);
     const folders = FOLDER_CATEGORIES.map((category) =>
       renderFolder(groupKey, category, parts, withAgentHint, agentsFor(category), totals),
     );

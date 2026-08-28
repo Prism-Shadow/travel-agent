@@ -56,12 +56,16 @@ test("clicking the current Project in the dropdown: Agent and Session lists must
 
   await page.goto("/");
 
-  // First wait for the initial Project's sidebar to settle: during this time it fetches the
-  // Agent list and lands on the draft page (the brand heading marks the draft page); operating
+  // First wait for the initial Project's sidebar to settle, then for the draft page; operating
   // the dropdown midway through would get closed by a subsequent re-render.
-  const generalAgent = page.getByText("General Agent").first();
-  const draftTitle = page.getByRole("heading", { name: "PenguinHarness" });
-  await expect(generalAgent).toBeVisible();
+  //
+  // The two readiness signals moved with the product. The sidebar no longer lists Agents at all
+  // — it lists Trips, and an Agent appears only as a hint on a conversation row — so "New trip"
+  // is what says the sidebar has rendered. The draft page is headed by the greeting rather than
+  // the engine's name.
+  const sidebarReady = page.getByRole("complementary").getByRole("button", { name: "新行程" });
+  const draftTitle = page.getByRole("heading", { name: /今天想去哪里/ });
+  await expect(sidebarReady).toBeVisible();
   await expect(draftTitle).toBeVisible();
 
   // Switch to this newly created Project (a different id: takes the normal switch path).
@@ -69,8 +73,8 @@ test("clicking the current Project in the dropdown: Agent and Session lists must
   await page.getByRole("button", { name: U }).first().click(); // the initial Project's display name defaults to the username
   await byName.first().click();
 
-  // Wait for the new Project's sidebar to settle too (Agent list + draft page).
-  await expect(generalAgent).toBeVisible();
+  // Wait for the new Project's sidebar to settle too.
+  await expect(sidebarReady).toBeVisible();
   await expect(draftTitle).toBeVisible();
 
   // The key action: click this "currently selected" Project again in the dropdown.
@@ -78,9 +82,9 @@ test("clicking the current Project in the dropdown: Agent and Session lists must
   await expect(byName).toHaveCount(2); // the trigger button + the same-named item in the menu
   await byName.nth(1).click();
 
-  // The regression point: both the Agent and the draft page are still there (before the fix,
+  // The regression point: both the sidebar and the draft page are still there (before the fix,
   // these two assertions would fail — the sidebar gets cleared and stuck in loading).
-  await expect(generalAgent).toBeVisible();
+  await expect(sidebarReady).toBeVisible();
   await expect(draftTitle).toBeVisible();
 
   // (The former second half of this spec — the skill library page's per-Project snapshot

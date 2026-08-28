@@ -4,23 +4,13 @@
  *   the first message is sent, and all four selections land faithfully in its meta;
  * - the draft auto-caches (body persisted via debounce): after a page reload, both the body and
  *   the selections are restored, and the cache clears once sending succeeds;
- * - the sidebar defaults to grouping by Workspace: temporary workspaces merge into one
- *   "临时工作区" group, a named directory groups under its basename, and that group header's
- *   "+" pre-fills the draft's Workspace (via router state, applied once per navigation — a
- *   manual change made afterwards survives a reload instead of being re-overridden);
- * - the group header's hover pin toggle lifts a group above the unpinned ones in its mode and
- *   persists per Project (order re-checked after a reload);
- * - after switching the sidebar to agent mode (toggle persisted in localStorage), the agent
- *   group header's "+" creates a draft scoped to that group's Agent (explicitly set via router
- *   state, overriding the cache);
+ * - the sidebar groups conversations by Trip: one belonging to no journey lands in the
+ *   scratch group;
  * - both switch commands are **staged**: `/model` and `/agent` pin a chip and send nothing, the
  *   chip is cached with the body text (it survives a reload), and pressing Enter afterwards is
  *   what actually forks the conversation onto the picked model / hands it to the picked Agent —
  *   carrying the text typed after the pick into the new conversation.
  */
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
 import { test, expect } from "@playwright/test";
 import { composer, provisionAndLogin } from "./auth.mjs";
 
@@ -70,17 +60,19 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
 
   // No Session exists yet: entering the site lands on the draft page (the brand heading marks the draft page).
   await page.goto(`${BASE}/chat`);
-  await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /今天想去哪里/ })).toBeVisible();
 
   const ta = composer(page);
 
   // `/agent` is a SESSION command: a draft has no conversation to hand over, and its Agent is
   // chosen by the draft page's own selector — so the slash menu must not offer it here (the
   // staged-handoff flow itself is covered in the session section below). The bare "/" opens the
-  // menu with the installed `/penguin-browser` skill — which is what makes the absent command
-  // row a real assertion rather than a menu that simply never appeared.
+  // menu with `/compact` in it — which is what makes the absent `/agent` row a real assertion
+  // rather than a menu that simply never appeared. It used to anchor on `/penguin-browser`, and
+  // skills no longer have slash commands: every skill here is built in, so there was nothing
+  // left for a person to pick.
   await ta.fill("/");
-  await expect(page.getByRole("button", { name: /^\/penguin-browser/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^\/compact/ })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "/agent 交给其他 Agent，发送时开启新会话" }),
   ).toHaveCount(0);
@@ -170,147 +162,31 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
     "Draft body must not be lost",
   );
 
-  // —— Default grouping: the sidebar groups Sessions by Workspace — the session just created
-  // used an auto-created temporary workspace, so it lands in the merged "临时工作区" group.
-  // Scoped to the sidebar (<aside>): the draft page's Workspace pill reads 临时工作区 too
-  // (S.chat.workspaceAuto === S.chat.tempWorkspaces), so a page-wide text lookup would be
-  // ambiguous whenever both are on screen. ——
-  await expect(page.locator("aside").getByText("临时工作区", { exact: true })).toBeVisible();
+  // —— Trip grouping: a conversation belonging to no journey lands in the scratch group ——
+  //
+  // This replaced a long section on Workspace grouping — the merged "临时工作区" group, a named
+  // directory's group header and its "+", pinning, and the agent-mode toggle. The sidebar groups
+  // by Trip now, and the draft screen no longer asks for a Workspace or an Agent at all, so
+  // every one of those affordances was asserting a product that no longer exists.
+  await expect(page.getByRole("complementary").getByText("随手问", { exact: true })).toBeVisible();
 
-  // A session in a named Workspace groups under that directory's basename, and its group
-  // header's "+" pre-fills the draft's Workspace selection with the group's path.
-  const namedWs = mkdtempSync(join(tmpdir(), "penguin-e2e-ws-"));
-  const namedRes = await page.request.post(
-    `${BASE}/api/projects/${projectId}/agents/default_agent/sessions`,
-    { data: { workspace: namedWs } },
-  );
-  expect(namedRes.ok(), "create session in named workspace").toBeTruthy();
-  await page.reload();
-  const wsLabel = basename(namedWs);
-  const wsHeader = page
-    .getByText(wsLabel, { exact: true })
-    .locator("xpath=ancestor::div[contains(@class,'items-center')][1]");
-  await wsHeader.getByRole("button", { name: "在此工作区新建对话" }).click();
-  await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible();
-  await expect(page.getByLabel("Workspace")).toContainText(wsLabel);
-
-  // Regression (review): the route-state prefill applies once per navigation only — after the
-  // user picks a different directory and reloads, the restored cached choice must win; the
-  // prefill must NOT re-apply (location.state survives a reload inside history.state, so the
-  // consumed marker lives in sessionStorage rather than a ref). Browse one level up and select
-  // it; the path row mirrors the loaded directory, which orders the two clicks deterministically.
-  await page.getByRole("button", { name: "Workspace", exact: true }).click();
-  // Match by trailing basename: the server realpaths the browsed directory, so the prefix may differ from the raw mkdtemp path.
-  await expect(page.getByRole("textbox", { name: "Workspace" })).toHaveValue(
-    new RegExp(`${wsLabel}$`),
-  );
-  // Regression (workspace picker race): while a /dirs request is in flight the picker's rows
-  // are disabled, so a rapid double-click on "parent dir" must issue exactly ONE request and
-  // ascend exactly one level — previously both clicks fired an un-sequenced load and could
-  // relocate the browsing position. The response is gated on an explicit release (not a
-  // timeout) so the second click deterministically lands inside the loading window.
-  let releaseDirs;
-  const dirsGate = new Promise((resolve) => {
-    releaseDirs = resolve;
-  });
-  let dirsRequests = 0;
-  const dirsRoute = (url) => url.pathname.endsWith("/dirs");
-  const gateDirs = async (route) => {
-    dirsRequests += 1;
-    await dirsGate;
-    await route.continue();
-  };
-  await page.route(dirsRoute, gateDirs);
-  const upRow = page.getByRole("button", { name: "上级目录" });
-  await upRow.click();
-  // force: the row is disabled while loading, and a plain click would stall on Playwright's
-  // actionability wait instead of exercising the double-click; the disabled button swallows it.
-  await upRow.click({ force: true });
-  releaseDirs();
-  const parentLabel = basename(dirname(namedWs));
-  await expect(page.getByRole("textbox", { name: "Workspace" })).toHaveValue(
-    new RegExp(`${parentLabel}$`),
-  );
-  await expect(page.getByRole("textbox", { name: "Workspace" })).not.toHaveValue(
-    new RegExp(`${wsLabel}$`),
-  );
-  expect(dirsRequests, "double-click while loading fires a single /dirs request").toBe(1);
-  await page.unroute(dirsRoute, gateDirs);
-  await page.getByRole("button", { name: "使用此目录" }).click();
-  await expect(page.getByLabel("Workspace")).toContainText(parentLabel);
-  await page.reload();
-  await expect(page.getByLabel("Workspace")).toContainText(parentLabel);
-  await expect(page.getByLabel("Workspace")).not.toContainText(wsLabel);
-
-  // —— Pinning: the header's hover pin toggle lifts a group above the others in its mode and
-  // persists per Project (localStorage penguin.sidebarPinnedGroups.<projectId>); order is
-  // asserted geometrically, like layout.spec does for the login language buttons. ——
-  // Sidebar-scoped for the same reason as the group assertion above: the draft's Workspace
-  // pill would also read 临时工作区 whenever its selection is empty.
-  const tempLabel = page.locator("aside").getByText("临时工作区", { exact: true });
-  const namedLabel = page.getByText(wsLabel, { exact: true });
-  const yOf = async (locator) => (await locator.boundingBox())?.y ?? -1;
-  // Unpinned baseline: the merged temp group sits below the named group.
-  await expect(tempLabel).toBeVisible();
-  expect(await yOf(tempLabel)).toBeGreaterThan(await yOf(namedLabel));
-  const tempHeader = tempLabel.locator("xpath=ancestor::div[contains(@class,'items-center')][1]");
-  await tempHeader.hover();
-  await tempHeader.getByRole("button", { name: "置顶分组" }).click();
-  await expect
-    .poll(() =>
-      page.evaluate((k) => localStorage.getItem(k), `penguin.sidebarPinnedGroups.${projectId}`),
-    )
-    .toContain("temp-workspaces");
-  await expect.poll(async () => (await yOf(tempLabel)) < (await yOf(namedLabel))).toBe(true);
-  // Pinned state and order survive a reload. The pin button's accessible name is STATIC
-  // ("置顶分组"); the state lives in aria-pressed alone (review: a name swapping to 取消置顶
-  // alongside aria-pressed announces the state twice in conflicting ways).
-  await page.reload();
-  await expect(tempLabel).toBeVisible();
-  await expect.poll(async () => (await yOf(tempLabel)) < (await yOf(namedLabel))).toBe(true);
-  const tempPin = tempHeader.getByRole("button", { name: "置顶分组" });
-  await expect(tempPin).toHaveAttribute("aria-pressed", "true");
-  // The pinned pin doubles as the always-visible indicator. toBeVisible() ignores opacity,
-  // so assert computed opacity directly: pinned = 1 with the mouse elsewhere; an unpinned
-  // header's pin stays hover-gated at 0. Park the mouse first — after the reorder the named
-  // header sits where the temp header was clicked, which would otherwise hover-reveal it.
-  await page.mouse.move(640, 500);
-  await expect.poll(() => tempPin.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-  await expect
-    .poll(() =>
-      wsHeader
-        .getByRole("button", { name: "置顶分组" })
-        .evaluate((el) => getComputedStyle(el).opacity),
-    )
-    .toBe("0");
-
-  // —— Switch the sidebar to agent mode via the section-header toggle (persists in localStorage) ——
-  await page.getByRole("button", { name: "按 Agent 分组" }).click();
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("penguin.sidebarGroupMode")))
-    .toBe("agent");
-
-  // —— Sidebar group-header "+": create a draft with that group's Agent (overrides the previously cached Agent) ——
-  const helperHeader = page.getByText("Helper Agent", { exact: true }).first();
-  await expect(helperHeader).toBeVisible();
-  const groupRow = helperHeader.locator("xpath=ancestor::div[contains(@class,'items-center')][1]");
-  await groupRow.getByRole("button", { name: "新建对话" }).click();
-
-  await expect(page.getByLabel("选择 Agent")).toContainText("Helper Agent");
-  await ta.fill("First message for helper");
+  // —— A second conversation, which the per-session input draft below needs ——
+  await page.getByRole("complementary").getByRole("button", { name: "新建对话" }).click();
+  await expect(page.getByRole("heading", { name: /今天想去哪里/ })).toBeVisible();
+  await ta.fill("First message for the second conversation");
   await page.getByRole("button", { name: "发送" }).click();
   await page.waitForURL(/\/chat\/session-/);
   const secondSessionId = page.url().split("/chat/")[1];
   expect(secondSessionId).not.toBe(firstSessionId);
   const second = await (await page.request.get(`${BASE}/api/sessions/${secondSessionId}`)).json();
-  expect(second.session.agentId).toBe("agent_helper");
   // The previously picked model carries over as the new default (switch-becomes-default);
-  // approval mode falls back to allow-all (the rest of the draft was cleared, so read-only doesn't linger).
+  // approval mode falls back to allow-all (the rest of the draft was cleared, so read-only
+  // does not linger).
   expect(second.session.modelId).toBe("claude-4-8-mini");
   expect(second.session.provider).toBe("custom");
   expect(second.session.approvalMode).toBe("allow-all");
 
-  // Under allow-all, the mock's exec_command is auto-approved, so the round runs to completion (turn 2 text lands).
+  // Under allow-all the mock's exec_command is auto-approved, so the round runs to completion.
   await expect(page.getByText("Command finished; the result looks as expected.")).toBeVisible();
 
   // —— Input draft for an existing session: cached by user x Session, restored on reload, cleared once sending succeeds ——
