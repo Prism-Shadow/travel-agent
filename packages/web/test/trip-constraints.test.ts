@@ -26,7 +26,7 @@ const EN = en.chat.tripChips;
 const full: TripConstraints = {
   where: "东京、大阪",
   when: { kind: "dates", start: "2026-10-01", end: "2026-10-05" },
-  who: { adults: 2, children: 1, infants: 0 },
+  who: { adults: 2, children: 1, infants: 0, pets: 0 },
   budget: "mid",
 };
 
@@ -85,9 +85,15 @@ describe("composeTripPrefix", () => {
   });
 
   it("omits zero traveller categories, and the whole line when all are zero", () => {
-    const zeros = { ...EMPTY_TRIP_CONSTRAINTS, who: { adults: 0, children: 0, infants: 0 } };
+    const zeros = {
+      ...EMPTY_TRIP_CONSTRAINTS,
+      who: { adults: 0, children: 0, infants: 0, pets: 0 },
+    };
     expect(composeTripPrefix(zeros, ZH)).toBe("");
-    const infantsOnly = { ...EMPTY_TRIP_CONSTRAINTS, who: { adults: 0, children: 0, infants: 1 } };
+    const infantsOnly = {
+      ...EMPTY_TRIP_CONSTRAINTS,
+      who: { adults: 0, children: 0, infants: 1, pets: 0 },
+    };
     expect(composeTripPrefix(infantsOnly, ZH)).toBe("人数：1 婴儿");
   });
 
@@ -108,7 +114,10 @@ describe("whenIsSet / isEmptyTrip", () => {
 
   it("who set to all-zero still reads as non-empty (the chip is engaged)", () => {
     expect(
-      isEmptyTrip({ ...EMPTY_TRIP_CONSTRAINTS, who: { adults: 0, children: 0, infants: 0 } }),
+      isEmptyTrip({
+        ...EMPTY_TRIP_CONSTRAINTS,
+        who: { adults: 0, children: 0, infants: 0, pets: 0 },
+      }),
     ).toBe(false);
   });
 });
@@ -175,7 +184,7 @@ describe("chips as a trip's identity", () => {
     name: "Autumn",
     destination: "Tokyo",
     when: { kind: "flexible", days: 5, month: "2026-10" },
-    who: { adults: 2, children: 0, infants: 0 },
+    who: { adults: 2, children: 0, infants: 0, pets: 0 },
     budget: "mid",
     dir: "/trips/t-1",
     dirExists: true,
@@ -188,13 +197,13 @@ describe("chips as a trip's identity", () => {
     expect(asChips).toEqual({
       where: "Tokyo",
       when: { kind: "flexible", days: 5, month: "2026-10" },
-      who: { adults: 2, children: 0, infants: 0 },
+      who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
     });
     expect(constraintsToTripPatch(asChips)).toEqual({
       destination: "Tokyo",
       when: { kind: "flexible", days: 5, month: "2026-10" },
-      who: { adults: 2, children: 0, infants: 0 },
+      who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
     });
   });
@@ -236,7 +245,10 @@ describe("chips as a trip's identity", () => {
     });
 
     it("does not resend a destination this edit did not touch", () => {
-      const next: TripConstraints = { ...base, who: { adults: 2, children: 0, infants: 0 } };
+      const next: TripConstraints = {
+        ...base,
+        who: { adults: 2, children: 0, infants: 0, pets: 0 },
+      };
       expect(constraintsToTripPatch(next, base)).not.toHaveProperty("destination");
     });
 

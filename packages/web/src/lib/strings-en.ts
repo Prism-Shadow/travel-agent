@@ -1148,6 +1148,12 @@ export const en: Strings = {
       budget: "Budget",
       tierShort: { any: "Any", low: "$", mid: "$$", high: "$$$", luxury: "$$$$" },
       travellers: (n: number) => `${n} traveler${n > 1 ? "s" : ""}`,
+      /** Chip summary: people, plus pets when there are any ("2 travelers · 1 pet"). */
+      whoSummary: (people: number, pets: number): string => {
+        const petPart = pets === 1 ? "1 pet" : `${pets} pets`;
+        if (pets === 0) return `${people} traveler${people > 1 ? "s" : ""}`;
+        return people > 0 ? `${people} traveler${people > 1 ? "s" : ""} · ${petPart}` : petPart;
+      },
       daysCount: (n: number) => `${n} day${n > 1 ? "s" : ""}`,
       flexibleTag: "flexible",
       // Popover copy.
@@ -1165,8 +1171,12 @@ export const en: Strings = {
       childrenHint: "Ages 2–12",
       infantsLabel: "Infants",
       infantsHint: "Under 2",
+      petsLabel: "Pets",
+      petsHint: "Animals travelling with you",
       budgetTitle: "Select your budget range",
       clear: "Clear",
+      /** Dialog footer: closes it. Not "Update" — nothing runs until the message is sent. */
+      dialogDone: "Done",
     },
     jumpBackInPrevious: "Scroll recent chats left",
     jumpBackInNext: "Scroll recent chats right",

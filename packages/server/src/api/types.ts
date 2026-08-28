@@ -866,11 +866,18 @@ export interface MemoryFileResponse {
 export type TripWhen =
   { kind: "dates"; start: string; end: string } | { kind: "flexible"; days: number; month: string };
 
-/** Traveller counts — the three age brackets travel pricing actually distinguishes. */
+/**
+ * Traveller counts — the three age brackets travel pricing actually distinguishes, plus pets.
+ *
+ * Pets are here because they change the search, not the price bracket: a hotel that does not
+ * take animals is not an option, and a flight cabin has its own rules about them. Leaving them
+ * out meant a traveller with a dog had to remember to say so in prose every time.
+ */
 export interface TripWho {
   adults: number;
   children: number;
   infants: number;
+  pets: number;
 }
 
 /**

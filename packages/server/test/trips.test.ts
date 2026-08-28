@@ -67,7 +67,7 @@ describe("trips", () => {
     expect(trip.name).toBe("Tokyo");
     expect(trip.destination).toBe("Tokyo");
     expect(trip.when).toEqual({ kind: "flexible", days: 5, month: "2026-10" });
-    expect(trip.who).toEqual({ adults: 2, children: 0, infants: 0 });
+    expect(trip.who).toEqual({ adults: 2, children: 0, infants: 0, pets: 0 });
     expect(trip.budget).toBe("mid");
     expect(trip.dirExists).toBe(true);
     expect(path.basename(trip.dir)).toBe("tokyo-2026-10");
@@ -142,14 +142,14 @@ describe("trips", () => {
     expect(afterRename.name).toBe("Family trip");
     // Omitted keys survive a patch.
     expect(afterRename.budget).toBe("high");
-    expect(afterRename.who).toEqual({ adults: 2, children: 1, infants: 0 });
+    expect(afterRename.who).toEqual({ adults: 2, children: 1, infants: 0, pets: 0 });
 
     const cleared = await api.patch(`/api/trips/${trip.tripId}`, { budget: null });
     const afterClear = ((await cleared.json()) as TripResponse).trip;
     expect(afterClear.budget).toBeNull();
     // Clearing one field left the others alone.
     expect(afterClear.name).toBe("Family trip");
-    expect(afterClear.who).toEqual({ adults: 2, children: 1, infants: 0 });
+    expect(afterClear.who).toEqual({ adults: 2, children: 1, infants: 0, pets: 0 });
 
     // The mirror follows the row.
     const mirror = JSON.parse(await fs.readFile(path.join(trip.dir, "trip.json"), "utf8"));

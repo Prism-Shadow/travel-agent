@@ -103,7 +103,7 @@ describe("tripMetaLine", () => {
           name: "Autumn",
           destination: "Tokyo",
           when: { kind: "flexible", days: 5, month: "October" },
-          who: { adults: 2, children: 1, infants: 0 },
+          who: { adults: 2, children: 1, infants: 0, pets: 0 },
           budget: "mid",
         }),
         copy,
@@ -138,8 +138,8 @@ describe("tripMetaLine", () => {
   });
 
   it("counts travellers across the three brackets, and nobody as nobody", () => {
-    expect(travellerCount({ adults: 2, children: 1, infants: 1 })).toBe(4);
-    expect(travellerCount({ adults: 0, children: 0, infants: 0 })).toBeNull();
+    expect(travellerCount({ adults: 2, children: 1, infants: 1, pets: 0 })).toBe(4);
+    expect(travellerCount({ adults: 0, children: 0, infants: 0, pets: 0 })).toBeNull();
     expect(travellerCount(null)).toBeNull();
   });
 });

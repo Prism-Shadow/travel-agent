@@ -1,16 +1,21 @@
 /**
- * The draft screen's Where / When / Who / Budget chips (design/005 P0): four pill triggers
- * above the composer, each opening a small form popover (Dropdown), mirroring Mindtrip's
- * four constraint dialogs at the fidelity this product can honestly deliver — free-text
- * destination (no POI autocomplete to fake), native date/month inputs (no custom calendar),
- * traveller steppers, and price TIERS for budget (never a number; see trip-constraints.ts
- * header for why that is a design decision, not a shortcut).
+ * The draft screen's Where / When / Who / Budget chips: four pill triggers above the composer,
+ * each opening a centred dialog — the same four constraints Mindtrip asks for, at the fidelity
+ * this product can honestly deliver.
  *
- * State is owned by the draft view and committed on every change — there is no Save button:
- * unlike Mindtrip's dialogs (which re-run a search on update), nothing executes until the
- * user sends, so the chips are just a visible draft of the constraint block the send will
- * prepend. A filled chip shows its short summary and grows an × that clears just that chip;
- * everything clears together after a successful send.
+ * A dialog rather than a popover attached to the pill. These are forms, not menus: a range
+ * calendar and four stepper rows need room and a focal point, and a 288px popover hanging off a
+ * chip gave them neither. `Modal` also brings the Escape layering and the in-app-browser
+ * occlusion handling that a bare Dropdown does not.
+ *
+ * The footer button says Done, not Update. Mindtrip's dialogs re-run a search when you confirm,
+ * so Update names a real action there; here nothing executes until the message is sent, and the
+ * state is committed on every keystroke. Calling it Update would promise work that does not
+ * happen. It closes the dialog, which is the only thing left for it to do.
+ *
+ * Where stays free text: `SPEC.md` declines a proprietary POI layer, and autocomplete without one
+ * would be a fake. A filled chip shows its short summary and grows an × that clears just that
+ * chip; everything clears together after a successful send.
  */
 import { useState } from "react";
 import { CalendarBlankIcon } from "@phosphor-icons/react/dist/csr/CalendarBlank";
@@ -20,13 +25,13 @@ import { WalletIcon } from "@phosphor-icons/react/dist/csr/Wallet";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type { Icon } from "@phosphor-icons/react";
 import { S } from "../../lib/strings";
-import { Dropdown } from "../../components/ui/dropdown";
+import { Modal } from "../../components/ui/modal";
 import { pillClass } from "./workspace-select";
 import { BUDGET_TIERS, whenIsSet } from "./trip-constraints";
 import type { TripConstraints, TripWhen, TripWho } from "./trip-constraints";
 
 /** Who defaults when the traveller popover is first touched (Mindtrip's own default: 1 adult). */
-const DEFAULT_WHO: TripWho = { adults: 1, children: 0, infants: 0 };
+const DEFAULT_WHO: TripWho = { adults: 1, children: 0, infants: 0, pets: 0 };
 
 type ChipId = "where" | "when" | "who" | "budget";
 
@@ -43,14 +48,18 @@ export function TripConstraintChips({
 
   const whereSet = value.where.trim() !== "";
   const whenSet = whenIsSet(value.when);
+  // People only: the summary reads "3 travellers", and a dog is not one of them. A pet still
+  // marks the chip as answered, which is what `whoSet` below is for.
   const whoTotal = value.who ? value.who.adults + value.who.children + value.who.infants : 0;
-  const whoSet = value.who !== null && whoTotal > 0;
+  const petCount = value.who?.pets ?? 0;
+  const whoSet = value.who !== null && whoTotal + petCount > 0;
   const budgetSet = value.budget !== null;
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
       <Chip
         id="where"
+        title={T.where}
         icon={MapPinIcon}
         label={T.where}
         summary={whereSet ? value.where.trim() : null}
@@ -73,6 +82,7 @@ export function TripConstraintChips({
 
       <Chip
         id="when"
+        title={T.when}
         icon={CalendarBlankIcon}
         label={T.when}
         summary={whenSet ? whenSummary(value.when!) : null}
@@ -85,9 +95,10 @@ export function TripConstraintChips({
 
       <Chip
         id="who"
+        title={T.who}
         icon={UsersIcon}
         label={T.who}
-        summary={whoSet ? T.travellers(whoTotal) : null}
+        summary={whoSet ? T.whoSummary(whoTotal, petCount) : null}
         open={open}
         setOpen={setOpen}
         onClear={() => onChange({ ...value, who: null })}
@@ -97,6 +108,7 @@ export function TripConstraintChips({
 
       <Chip
         id="budget"
+        title={T.budget}
         icon={WalletIcon}
         label={T.budget}
         summary={budgetSet ? T.tierShort[value.budget!] : null}
@@ -174,6 +186,7 @@ function Chip({
   open,
   setOpen,
   onClear,
+  title,
   children,
 }: {
   id: ChipId;
@@ -183,44 +196,58 @@ function Chip({
   open: ChipId | null;
   setOpen: (id: ChipId | null) => void;
   onClear: () => void;
+  /** Dialog heading — the chip's own word, so the dialog says what it is answering. */
+  title: string;
   children: React.ReactNode;
 }) {
   const isOpen = open === id;
   const filled = summary !== null;
+  const T = S.chat.tripChips;
   return (
-    <Dropdown
-      open={isOpen}
-      setOpen={(v) => setOpen(v ? id : null)}
-      menuClass="left-0 top-full mt-1 w-72 max-w-[calc(100vw-2rem)] origin-top-left"
-      button={
-        <span className={`${pillClass} ${filled ? "text-gray-900! dark:text-gray-100!" : ""} p-0!`}>
+    <>
+      <span className={`${pillClass} ${filled ? "text-gray-900! dark:text-gray-100!" : ""} p-0!`}>
+        <button
+          type="button"
+          onClick={() => setOpen(isOpen ? null : id)}
+          className="flex min-w-0 items-center gap-1.5 py-1 pl-2 pr-1"
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
+        >
+          <ChipIcon size={13} weight="regular" aria-hidden className="shrink-0" />
+          <span className="max-w-40 min-w-0 truncate">{filled ? summary : label}</span>
+        </button>
+        {filled ? (
           <button
             type="button"
-            onClick={() => setOpen(isOpen ? null : id)}
-            className="flex min-w-0 items-center gap-1.5 py-1 pl-2 pr-1"
-            aria-expanded={isOpen}
+            onClick={onClear}
+            title={T.clear}
+            aria-label={`${T.clear} ${label}`}
+            className="flex shrink-0 items-center self-stretch rounded-r-full pl-0.5 pr-1.5 text-gray-400 transition-colors duration-150 hover:text-gray-900 dark:hover:text-gray-100"
           >
-            <ChipIcon size={13} weight="regular" aria-hidden className="shrink-0" />
-            <span className="max-w-40 min-w-0 truncate">{filled ? summary : label}</span>
+            <XIcon size={11} weight="bold" aria-hidden />
           </button>
-          {filled ? (
-            <button
-              type="button"
-              onClick={onClear}
-              title={S.chat.tripChips.clear}
-              aria-label={`${S.chat.tripChips.clear} ${label}`}
-              className="flex shrink-0 items-center self-stretch rounded-r-full pl-0.5 pr-1.5 text-gray-400 transition-colors duration-150 hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              <XIcon size={11} weight="bold" aria-hidden />
-            </button>
-          ) : (
-            <span className="pr-1.5" />
-          )}
-        </span>
-      }
-    >
-      {children}
-    </Dropdown>
+        ) : (
+          <span className="pr-1.5" />
+        )}
+      </span>
+      <Modal
+        open={isOpen}
+        title={title}
+        onClose={() => setOpen(null)}
+        widthClass="sm:max-w-lg"
+        footer={
+          <button
+            type="button"
+            onClick={() => setOpen(null)}
+            className="rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
+          >
+            {T.dialogDone}
+          </button>
+        }
+      >
+        {children}
+      </Modal>
+    </>
   );
 }
 
@@ -322,6 +349,7 @@ function WhoPanel({ who, onChange }: { who: TripWho; onChange: (who: TripWho) =>
     { key: "adults" as const, label: T.adultsLabel, hint: T.adultsHint },
     { key: "children" as const, label: T.childrenLabel, hint: T.childrenHint },
     { key: "infants" as const, label: T.infantsLabel, hint: T.infantsHint },
+    { key: "pets" as const, label: T.petsLabel, hint: T.petsHint },
   ];
   return (
     <div className="p-3">

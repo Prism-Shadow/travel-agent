@@ -1087,6 +1087,13 @@ export const zh = {
       budget: "预算",
       tierShort: { any: "不限", low: "$", mid: "$$", high: "$$$", luxury: "$$$$" },
       travellers: (n: number) => `${n} 人`,
+      /** Chip summary: people, plus pets when there are any ("2 人 · 1 只宠物"). */
+      whoSummary: (people: number, pets: number): string =>
+        pets > 0
+          ? people > 0
+            ? `${people} 人 · ${pets} 只宠物`
+            : `${pets} 只宠物`
+          : `${people} 人`,
       daysCount: (n: number) => `${n} 天`,
       flexibleTag: "灵活",
       // Popover copy.
@@ -1104,8 +1111,12 @@ export const zh = {
       childrenHint: "2–12 岁",
       infantsLabel: "婴儿",
       infantsHint: "2 岁以下",
+      petsLabel: "宠物",
+      petsHint: "同行的动物",
       budgetTitle: "选择预算档位",
       clear: "清除",
+      /** Dialog footer: closes it. Not "Update" — nothing runs until the message is sent. */
+      dialogDone: "完成",
     },
     jumpBackInPrevious: "向左浏览最近对话",
     jumpBackInNext: "向右浏览最近对话",

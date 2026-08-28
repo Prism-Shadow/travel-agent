@@ -63,14 +63,21 @@ function parseWho(body: Record<string, unknown>): TripWho | null | undefined {
   if (raw === null) return null;
   if (typeof raw !== "object") throw badRequest("who must be an object or null.");
   const w = raw as Record<string, unknown>;
-  const read = (key: "adults" | "children" | "infants"): number => {
+  const read = (key: "adults" | "children" | "infants" | "pets"): number => {
     const n = typeof w[key] === "number" ? Math.trunc(w[key] as number) : NaN;
     if (!Number.isFinite(n) || n < 0 || n > 99) {
       throw badRequest(`who.${key} must be a number between 0 and 99.`);
     }
     return n;
   };
-  return { adults: read("adults"), children: read("children"), infants: read("infants") };
+  return {
+    adults: read("adults"),
+    children: read("children"),
+    infants: read("infants"),
+    // Absent in a body written before pets existed, and in one from a client that does not send
+    // them: read as zero rather than rejected, so an older caller keeps working.
+    pets: "pets" in w ? read("pets") : 0,
+  };
 }
 
 /** Parses `budget`: absent leaves it alone, `null` clears it, otherwise one of the five tiers. */
