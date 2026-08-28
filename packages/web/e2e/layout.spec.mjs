@@ -50,9 +50,20 @@ const docWidths = (page) =>
 /** Count of pairwise rectangle intersections among visible leaf text elements (2px tolerance; ancestor-descendant pairs excluded). */
 const textOverlapCount = (page) =>
   page.evaluate(() => {
+    // Visibility is inherited, so this has to walk up. A leaf can be perfectly opaque inside a
+    // container the page has faded out — the Models page collapses a vendor group by animating
+    // `grid-template-rows` to `0fr` and its contents to `opacity: 0`, and the rows keep their own
+    // computed opacity of 1. Checking only the leaf counted a group nobody can see as text on
+    // screen, and reported it overlapping the button that is drawn where the group used to be.
+    // That is not a layout defect; it is this function failing to look past one element.
     const isVisible = (el) => {
-      const s = getComputedStyle(el);
-      return s.visibility !== "hidden" && s.display !== "none" && Number(s.opacity) > 0.05;
+      for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+        const s = getComputedStyle(n);
+        if (s.visibility === "hidden" || s.display === "none" || Number(s.opacity) <= 0.05) {
+          return false;
+        }
+      }
+      return true;
     };
     const leaves = [];
     for (const el of document.querySelectorAll("body *")) {
@@ -136,6 +147,14 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   // "username" box on its own — it used to fill the account credentials into the API key and
   // the field above it. A password box additionally has to say "new-password": Chrome and
   // Safari ignore autocomplete="off" there. ---
+  //
+  // Its vendor group starts collapsed, and a collapsed group is faded out with its height driven
+  // to zero — the row is in the DOM and Playwright happily resolves it, but the group header is
+  // what actually receives the click. Expand first.
+  // The vendor group holding it, located by name. Not the first `aria-expanded` on the page:
+  // that is the sidebar's developer-console row, and clicking it opened a menu over the list.
+  const group = page.getByRole("button", { name: /Custom/, expanded: false });
+  if ((await group.count()) > 0) await group.first().click();
   await page.getByText("claude-4-8").first().click();
   const dialogFields = await page.evaluate(() =>
     [...document.querySelectorAll("input")]
@@ -162,8 +181,12 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   await page.keyboard.press("Escape");
 
   // --- Sidebar "New chat" button: no background fill (its resting state outside the draft page should have a transparent background) ---
+  //
+  // Scoped to the sidebar rather than to `nav`: the expanded sidebar has no `nav` element at all
+  // now -- that markup belongs to the collapsed rail, and the rail lost its page links when the
+  // engine's console moved behind the settings row.
   await page.setViewportSize({ width: 1280, height: 720 });
-  const newChat = page.locator("nav").getByRole("button", { name: "New chat" });
+  const newChat = page.getByRole("complementary").getByRole("button", { name: "New chat" }).first();
   await expect(newChat).toBeVisible();
   expect(
     await newChat.evaluate((el) => getComputedStyle(el).backgroundColor),
