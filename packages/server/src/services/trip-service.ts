@@ -58,8 +58,10 @@ export function tripDirBasename(destination: string, when: TripWhen | null, now:
   const month =
     when?.kind === "dates" && when.start.length >= 7
       ? when.start.slice(0, 7)
-      : when?.kind === "flexible" && when.month !== ""
-        ? when.month
+      : // The earliest month named, so a folder for "October or November" sorts under October
+        // rather than under whichever the person happened to tap first.
+        when?.kind === "flexible" && when.months.length > 0
+        ? [...when.months].sort()[0]
         : "";
   const datePart = now.toISOString().slice(0, 10);
   if (slug === "") return `trip-${datePart}`;

@@ -862,9 +862,16 @@ export interface MemoryFileResponse {
  * and the Web App can name them.
  */
 
-/** Exact dates (either end may be blank) or a flexible "N days, some month" span. */
+/**
+ * Exact dates (either end may be blank) or a flexible "N days, in these months" span.
+ *
+ * `months` is a list because the answer usually is one: "five days, October or November" is a
+ * normal thing to want, and a single month forced the traveller to pick the wrong one and explain
+ * the rest in prose. Empty means any month. Each entry is `YYYY-MM`.
+ */
 export type TripWhen =
-  { kind: "dates"; start: string; end: string } | { kind: "flexible"; days: number; month: string };
+  | { kind: "dates"; start: string; end: string }
+  | { kind: "flexible"; days: number; months: string[] };
 
 /**
  * Traveller counts — the three age brackets travel pricing actually distinguishes, plus pets.

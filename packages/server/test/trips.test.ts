@@ -59,14 +59,14 @@ describe("trips", () => {
   it("creates a trip with a directory, a trip.json mirror, and a name from the destination", async () => {
     const trip = await createTrip({
       destination: "Tokyo",
-      when: { kind: "flexible", days: 5, month: "2026-10" },
+      when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0 },
       budget: "mid",
     });
 
     expect(trip.name).toBe("Tokyo");
     expect(trip.destination).toBe("Tokyo");
-    expect(trip.when).toEqual({ kind: "flexible", days: 5, month: "2026-10" });
+    expect(trip.when).toEqual({ kind: "flexible", days: 5, months: ["2026-10"] });
     expect(trip.who).toEqual({ adults: 2, children: 0, infants: 0, pets: 0 });
     expect(trip.budget).toBe("mid");
     expect(trip.dirExists).toBe(true);

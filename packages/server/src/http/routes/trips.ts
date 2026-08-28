@@ -48,10 +48,20 @@ function parseWhen(body: Record<string, unknown>): TripWhen | null | undefined {
     if (!Number.isFinite(days) || days < 0 || days > 365) {
       throw badRequest("when.days must be a number between 0 and 365.");
     }
-    if (typeof w.month !== "string" || w.month.length > 32) {
-      throw badRequest("when.month must be a string of at most 32 characters.");
+    // `months` is a list of `YYYY-MM`, capped at a rolling year: the dialog offers twelve, and a
+    // longer list is a client that has gone wrong rather than a traveller with a longer horizon.
+    const rawMonths = w.months;
+    if (rawMonths !== undefined && !Array.isArray(rawMonths)) {
+      throw badRequest("when.months must be an array of YYYY-MM strings.");
     }
-    return { kind: "flexible", days, month: w.month };
+    const months = (rawMonths ?? []).map((m) => {
+      if (typeof m !== "string" || !/^\d{4}-\d{2}$/.test(m)) {
+        throw badRequest("when.months entries must be YYYY-MM strings.");
+      }
+      return m;
+    });
+    if (months.length > 12) throw badRequest("when.months may name at most 12 months.");
+    return { kind: "flexible", days, months };
   }
   throw badRequest('when.kind must be "dates" or "flexible".');
 }

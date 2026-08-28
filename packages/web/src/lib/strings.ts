@@ -1096,6 +1096,11 @@ export const zh = {
           : `${people} 人`,
       daysCount: (n: number) => `${n} 天`,
       flexibleTag: "灵活",
+      monthCount: (n: number) => `${n} 个月份`,
+      monthsLabel: "月份",
+      monthsHint: "可多选；不选表示任意月份",
+      /** Intl locale for month names inside the When dialog. */
+      intlLocale: "zh-CN",
       // Popover copy.
       wherePlaceholder: "城市或地区，可写多个",
       whereHint: "例如：东京、大阪",

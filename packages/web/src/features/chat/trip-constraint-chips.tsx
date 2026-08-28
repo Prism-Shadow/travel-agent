@@ -26,6 +26,7 @@ import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type { Icon } from "@phosphor-icons/react";
 import { S } from "../../lib/strings";
 import { Modal } from "../../components/ui/modal";
+import { RangeCalendar } from "./range-calendar";
 import { pillClass } from "./workspace-select";
 import { BUDGET_TIERS, whenIsSet } from "./trip-constraints";
 import type { TripConstraints, TripWhen, TripWho } from "./trip-constraints";
@@ -165,7 +166,13 @@ function whenSummary(when: TripWhen): string {
     if (start !== "" && end !== "") return `${start} – ${end}`;
     return start !== "" ? `${start} →` : `→ ${end}`;
   }
-  const month = when.month.trim();
+  // Two months read fine in a pill; more than that becomes a wall, so it says how many.
+  const month =
+    when.months.length === 0
+      ? ""
+      : when.months.length <= 2
+        ? when.months.map(monthLabel).join(" / ")
+        : T.monthCount(when.months.length);
   const parts =
     month !== ""
       ? [month, when.days > 0 ? T.daysCount(when.days) : null]
@@ -251,7 +258,12 @@ function Chip({
   );
 }
 
-/** "When" popover: Dates | Flexible segmented modes (switching starts that mode blank). */
+/**
+ * "When": exact dates on a two-month range calendar, or a flexible span of N days across any
+ * number of months. Switching modes starts that mode blank rather than trying to translate one
+ * answer into the other — "5 days in October" and "the 3rd to the 8th" are different statements,
+ * and guessing between them would put words in the traveller's mouth.
+ */
 function WhenPanel({
   when,
   onChange,
@@ -262,10 +274,11 @@ function WhenPanel({
   const T = S.chat.tripChips;
   const mode = when?.kind ?? "dates";
   const dates = when?.kind === "dates" ? when : { kind: "dates" as const, start: "", end: "" };
-  const flex = when?.kind === "flexible" ? when : { kind: "flexible" as const, days: 0, month: "" };
+  const flex =
+    when?.kind === "flexible" ? when : { kind: "flexible" as const, days: 0, months: [] };
   return (
-    <div className="p-3">
-      <div className="mb-3 flex rounded-full bg-gray-100 p-0.5 dark:bg-gray-800">
+    <div className="p-4">
+      <div className="mx-auto mb-4 flex max-w-xs rounded-full bg-gray-100 p-0.5 dark:bg-gray-800">
         {(["dates", "flexible"] as const).map((m) => (
           <button
             key={m}
@@ -276,10 +289,10 @@ function WhenPanel({
               onChange(
                 m === "dates"
                   ? { kind: "dates", start: "", end: "" }
-                  : { kind: "flexible", days: 0, month: "" },
+                  : { kind: "flexible", days: 0, months: [] },
               );
             }}
-            className={`flex-1 rounded-full px-2 py-1 text-xs transition-colors duration-150 ${
+            className={`flex-1 rounded-full px-3 py-1.5 text-sm transition-colors duration-150 ${
               mode === m
                 ? "bg-white font-medium text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-100"
                 : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
@@ -290,54 +303,94 @@ function WhenPanel({
         ))}
       </div>
       {mode === "dates" ? (
-        <div className="flex items-center gap-2">
-          <label className="min-w-0 flex-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {T.startDate}
-            <input
-              type="date"
-              value={dates.start}
-              onChange={(e) => onChange({ ...dates, start: e.target.value })}
-              className={`${inputClass} mt-0.5`}
-            />
-          </label>
-          <label className="min-w-0 flex-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {T.endDate}
-            <input
-              type="date"
-              value={dates.end}
-              min={dates.start || undefined}
-              onChange={(e) => onChange({ ...dates, end: e.target.value })}
-              className={`${inputClass} mt-0.5`}
-            />
-          </label>
-        </div>
+        <RangeCalendar
+          start={dates.start}
+          end={dates.end}
+          onChange={({ start, end }) => onChange({ kind: "dates", start, end })}
+        />
       ) : (
-        <div className="flex items-center gap-2">
-          <label className="min-w-0 flex-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {T.daysLabel}
-            <span className="mt-0.5 flex items-center gap-1">
-              <StepButton
-                sign="-"
-                disabled={flex.days <= 0}
-                onClick={() => onChange({ ...flex, days: Math.max(0, flex.days - 1) })}
-              />
-              <span className="w-8 text-center text-sm tabular-nums text-gray-900 dark:text-gray-100">
-                {flex.days}
-              </span>
-              <StepButton sign="+" onClick={() => onChange({ ...flex, days: flex.days + 1 })} />
-            </span>
-          </label>
-          <label className="min-w-0 flex-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {T.monthLabel}
-            <input
-              type="month"
-              value={flex.month}
-              onChange={(e) => onChange({ ...flex, month: e.target.value })}
-              className={`${inputClass} mt-0.5`}
-            />
-          </label>
-        </div>
+        <FlexiblePanel value={flex} onChange={onChange} />
       )}
+    </div>
+  );
+}
+
+/** `YYYY-MM` rendered in the UI language ("October 2026" / "2026年10月"). */
+function monthLabel(value: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!m) return value;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1, 12));
+  return new Intl.DateTimeFormat(S.chat.tripChips.intlLocale, {
+    year: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(d);
+}
+
+/** The next twelve months from this one — the horizon a trip is actually planned within. */
+function nextTwelveMonths(): string[] {
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + i, 1, 12));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
+function FlexiblePanel({
+  value,
+  onChange,
+}: {
+  value: { kind: "flexible"; days: number; months: string[] };
+  onChange: (when: TripWhen) => void;
+}) {
+  const T = S.chat.tripChips;
+  const months = nextTwelveMonths();
+  const toggle = (m: string) => {
+    const next = value.months.includes(m)
+      ? value.months.filter((x) => x !== m)
+      : [...value.months, m].sort();
+    onChange({ ...value, months: next });
+  };
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{T.daysLabel}</span>
+        <span className="flex items-center gap-2">
+          <StepButton
+            sign="-"
+            disabled={value.days <= 0}
+            onClick={() => onChange({ ...value, days: Math.max(0, value.days - 1) })}
+          />
+          <span className="w-8 text-center text-sm tabular-nums text-gray-900 dark:text-gray-100">
+            {value.days}
+          </span>
+          <StepButton sign="+" onClick={() => onChange({ ...value, days: value.days + 1 })} />
+        </span>
+      </div>
+      <p className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">{T.monthsLabel}</p>
+      {/* No month selected means any month, which is the useful default rather than an error --
+          "a week, sometime" is a real answer. Saying so beats an empty grid that reads as unset. */}
+      <p className="mb-2 text-xs text-gray-400 dark:text-gray-500">{T.monthsHint}</p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {months.map((m) => {
+          const active = value.months.includes(m);
+          return (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={active}
+              onClick={() => toggle(m)}
+              className={`rounded-lg border px-2 py-1.5 text-xs transition-colors duration-150 ${
+                active
+                  ? "border-gray-900 bg-gray-900 font-medium text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
+                  : "border-gray-200 text-gray-600 hover:border-gray-400 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500"
+              }`}
+            >
+              {monthLabel(m)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

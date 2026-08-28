@@ -69,15 +69,15 @@ describe("composeTripPrefix", () => {
   it("covers the three flexible-when shapes", () => {
     const both = {
       ...EMPTY_TRIP_CONSTRAINTS,
-      when: { kind: "flexible", days: 5, month: "2026-10" },
+      when: { kind: "flexible", days: 5, months: ["2026-10"] },
     } as TripConstraints;
     const daysOnly = {
       ...EMPTY_TRIP_CONSTRAINTS,
-      when: { kind: "flexible", days: 5, month: "" },
+      when: { kind: "flexible", days: 5, months: [] },
     } as TripConstraints;
     const monthOnly = {
       ...EMPTY_TRIP_CONSTRAINTS,
-      when: { kind: "flexible", days: 0, month: "2026-10" },
+      when: { kind: "flexible", days: 0, months: ["2026-10"] },
     } as TripConstraints;
     expect(composeTripPrefix(both, ZH)).toBe("日期：2026-10 内任意 5 天");
     expect(composeTripPrefix(daysOnly, ZH)).toBe("日期：时间灵活，共 5 天");
@@ -105,7 +105,7 @@ describe("composeTripPrefix", () => {
 describe("whenIsSet / isEmptyTrip", () => {
   it("a set mode with blank fields does not count as filled", () => {
     expect(whenIsSet({ kind: "dates", start: "", end: "" })).toBe(false);
-    expect(whenIsSet({ kind: "flexible", days: 0, month: "" })).toBe(false);
+    expect(whenIsSet({ kind: "flexible", days: 0, months: [] })).toBe(false);
     expect(whenIsSet(null)).toBe(false);
     expect(
       isEmptyTrip({ ...EMPTY_TRIP_CONSTRAINTS, when: { kind: "dates", start: "", end: "" } }),
@@ -183,7 +183,7 @@ describe("chips as a trip's identity", () => {
     projectId: "proj",
     name: "Autumn",
     destination: "Tokyo",
-    when: { kind: "flexible", days: 5, month: "2026-10" },
+    when: { kind: "flexible", days: 5, months: ["2026-10"] },
     who: { adults: 2, children: 0, infants: 0, pets: 0 },
     budget: "mid",
     dir: "/trips/t-1",
@@ -196,13 +196,13 @@ describe("chips as a trip's identity", () => {
     const asChips = tripToConstraints(trip);
     expect(asChips).toEqual({
       where: "Tokyo",
-      when: { kind: "flexible", days: 5, month: "2026-10" },
+      when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
     });
     expect(constraintsToTripPatch(asChips)).toEqual({
       destination: "Tokyo",
-      when: { kind: "flexible", days: 5, month: "2026-10" },
+      when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
     });

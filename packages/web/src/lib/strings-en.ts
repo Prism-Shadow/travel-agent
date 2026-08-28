@@ -1156,6 +1156,11 @@ export const en: Strings = {
       },
       daysCount: (n: number) => `${n} day${n > 1 ? "s" : ""}`,
       flexibleTag: "flexible",
+      monthCount: (n: number) => `${n} months`,
+      monthsLabel: "Months",
+      monthsHint: "Pick any number; none means any month",
+      /** Intl locale for month names inside the When dialog. */
+      intlLocale: "en-US",
       // Popover copy.
       wherePlaceholder: "City or region — several is fine",
       whereHint: "e.g. Tokyo, Osaka",

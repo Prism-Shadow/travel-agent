@@ -102,7 +102,7 @@ describe("tripMetaLine", () => {
         trip({
           name: "Autumn",
           destination: "Tokyo",
-          when: { kind: "flexible", days: 5, month: "October" },
+          when: { kind: "flexible", days: 5, months: ["October"] },
           who: { adults: 2, children: 1, infants: 0, pets: 0 },
           budget: "mid",
         }),
@@ -133,8 +133,8 @@ describe("tripMetaLine", () => {
       "until 2026-10-17",
     );
     expect(whenText({ kind: "dates", start: "", end: "" }, copy)).toBeNull();
-    expect(whenText({ kind: "flexible", days: 0, month: "" }, copy)).toBeNull();
-    expect(whenText({ kind: "flexible", days: 0, month: "October" }, copy)).toBe("in October");
+    expect(whenText({ kind: "flexible", days: 0, months: [] }, copy)).toBeNull();
+    expect(whenText({ kind: "flexible", days: 0, months: ["October"] }, copy)).toBe("in October");
   });
 
   it("counts travellers across the three brackets, and nobody as nobody", () => {

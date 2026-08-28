@@ -33,7 +33,10 @@ export function whenText(when: TripWhen | null, copy: TripMetaCopy): string | nu
     if (start !== "" && end !== "") return copy.dateRange(start, end);
     return start !== "" ? copy.dateFrom(start) : copy.dateUntil(end);
   }
-  const month = when.month.trim();
+  // Joined rather than counted here: this line is the trip's own meta, read at leisure on the
+  // sidebar and the trip page, where "Oct / Nov / Dec" is more use than "3 months". The chip
+  // above the composer has a pill's worth of room and abbreviates instead.
+  const month = when.months.join(" / ");
   if (when.days <= 0 && month === "") return null;
   if (when.days > 0 && month !== "") return copy.flexible(when.days, month);
   return when.days > 0 ? copy.flexibleAnyMonth(when.days) : copy.flexibleMonthOnly(month);

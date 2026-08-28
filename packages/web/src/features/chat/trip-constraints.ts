@@ -118,9 +118,9 @@ export interface TripChipsCopy {
   dateRange: (start: string, end: string) => string;
   dateFrom: (start: string) => string;
   dateUntil: (end: string) => string;
-  flexible: (days: number, month: string) => string;
+  flexible: (days: number, months: string) => string;
   flexibleAnyMonth: (days: number) => string;
-  flexibleMonthOnly: (month: string) => string;
+  flexibleMonthOnly: (months: string) => string;
   adults: (n: number) => string;
   children: (n: number) => string;
   infants: (n: number) => string;
@@ -133,7 +133,7 @@ export interface TripChipsCopy {
 export function whenIsSet(when: TripWhen | null): boolean {
   if (when === null) return false;
   if (when.kind === "dates") return when.start.trim() !== "" || when.end.trim() !== "";
-  return when.days > 0 || when.month.trim() !== "";
+  return when.days > 0 || when.months.length > 0;
 }
 
 /** True when nothing is filled in — the composer sends the user's text untouched. */
@@ -150,7 +150,7 @@ function whenLine(when: TripWhen | null, copy: TripChipsCopy): string | null {
     if (start !== "" && end !== "") return copy.dateRange(start, end);
     return start !== "" ? copy.dateFrom(start) : copy.dateUntil(end);
   }
-  const month = when.month.trim();
+  const month = when.months.join(" / ");
   if (when.days > 0 && month !== "") return copy.flexible(when.days, month);
   return when.days > 0 ? copy.flexibleAnyMonth(when.days) : copy.flexibleMonthOnly(month);
 }
