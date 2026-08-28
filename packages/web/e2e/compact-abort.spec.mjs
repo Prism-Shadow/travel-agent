@@ -89,7 +89,7 @@ test("aborting before any turn completes: /compact says so instead of doing noth
   await expect(page.getByRole("button", { name: /nothing to compact/ })).toBeVisible();
   expect(nativeDialogs, "feedback must be an in-app toast, not a native alert").toHaveLength(0);
   // And indeed no compaction was started (no banner).
-  await expect(page.getByText(/\[压缩\]/)).toHaveCount(0);
+  await expect(page.getByText("压缩", { exact: true })).toHaveCount(0);
 });
 
 test("compacting twice in a row: says the context was just compacted, not that nothing ever ran", async ({
@@ -136,7 +136,7 @@ test("compacting twice in a row: says the context was just compacted, not that n
   // First /compact: compacts normally, shows the banner, no toast expected.
   await ta.fill("/compact");
   await ta.press("Enter");
-  await expect(page.getByText(/\[压缩\]/)).toBeVisible();
+  await expect(page.getByText("压缩", { exact: true })).toBeVisible();
   // No compact-unavailable toast (match the 409 reasons, not bare "compact" — usernames like
   // "dblcompact" would collide).
   await expect(
@@ -152,5 +152,5 @@ test("compacting twice in a row: says the context was just compacted, not that n
     page.getByRole("button", { name: /no completed conversation turns yet/ }),
   ).toHaveCount(0);
   expect(nativeDialogs, "feedback must be an in-app toast, not a native alert").toHaveLength(0);
-  await expect(page.getByText(/\[压缩\]/)).toHaveCount(1); // no second compaction banner
+  await expect(page.getByText("压缩", { exact: true })).toHaveCount(1); // no second compaction banner
 });

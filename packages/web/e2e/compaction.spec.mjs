@@ -58,13 +58,13 @@ test("compaction mid-turn: the reply's stats line is still reachable by hovering
 
   const reply = page.getByText("Command finished; the result looks as expected.").first();
   await expect(reply).toBeVisible();
-  const banner = page.getByText(/\[压缩\]/).first();
+  const banner = page.getByText("压缩", { exact: true }).first();
   await expect(banner).toBeVisible();
 
   // The compaction banner doesn't show Token counts: compaction at round end isn't attributed
   // to this round (its usage shows up in the Session total and the Trace page's compaction-round
   // card instead) — the banner only states "compaction happened, succeeded or not."
-  await expect(page.getByText(/\[压缩\].*tokens/)).toHaveCount(0);
+  await expect(page.getByText(/压缩.*tokens/)).toHaveCount(0);
 
   // Order: reply -> **this round's stats line** -> compaction banner. The stats line is about
   // this round of conversation; compaction is housekeeping outside this round, listed after this
@@ -214,7 +214,7 @@ test("manual /compact between turns: reloading must not fold the compaction into
   await page.waitForTimeout(3000);
   await ta.fill("/compact");
   await ta.press("Enter");
-  await expect(page.getByText(/\[压缩\]/)).toBeVisible();
+  await expect(page.getByText("压缩", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "停止" })).toHaveCount(0);
   expect(await statsText(), "compaction must not touch the already-closed prior turn").toBe(live);
 
