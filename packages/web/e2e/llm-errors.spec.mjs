@@ -165,7 +165,9 @@ test("an auth-401 marks the Session dead but recoverable: Models CTA, key update
     (m) => m.payload.type === "request_end" && m.payload.status === "auth",
   );
   expect(authEnd).toBeTruthy();
-  expect(authEnd.payload.message).toContain("invalid x-api-key");
+  // `error_message`, not `message`: the field was renamed in the trace protocol because
+  // "message" means an OmniMessage everywhere else in it, and this is a failure reason.
+  expect(authEnd.payload.error_message).toContain("invalid x-api-key");
   const abort = msgs.messages.find((m) => m.payload.type === "abort");
   expect(abort.payload.code).toBeUndefined();
 
