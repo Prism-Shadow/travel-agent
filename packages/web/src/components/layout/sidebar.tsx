@@ -834,7 +834,12 @@ export function Sidebar({
           scroller: padding-top there belongs to the scrollable content and slides away with
           it, leaving a scrolled row flush against this button. Outside the scroller the 8px
           stays put at every scroll offset. */}
-      <div className="shrink-0 space-y-0.5 px-2 pb-2 pt-2">
+      {/* The two create actions. `min-h-0` + `overflow-y-auto` rather than `shrink-0`: the header,
+          this block and the user row are each unshrinkable at 50 / 92 / 100px, which is already
+          242px of the 240px a window docked beside devtools has — the conversation list was
+          squeezed to nine pixels and the document still grew by eleven. A window that short is
+          reachable by browser zoom, and the page must scroll nothing but its own scrollers. */}
+      <div className="min-h-0 shrink space-y-0.5 overflow-y-auto px-2 pb-2 pt-2">
         <button
           type="button"
           onClick={newTrip}
