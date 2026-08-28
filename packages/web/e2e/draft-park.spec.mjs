@@ -5,7 +5,7 @@
  * and removes the row; deleting from the row's hover action discards it after a confirm.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -33,7 +33,7 @@ test("new-chat click parks typed text as a sendable draft conversation", async (
   expect(put.ok(), "put models").toBeTruthy();
 
   await page.goto(`${BASE}/chat/new`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("draft to park: build me a metronome");
 
@@ -49,9 +49,7 @@ test("new-chat click parks typed text as a sendable draft conversation", async (
   // Opening the row resumes the draft (route /chat/draft-…, text restored).
   await row.click();
   await expect(page).toHaveURL(/\/chat\/draft-[0-9a-f]{8}$/);
-  await expect(page.getByPlaceholder(/输入消息/)).toHaveValue(
-    "draft to park: build me a metronome",
-  );
+  await expect(composer(page)).toHaveValue("draft to park: build me a metronome");
 
   // Sending converts it into a real session and the draft row disappears.
   await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -61,7 +59,7 @@ test("new-chat click parks typed text as a sendable draft conversation", async (
 
   // Park another one and delete it from the row (confirm dialog).
   await page.getByRole("button", { name: "新建对话" }).first().click();
-  await page.getByPlaceholder(/输入消息/).fill("second parked draft");
+  await composer(page).fill("second parked draft");
   await page.getByRole("button", { name: "新建对话" }).first().click();
   const row2 = page.getByText("second parked draft").first();
   await expect(row2).toBeVisible();

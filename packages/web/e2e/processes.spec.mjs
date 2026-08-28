@@ -8,7 +8,7 @@
  * (`sleep 600` with a 300ms yield — see mock-llm.mjs).
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -46,7 +46,7 @@ test("background process appears in the details card and can be stopped", async 
   const sessionId = sess.session.sessionId;
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("background server test");
   await page.getByRole("button", { name: "发送" }).click();

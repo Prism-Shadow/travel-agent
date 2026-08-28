@@ -13,7 +13,7 @@
  * "slow text test" streams a 40-chunk text one delta every 200ms.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -79,7 +79,7 @@ async function openToolOutput(page) {
 /** Send the "slow stream test" prompt, approve exec_command, and return the output <pre>. */
 async function startSlowToolRun(page, sessionId) {
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("slow stream test");
   await page.getByRole("button", { name: "发送" }).click();
@@ -133,7 +133,7 @@ test("in-progress assistant TEXT survives a reload and keeps streaming", async (
   const sessionId = await createSession(page, "allow-all");
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("slow text test");
   await page.getByRole("button", { name: "发送" }).click();

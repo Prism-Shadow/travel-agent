@@ -7,7 +7,7 @@
  * retry, subsequent tool calls appear and complete as normal.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -40,7 +40,7 @@ test("a malformed tool_call settles unpaired; the retry line shows and the retry
   const sessionId = sess.session.sessionId;
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).fill("bad stream test");
+  await composer(page).fill("bad stream test");
   await page.getByRole("button", { name: "发送" }).click();
 
   // The retried exec_command finishes → final answer, proving the retry and the following

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -46,7 +46,7 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
 
   // --- chat ---
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
 
   // Approval-mode is a custom dropdown (button), NOT a native <select>.

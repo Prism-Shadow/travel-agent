@@ -17,7 +17,7 @@
  * specs also sort after it).
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -54,7 +54,7 @@ test("aborting before any turn completes: /compact says so instead of doing noth
   const sessionId = sess.session.sessionId;
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("Help me set up @theme");
   await page.getByRole("button", { name: "发送" }).click();
@@ -121,7 +121,7 @@ test("compacting twice in a row: says the context was just compacted, not that n
   ).json();
 
   await page.goto(`${BASE}/chat/${sess.session.sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("Help me set up @theme");
   await page.getByRole("button", { name: "发送" }).click();

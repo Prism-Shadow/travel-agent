@@ -34,7 +34,7 @@
  *   left of 中文.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -107,7 +107,7 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   // --- Draft page: must not overflow horizontally on desktop or mobile; no context ring in draft state ---
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat/new`);
-  await page.getByPlaceholder(/Type a message|Tell me where/).waitFor();
+  await composer(page).waitFor();
   let d = await docWidths(page);
   expect(d.scrollWidth, "draft @1280 no horizontal overflow").toBeLessThanOrEqual(d.clientWidth);
   await expect(page.locator('[title*="Context usage"]')).toHaveCount(0);
@@ -120,7 +120,7 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   ).json();
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat/${sess.session.sessionId}`);
-  await page.getByPlaceholder(/Type a message/).waitFor();
+  await composer(page).waitFor();
   await expect(page.locator('[title*="Context usage"]')).toHaveCount(1);
 
   // --- Models page @390: must not overflow, text must not overlap ---
@@ -355,7 +355,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
   // adding the menu's scrollable height must not re-center the screen a few pixels to the left.
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat/new`);
-  await page.getByPlaceholder(/Type a message|Tell me where/).waitFor();
+  await composer(page).waitFor();
   const greeting = page.getByRole("heading", { name: /Where to today/ });
   const beforeWorkspaceOpen = await greeting.boundingBox();
   const beforeClientWidth = await page.evaluate(() => document.documentElement.clientWidth);
@@ -390,7 +390,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
   ]) {
     await page.setViewportSize(vp);
     await page.goto(`${BASE}/chat/new`);
-    await page.getByPlaceholder(/Type a message|Tell me where/).waitFor();
+    await composer(page).waitFor();
     // Model / thinking-level buttons stay disabled until models and the agent config load.
     await expect(page.locator('button[aria-label="Choose model"]')).toBeEnabled();
     await expect(page.locator('button[aria-label="Thinking level"]')).toBeEnabled();
@@ -425,7 +425,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
   ]) {
     await page.setViewportSize(vp);
     await page.goto(`${BASE}/chat/${sess.session.sessionId}`);
-    await page.getByPlaceholder(/Type a message/).waitFor();
+    await composer(page).waitFor();
     for (const label of sessionPickers) {
       await open(label, `${label} @session ${vp.width}`);
       await close();
@@ -435,7 +435,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
   // Running state: send a message, wait for the pending approval (the run stays running), then
   // re-open every picker. The composer stays enabled for steering, so the row is at its
   // busiest here — this is the state the toolbar overflowed in.
-  await page.getByPlaceholder(/Type a message/).fill("Help me set up @theme");
+  await composer(page).fill("Help me set up @theme");
   await page.locator('button[aria-label="Send"]').click();
   await page.getByRole("button", { name: /^Allow$/ }).waitFor();
   // There is no skills picker to lock: skills are built in and never chosen here.
@@ -566,7 +566,7 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
     })
   ).json();
   await page.goto(`${BASE}/chat/${sess2.session.sessionId}`);
-  await page.getByPlaceholder(/Type a message/).fill("Help me check the directory");
+  await composer(page).fill("Help me check the directory");
   await page.locator('button[aria-label="Send"]').click();
   await page.getByRole("button", { name: /^Deny$/ }).click();
   await expect(page.getByText("Command finished; the result looks as expected.")).toBeVisible();

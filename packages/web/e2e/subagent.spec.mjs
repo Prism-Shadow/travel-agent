@@ -22,7 +22,7 @@
  * (registration auto-provisions a `project-<8hex>`), independent of chat.spec's execution order.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -108,7 +108,7 @@ test("subagent renders as a chip; the panel shows the call graph and child conve
   const { projectId, agentId, sessionId } = await provisionSession(page, "subuser");
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("run a subagent");
   await page.getByRole("button", { name: "发送" }).click();
@@ -266,7 +266,7 @@ test("task-scoped panel lifecycle: boundary close, per-task auto-open re-arm, ma
   // pre-existing stream flake unrelated to the panel — documented on PR #78).
   const { sessionId } = await provisionSession(page, "subuser4");
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   const agentsToggle = page.getByRole("button", { name: "智能体面板" });
 
@@ -309,7 +309,7 @@ test("an approval inside the subagent stays discoverable via the chip badge and 
   const { sessionId } = await provisionSession(page, "subuser2", { approvalMode: "always-ask" });
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("run a subagent");
   await page.getByRole("button", { name: "发送" }).click();
@@ -364,7 +364,7 @@ test("draft flow: the panel auto-opens on the first live spawn and the child con
   expect(put.ok(), "put models").toBeTruthy();
 
   await page.goto(`${BASE}/chat/new`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("run a subagent");
   await page.getByRole("button", { name: "发送" }).click();

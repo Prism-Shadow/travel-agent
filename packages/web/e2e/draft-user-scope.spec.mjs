@@ -7,7 +7,7 @@
  * fix, the key includes userId (penguin.chatDraft.<userId>.<projectId>), so each account only sees its own draft.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin, provisionUser } from "./auth.mjs";
+import { composer, provisionAndLogin, provisionUser } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -48,7 +48,7 @@ test("switching accounts: B does not restore A's draft; both drafts coexist", as
 
   // A types a body on the draft page and waits for debounce to persist it under A's key; after a reload it restores as usual (confirming it was persisted).
   await page.goto(`${BASE}/chat`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.fill("A's secret draft");
   const keyA = `penguin.chatDraft.${userA}.${projectId}`;
   await expect

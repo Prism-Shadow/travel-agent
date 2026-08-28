@@ -11,7 +11,7 @@
  * URL for a file the new Workspace doesn't have, i.e. a raw 404 page in the panel.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -61,7 +61,7 @@ test("switching conversations closes the old session's HTML preview and shows th
   // The card click goes through browsePath -> openRequest, which is the state the bug
   // needs (a list click would not arm it).
   await page.goto(`${BASE}/chat/${sidA}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("files card test");
   await page.getByRole("button", { name: "发送" }).click();

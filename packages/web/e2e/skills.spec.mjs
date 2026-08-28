@@ -15,7 +15,7 @@
  * path is covered by the marker unit tests (`test/skill-use.test.ts`).
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -102,7 +102,7 @@ test("skills: built-in on every agent, and nowhere for a person to choose one", 
     })
   ).json();
   await page.goto(`${BASE}/chat/${sess.session.sessionId}`);
-  const sessionTa = page.getByPlaceholder(/输入消息/);
+  const sessionTa = composer(page);
   await sessionTa.waitFor();
   await expect(page.getByRole("button", { name: "技能", exact: true })).toHaveCount(0);
   await sessionTa.fill("/penguin-b");

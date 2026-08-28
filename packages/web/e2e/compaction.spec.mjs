@@ -14,7 +14,7 @@
  * compaction only happens once, at the end of the round.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -51,7 +51,7 @@ test("compaction mid-turn: the reply's stats line is still reachable by hovering
   ).json();
 
   await page.goto(`${BASE}/chat/${sess.session.sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("Help me set up @theme");
   await page.getByRole("button", { name: "发送" }).click();
@@ -189,7 +189,7 @@ test("manual /compact between turns: reloading must not fold the compaction into
   ).json();
 
   await page.goto(`${BASE}/chat/${sess.session.sessionId}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   await ta.waitFor();
   await ta.fill("Help me set up @theme");
   await page.getByRole("button", { name: "发送" }).click();

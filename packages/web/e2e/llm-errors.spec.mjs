@@ -20,7 +20,7 @@
  *    dead state re-arms if the key is still bad), and New Session stays as the way out.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -58,7 +58,7 @@ test("a quota-403 retries with a live countdown; 'retry now' skips the wait and 
   const { sessionId } = await makeSession(page, "quotauser");
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).fill("quota retry test");
+  await composer(page).fill("quota retry test");
   await page.getByRole("button", { name: "发送" }).click();
 
   // Early retries flip fast (250/500ms waits — below the 2s countdown floor they keep the
@@ -102,7 +102,7 @@ test("a quota-403 retries with a live countdown; 'retry now' skips the wait and 
 
   // No abort: the run recovered, the composer stays usable.
   await expect(page.getByText(/已中断/)).toHaveCount(0);
-  await expect(page.getByPlaceholder(/输入消息/)).toBeEnabled();
+  await expect(composer(page)).toBeEnabled();
 
   // Trace: all five quota rejections recorded as request_end(timeout) — the reconnect
   // path — carrying the real failure detail (the Cost center's errors panel reads it from
@@ -123,7 +123,7 @@ test("'give up' on the countdown aborts the backoff: the turn ends and the compo
   const { sessionId } = await makeSession(page, "giveupuser");
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).fill("quota giveup test");
+  await composer(page).fill("quota giveup test");
   await page.getByRole("button", { name: "发送" }).click();
 
   // The mock rejects every request: by the 2s wait before retry #4 the countdown (and its
@@ -136,7 +136,7 @@ test("'give up' on the countdown aborts the backoff: the turn ends and the compo
   // immediately usable again.
   await expect(page.getByText(/已中断/)).toBeVisible({ timeout: 10000 });
   await expect(page.locator("p.text-amber-600", { hasText: "已停止重试" })).toBeVisible();
-  await expect(page.getByPlaceholder(/输入消息/)).toBeEnabled();
+  await expect(composer(page)).toBeEnabled();
 });
 
 test("an auth-401 marks the Session dead but recoverable: Models CTA, key update auto-unlocks, Retry re-arms", async ({
@@ -146,7 +146,7 @@ test("an auth-401 marks the Session dead but recoverable: Models CTA, key update
   const { sessionId, projectId } = await makeSession(page, "authuser", "sk-auth-bad");
 
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).fill("auth dead test");
+  await composer(page).fill("auth dead test");
   await page.getByRole("button", { name: "发送" }).click();
 
   // The existing abort line renders unchanged (the notice is additional).
@@ -184,7 +184,7 @@ test("an auth-401 marks the Session dead but recoverable: Models CTA, key update
   // Secondary escape: New Session still jumps to a usable fresh draft.
   await page.getByRole("button", { name: "新建会话" }).click();
   await expect(page).toHaveURL(/\/chat\/new$/);
-  const draftInput = page.getByPlaceholder(/输入消息/);
+  const draftInput = composer(page);
   await expect(draftInput).toBeVisible();
   await expect(draftInput).toBeEnabled();
   await page.goBack();
@@ -194,7 +194,7 @@ test("an auth-401 marks the Session dead but recoverable: Models CTA, key update
   // attempt, the mock rejects again, and the dead state re-arms.
   await page.getByRole("button", { name: "重试", exact: true }).click();
   await expect(page.getByText(/模型 API 认证失败/)).toHaveCount(0);
-  const input = page.getByPlaceholder(/输入消息/);
+  const input = composer(page);
   await expect(input).toBeEnabled();
   await input.fill("auth dead test again");
   await page.getByRole("button", { name: "发送" }).click();
@@ -220,11 +220,11 @@ test("an auth-401 marks the Session dead but recoverable: Models CTA, key update
   });
   expect(put.status()).toBe(200);
   await expect(page.getByText(/模型 API 认证失败/)).toHaveCount(0, { timeout: 15000 });
-  await expect(page.getByPlaceholder(/输入消息/)).toBeEnabled();
+  await expect(composer(page)).toBeEnabled();
 
   // The SAME conversation continues on the new key (the rebuilt runtime re-reads the
   // Project config): the send completes and the notice stays gone.
-  await page.getByPlaceholder(/输入消息/).fill("auth dead test after fix");
+  await composer(page).fill("auth dead test after fix");
   await page.getByRole("button", { name: "发送" }).click();
   await expect(page.getByText("Auth restored; hello again.")).toBeVisible({ timeout: 20000 });
   await expect(page.getByText(/模型 API 认证失败/)).toHaveCount(0);
@@ -235,5 +235,5 @@ test("an auth-401 marks the Session dead but recoverable: Models CTA, key update
   await page.reload();
   await expect(page.getByText("Auth restored; hello again.")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText(/模型 API 认证失败/)).toHaveCount(0);
-  await expect(page.getByPlaceholder(/输入消息/)).toBeEnabled();
+  await expect(composer(page)).toBeEnabled();
 });

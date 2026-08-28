@@ -38,3 +38,17 @@ export async function provisionAndLogin(ctx, userId, password) {
   await provisionUser(userId, password);
   return login(ctx, userId, password);
 }
+
+/**
+ * The composer textarea, wherever it is.
+ *
+ * Two placeholders, not one: the draft screen asks where you want to go
+ * (`draftInputPlaceholder`), and an active conversation explains the text box
+ * (`inputPlaceholder`). Both locales are covered because specs set either. Every spec that
+ * reaches `/chat/new` needs this rather than the session placeholder — thirty-three call sites
+ * hard-coded the session one and every one of them timed out the day the draft screen got a
+ * voice of its own.
+ */
+export function composer(page) {
+  return page.getByPlaceholder(/输入消息|告诉我想去哪里|Type a message|Tell me where/);
+}

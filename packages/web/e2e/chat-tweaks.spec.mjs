@@ -11,7 +11,7 @@
  * to first-run config-load timing to assert reliably.)
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -90,7 +90,7 @@ test("schedule form pickers and details Session-id copy", async ({ page }) => {
   // The id is selectable mono text with the copy button beside it (not inside it); the
   // "已复制" feedback appears AT the button (text), and the "Session id" label is untouched.
   await page.goto(`${BASE}/chat/${sessionId}`);
-  await page.getByPlaceholder(/输入消息/).waitFor();
+  await composer(page).waitFor();
   await page.locator('button[title="Session 信息"]').click();
   await expect(page.getByText(sessionId, { exact: true }).first()).toBeVisible();
   const copyBtn = page.getByRole("button", { name: "复制 Session id" });

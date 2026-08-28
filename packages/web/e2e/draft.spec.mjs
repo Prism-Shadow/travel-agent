@@ -22,7 +22,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -72,7 +72,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   await page.goto(`${BASE}/chat`);
   await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible();
 
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
 
   // `/agent` is a SESSION command: a draft has no conversation to hand over, and its Agent is
   // chosen by the draft page's own selector — so the slash menu must not offer it here (the

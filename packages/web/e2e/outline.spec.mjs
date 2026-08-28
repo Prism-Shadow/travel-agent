@@ -15,7 +15,7 @@
  * standing in for the turns hidden past an edge.
  */
 import { test, expect } from "@playwright/test";
-import { provisionAndLogin } from "./auth.mjs";
+import { composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -76,7 +76,7 @@ test("minimap ticks + hover preview + jump, five-turn gate, sticky group header,
   page,
 }) => {
   const newSession = await setup(page);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   const send = sender(page, ta);
 
   // --- session 1: five exchanges -> visibility gate, outline entries, jump, scrollspy, history ---
@@ -260,7 +260,7 @@ test("the tick rail windows to the turns around the reading position on long con
 
   const newSession = await setup(page);
   await page.goto(`${BASE}/chat/${await newSession()}`);
-  const ta = page.getByPlaceholder(/输入消息/);
+  const ta = composer(page);
   const send = sender(page, ta);
   await ta.waitFor();
   for (let n = 1; n <= TURNS; n++) await send(`第 ${n} 问`, n);
