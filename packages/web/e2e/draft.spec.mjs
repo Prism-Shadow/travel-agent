@@ -248,7 +248,10 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   const thirdSessionId = page.url().split("/chat/")[1];
   const third = await (await page.request.get(`${BASE}/api/sessions/${thirdSessionId}`)).json();
   expect(third.session.modelId).toBe("claude-4-8");
-  expect(third.session.agentId).toBe("agent_helper");
+  // Same Agent as the conversation it forked from — asserted against that conversation rather
+  // than a hard-coded id. A fork changes the model and nothing else, and naming the Agent here
+  // only pinned which conversation the section above happened to create.
+  expect(third.session.agentId).toBe(second.session.agentId);
   // The source block collapses into the "switched model" banner, and the typed body follows it.
   await expect(page.getByText(/已切换模型（原为 claude-4-8-mini）/)).toBeVisible();
   await expect(page.getByText("Fork body typed after the pick")).toBeVisible();
@@ -258,10 +261,13 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   // first closing text is the only one).
   await expect(page.getByText("Command finished; the result looks as expected.")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "停止" })).toHaveCount(0);
+  // Hand over to the *other* Agent. The source is default_agent now that the sidebar no longer
+  // creates conversations scoped to a group's Agent, so handing to default_agent would be a
+  // handoff to itself — the origin banner below could not tell the two apart.
   await ta.fill("/agent");
   await ta.press("Enter");
-  await page.getByPlaceholder(/搜索 Agent/).fill("default");
-  await page.getByRole("button", { name: /default_agent/ }).click();
+  await page.getByPlaceholder(/搜索 Agent/).fill("helper");
+  await page.getByRole("button", { name: /agent_helper/ }).click();
   // Staged only: still in the forked Session, still able to type the message to hand over.
   await expect(page).toHaveURL(new RegExp(`/chat/${thirdSessionId}$`));
   await expect(page.getByLabel("移除交接目标")).toBeVisible();
@@ -273,9 +279,9 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   );
   const fourthSessionId = page.url().split("/chat/")[1];
   const fourth = await (await page.request.get(`${BASE}/api/sessions/${fourthSessionId}`)).json();
-  expect(fourth.session.agentId).toBe("default_agent");
+  expect(fourth.session.agentId).toBe("agent_helper");
   // The [handoff_from] block collapses into the origin banner (the source agent is named
   // without an @ sigil, matching the composer chip), and the typed body follows it.
-  await expect(page.getByText(/由 .*agent_helper.* 的对话交接而来/)).toBeVisible();
+  await expect(page.getByText(/由 .*default_agent.* 的对话交接而来/)).toBeVisible();
   await expect(page.getByText("Handoff body typed after the pick")).toBeVisible();
 });

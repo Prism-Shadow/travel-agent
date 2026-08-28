@@ -57,17 +57,20 @@ test("switching accounts: B does not restore A's draft; both drafts coexist", as
   await page.reload();
   await expect(ta).toHaveValue("A's secret draft");
 
-  // A logs out: the bottom-left user menu (the username button shares its name with the top
-  // Project switcher — the initial Project's display name defaults to the username — so take
-  // the last match, which is the bottom user menu).
-  await page.getByRole("button", { name: UA }).last().click();
+  // A logs out from the bottom-left user menu. Scoped to the sidebar rather than taken as the
+  // last page-wide match: the Project switcher used to carry the same name (a lone Project's
+  // display name defaults to the username) and no longer renders at all when there is only one,
+  // so "the last one" is now whatever else happens to be on the page.
+  await page.getByRole("complementary").getByRole("button", { name: UA }).click();
   await page.getByRole("button", { name: "登出" }).click();
   await page.waitForURL(/\/login/);
 
   // B logs in on the same browser, landing on the draft page for the shared Project.
   await page.getByLabel("用户名").fill(UB);
-  // exact: without it, a substring match would also hit the "show password" toggle button (aria-label) next to the password field.
-  await page.getByLabel("密码", { exact: true }).fill(P);
+  // `密码*` — the required marker is part of the label text, so an exact match on 密码 finds
+  // nothing. Anchored instead: a bare substring would also hit the show/hide toggle button
+  // beside the field, whose aria-label is 显示密码.
+  await page.getByLabel(/^密码\*?$/).fill(P);
   await page.locator('button[type="submit"]').click();
   await page.waitForURL(/\/chat/);
   await expect(page.getByRole("heading", { name: /今天想去哪里/ })).toBeVisible();
