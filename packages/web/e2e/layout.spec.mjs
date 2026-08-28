@@ -350,36 +350,14 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
     await expect(panel).toHaveCount(0);
   };
 
-  // Desktop regression: the Workspace menu is attached below its trigger (it must not auto-flip
-  // over the greeting/composer). The draft scroller reserves symmetric scrollbar gutters, so
-  // adding the menu's scrollable height must not re-center the screen a few pixels to the left.
+  // The draft screen's Workspace and Agent pickers are gone: a traveller does not choose a
+  // directory or an engine persona to plan a trip in, so the menus this section measured -- and
+  // the desktop regression about the Workspace menu flipping over the greeting -- have nothing
+  // left to open. What remains below still covers the pickers the composer does have.
+
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat/new`);
   await composer(page).waitFor();
-  const greeting = page.getByRole("heading", { name: /Where to today/ });
-  const beforeWorkspaceOpen = await greeting.boundingBox();
-  const beforeClientWidth = await page.evaluate(() => document.documentElement.clientWidth);
-  await open("Workspace", "workspace @desktop");
-  const workspaceTrigger = page.locator('button[aria-label="Workspace"]');
-  const [workspaceTriggerBox, workspacePanelBox] = await Promise.all([
-    workspaceTrigger.boundingBox(),
-    panel.boundingBox(),
-  ]);
-  const afterWorkspaceOpen = await greeting.boundingBox();
-  const afterClientWidth = await page.evaluate(() => document.documentElement.clientWidth);
-  expect(beforeWorkspaceOpen).not.toBeNull();
-  expect(afterWorkspaceOpen).not.toBeNull();
-  expect(workspaceTriggerBox).not.toBeNull();
-  expect(workspacePanelBox).not.toBeNull();
-  expect(workspacePanelBox.y, "workspace menu opens below its trigger").toBeGreaterThanOrEqual(
-    workspaceTriggerBox.y + workspaceTriggerBox.height,
-  );
-  expect(
-    Math.abs(afterWorkspaceOpen.x - beforeWorkspaceOpen.x),
-    "workspace menu does not shift the centered draft",
-  ).toBeLessThan(0.5);
-  expect(afterClientWidth, "workspace menu does not change viewport width").toBe(beforeClientWidth);
-  await close();
 
   // Draft page, both common phone widths. The two widths exercise different geometry for the
   // ownership pills below the card: at 375 they wrap onto two rows (workspace pill at the row
@@ -402,10 +380,6 @@ test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) 
     // Reveal the key-less remainder — the widest state of the w-max panel — and re-check.
     await page.getByRole("button", { name: /without a key/ }).click();
     await checkPanel(`model show-all @${vp.width}`);
-    await close();
-    await open("Choose agent", `agent @${vp.width}`);
-    await close();
-    await open("Workspace", `workspace @${vp.width}`);
     await close();
   }
 
@@ -678,7 +652,8 @@ test("layout: no page grows the document (absolute descendants stay in their scr
 
 test("layout: login — blank start, non-crossing traces, lang/theme controls", async ({ page }) => {
   await page.goto(`${BASE}/login`);
-  await page.getByRole("heading", { name: /今天想去哪里/ }).waitFor();
+  // The login page is headed by the product name, not the draft screen's greeting.
+  await page.getByRole("heading", { name: "Travel Agent" }).waitFor();
 
   // The only graphic asset is the brand penguin logo above the form; the
   // background still has only the trace animation, and the page must have no other img elements.
