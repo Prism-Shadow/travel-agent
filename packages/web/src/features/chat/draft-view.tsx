@@ -19,10 +19,10 @@
  * the page resumes where you left off; on successful send the cache clears, except
  * the model selection, which carries over as the next conversation's default
  * (switch-becomes-default, mirroring the thinking level persisting on the Agent).
- * The sidebar group header "+" / menu "New conversation" explicitly specify an
- * Agent via route state (overriding the cached selection); the workspace-mode
- * group header "+" additionally carries a Workspace path pre-filling the
- * Workspace selection ("" = temporary workspace). A direct visit or refresh
+ * The sidebar's Trip card "+" / menu "New conversation" explicitly specify an
+ * Agent via route state (overriding the cached selection), and a Trip card also
+ * carries its Trip id. Workspace is no longer offered here — it is seeded from the
+ * Project's new-chat defaults and has no picker. A direct visit or refresh
  * falls back to the cache. When neither route state nor the mount-time cache claims a
  * field, the Project's new-chat defaults ([default_chat]) prefill Agent / Workspace /
  * approval mode (precedence: route state > draft cache > project default > built-in
@@ -96,7 +96,6 @@ import {
   type ChatDefaultsChangedDetail,
 } from "./chat-defaults-event";
 import { effectiveThinkingLevel } from "./thinking-level";
-import { pillClass } from "./workspace-select";
 import { sameModelRef } from "../models/model-grouping";
 
 /** Coalescing window for writing body text to the cache: keystrokes are frequent, so a short batch accumulates before persisting (option changes are still written immediately). */
@@ -303,10 +302,14 @@ export function DraftView({
     setAgentId((agents.find((a) => a.agentId === "default_agent") ?? agents[0])?.agentId ?? null);
   }, [agents, agentId, location.key, stateAgentId, chatDefaults, cached.agentId]);
 
-  // Explicit Workspace from route state (the workspace-mode group header "+"): applied once per
-  // location.key, same convention as the Agent above, overriding the cached selection ("" pre-fills
-  // the temporary workspace). Unlike the Agent there's no list to validate against, so this is a
-  // separate effect that never has to wait for a load.
+  // Explicit Workspace from route state: applied once per location.key, same convention as the
+  // Agent above, overriding the cached selection ("" pre-fills the temporary workspace). Unlike
+  // the Agent there's no list to validate against, so this is a separate effect that never has
+  // to wait for a load.
+  //
+  // Nothing in this repository sets this field today: it was the workspace-grouped sidebar's
+  // group header "+", which is gone. The effect is kept because route state is an open surface
+  // and the precedence chain below still names it, not because a caller is known.
   const stateWorkspace = routeState?.workspace;
   const appliedWorkspaceKey = useRef<string | null>(null);
   useEffect(() => {

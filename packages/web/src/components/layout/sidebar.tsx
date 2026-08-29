@@ -113,10 +113,9 @@ const menuItemClass =
 
 /**
  * Collapsed-group and pinned-group persistence (survives a refresh), one storage key
- * per Project and concern — group keys are Agent ids / Workspace paths, which are
- * Project-scoped. Both grouping modes share one set per concern (their key spaces
- * never collide); stray keys left by deleted Agents or Workspaces are harmless
- * (never matched) and the per-Project sets stay tiny.
+ * per Project and concern — group keys are Trip ids, plus the scratch group's own key,
+ * and a Trip is Project-scoped. Stray keys left by deleted Trips are harmless (never
+ * matched) and the per-Project sets stay tiny.
  */
 const collapsedGroupsKey = (projectId: string) => `penguin.sidebarCollapsedGroups.${projectId}`;
 const pinnedGroupsKey = (projectId: string) => `penguin.sidebarPinnedGroups.${projectId}`;
@@ -390,7 +389,7 @@ export function Sidebar({
   // The open chat is an automation-created Session: expand exactly its origin's folder in its
   // group, so the active row is never hidden inside a collapsed folder (mirrors the archived
   // expansion on archiving the open chat; archived wins, so an archived Session is left to
-  // that folder). Auto-expansion fires ONCE per (grouping mode, active session): the ref guard
+  // that folder). Auto-expansion fires ONCE per (group, active session): the ref guard
   // keeps list mutations (status ticks, reloads) from re-opening a folder the user explicitly
   // collapsed while that chat stays open. `sessions` must remain a dependency — the active
   // session may not be in the list yet on first render, and the guard is only set once the
@@ -487,16 +486,17 @@ export function Sidebar({
   };
 
   /**
-   * New chat: enters draft state (/chat/new) without creating a Session — Model / Workspace /
-   * approval mode are all chosen on the draft input card, and the Session is only actually
-   * created when the first message is sent. The route state explicitly carries the target
-   * Agent: the agent-mode group header's "+" uses that group's Agent, while the menu's "New
-   * chat" uses default_agent; this explicit intent overrides the previously selected Agent in
-   * the draft cache (the rest of the draft content, such as the message body, is preserved).
-   * The workspace-mode group header's "+" additionally carries that group's Workspace path
-   * ("" = a temporary workspace), pre-filling the draft's Workspace selection the same way.
-   */
-  /**
+   * New chat: enters draft state (/chat/new) without creating a Session — Model and approval
+   * mode are chosen on the draft input card, and the Session is only actually created when the
+   * first message is sent. The route state explicitly carries the target Agent: a Trip card's
+   * "+" uses the currently selected Agent, while the top "New chat" uses default_agent; this
+   * explicit intent overrides the previously selected Agent in the draft cache (the rest of the
+   * draft content, such as the message body, is preserved).
+   *
+   * Workspace is not among them. It left the draft card with the sidebar's workspace grouping:
+   * a traveller picks a Trip, not a directory, so a new conversation takes the Workspace from
+   * the Project's new-chat defaults and the Trip decides nothing about it.
+   *
    * `trip` says which journey the draft belongs to: an existing one by id, or `{ newTrip: true }`
    * for one that the first message will create.
    */
@@ -665,7 +665,7 @@ export function Sidebar({
   };
 
   /**
-   * Expanded group body shared by both modes: active user rows (display-capped; "More"
+   * Expanded group body shared by every group: active user rows (display-capped; "More"
    * reveals and loads further **active-only** pages — the folders below never feed it) +
    * the collapsed-by-default subagent / scheduled / archived folders, each loading on
    * first expand and paging on its own. `totals` / `agentsFor` carry the group's exact
@@ -1461,15 +1461,14 @@ function DraftRow({
 }
 
 /**
- * Group-header pin toggle, shared by both grouping modes: revealed on header hover (or
+ * Group-header pin toggle, shared by every group header: revealed on header hover (or
  * keyboard focus) while unpinned; once pinned it stays visible, doubling as the subtle
  * pinned indicator. The header row carries the `group/header` scope so the reveal only
  * reacts to its own row, not to the session rows' plain `group` scope.
- * The accessible name stays STATIC and aria-pressed alone carries the state (the toggle
- * pattern the grouping-mode buttons use) — a name that swaps Pin/Unpin alongside
- * aria-pressed reads as "Unpin group, pressed", saying the state twice in conflicting
- * ways. The title tooltip may still swap: it is presentation for pointer users and does
- * not feed the accessible name while aria-label is present.
+ * The accessible name stays STATIC and aria-pressed alone carries the state — a name that
+ * swaps Pin/Unpin alongside aria-pressed reads as "Unpin group, pressed", saying the state
+ * twice in conflicting ways. The title tooltip may still swap: it is presentation for pointer
+ * users and does not feed the accessible name while aria-label is present.
  */
 function GroupPinButton({ pinned, onToggle }: { pinned: boolean; onToggle: () => void }) {
   return (
