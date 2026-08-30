@@ -68,7 +68,7 @@ import type { FolderCategory, SessionPartition } from "../../lib/session-groupin
 import { Switch } from "../ui/switch";
 import { Dropdown } from "../ui/dropdown";
 import { AgentAvatar } from "../ui/agent-avatar";
-import { ChevronDown, GEAR_ICON, NAV_ICONS } from "../ui/icons";
+import { ChevronDown, NAV_ICONS } from "../ui/icons";
 import { FolderSection, GroupHeader, Icon, MoreRow } from "../ui/group-list";
 import { toastError, toastInfo, toastSuccess } from "../ui/toast";
 import { Truncated } from "../ui/truncated";
@@ -88,7 +88,7 @@ import {
   useDraftSessions,
 } from "../../features/chat/draft-sessions";
 import type { DraftSessionEntry } from "../../features/chat/draft-sessions";
-import { ProjectSettingsDialog } from "./project-dialogs";
+
 import { ChangePasswordDialog } from "../account/change-password-dialog";
 import { ProxySettingsDialog } from "../account/proxy-settings-dialog";
 import { UpdateDialog } from "../account/update-dialog";
@@ -212,7 +212,6 @@ export function Sidebar({
   const [projectOpen, setProjectOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
 
-  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   // Version row + update reminder: nothing is fetched until the dropdown first opens.
@@ -1028,20 +1027,8 @@ export function Sidebar({
         {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom: Settings button + user config. */}
+      {/* Bottom: user config. */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
-        {currentProject && (
-          <button
-            type="button"
-            onClick={() => setProjectSettingsOpen(true)}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-gray-500 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-          >
-            <span className="text-gray-400 dark:text-gray-500">
-              <Icon d={GEAR_ICON} size={16} />
-            </span>
-            {S.nav.settings}
-          </button>
-        )}
         <Dropdown
           open={userOpen}
           setOpen={setUserOpen}
@@ -1252,12 +1239,6 @@ export function Sidebar({
         onRunFinished={() => void forceUpdateCheck().catch(() => undefined)}
       />
 
-      {currentProject && (
-        <ProjectSettingsDialog
-          open={projectSettingsOpen}
-          onClose={() => setProjectSettingsOpen(false)}
-        />
-      )}
       {/* Rename chat */}
       <Modal
         open={renamingSession !== null}
