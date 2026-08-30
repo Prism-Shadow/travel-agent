@@ -33,7 +33,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useMatch, useNavigate } from "react-router";
+import { NavLink, useMatch, useNavigate } from "react-router";
 import type {
   SessionCategory,
   SessionCategoryCounts,
@@ -68,7 +68,7 @@ import type { FolderCategory, SessionPartition } from "../../lib/session-groupin
 import { Switch } from "../ui/switch";
 import { Dropdown } from "../ui/dropdown";
 import { AgentAvatar } from "../ui/agent-avatar";
-import { ChevronDown, GEAR_ICON } from "../ui/icons";
+import { ChevronDown, GEAR_ICON, NAV_ICONS } from "../ui/icons";
 import { FolderSection, GroupHeader, Icon, MoreRow } from "../ui/group-list";
 import { toastError, toastInfo, toastSuccess } from "../ui/toast";
 import { Truncated } from "../ui/truncated";
@@ -1012,10 +1012,25 @@ export function Sidebar({
         {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom: Settings button (opens ProjectSettingsDialog: default model, API key,
-          new-chat defaults) + user config. A single button, no fold — there is nothing
-          else to fold. */}
+      {/* Bottom: Models link (API key configuration) + Settings button (new-chat defaults,
+          members, project management) + user config. */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
+        <NavLink
+          to="/models"
+          onClick={() => onNavigate?.()}
+          className={({ isActive }) =>
+            `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
+              isActive
+                ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+            }`
+          }
+        >
+          <span className="text-gray-400 dark:text-gray-500">
+            <Icon d={NAV_ICONS.models} size={16} />
+          </span>
+          {S.models.title}
+        </NavLink>
         {currentProject && (
           <button
             type="button"

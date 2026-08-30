@@ -13,6 +13,7 @@ import { LoginPage } from "./pages/login";
 import { ChatPage } from "./features/chat/chat-page";
 
 import { AdminUsersPage } from "./features/admin/admin-users-page";
+import { ModelsPage } from "./features/models/models-page";
 import { PrivateProfilePage } from "./features/private-profile/private-profile-page";
 import { TripPage } from "./features/trips/trip-page";
 
@@ -49,6 +50,7 @@ export function AppRouter() {
           <Route path="/chat/:sessionId?" element={<ChatPage />} />
           <Route path="/trips/:tripId" element={<TripPage />} />
 
+          <Route path="/models" element={<ModelsPage />} />
           <Route path="/settings/private-profile" element={<PrivateProfilePage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />

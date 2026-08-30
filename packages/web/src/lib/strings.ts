@@ -15,6 +15,7 @@ export const zh = {
   nav: {
     chat: "对话",
     newChat: "新对话",
+    models: "模型配置",
     // Collapsed-rail tooltip (product-specified wording; new chat reuses chat.newSessionMenu, the other pages reuse the page names above).
     lastConversation: "最近一次对话",
     collapseSidebar: "收起侧栏",
@@ -525,17 +526,10 @@ export const zh = {
   },
 
   models: {
-    aiModelTitle: "AI 模型",
-    aiModelHint: "选择一个模型并填写 API key 即可开始使用。",
     keyConfigured: "已配置",
-    keyMissing: "未配置 API key",
-    keyFromEnv: (envKey: string): string => `将从环境变量 ${envKey} 读取`,
-    keyPlaceholder: "输入 API key",
-    keyReplacePlaceholder: "输入新的 API key 替换现有的",
     testConnection: "测试连接",
     testing: "测试中…",
-    testSuccess: (ms: number): string => `连接成功 (${ms}ms)`,
-    testFailed: "连接失败",
+
     title: "模型配置",
     addCustom: "添加自定义模型",
     addToGroup: "新增模型",
@@ -604,6 +598,7 @@ export const zh = {
     visionModelHint: "供不支持图片的模型经 describe_image 代读图片",
     priceUnitShort: "/M tok",
     testOk: (ms: number): string => `连通正常（${ms} ms）`,
+    testFailed: (msg: string): string => `连通失败：${msg}`,
     priceCacheRead: "缓存读取价格",
     priceCacheWrite: "缓存写入价格",
     priceOutput: "输出价格",

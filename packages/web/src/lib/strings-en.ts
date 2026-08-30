@@ -13,6 +13,7 @@ export const en: Strings = {
   nav: {
     chat: "Chat",
     newChat: "New chat",
+    models: "Models",
     // Collapsed-rail tooltip (product-specified wording; new chat reuses chat.newSessionMenu, the other pages reuse the page names above).
     lastConversation: "Last conversation",
     collapseSidebar: "Collapse sidebar",
@@ -564,17 +565,10 @@ export const en: Strings = {
   },
 
   models: {
-    aiModelTitle: "AI Model",
-    aiModelHint: "Choose a model and enter its API key to get started.",
     keyConfigured: "Configured",
-    keyMissing: "No API key configured",
-    keyFromEnv: (envKey: string): string => `Will read from environment variable ${envKey}`,
-    keyPlaceholder: "Enter API key",
-    keyReplacePlaceholder: "Enter a new API key to replace the current one",
     testConnection: "Test connection",
     testing: "Testing\u2026",
-    testSuccess: (ms: number): string => `Connected (${ms}ms)`,
-    testFailed: "Connection failed",
+
     title: "Models",
     addCustom: "Add custom model",
     addToGroup: "Add model",
@@ -639,6 +633,7 @@ export const en: Strings = {
     visionModelHint: "Describes images via describe_image for models without vision",
     priceUnitShort: "/M tok",
     testOk: (ms: number): string => `Connected (${ms} ms)`,
+    testFailed: (msg: string): string => `Failed: ${msg}`,
     priceCacheRead: "Cache read price",
     priceCacheWrite: "Cache write price",
     priceOutput: "Output price",
