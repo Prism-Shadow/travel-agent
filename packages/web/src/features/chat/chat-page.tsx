@@ -89,6 +89,7 @@ import {
 import type { SubagentsPanelState } from "./use-subagents-panel";
 import { useSessionDraft } from "./use-session-draft";
 import { useSessionStream } from "./use-session-stream";
+import { ProjectSettingsDialog } from "../../components/layout/project-dialogs";
 
 const STAT_ICONS = {
   // Tokens (database / stacked cylinders)
@@ -1821,27 +1822,9 @@ export function ChatPage() {
         )}
       </div>
 
-      <Modal
-        open={credentialGuide}
-        title={S.project.noCredentialTitle}
-        onClose={() => setCredentialGuide(false)}
-        footer={
-          <>
-            <Button onClick={() => setCredentialGuide(false)}>{S.project.later}</Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setCredentialGuide(false);
-                navigate("/models");
-              }}
-            >
-              {S.project.goToModels}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-gray-600 dark:text-gray-300">{S.project.noCredentialBody}</p>
-      </Modal>
+      {/* Credential guide: on first visit without a configured key, open the Settings
+          dialog directly so the user can enter one without hunting for the sidebar button. */}
+      <ProjectSettingsDialog open={credentialGuide} onClose={() => setCredentialGuide(false)} />
     </div>
   );
 }

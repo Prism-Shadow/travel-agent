@@ -8,7 +8,9 @@ import type {
   ApprovalMode,
   ChatDefaultsDto,
   MemberInfo,
+  ModelInfo,
   ModelRefDto,
+  ModelTestResponse,
   ModelsResponse,
 } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
@@ -28,6 +30,7 @@ import { WorkspaceSelect } from "../../features/chat/workspace-select";
 import { sameModelRef } from "../../lib/model-grouping";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { PasswordInput } from "../ui/password-input";
 import { Select } from "../ui/select";
 import { FieldError, FieldHint, FieldLabel } from "../ui/field";
 import { toastError, toastSuccess } from "../ui/toast";
@@ -262,6 +265,7 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
           </div>
         )}
 
+        <ModelKeySection projectId={projectId} isOwner={isOwner} />
         <ChatDefaultsSection projectId={projectId} isOwner={isOwner} />
 
         {isOwner && (
@@ -291,6 +295,216 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
         <p className="text-sm text-gray-600 dark:text-gray-300">{S.project.deleteConfirm}</p>
       </ConfirmModal>
     </Modal>
+  );
+}
+
+/**
+ * AI Model section: choose a model from the server catalog, enter its API key, and test
+ * the connection — all without leaving the dialog. This is the only place a traveller needs
+ * to touch model credentials. The full models-page developer surface is gone; what remains
+ * here is: a select, a masked key input, and a test button.
+ *
+ * On mount it loads the model list (GET /models). Saving writes the full model table back
+ * (PUT /models, full-table replace) with the new key spliced in; the server keeps unknown
+ * fields and credentials for models not touched, so this is safe as long as only one entry
+ * is modified per save.
+ */
+function ModelKeySection({ projectId, isOwner }: { projectId: string; isOwner: boolean }) {
+  const [models, setModels] = useState<ModelsResponse | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /** The model whose key the user is editing (paired reference). */
+  const [selected, setSelected] = useState<ModelRefDto | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<ModelTestResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getModels(projectId)
+      .then((res) => {
+        if (cancelled) return;
+        setModels(res);
+        // Default to the Project's default model (the one conversations actually use).
+        setSelected(
+          res.defaultModel ??
+            (res.models[0]
+              ? { provider: res.models[0].provider, modelId: res.models[0].modelId }
+              : null),
+        );
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(apiErrorText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const selectedInfo: ModelInfo | undefined = models?.models.find(
+    (m) => m.provider === selected?.provider && m.modelId === selected?.modelId,
+  );
+  const hasStoredKey = Boolean(selectedInfo?.credential?.apiKeyMasked);
+  /** The user typed something into the key field (may be replacing an existing key). */
+  const keyDirty = apiKey.trim().length > 0;
+
+  const doTest = async () => {
+    if (!selected) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await api.testModel(projectId, {
+        provider: selected.provider,
+        modelId: selected.modelId,
+        ...(keyDirty ? { apiKey: apiKey.trim() } : {}),
+      });
+      setTestResult(res);
+    } catch (e) {
+      setTestResult({ ok: false });
+      toastError(apiErrorText(e));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const doSave = async () => {
+    if (!selected || !models || !keyDirty) return;
+    setSaving(true);
+    try {
+      // Full-table PUT: send every model back with the key updated for the selected one.
+      const entries = models.models.map((m) => {
+        const entry: Record<string, unknown> = {
+          provider: m.provider,
+          modelId: m.modelId,
+        };
+        if (m.provider === selected.provider && m.modelId === selected.modelId) {
+          entry.apiKey = apiKey.trim();
+        }
+        // Preserve existing fields so the server doesn't drop them.
+        if (m.displayName) entry.displayName = m.displayName;
+        if (m.contextWindow) entry.contextWindow = m.contextWindow;
+        if (m.clientType) entry.clientType = m.clientType;
+        if (m.vision !== undefined) entry.vision = m.vision;
+        if (m.maxTokens) entry.maxTokens = m.maxTokens;
+        if (m.pricing) entry.pricing = m.pricing;
+        return entry;
+      });
+      const res = await api.putModels(projectId, {
+        models: entries as unknown as ModelsResponse["models"],
+        ...(models.defaultModel ? { defaultModel: models.defaultModel } : {}),
+      });
+      setModels(res);
+      setApiKey("");
+      setTestResult(null);
+      toastSuccess(S.common.saved);
+    } catch (e) {
+      toastError(apiErrorText(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Display label for a model (display name or upstream id). */
+  const modelLabel = (m: ModelInfo) => m.displayName ?? m.modelId;
+
+  return (
+    <div className="border-t border-gray-100 pt-3 dark:border-gray-800">
+      <p className="text-xs font-medium text-gray-500">{S.models.aiModelTitle}</p>
+      <p className="mb-2 mt-0.5 text-xs text-gray-400">{S.models.aiModelHint}</p>
+      {loadError ? (
+        <p className="text-xs text-red-600 dark:text-red-400">{loadError}</p>
+      ) : models === null ? (
+        <p className="text-xs text-gray-400">{S.common.loading}</p>
+      ) : models.models.length === 0 ? (
+        <p className="text-xs text-gray-400">{S.models.empty}</p>
+      ) : (
+        <div className="space-y-3">
+          {/* Model selector: a plain <select> grouped by provider. */}
+          <Select
+            label={S.chat.model}
+            size="sm"
+            value={selected ? `${selected.provider}/${selected.modelId}` : ""}
+            onChange={(e) => {
+              const [p, ...rest] = e.target.value.split("/");
+              const id = rest.join("/");
+              setSelected(p ? { provider: p, modelId: id } : null);
+              setApiKey("");
+              setTestResult(null);
+            }}
+          >
+            {models.models.map((m) => (
+              <option key={`${m.provider}/${m.modelId}`} value={`${m.provider}/${m.modelId}`}>
+                {modelLabel(m)} {m.credential?.apiKeyMasked ? "\u2713" : ""}
+              </option>
+            ))}
+          </Select>
+
+          {/* Credential status */}
+          {selectedInfo && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {hasStoredKey ? (
+                <span className="text-green-600 dark:text-green-400">
+                  {S.models.keyConfigured} ({selectedInfo.credential!.apiKeyMasked})
+                </span>
+              ) : selectedInfo.envKey ? (
+                <span>{S.models.keyFromEnv(selectedInfo.envKey)}</span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400">{S.models.keyMissing}</span>
+              )}
+            </div>
+          )}
+
+          {/* API key input + action row */}
+          {isOwner && (
+            <div className="space-y-2">
+              <PasswordInput
+                label="API Key"
+                size="sm"
+                value={apiKey}
+                onChange={(e) => {
+                  setApiKey(e.target.value);
+                  setTestResult(null);
+                }}
+                placeholder={
+                  hasStoredKey ? S.models.keyReplacePlaceholder : S.models.keyPlaceholder
+                }
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={testing || (!keyDirty && !hasStoredKey)}
+                  onClick={() => void doTest()}
+                >
+                  {testing ? S.models.testing : S.models.testConnection}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={saving || !keyDirty}
+                  onClick={() => void doSave()}
+                >
+                  {S.common.save}
+                </Button>
+                {testResult && (
+                  <span
+                    className={`text-xs font-medium ${
+                      testResult.ok
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {testResult.ok
+                      ? S.models.testSuccess(testResult.latencyMs ?? 0)
+                      : S.models.testFailed}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -18,11 +18,13 @@ tags:
 The single UI, rendered both by a browser during `pnpm dev` and by the Electron renderer in the
 shipped app. There is no second front end: what the desktop shows *is* this SPA.
 
-Its job is to make a traveller's journey the thing on screen. The engine's configuration surfaces
-— Agents, Models — live behind a collapsed Settings fold in the sidebar, reachable but not
-prominent: they name the wrong things for a person who has trips, not workspaces. The developer
-console features (Usage, Traces, Benchmark) are removed; the runtime services that record usage
-and traces during agent execution remain in the server.
+Its job is to make a traveller's journey the thing on screen. The engine's developer surfaces
+are removed: the Agents page (system prompt, tools, MCP, skills, memory, vault, schedules), the
+Models page (credential dialogs, pricing, protocol config), and the developer console (Usage,
+Traces, Benchmark). What remains is a single **Settings** button in the sidebar that opens a
+dialog with model selection, API key entry, and new-chat defaults (default model, approval mode,
+thinking level, workspace). On first visit without a configured key, the dialog opens
+automatically.
 
 ## What it owns
 
