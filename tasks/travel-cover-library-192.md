@@ -1,6 +1,6 @@
 # Travel cover library expansion: 48 → 192
 
-Status: planned; image generation has not started
+Status: in progress; Batch A accepted (84 of 192 total assets delivered)
 
 ## Goal
 
@@ -39,10 +39,10 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 
 ### Batch A — Asia and Oceania
 
-- [ ] Add 18 destination scenes covering East, Southeast, and South Asia plus Oceania gaps.
-- [ ] Add 9 activity scenes with emphasis on rail, markets, food, wellness, and family travel.
-- [ ] Add 4 season/weather scenes that are not tied to a recognizable POI.
-- [ ] Add 5 generic planning/transit fallback scenes.
+- [x] Add 18 destination scenes covering East, Southeast, and South Asia plus Oceania gaps.
+- [x] Add 9 activity scenes with emphasis on rail, markets, food, wellness, and family travel.
+- [x] Add 4 season/weather scenes that are not tied to a recognizable POI.
+- [x] Add 5 generic planning/transit fallback scenes.
 - [ ] Complete metadata, technical validation, visual QA, selection tests, and responsive UI QA.
 
 ### Batch B — Europe
@@ -77,17 +77,17 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 
 - [ ] Export an inventory of the current 48 ids, subjects, kinds, regions, seasons, tones, keywords,
       and crop focal points; mark semantic and visual coverage gaps.
-- [ ] Define all 144 new stable ids before generating images so filenames and catalog entries cannot
+- [x] Define all 144 new stable ids before generating images so filenames and catalog entries cannot
       drift between batches.
-- [ ] Create a prompt matrix containing subject, region, composition, season/weather, time of day,
+- [x] Create a prompt matrix containing subject, region, composition, season/weather, time of day,
       activity intent, prohibited elements, and desired crop focal point for every asset.
 - [ ] Ensure every popular destination or intent represented on the welcome screen will have at
       least three materially different candidates after expansion.
 - [ ] Review whether `TravelCoverAsset` should gain explicit `region`, `generationBatch`, and
       `checksum` metadata. Add fields only if they improve validation or future maintenance.
-- [ ] Version the new shared generation recipe as `promptVersion: 2`; keep existing assets at their
+- [x] Version the new shared generation recipe as `promptVersion: 2`; keep existing assets at their
       recorded version unless regenerated.
-- [ ] Add an inventory review checkpoint before each ImageGen batch. No batch starts until its ids,
+- [x] Add an inventory review checkpoint before each ImageGen batch. No batch starts until its ids,
       prompts, category totals, and duplicate-risk notes are approved.
 
 ## Generation specification
@@ -189,7 +189,8 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 
 ## Review
 
-- Planning only. No images were generated, no catalog code or tests were changed, and no existing
-  Browser work was touched.
-- The plan reaches 192 by adding four equal 36-asset batches, making cost, review, rollback, and CI
-  failures bounded to one batch at a time.
+- Batch A adds 36 accepted prompt-version-2 assets and brings the runtime catalog to 84. Its exact
+  ImageGen outputs, checksums, technical results, and rework history are recorded in
+  `tasks/travel-cover-library-192-batch-review.md`.
+- The locked prompt matrix reaches 192 through three remaining 36-asset batches, keeping cost,
+  review, rollback, and CI failures bounded to one batch at a time.
