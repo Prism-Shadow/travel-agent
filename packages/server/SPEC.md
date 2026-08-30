@@ -41,6 +41,10 @@ Two things live here, and keeping them distinguishable is this module's main dis
   `TripService.adoptAgentIdentity`, not in the skill, so a model that ignores its instructions
   still cannot overwrite anything
   ([decision](../../docs/decisions/implemented/2026-08-28-the-agent-may-fill-a-blank-destination.md)).
+- **Destination suggestion gateway.** The authenticated `/api/locations/search` route normalizes
+  up to five city/region results from a replaceable Photon endpoint backed by OpenStreetMap. It
+  keeps only an in-memory request cache, persists no place catalog, and fails soft so a provider
+  outage never turns the Trip's free-text destination into a required lookup.
 - **The interaction-card contract** (`src/interaction/`, DTOs in `src/api/types.ts`) — stated in
   full below, because nothing else in the repository states it.
 - **The index.** SQLite holds indexes and aggregates only. Agent State, Traces and Workspaces stay

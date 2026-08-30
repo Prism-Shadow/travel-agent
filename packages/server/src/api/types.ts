@@ -953,6 +953,31 @@ export interface TripItineraryResponse {
   updatedAt?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Destination suggestions
+// ---------------------------------------------------------------------------
+
+/** One normalized place returned by the external geocoder. Only the display label is persisted. */
+export interface LocationSuggestion {
+  /** Provider-stable identity for React/ARIA option identity; never stored on a Trip. */
+  id: string;
+  /** Primary place name (for example, "London"). */
+  name: string;
+  /** Disambiguating hierarchy without the primary name (for example, "England, United Kingdom"). */
+  detail: string;
+  /** The complete value written into the free-text destination field when selected. */
+  label: string;
+}
+
+/**
+ * GET /api/locations/search: fail-soft destination suggestions. A provider failure returns an
+ * empty list plus `error`, because free-text entry remains valid and must not be blocked.
+ */
+export interface LocationSearchResponse {
+  suggestions: LocationSuggestion[];
+  error?: "network" | "rate_limited" | "bad_response" | "disabled";
+}
+
 export interface SessionInfo {
   sessionId: string;
   projectId: string;

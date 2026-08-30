@@ -68,6 +68,7 @@ import { agentConfigRoutes } from "./http/routes/agent-config.js";
 
 import { agentSessionsRoutes, sessionsRoutes } from "./http/routes/sessions.js";
 import { versionRoutes } from "./http/routes/version.js";
+import { locationsRoutes } from "./http/routes/locations.js";
 import { ChannelHub } from "./runtime/channel.js";
 import { ErrorRecorder } from "./runtime/error-recorder.js";
 import { createCoreSessionLoader, SessionManager } from "./runtime/session-manager.js";
@@ -92,6 +93,7 @@ import { TripService } from "./services/trip-service.js";
 import { TraceIndexService } from "./services/trace-index.js";
 import { TraceService } from "./services/trace-service.js";
 import { UpdateCheckService } from "./services/update-check-service.js";
+import { LocationSearchService } from "./services/location-search-service.js";
 import { UsageService } from "./services/usage-service.js";
 import { WorkspaceFilesService } from "./services/workspace-files-service.js";
 import {
@@ -129,6 +131,8 @@ export interface AppDeps {
   usageService: UsageService;
   /** GitHub latest-release lookup for the web UI's update reminder (cached, fail-soft). */
   updateCheck: UpdateCheckService;
+  /** Photon/OpenStreetMap destination lookup for the Where dialog (cached, fail-soft). */
+  locationSearch: LocationSearchService;
   workspaceFiles: WorkspaceFilesService;
   /** Signs/verifies short-lived Workspace preview tokens (separate preview origin). */
   previewTokens: PreviewTokenSigner;
@@ -163,6 +167,8 @@ export interface BuildDepsOverrides {
   titles?: TitleNotifier;
   /** Test double: update-check service with a stubbed fetch/clock (avoids real network calls). */
   updateCheck?: UpdateCheckService;
+  /** Test double: location search service (avoids real geocoder calls). */
+  locationSearch?: LocationSearchService;
   log?: (line: string) => void;
   now?: () => Date;
 }
@@ -232,6 +238,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
   );
   const updateCheck =
     overrides.updateCheck ?? new UpdateCheckService(overrides.now ? { now: overrides.now } : {});
+  const locationSearch = overrides.locationSearch ?? new LocationSearchService();
 
   // Channel idle reclamation skips active Sessions (running/compacting can go a long time
   // without a publish, e.g. while waiting for approval).
@@ -410,6 +417,7 @@ export function buildAppDeps(config: ServerConfig, overrides: BuildDepsOverrides
     traceIndex,
     usageService,
     updateCheck,
+    locationSearch,
     workspaceFiles,
     previewTokens,
     benchmarks,
@@ -529,6 +537,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.use("/api/*", auth);
   app.route("/api/me", meRoutes(deps));
   app.route("/api/version", versionRoutes(deps));
+  app.route("/api/locations", locationsRoutes(deps));
   // What this build may do, and the reason for everything it may not: read by the
   // settings panel so a capability that failed its probe is visible rather than merely absent.
   app.route("/api/capabilities", capabilitiesRoutes(deps));
