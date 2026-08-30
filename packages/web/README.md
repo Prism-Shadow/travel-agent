@@ -13,7 +13,7 @@ src/
 │   ├── omni/       # OmniMessage stream → view-model reducer + connect-first/dedup controller
 │   └── …           # formatting, i18n dictionaries (zh/en), attachments, helpers
 ├── components/     # ui primitives (modal, drawer, select, …) + app layout
-└── features/       # chat / trips / models / private-profile / capabilities / skills / admin
+└── features/       # chat / trips / models / private-profile / capabilities / admin
 ```
 
 Server DTO types are imported type-only from `@prismshadow/penguin-server/api`; no server code enters the bundle. `@prismshadow/penguin-core` is a runtime dependency — around twenty files import from it, including value guards used by the stream controller. Rendering rules for streaming partials (start/delta/stop aggregation, complete-message replacement, origin-chain nesting into subagent cards) live in `lib/omni/stream-model.ts`, which is fully unit-tested.
