@@ -277,6 +277,73 @@ describe("usage-service (cost computed on the fly)", () => {
   });
 });
 
+describe("usage-service.sessionUsage (the session cost endpoint's narrow read)", () => {
+  let db: DatabaseSync;
+  let repo: UsageRepo;
+  let service: UsageService;
+  let pricing: Record<string, PricingRates | undefined>;
+
+  beforeEach(() => {
+    db = openDatabase(":memory:");
+    repo = new UsageRepo(db);
+    pricing = { m1: { cacheRead: 0.3, cacheWrite: 3.75, output: 15 } };
+    service = new UsageService(
+      repo,
+      new ErrorsRepo(db),
+      async (_p, _provider, modelId) => pricing[modelId],
+    );
+  });
+  afterEach(() => db.close());
+
+  const ROW_COST = (10 * 0.3 + 1 * 3.75 + 5 * 15) / 1e6;
+
+  function insert(sessionId: string, opts: Partial<Parameters<UsageRepo["insert"]>[0]> = {}): void {
+    repo.insert({
+      ts: "2026-07-06T00:00:00.000Z",
+      date: "2026-07-06",
+      projectId: "p1",
+      agentId: "a1",
+      sessionId,
+      originSessionId: null,
+      modelId: "m1",
+      provider: "custom",
+      cacheRead: 10,
+      cacheWrite: 1,
+      output: 5,
+      total: 100,
+      ...opts,
+    });
+  }
+
+  it("sums only the named session, folded across its Models, priced at query time", async () => {
+    insert("s1");
+    insert("s1", { modelId: "m-unpriced", total: 50 });
+    insert("s-other", { total: 999 }); // another conversation — must not leak in
+    const usage = (await service.sessionUsage("p1", "s1"))!;
+    expect(usage.total).toBe(150);
+    expect(usage.requests).toBe(2);
+    expect(usage.cacheRead).toBe(20);
+    expect(usage.cacheWrite).toBe(2);
+    expect(usage.output).toBe(10);
+    expect(usage.cost).toBeCloseTo(ROW_COST, 12); // only the priced Model contributes
+    expect(usage.hasUncosted).toBe(true);
+  });
+
+  it("hasUncosted stays false when every involved Model has pricing", async () => {
+    insert("s1");
+    insert("s1");
+    const usage = (await service.sessionUsage("p1", "s1"))!;
+    expect(usage.cost).toBeCloseTo(ROW_COST * 2, 12);
+    expect(usage.hasUncosted).toBe(false);
+  });
+
+  it("null when nothing is recorded — and a session is invisible from another Project", async () => {
+    insert("s1");
+    expect(await service.sessionUsage("p1", "s-never-ran")).toBeNull();
+    expect(await service.sessionUsage("p-other", "s1")).toBeNull();
+  });
+});
+
 describe("usage-service.queryErrors (error table paging)", () => {
   let db: DatabaseSync;
   let errors: ErrorsRepo;

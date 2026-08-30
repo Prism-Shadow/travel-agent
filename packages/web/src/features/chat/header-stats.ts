@@ -37,7 +37,7 @@
  */
 import { formatMoney } from "../../lib/format";
 
-/** The two fields the tracker reads off a getUsage session row (structural subset of UsageGroupRow). */
+/** The two fields the tracker reads off a getSessionUsage response (structural subset of SessionUsage). */
 export interface UsageCostRow {
   cost: number | null;
   hasUncosted: boolean;
@@ -82,7 +82,7 @@ export function createCostStatHold(): CostStatHold {
 }
 
 /**
- * Applies one resolved getUsage row for `sessionId` (null = the response had no row for it).
+ * Applies one resolved getSessionUsage result for `sessionId` (null = nothing recorded for it yet).
  * A missing row or a null cost never clobbers a known figure — the server simply has nothing
  * (new) priced to report; only the `*` flag updates when a row exists. A priced cost replaces
  * the base and absorbs the settled Tasks (and, via the snapshot taken on the next observation,

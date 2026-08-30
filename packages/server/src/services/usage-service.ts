@@ -17,6 +17,7 @@
  * file header.
  */
 import type {
+  SessionUsage,
   UsageBucket,
   UsageErrors,
   UsageErrorsPage,
@@ -179,6 +180,40 @@ export class UsageService {
       agentIds: this.usage.distinctAgentIds(projectId),
       models: this.usage.distinctModels(projectId),
     };
+  }
+
+  /**
+   * One conversation's cumulative Token buckets and cost — the narrow read behind
+   * `GET /api/sessions/:sessionId/usage` (the chat header's cost reconcile). Cost follows the
+   * same convention as everything above: priced against current pricing at query time, null
+   * when no involved Model has pricing, partial + `hasUncosted` when only some do. Returns null
+   * when the session has no recorded usage at all, so "never ran" and "ran for free" stay
+   * distinguishable. The project-wide dashboard query surface stayed retired with the developer
+   * console; this per-session read is deliberately the only usage HTTP surface.
+   */
+  async sessionUsage(projectId: string, sessionId: string): Promise<SessionUsage | null> {
+    const rows = this.usage.bucketByModel(projectId, { sessionId });
+    if (rows.length === 0) return null;
+    const out: SessionUsage = {
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 0,
+      total: 0,
+      requests: 0,
+      cost: null,
+      hasUncosted: false,
+    };
+    for (const r of rows) {
+      out.cacheRead += r.cacheRead;
+      out.cacheWrite += r.cacheWrite;
+      out.output += r.output;
+      out.total += r.total;
+      out.requests += r.requests;
+      const rate = await this.lookupPricing(projectId, r.provider, r.modelId);
+      if (rate) out.cost = (out.cost ?? 0) + costOf(r, rate);
+      else out.hasUncosted = true;
+    }
+    return out;
   }
 
   /**

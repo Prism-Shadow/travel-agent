@@ -1764,6 +1764,27 @@ export interface UsageGroupRow {
   hasUncosted: boolean;
 }
 
+/**
+ * GET /api/sessions/:sessionId/usage — one conversation's cumulative Token buckets and cost,
+ * reconciled by the chat header's details card on session entry and on return to idle. Cost
+ * follows the UsageBucket convention (priced at query time; null when no involved Model has
+ * pricing, partial + hasUncosted when only some do). The response's `usage` is null while the
+ * session has no recorded usage at all.
+ */
+export interface SessionUsage {
+  cacheRead: number;
+  cacheWrite: number;
+  output: number;
+  total: number;
+  requests: number;
+  cost: number | null;
+  hasUncosted: boolean;
+}
+
+export interface SessionUsageResponse {
+  usage: SessionUsage | null;
+}
+
 export interface UsageTrendPoint {
   date: string;
   total: number;

@@ -27,11 +27,13 @@ export interface UsageRecordInsert {
   status?: string;
 }
 
-/** Generic filter: date range + agent / model dimensions (cost center top bar switches by agent/model). */
+/** Generic filter: date range + agent / model / session dimensions. */
 export interface UsageFilter {
   from?: string;
   to?: string;
   agentId?: string;
+  /** Narrow to one conversation (the session usage endpoint reads exactly one). */
+  sessionId?: string;
   /** Provider filter paired with modelId (the frontend dropdown always sends them together). */
   provider?: string;
   modelId?: string;
@@ -124,7 +126,7 @@ export class UsageRepo {
       );
   }
 
-  /** WHERE fragment (project + optional date/agent/model) plus named params. */
+  /** WHERE fragment (project + optional date/agent/model/session) plus named params. */
   private conds(
     projectId: string,
     f: UsageFilter,
@@ -142,6 +144,10 @@ export class UsageRepo {
     if (f.agentId !== undefined) {
       conds.push("agent_id = :agentId");
       params.agentId = f.agentId;
+    }
+    if (f.sessionId !== undefined) {
+      conds.push("session_id = :sessionId");
+      params.sessionId = f.sessionId;
     }
     if (f.provider !== undefined) {
       conds.push("provider = :provider");

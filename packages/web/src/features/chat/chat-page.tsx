@@ -737,14 +737,19 @@ export function ChatPage() {
       return;
     let cancelled = false;
     api
-      .getUsage(projectId, { groupBy: "session", agentId: selected.agentId })
+      .getSessionUsage(selected.sessionId)
       .then((res) => {
         if (cancelled) return;
         usageAppliedRef.current = selected.sessionId;
-        const row = res.groups.find((g) => g.key === selected.sessionId);
-        applyUsageFetch(costHoldRef.current, selected.sessionId, row ?? null);
+        applyUsageFetch(costHoldRef.current, selected.sessionId, res.usage);
         setUsageBuckets(
-          row ? { cacheRead: row.cacheRead, cacheWrite: row.cacheWrite, output: row.output } : null,
+          res.usage
+            ? {
+                cacheRead: res.usage.cacheRead,
+                cacheWrite: res.usage.cacheWrite,
+                output: res.usage.output,
+              }
+            : null,
         );
         bumpUsageStamp((n) => n + 1);
       })

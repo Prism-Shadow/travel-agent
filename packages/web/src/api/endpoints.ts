@@ -21,7 +21,6 @@ import type {
   AgentSkillsResponse,
   AgentVaultConfigDto,
   AgentsResponse,
-  AgentTracesResponse,
   ApprovalDecisionRequest,
   AuthLoginRequest,
   InteractionOutcome,
@@ -68,6 +67,7 @@ import type {
   SessionProcessesResponse,
   SessionsResponse,
   SessionTracesResponse,
+  SessionUsageResponse,
   SkillArchiveInstallRequest,
   RetryNowResponse,
   SteerRequest,
@@ -76,19 +76,14 @@ import type {
   TaskCreateResponse,
   TraceAnalysisResponse,
   TraceEventsResponse,
-  TraceImportRequest,
   TripCreateRequest,
   TripItineraryResponse,
   TripPatchRequest,
   TripResponse,
   TripsResponse,
-  TraceImportResponse,
   UiPrefs,
   UpdateCheckResponse,
   UpdateRunResponse,
-  UsageErrorsPage,
-  UsageGroupBy,
-  UsageResponse,
   VaultResponse,
   VaultUpdateRequest,
   VersionResponse,
@@ -323,30 +318,6 @@ export const kernelUpdateAgentConfig = (projectId: string, agentId: string) =>
     { method: "POST" },
   );
 
-/**
- * Optional paging (absent = the legacy full date-grouped response): pages Session groups
- * newest-first; a paged response answers with `sessions` (titles + category/workspace),
- * `totalSessions`, and per-category `counts` / `workspaceCounts`. `category` filters to
- * one sidebar bucket (paging applies within it, mirroring the sessions list); `cli`
- * includes CLI-origin Sessions (the "show CLI sessions" preference, default off — same
- * parameter convention as listSessions). The Trace page requests `limit+1` per page to
- * detect "has more" (splitPage).
- */
-export const getAgentTraces = (
-  projectId: string,
-  agentId: string,
-  paging?: { offset: number; limit: number; category?: SessionCategory; cli?: boolean },
-) =>
-  apiFetch<AgentTracesResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/traces${
-      paging
-        ? `?limit=${paging.limit}&offset=${paging.offset}` +
-          (paging.category ? `&category=${paging.category}` : "") +
-          (paging.cli ? "&cli=1" : "")
-        : ""
-    }`,
-  );
-
 // Session ---------------------------------------------------------------------
 
 /**
@@ -571,97 +542,15 @@ export const getTraceAnalysis = (sessionId: string, index: number) =>
     `/api/sessions/${encodeURIComponent(sessionId)}/traces/${index}/analysis`,
   );
 
-// Agent-level Trace details (read-only, independent of sessions-table registration): the Trace
-// page's directory tree comes from an Agent-level scan (including subagent child Sessions and
-// Sessions created by the CLI); details go through the Agent-level endpoint to avoid 404s for
-// unregistered sessions.
-
-export const getAgentTraceEvents = (
-  projectId: string,
-  agentId: string,
-  sessionId: string,
-  index: number,
-  offset: number,
-  limit: number,
-) =>
-  apiFetch<TraceEventsResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}` +
-      `/traces/${encodeURIComponent(sessionId)}/${index}`,
-    { query: { offset, limit } },
-  );
-
-export const getAgentTraceAnalysis = (
-  projectId: string,
-  agentId: string,
-  sessionId: string,
-  index: number,
-) =>
-  apiFetch<TraceAnalysisResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}` +
-      `/traces/${encodeURIComponent(sessionId)}/${index}/analysis`,
-  );
-
-/** Trace file download URL: the server sets Content-Disposition attachment, usable directly in <a download>. */
-export const agentTraceDownloadUrl = (
-  projectId: string,
-  agentId: string,
-  sessionId: string,
-  index: number,
-): string =>
-  `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}` +
-  `/traces/${encodeURIComponent(sessionId)}/${index}/download`;
-
-/** Imports a Trace JSONL file (owner only); the response says where the file landed (sessionId / index / date). */
-export const importAgentTrace = (projectId: string, agentId: string, body: TraceImportRequest) =>
-  apiFetch<TraceImportResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}/traces/import`,
-    { method: "POST", body },
-  );
-
-// Usage statistics ----------------------------------------------------------------------
+// Usage ---------------------------------------------------------------------------------
 
 /**
- * One page of the cost center's error table (newest first). The dashboard response already
- * carries the first page; this is for paging back to earlier ones without refetching the
- * whole aggregate. Takes the dashboard's date/agent filter only — the model filter never
- * applied to errors.
+ * One conversation's cumulative usage (Token buckets + cost priced by the server at query
+ * time); `usage` is null before anything is recorded. The chat header's cost reconcile is
+ * the only caller — the project-wide dashboard queries retired with the developer console.
  */
-export const getUsageErrors = (
-  projectId: string,
-  params: { offset: number; limit: number; from?: string; to?: string; agentId?: string },
-) =>
-  apiFetch<UsageErrorsPage>(`/api/projects/${encodeURIComponent(projectId)}/usage/errors`, {
-    query: {
-      offset: String(params.offset),
-      limit: String(params.limit),
-      from: params.from,
-      to: params.to,
-      agentId: params.agentId,
-    },
-  });
-
-export const getUsage = (
-  projectId: string,
-  params: {
-    from?: string;
-    to?: string;
-    groupBy: UsageGroupBy;
-    agentId?: string;
-    /** Model filter is always a whole pair — both fields or neither; a model is never referenced by id alone. */
-    provider?: string;
-    modelId?: string;
-  },
-) =>
-  apiFetch<UsageResponse>(`/api/projects/${encodeURIComponent(projectId)}/usage`, {
-    query: {
-      from: params.from,
-      to: params.to,
-      groupBy: params.groupBy,
-      agentId: params.agentId,
-      provider: params.provider,
-      modelId: params.modelId,
-    },
-  });
+export const getSessionUsage = (sessionId: string) =>
+  apiFetch<SessionUsageResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/usage`);
 
 // Agent deletion & Workspace files --------------------------------------------------
 

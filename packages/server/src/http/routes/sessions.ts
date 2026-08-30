@@ -25,6 +25,7 @@ import type {
   SessionCreateResponse,
   SessionProcessesResponse,
   SessionResponse,
+  SessionUsageResponse,
   SessionsResponse,
   RetryNowResponse,
   TaskCreateResponse,
@@ -502,6 +503,18 @@ export function sessionsRoutes(deps: AppDeps): Hono<AppEnv> {
     return c.json({
       session: { ...info, ...(tracePath !== undefined ? { tracePath } : {}) },
     } satisfies SessionResponse);
+  });
+
+  /**
+   * One conversation's cumulative usage (Token buckets + cost priced at query time); `usage`
+   * is null before anything is recorded. The chat header reconciles its cost display against
+   * this. The project-wide usage dashboard stayed retired with the developer console — this
+   * narrow read is deliberately the only usage HTTP surface.
+   */
+  app.get("/:sessionId/usage", async (c) => {
+    const row = resolveSession(c);
+    const usage = await deps.usageService.sessionUsage(row.projectId, row.sessionId);
+    return c.json({ usage } satisfies SessionUsageResponse);
   });
 
   app.patch("/:sessionId", async (c) => {
