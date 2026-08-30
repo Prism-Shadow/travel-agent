@@ -1,6 +1,6 @@
 # @prismshadow/penguin-web
 
-The PenguinHarness Web App — a React 19 + Vite + Tailwind CSS 4 SPA that renders the OmniMessage stream (same protocol and statistics as the CLI) and manages Agents, Skills, Models, usage and Traces. Feature tour: [Web App Guide](https://penguin.ooo/docs/web-app).
+travel-agent's consumer surface — a React 19 + Vite + Tailwind CSS 4 SPA that renders the OmniMessage stream and puts the traveller's Trip on screen. There is no second front end: the browser serves this app during `pnpm dev`, and the Electron renderer shows the same SPA in the shipped desktop app. What it owns and its boundary: [`SPEC.md`](SPEC.md).
 
 ## Layout
 
@@ -8,15 +8,15 @@ The PenguinHarness Web App — a React 19 + Vite + Tailwind CSS 4 SPA that rende
 src/
 ├── main.tsx / app.tsx / router.tsx / styles.css
 ├── api/            # fetch wrapper, typed endpoint functions, EventSource (SSE) wrapper
-├── state/          # auth / project / sessions / theme / locale contexts
+├── state/          # auth / project / sessions / trips / theme / locale contexts
 ├── lib/
 │   ├── omni/       # OmniMessage stream → view-model reducer + connect-first/dedup controller
 │   └── …           # formatting, i18n dictionaries (zh/en), attachments, helpers
 ├── components/     # ui primitives (modal, drawer, select, …) + app layout
-└── features/       # chat / agents / skills / models / usage / traces / benchmark / admin
+└── features/       # chat / trips / models / private-profile / capabilities / skills / admin
 ```
 
-DTO types are imported type-only from `@prismshadow/penguin-server/api`; no server code enters the bundle. Rendering rules for streaming partials (start/delta/stop aggregation, complete-message replacement, origin-chain nesting into subagent cards) live in `lib/omni/stream-model.ts`, which is fully unit-tested.
+Server DTO types are imported type-only from `@prismshadow/penguin-server/api`; no server code enters the bundle. `@prismshadow/penguin-core` is a runtime dependency — around twenty files import from it, including value guards used by the stream controller. Rendering rules for streaming partials (start/delta/stop aggregation, complete-message replacement, origin-chain nesting into subagent cards) live in `lib/omni/stream-model.ts`, which is fully unit-tested.
 
 ## Development
 
@@ -38,6 +38,6 @@ pnpm --filter @prismshadow/penguin-web build       # vite build → dist/
 
 ## Production
 
-No separate static server needed: `@prismshadow/penguin-server` auto-hosts `packages/web/dist` (or `PENGUIN_WEB_DIST`) with an SPA fallback — build the web app, start the server, done. The published npm packages bundle the built front end.
+No separate static server needed: `@prismshadow/penguin-server` auto-hosts `packages/web/dist` (or `PENGUIN_WEB_DIST`) with an SPA fallback — build the web app, start the server, done. The desktop packaging bundles the built front end; nothing here publishes to a registry.
 
-Part of [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [travel-agent](../../README.md) · Apache-2.0

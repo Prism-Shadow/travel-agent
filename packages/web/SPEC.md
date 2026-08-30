@@ -20,11 +20,14 @@ shipped app. There is no second front end: what the desktop shows *is* this SPA.
 
 Its job is to make a traveller's journey the thing on screen. The engine's developer surfaces
 are removed: the Agents page (system prompt, tools, MCP, skills, memory, vault, schedules), the
-Models page (credential dialogs, pricing, protocol config), and the developer console (Usage,
-Traces, Benchmark). What remains is a single **Settings** button in the sidebar that opens a
-dialog with model selection, API key entry, and new-chat defaults (default model, approval mode,
-thinking level, workspace). On first visit without a configured key, the dialog opens
-automatically.
+developer console (Usage, Traces, Benchmark), the skills picker, and the per-project settings
+dialog. Model configuration stays, as the **Models** page (`/models`, linked at the sidebar's
+top beside New trip and New chat): model entries and API keys, pricing, and the default model.
+On first visit without a configured key, the chat page shows a one-time credential guide that
+leads there. Interface preferences (language, theme, font, display currency) live in the
+sidebar's account menu; new-chat engine defaults (agent, approval mode, thinking level,
+workspace) still resolve from the Project's server-side defaults but are not editable on this
+surface.
 
 ## What it owns
 
@@ -46,8 +49,7 @@ automatically.
   enters the bundle.
 - **`@prismshadow/penguin-core` is a runtime dependency, not a type-only one.** Around twenty files
   import from it, and `src/lib/omni/stream-controller.ts` imports the value guards `isEventMessage`
-  and `isPartialPayload`. The package README's blanket "type-only" claim is true of the server
-  import and false of this one.
+  and `isPartialPayload`. Only the server import is type-only.
 - The web app never talks to the browser relay, the vault, or Electron directly. Anything needing
   the shell goes through [[module-desktop]]'s preload surface.
 

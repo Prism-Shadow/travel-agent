@@ -22,9 +22,9 @@
  * each partition keeping its own order. Within a group, subagent / scheduled / archived
  * conversations stay in collapsed folders that load on first expand.
  *
- * Agents and Models are the engine's configuration surfaces; they live behind a Settings fold
- * at the bottom of the sidebar. Project Settings (default model, approval mode, workspace)
- * sits beside them.
+ * Models — the one configuration surface that remains — is a top link beside New trip and
+ * New chat. The bottom of the sidebar is just the account row, whose menu holds the interface
+ * preferences (language, theme, font, display currency, proxy).
  *
  * Desktop keeps the sidebar pinned as the left column; mobile puts the whole thing in a drawer.
  * New chats always enter draft state (/chat/new; route state carries the Agent and, for a new

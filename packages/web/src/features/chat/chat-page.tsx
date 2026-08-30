@@ -1826,8 +1826,8 @@ export function ChatPage() {
         )}
       </div>
 
-      {/* Credential guide: on first visit without a configured key, open the Settings
-          dialog directly so the user can enter one without hunting for the sidebar button. */}
+      {/* Credential guide: on first visit without a configured key, a one-time dialog
+          points at the Models page so the user can enter one without hunting for it. */}
       <Modal
         open={credentialGuide}
         title={S.project.noCredentialTitle}

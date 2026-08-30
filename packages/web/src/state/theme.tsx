@@ -36,7 +36,7 @@ interface ThemeContextValue {
   setFontScale: (scale: FontScale) => void;
   accent: Accent;
   setAccent: (accent: Accent) => void;
-  /** Display currency for prices (shared by Cost Center and Model Library; always stored as USD). */
+  /** Display currency for prices (the chat header's cost and the Models page's pricing; always stored as USD). */
   currency: Currency;
   setCurrency: (currency: Currency) => void;
 }

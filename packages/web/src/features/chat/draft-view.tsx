@@ -830,7 +830,7 @@ export function DraftView({
       style={{ scrollbarGutter: "stable both-edges" }}
     >
       {/* No brand bar here. The sidebar already names the application, and a build version
-          belongs to the developer console, not above a traveller's first sentence. */}
+          is developer furniture that has no place above a traveller's first sentence. */}
 
       <div className="draft-welcome-layout flex min-h-144 flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
         <section className="draft-welcome-primary mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
@@ -878,10 +878,9 @@ export function DraftView({
 
             {/* Agent and Workspace are the engine's vocabulary, and neither is a choice a
                 traveller has any basis to make before their first sentence. Both still resolve
-                — from the Project's new-chat defaults — and both remain configurable in the
-                developer console; they are simply not asked for here. The journey's own
-                directory is the Trip's, and it is decided by starting a trip, not by picking a
-                path. */}
+                — from the Project's server-side new-chat defaults — they are simply not asked
+                for here, or anywhere else on the consumer surface. The journey's own directory
+                is the Trip's, and it is decided by starting a trip, not by picking a path. */}
           </div>
 
           <div className="mt-6 w-full">
