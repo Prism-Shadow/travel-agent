@@ -690,6 +690,7 @@ export function DraftView({
             when: patch.when,
             who: patch.who,
             budget: patch.budget,
+            budgetAmountCny: patch.budgetAmountCny,
           });
           tripId = created.tripId;
           createdTripId = created.tripId;

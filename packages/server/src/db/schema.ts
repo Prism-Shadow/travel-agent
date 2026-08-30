@@ -47,9 +47,10 @@ CREATE TABLE IF NOT EXISTS trips (       -- travel-agent's own first-class objec
   project_id  TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
   name        TEXT NOT NULL,                   -- display name; seeded from the destination, renameable
   destination TEXT NOT NULL DEFAULT '',        -- free text, possibly several places ('Tokyo, Osaka'); '' = not set yet
-  when_json   TEXT,                            -- JSON TripWhen: {kind:'dates',start,end} | {kind:'flexible',days,month}; NULL = not set
-  who_json    TEXT,                            -- JSON TripWho: {adults,children,infants}; NULL = not set
+  when_json   TEXT,                            -- JSON TripWhen: {kind:'dates',start,end} | {kind:'flexible',days,months[]}; NULL = not set
+  who_json    TEXT,                            -- JSON TripWho: {adults,children,infants,pets}; NULL = not set
   budget      TEXT,                            -- price tier: any|low|mid|high|luxury; NULL = not set
+  budget_amount_cny INTEGER,                   -- whole-trip total the person stated, in yuan; NULL = not set
   dir         TEXT NOT NULL,                   -- absolute path of the directory this Trip owns (trip.json + itinerary.md live there)
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL

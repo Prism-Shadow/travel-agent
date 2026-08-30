@@ -19,6 +19,8 @@ export interface TripMetaCopy {
   flexibleMonthOnly: (month: string) => string;
   travellers: (n: number) => string;
   budgetTiers: Record<NonNullable<TripSummary["budget"]>, string>;
+  /** The stated whole-trip total ("¥20,000"). */
+  budgetAmount: (yuan: number) => string;
   /** Separator between the parts ("·" reads the same in both languages). */
   separator: string;
 }
@@ -60,6 +62,9 @@ export function tripMetaLine(trip: TripSummary, copy: TripMetaCopy): string {
   if (when !== null) parts.push(when);
   const travellers = travellerCount(trip.who);
   if (travellers !== null) parts.push(copy.travellers(travellers));
-  if (trip.budget !== null && trip.budget !== "any") parts.push(copy.budgetTiers[trip.budget]);
+  // The stated amount is the sharper fact, so it stands in for the tier when both exist —
+  // "¥20,000" already implies its bracket, and a line carrying both says one thing twice.
+  if (trip.budgetAmountCny !== null) parts.push(copy.budgetAmount(trip.budgetAmountCny));
+  else if (trip.budget !== null && trip.budget !== "any") parts.push(copy.budgetTiers[trip.budget]);
   return parts.join(copy.separator);
 }

@@ -904,6 +904,11 @@ export interface TripSummary {
   when: TripWhen | null;
   who: TripWho | null;
   budget: TripBudgetTier | null;
+  /**
+   * Whole-trip total the person stated, in yuan. Arithmetic input for the model's
+   * comparisons — never authority to spend (the payment gate is unconditional).
+   */
+  budgetAmountCny: number | null;
   /** Absolute path of the directory this Trip owns — the person's own folder. */
   dir: string;
   /** False when `dir` no longer exists on disk: the Trip stays visible and says so. */
@@ -919,6 +924,7 @@ export interface TripCreateRequest {
   when?: TripWhen | null;
   who?: TripWho | null;
   budget?: TripBudgetTier | null;
+  budgetAmountCny?: number | null;
 }
 
 /** Declarative per-field patch: an omitted key leaves the stored value alone, `null` clears it. */

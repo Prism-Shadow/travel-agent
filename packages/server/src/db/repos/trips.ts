@@ -26,6 +26,8 @@ export interface TripRow {
   who: TripWho | null;
   /** Price tier; null = not set. */
   budget: TripBudgetTier | null;
+  /** Whole-trip total in yuan; null = not set. */
+  budgetAmountCny: number | null;
   /** Absolute path of the directory this Trip owns. */
   dir: string;
   createdAt: string;
@@ -39,6 +41,7 @@ export interface TripPatch {
   when?: TripWhen | null;
   who?: TripWho | null;
   budget?: TripBudgetTier | null;
+  budgetAmountCny?: number | null;
 }
 
 /**
@@ -84,6 +87,7 @@ function mapRow(r: Record<string, unknown>): TripRow {
     when: normalizeWhen(parseJson<TripWhen>(r.when_json)),
     who: normalizeWho(parseJson<TripWho>(r.who_json)),
     budget: (r.budget as TripBudgetTier | null) ?? null,
+    budgetAmountCny: (r.budget_amount_cny as number | null) ?? null,
     dir: r.dir as string,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -96,8 +100,8 @@ export class TripsRepo {
   insert(row: TripRow): void {
     this.db
       .prepare(
-        `INSERT INTO trips (trip_id, project_id, name, destination, when_json, who_json, budget, dir, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trips (trip_id, project_id, name, destination, when_json, who_json, budget, budget_amount_cny, dir, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         row.tripId,
@@ -107,6 +111,7 @@ export class TripsRepo {
         row.when === null ? null : JSON.stringify(row.when),
         row.who === null ? null : JSON.stringify(row.who),
         row.budget,
+        row.budgetAmountCny,
         row.dir,
         row.createdAt,
         row.updatedAt,
@@ -141,7 +146,7 @@ export class TripsRepo {
    */
   update(tripId: string, patch: TripPatch, updatedAt: string): void {
     const sets: string[] = [];
-    const values: (string | null)[] = [];
+    const values: (string | number | null)[] = [];
     if (patch.name !== undefined) {
       sets.push("name = ?");
       values.push(patch.name);
@@ -161,6 +166,10 @@ export class TripsRepo {
     if (patch.budget !== undefined) {
       sets.push("budget = ?");
       values.push(patch.budget);
+    }
+    if (patch.budgetAmountCny !== undefined) {
+      sets.push("budget_amount_cny = ?");
+      values.push(patch.budgetAmountCny);
     }
     if (sets.length === 0) return;
     sets.push("updated_at = ?");

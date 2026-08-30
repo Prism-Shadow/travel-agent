@@ -43,6 +43,8 @@ export interface TripConstraints {
   when: TripWhen | null;
   who: TripWho | null;
   budget: TripBudgetTier | null;
+  /** Whole-trip total in yuan; the number the model can do arithmetic with. */
+  budgetAmountCny: number | null;
 }
 
 export const EMPTY_TRIP_CONSTRAINTS: TripConstraints = {
@@ -50,6 +52,7 @@ export const EMPTY_TRIP_CONSTRAINTS: TripConstraints = {
   when: null,
   who: null,
   budget: null,
+  budgetAmountCny: null,
 };
 
 /**
@@ -63,6 +66,7 @@ export function tripToConstraints(trip: TripSummary): TripConstraints {
     when: trip.when,
     who: trip.who,
     budget: trip.budget,
+    budgetAmountCny: trip.budgetAmountCny,
   };
 }
 
@@ -79,12 +83,14 @@ export function constraintsToTripPatch(
   when: TripWhen | null;
   who: TripWho | null;
   budget: TripBudgetTier | null;
+  budgetAmountCny: number | null;
 }> {
   const full = {
     destination: c.where.trim(),
     when: whenIsSet(c.when) ? c.when : null,
     who: c.who,
     budget: c.budget,
+    budgetAmountCny: c.budgetAmountCny,
   };
   if (!previous) return full;
 
@@ -98,12 +104,14 @@ export function constraintsToTripPatch(
     when: whenIsSet(previous.when) ? previous.when : null,
     who: previous.who,
     budget: previous.budget,
+    budgetAmountCny: previous.budgetAmountCny,
   };
   const patch: Partial<typeof full> = {};
   if (full.destination !== before.destination) patch.destination = full.destination;
   if (JSON.stringify(full.when) !== JSON.stringify(before.when)) patch.when = full.when;
   if (full.who !== before.who) patch.who = full.who;
   if (full.budget !== before.budget) patch.budget = full.budget;
+  if (full.budgetAmountCny !== before.budgetAmountCny) patch.budgetAmountCny = full.budgetAmountCny;
   return patch;
 }
 
@@ -126,7 +134,10 @@ export interface TripChipsCopy {
   infants: (n: number) => string;
   /** Joins the traveller parts ("、" zh, ", " en). */
   whoJoin: string;
+  pets: (n: number) => string;
   tiers: Record<TripBudgetTier, string>;
+  /** The stated whole-trip total ("总预算 ¥20,000"). */
+  budgetAmount: (yuan: number) => string;
 }
 
 /** Whether the "when" chip holds anything sendable (a set mode with all fields blank does not count). */
@@ -138,7 +149,13 @@ export function whenIsSet(when: TripWhen | null): boolean {
 
 /** True when nothing is filled in — the composer sends the user's text untouched. */
 export function isEmptyTrip(c: TripConstraints): boolean {
-  return c.where.trim() === "" && !whenIsSet(c.when) && c.who === null && c.budget === null;
+  return (
+    c.where.trim() === "" &&
+    !whenIsSet(c.when) &&
+    c.who === null &&
+    c.budget === null &&
+    c.budgetAmountCny === null
+  );
 }
 
 /** The "when" line's body, or null when the mode is set but nothing in it is. */
@@ -178,9 +195,19 @@ export function composeTripPrefix(
     if (c.who.adults > 0) parts.push(copy.adults(c.who.adults));
     if (c.who.children > 0) parts.push(copy.children(c.who.children));
     if (c.who.infants > 0) parts.push(copy.infants(c.who.infants));
+    // Pets change what qualifies, so the message must carry them — a summary that drops
+    // them makes the model shortlist stays the traveller cannot use.
+    if (c.who.pets > 0) parts.push(copy.pets(c.who.pets));
     if (parts.length > 0) lines.push(`${copy.lineWho}${parts.join(copy.whoJoin)}`);
   }
-  if (c.budget !== null) lines.push(`${copy.lineBudget}${copy.tiers[c.budget]}`);
+  // Tier and amount answer the same question at different precision; state whichever the
+  // person gave, both when they gave both.
+  {
+    const parts: string[] = [];
+    if (c.budget !== null) parts.push(copy.tiers[c.budget]);
+    if (c.budgetAmountCny !== null) parts.push(copy.budgetAmount(c.budgetAmountCny));
+    if (parts.length > 0) lines.push(`${copy.lineBudget}${parts.join(" · ")}`);
+  }
   return lines.join("\n");
 }
 

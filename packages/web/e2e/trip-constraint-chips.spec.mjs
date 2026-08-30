@@ -101,16 +101,21 @@ test("trip constraint dialogs use content-sized layouts and stable confirmation"
     Math.abs(budgetBox.width - whoBox.width),
     "Who and Budget share the narrow form width",
   ).toBeLessThan(2);
-  expect(budgetBox.height, "Budget choices and actions stay compact").toBeLessThan(480);
-  const budgetChoice = dialog.getByRole("radio", { name: "sensibly priced ($$)", exact: true });
+  // Five radios plus the optional exact-total field; the cap moved when the field arrived.
+  expect(budgetBox.height, "Budget choices and actions stay compact").toBeLessThan(600);
+  const budgetChoice = dialog.getByRole("radio", { name: "sensibly priced (¥¥)", exact: true });
   await budgetChoice.click();
   await expect(budgetChoice).toHaveAttribute("aria-checked", "true");
   await expect(
     dialog,
     "selecting a tier leaves its checked state visible until Done",
   ).toBeVisible();
+  // The exact total: digits only in the field, the formatted form on the chip, and the
+  // sharper fact wins the pill over the tier.
+  await dialog.getByLabel("Total budget").fill("20000");
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "¥20,000", exact: true })).toBeVisible();
 });
 
 test("Where offers accessible location suggestions and keeps the selected canonical label", async ({

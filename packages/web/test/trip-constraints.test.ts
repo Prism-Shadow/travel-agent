@@ -28,18 +28,19 @@ const full: TripConstraints = {
   when: { kind: "dates", start: "2026-10-01", end: "2026-10-05" },
   who: { adults: 2, children: 1, infants: 0, pets: 0 },
   budget: "mid",
+  budgetAmountCny: null,
 };
 
 describe("composeTripPrefix", () => {
   it("composes every filled chip as one line, in Where/When/Who/Budget order", () => {
     expect(composeTripPrefix(full, ZH)).toBe(
-      "目的地：东京、大阪\n日期：2026-10-01 至 2026-10-05\n人数：2 成人、1 儿童\n预算：舒适（$$）",
+      "目的地：东京、大阪\n日期：2026-10-01 至 2026-10-05\n人数：2 成人、1 儿童\n预算：舒适（¥¥）",
     );
   });
 
   it("renders the same constraints through the English copy", () => {
     expect(composeTripPrefix(full, EN)).toBe(
-      "Where: 东京、大阪\nWhen: 2026-10-01 to 2026-10-05\nWho: 2 adults, 1 child\nBudget: sensibly priced ($$)",
+      "Where: 东京、大阪\nWhen: 2026-10-01 to 2026-10-05\nWho: 2 adults, 1 child\nBudget: sensibly priced (¥¥)",
     );
   });
 
@@ -186,6 +187,7 @@ describe("chips as a trip's identity", () => {
     when: { kind: "flexible", days: 5, months: ["2026-10"] },
     who: { adults: 2, children: 0, infants: 0, pets: 0 },
     budget: "mid",
+    budgetAmountCny: null,
     dir: "/trips/t-1",
     dirExists: true,
     createdAt: "2026-08-01T00:00:00.000Z",
@@ -199,12 +201,14 @@ describe("chips as a trip's identity", () => {
       when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
+      budgetAmountCny: null,
     });
     expect(constraintsToTripPatch(asChips)).toEqual({
       destination: "Tokyo",
       when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
+      budgetAmountCny: null,
     });
   });
 
@@ -216,6 +220,7 @@ describe("chips as a trip's identity", () => {
       when: null,
       who: null,
       budget: null,
+      budgetAmountCny: null,
     });
   });
 
@@ -237,6 +242,7 @@ describe("chips as a trip's identity", () => {
       ...EMPTY_TRIP_CONSTRAINTS,
       where: "Shanghai",
       budget: "mid",
+      budgetAmountCny: null,
     };
 
     it("sends only the changed field", () => {
@@ -264,6 +270,7 @@ describe("chips as a trip's identity", () => {
     it("still sends everything when there is no previous value (first write)", () => {
       expect(Object.keys(constraintsToTripPatch(base)).sort()).toEqual([
         "budget",
+        "budgetAmountCny",
         "destination",
         "when",
         "who",

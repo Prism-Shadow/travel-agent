@@ -102,6 +102,22 @@ function parseBudget(body: Record<string, unknown>): TripBudgetTier | null | und
 }
 
 /** The identity fields shared by create and patch, each independently optional. */
+/**
+ * Parses `budgetAmountCny`: absent leaves it alone, `null` clears it, otherwise a whole
+ * number of yuan. The cap is a sanity bound, not a product opinion — an eight-figure trip
+ * budget is a typo, not a plan.
+ */
+function parseBudgetAmount(body: Record<string, unknown>): number | null | undefined {
+  if (!("budgetAmountCny" in body)) return undefined;
+  const raw = body.budgetAmountCny;
+  if (raw === null) return null;
+  const n = typeof raw === "number" ? Math.trunc(raw) : NaN;
+  if (!Number.isFinite(n) || n < 1 || n > 99_999_999) {
+    throw badRequest("budgetAmountCny must be null or a number of yuan between 1 and 99999999.");
+  }
+  return n;
+}
+
 function readTripFields(body: Record<string, unknown>): TripPatchRequest {
   const req: TripPatchRequest = {};
   const name = optionalString(body, "name", { maxLen: 120, label: "name" });
@@ -114,6 +130,8 @@ function readTripFields(body: Record<string, unknown>): TripPatchRequest {
   if (who !== undefined) req.who = who;
   const budget = parseBudget(body);
   if (budget !== undefined) req.budget = budget;
+  const budgetAmountCny = parseBudgetAmount(body);
+  if (budgetAmountCny !== undefined) req.budgetAmountCny = budgetAmountCny;
   return req;
 }
 

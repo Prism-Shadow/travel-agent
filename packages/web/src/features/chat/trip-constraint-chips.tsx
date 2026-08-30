@@ -60,7 +60,14 @@ export function TripConstraintChips({
   const whoSet = value.who !== null && whoTotal + petCount > 0;
   const displayedWho = value.who ?? DEFAULT_WHO;
   const displayedWhoTotal = displayedWho.adults + displayedWho.children + displayedWho.infants;
-  const budgetSet = value.budget !== null;
+  const budgetSet = value.budget !== null || value.budgetAmountCny !== null;
+  // The stated number is the sharper fact, so it is the pill's summary when present.
+  const budgetSummary =
+    value.budgetAmountCny !== null
+      ? T.amountShort(value.budgetAmountCny)
+      : value.budget !== null
+        ? T.tierShort[value.budget]
+        : null;
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
@@ -112,13 +119,13 @@ export function TripConstraintChips({
         title={T.budget}
         icon={WalletIcon}
         label={T.budget}
-        summary={budgetSet ? T.tierShort[value.budget!] : null}
+        summary={budgetSummary}
         dialogSubtitle={T.budgetTitle}
         open={open}
         setOpen={setOpen}
-        onClear={() => onChange({ ...value, budget: null })}
+        onClear={() => onChange({ ...value, budget: null, budgetAmountCny: null })}
       >
-        <div className="px-5 py-2 sm:px-6" role="radiogroup" aria-label={T.budgetTitle}>
+        <div className="px-5 py-2 sm:px-6" role="radiogroup" aria-label={T.budget}>
           {BUDGET_TIERS.map((tier) => {
             const active = value.budget === tier;
             return (
@@ -141,6 +148,10 @@ export function TripConstraintChips({
               </button>
             );
           })}
+          <BudgetAmountField
+            value={value.budgetAmountCny}
+            onChange={(budgetAmountCny) => onChange({ ...value, budgetAmountCny })}
+          />
         </div>
       </Chip>
     </div>
@@ -678,6 +689,59 @@ function WhoPanel({ who, onChange }: { who: TripWho; onChange: (who: TripWho) =>
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Optional exact total under the budget tiers. A tier is the zero-thought path; the number is
+ * for the person who already knows — "这趟两万以内" is how a budget is actually said in this
+ * product's market, and it is the form the model can do arithmetic with. Digits only; the
+ * formatted string ("¥20,000") belongs to summaries, where nobody has to edit around commas.
+ */
+function BudgetAmountField({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  const T = S.chat.tripChips;
+  return (
+    <div className="mx-2 mb-2 mt-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+      <label htmlFor="trip-budget-amount" className="flex items-baseline gap-2 px-1">
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          {T.budgetAmountLabel}
+        </span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{T.budgetAmountHint}</span>
+      </label>
+      <div className="mt-2 flex h-11 items-center gap-1.5 rounded-2xl border border-gray-300 px-3.5 focus-within:border-gray-500 dark:border-gray-700 dark:focus-within:border-gray-500">
+        <span aria-hidden className="text-gray-500 dark:text-gray-400">
+          ¥
+        </span>
+        <input
+          id="trip-budget-amount"
+          type="text"
+          inputMode="numeric"
+          value={value === null ? "" : String(value)}
+          onChange={(event) => {
+            const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
+            onChange(digits === "" ? null : Number(digits));
+          }}
+          placeholder={T.budgetAmountPlaceholder}
+          className="min-w-0 flex-1 bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
+        />
+        {value !== null && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            aria-label={`${T.clear} ${T.budgetAmountLabel}`}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-gray-500 transition-colors hover:bg-gray-300 hover:text-gray-800 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+          >
+            <XIcon size={12} weight="bold" aria-hidden />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

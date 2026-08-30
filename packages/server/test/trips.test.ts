@@ -102,6 +102,23 @@ describe("trips", () => {
     expect(body.trip.who).toEqual({ adults: 2, children: 1, infants: 0, pets: 0 });
   });
 
+  it("stores, patches and validates the whole-trip amount in yuan", async () => {
+    const trip = await createTrip({ destination: "Kyoto", budgetAmountCny: 20000 });
+    expect(trip.budgetAmountCny).toBe(20000);
+
+    // Fractions truncate to whole yuan; the field is a statement, not accounting.
+    const patched = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmountCny: 8000.9 });
+    expect(((await patched.json()) as TripResponse).trip.budgetAmountCny).toBe(8000);
+
+    const cleared = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmountCny: null });
+    expect(((await cleared.json()) as TripResponse).trip.budgetAmountCny).toBeNull();
+
+    for (const bad of [0, -1, 100_000_000, "20000", true]) {
+      const res = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmountCny: bad });
+      expect(res.status, `budgetAmountCny=${String(bad)}`).toBe(400);
+    }
+  });
+
   it("creates a trip from nothing: no destination, no dates, an honest name", async () => {
     const trip = await createTrip({});
     expect(trip.name).toBe("Untitled trip");

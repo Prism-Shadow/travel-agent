@@ -59,6 +59,8 @@ export const en: Strings = {
       flexibleAnyMonth: (days: number) => `${days} days, dates flexible`,
       flexibleMonthOnly: (month: string) => `in ${month}`,
       travellers: (n: number) => (n === 1 ? "1 traveller" : `${n} travellers`),
+      /** ¥ is unambiguous here: the product's market prices trips in RMB. */
+      budgetAmount: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
       budgetTiers: {
         any: "Any budget",
         low: "On a budget",
@@ -1131,6 +1133,7 @@ export const en: Strings = {
       lineWhen: "When: ",
       lineWho: "Who: ",
       lineBudget: "Budget: ",
+      budgetAmount: (yuan: number) => `¥${yuan.toLocaleString("en-US")} total`,
       dateRange: (start: string, end: string) => `${start} to ${end}`,
       dateFrom: (start: string) => `departing ${start}`,
       dateUntil: (end: string) => `returning by ${end}`,
@@ -1143,17 +1146,19 @@ export const en: Strings = {
       whoJoin: ", ",
       tiers: {
         any: "any budget",
-        low: "on a budget ($)",
-        mid: "sensibly priced ($$)",
-        high: "upscale ($$$)",
-        luxury: "luxury ($$$$)",
+        low: "on a budget (¥)",
+        mid: "sensibly priced (¥¥)",
+        high: "upscale (¥¥¥)",
+        luxury: "luxury (¥¥¥¥)",
       },
       // Chip labels (unfilled) and short summaries (filled).
       where: "Where",
       when: "When",
       who: "Who",
       budget: "Budget",
-      tierShort: { any: "Any", low: "$", mid: "$$", high: "$$$", luxury: "$$$$" },
+      tierShort: { any: "Any", low: "¥", mid: "¥¥", high: "¥¥¥", luxury: "¥¥¥¥" },
+      /** Chip summary when an exact total is stated ("¥20,000"). */
+      amountShort: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
       travellers: (n: number) => `${n} traveler${n > 1 ? "s" : ""}`,
       /** Chip summary: people, plus pets when there are any ("2 travelers · 1 pet"). */
       whoSummary: (people: number, pets: number): string => {
@@ -1188,8 +1193,12 @@ export const en: Strings = {
       infantsLabel: "Infants",
       infantsHint: "Under 2",
       petsLabel: "Pets",
+      pets: (n: number) => `${n} pet${n > 1 ? "s" : ""}`,
       petsHint: "Animals travelling with you",
-      budgetTitle: "Select your budget range",
+      budgetTitle: "Pick a range, or state a number",
+      budgetAmountLabel: "Total budget",
+      budgetAmountHint: "Optional · whole trip · CNY",
+      budgetAmountPlaceholder: "e.g. 20000",
       clear: "Clear",
       /** Dialog footer: closes it. Not "Update" — nothing runs until the message is sent. */
       dialogDone: "Done",

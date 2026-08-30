@@ -60,6 +60,8 @@ export const zh = {
       flexibleAnyMonth: (days: number) => `${days} 天，时间灵活`,
       flexibleMonthOnly: (month: string) => `${month} 内`,
       travellers: (n: number) => `${n} 人`,
+      /** ¥ is unambiguous here: the product's market prices trips in RMB. */
+      budgetAmount: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
       budgetTiers: {
         any: "预算不限",
         low: "经济",
@@ -1070,6 +1072,7 @@ export const zh = {
       lineWhen: "日期：",
       lineWho: "人数：",
       lineBudget: "预算：",
+      budgetAmount: (yuan: number) => `总预算 ¥${yuan.toLocaleString("en-US")}`,
       dateRange: (start: string, end: string) => `${start} 至 ${end}`,
       dateFrom: (start: string) => `${start} 出发`,
       dateUntil: (end: string) => `${end} 前返回`,
@@ -1082,17 +1085,19 @@ export const zh = {
       whoJoin: "、",
       tiers: {
         any: "不限",
-        low: "经济（$）",
-        mid: "舒适（$$）",
-        high: "高档（$$$）",
-        luxury: "奢华（$$$$）",
+        low: "经济（¥）",
+        mid: "舒适（¥¥）",
+        high: "高档（¥¥¥）",
+        luxury: "奢华（¥¥¥¥）",
       },
       // Chip labels (unfilled) and short summaries (filled).
       where: "目的地",
       when: "日期",
       who: "人数",
       budget: "预算",
-      tierShort: { any: "不限", low: "$", mid: "$$", high: "$$$", luxury: "$$$$" },
+      tierShort: { any: "不限", low: "¥", mid: "¥¥", high: "¥¥¥", luxury: "¥¥¥¥" },
+      /** Chip summary when an exact total is stated ("¥20,000"). */
+      amountShort: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
       travellers: (n: number) => `${n} 人`,
       /** Chip summary: people, plus pets when there are any ("2 人 · 1 只宠物"). */
       whoSummary: (people: number, pets: number): string =>
@@ -1128,8 +1133,12 @@ export const zh = {
       infantsLabel: "婴儿",
       infantsHint: "2 岁以下",
       petsLabel: "宠物",
+      pets: (n: number) => `宠物 ${n} 只`,
       petsHint: "同行的动物",
-      budgetTitle: "选择预算档位",
+      budgetTitle: "选个档位，或直接写数",
+      budgetAmountLabel: "总预算",
+      budgetAmountHint: "可选 · 整趟旅程 · 人民币",
+      budgetAmountPlaceholder: "如 20000",
       clear: "清除",
       /** Dialog footer: closes it. Not "Update" — nothing runs until the message is sent. */
       dialogDone: "完成",

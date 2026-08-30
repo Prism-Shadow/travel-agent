@@ -14,6 +14,7 @@ function trip(overrides: Partial<TripSummary>): TripSummary {
     when: null,
     who: null,
     budget: null,
+    budgetAmountCny: null,
     dir: "/tmp/t",
     dirExists: true,
     createdAt: "2026-09-01T00:00:00.000Z",

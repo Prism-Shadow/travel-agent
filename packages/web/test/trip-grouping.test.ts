@@ -70,6 +70,7 @@ const copy: TripMetaCopy = {
   flexibleAnyMonth: (d) => `${d} days, dates flexible`,
   flexibleMonthOnly: (m) => `in ${m}`,
   travellers: (n) => (n === 1 ? "1 traveller" : `${n} travellers`),
+  budgetAmount: (yuan) => `¥${yuan.toLocaleString("en-US")}`,
   budgetTiers: {
     any: "Any budget",
     low: "On a budget",
@@ -88,6 +89,7 @@ const trip = (over: Partial<TripSummary> = {}): TripSummary => ({
   when: null,
   who: null,
   budget: null,
+  budgetAmountCny: null,
   dir: "/trips/t-1",
   dirExists: true,
   createdAt: "2026-08-01T00:00:00.000Z",

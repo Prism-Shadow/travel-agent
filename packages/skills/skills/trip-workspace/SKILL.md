@@ -75,6 +75,7 @@ not settled it, leave the file alone and ask.
   "when": { "kind": "flexible", "days": 5, "months": ["2026-10", "2026-11"] },
   "who": { "adults": 2, "children": 0, "infants": 0, "pets": 0 },
   "budget": "mid",
+  "budgetAmountCny": 20000,
   "createdAt": "2026-08-26T09:00:00.000Z",
   "updatedAt": "2026-08-26T09:00:00.000Z"
 }
@@ -86,8 +87,10 @@ not settled it, leave the file alone and ask.
   better option — use it.
 - `who.pets` changes what qualifies, not the price bracket: a stay that does not take animals is
   not an option at all.
-- `budget` is a tier (`any`, `low`, `mid`, `high`, `luxury`), never a number. Treat it as the
-  shape of what to propose, never as authority to spend.
+- `budget` is a tier (`any`, `low`, `mid`, `high`, `luxury`): the shape of what to propose.
+- `budgetAmountCny`, when present, is the whole-trip total the person stated, in yuan. Use it
+  for arithmetic — what a flight leaves for hotels, whether an option fits at all. Neither
+  field is authority to spend; the stop at the payment page is unconditional.
 - A field may be `null` or `""`: that means the person has not said. Ask, or proceed and tell them
   what you assumed. Do not fabricate dates or traveller counts.
 

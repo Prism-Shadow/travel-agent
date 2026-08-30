@@ -32,6 +32,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   // table. Fresh databases get the constraint from SCHEMA_SQL; upgraded ones enforce
   // the same rule in TripService, which is the only writer.
   ensureColumn(db, "sessions", "trip_id", "TEXT");
+  ensureColumn(db, "trips", "budget_amount_cny", "INTEGER");
   ensureColumn(db, "sessions", "has_trace", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "auth_sessions", "via", "TEXT");
   ensureColumn(db, "trace_files", "page_stats", "TEXT");

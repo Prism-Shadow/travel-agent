@@ -130,6 +130,7 @@ export class TripService {
       when: row.when,
       who: row.who,
       budget: row.budget,
+      budgetAmountCny: row.budgetAmountCny,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -207,6 +208,7 @@ export class TripService {
       when: row.when,
       who: row.who,
       budget: row.budget,
+      budgetAmountCny: row.budgetAmountCny,
       dir: row.dir,
       dirExists: await pathExists(row.dir),
       createdAt: row.createdAt,
@@ -231,6 +233,7 @@ export class TripService {
       when?: TripWhen | null;
       who?: TripWho | null;
       budget?: TripBudgetTier | null;
+      budgetAmountCny?: number | null;
     },
   ): Promise<TripSummary> {
     this.deps.projectService.requireProjectAccess(userId, projectId);
@@ -250,6 +253,7 @@ export class TripService {
       when,
       who: fields.who ?? null,
       budget: fields.budget ?? null,
+      budgetAmountCny: fields.budgetAmountCny ?? null,
       dir,
       createdAt: iso,
       updatedAt: iso,
