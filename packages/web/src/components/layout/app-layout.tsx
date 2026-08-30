@@ -33,10 +33,9 @@ const railItemClass = (active: boolean) =>
   }`;
 
 /**
- * Collapsed narrow rail: expand button on top; below it, in product-specified order, last
- * conversation / new chat / Agents / Models / Costs / Traces / Benchmark (every entry
- * carries a localized title + aria-label, so hover tooltips follow the UI language); user
- * avatar at the bottom. No Logo shown.
+ * Collapsed narrow rail: expand button on top; below it, last conversation / new chat (every
+ * entry carries a localized title + aria-label, so hover tooltips follow the UI language);
+ * user avatar at the bottom. No Logo shown.
  */
 function CollapsedRail({ onExpand }: { onExpand: () => void }) {
   const { user } = useAuth();
@@ -117,11 +116,9 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
         >
           <GlyphIcon d={NEW_CHAT_ICON} size={18} />
         </button>
-        {/* The rail stops here. Since the engine console was demoted it carries only ways to
-            start and to get back: expand, the last conversation, a new one. Agents / Models /
-            Usage / Traces / Benchmark live behind the console entry in the expanded sidebar;
-            listing them here would put the engine back in front of a traveller in the one
-            place it is hardest to notice it happened. */}
+        {/* The rail carries only ways to start and to get back: expand, the last
+            conversation, a new one. Agents / Models / Settings live behind the settings
+            fold in the expanded sidebar. */}
       </nav>
       <button
         type="button"

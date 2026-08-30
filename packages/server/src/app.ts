@@ -59,14 +59,13 @@ import { chatDefaultsRoutes } from "./http/routes/chat-defaults.js";
 import { vaultRoutes } from "./http/routes/vault.js";
 import { memoryRoutes } from "./http/routes/memory.js";
 import { scheduleRoutes } from "./http/routes/schedules.js";
-import { benchmarksRoutes } from "./http/routes/benchmarks.js";
+
 import { agentSkillsRoutes, skillLibraryRoutes } from "./http/routes/skills.js";
 import { agentTransferRoutes } from "./http/routes/agent-transfer.js";
 import { agentsRoutes } from "./http/routes/agents.js";
 import { dirsRoutes } from "./http/routes/dirs.js";
 import { agentConfigRoutes } from "./http/routes/agent-config.js";
-import { agentTracesRoutes } from "./http/routes/agent-traces.js";
-import { usageRoutes } from "./http/routes/usage.js";
+
 import { agentSessionsRoutes, sessionsRoutes } from "./http/routes/sessions.js";
 import { versionRoutes } from "./http/routes/version.js";
 import { ChannelHub } from "./runtime/channel.js";
@@ -551,12 +550,9 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.route("/api/projects/:projectId/agents/:agentId/vault", vaultRoutes(deps));
   app.route("/api/projects/:projectId/agents/:agentId/memory", memoryRoutes(deps));
   app.route("/api/projects/:projectId/agents/:agentId/schedules", scheduleRoutes(deps));
-  app.route("/api/projects/:projectId/agents/:agentId/benchmarks", benchmarksRoutes(deps));
   app.route("/api/projects/:projectId/agents/:agentId/skills", agentSkillsRoutes(deps));
   app.route("/api/projects/:projectId/agents/:agentId", agentTransferRoutes(deps));
-  app.route("/api/projects/:projectId/agents/:agentId/traces", agentTracesRoutes(deps));
   app.route("/api/projects/:projectId/agents/:agentId/sessions", agentSessionsRoutes(deps));
-  app.route("/api/projects/:projectId/usage", usageRoutes(deps));
   app.route("/api/sessions", sessionsRoutes(deps));
 
   // Workspace HTML preview on the separate preview origin: deliberately outside /api and

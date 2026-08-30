@@ -52,15 +52,15 @@ export function TokenDonut({
       key: "cacheRead",
       value: cacheRead,
       color: TOKEN_COLORS.cacheRead,
-      label: S.usage.colCacheRead,
+      label: "cache_read",
     },
     {
       key: "cacheWrite",
       value: cacheWrite,
       color: TOKEN_COLORS.cacheWrite,
-      label: S.usage.colCacheWrite,
+      label: "cache_write",
     },
-    { key: "output", value: output, color: TOKEN_COLORS.output, label: S.usage.colOutput },
+    { key: "output", value: output, color: TOKEN_COLORS.output, label: "output" },
   ];
   const title =
     `${S.chat.contextUsage} ${humanizeTokens(total)}/${humanizeTokens(max)}` +

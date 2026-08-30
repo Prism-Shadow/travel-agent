@@ -1,14 +1,11 @@
 /**
  * Single-column sidebar, top to bottom: the application's name -> new trip + new chat -> the
- * Trip list -> loose questions -> bottom user config, with the engine console behind an entry
- * there.
+ * Trip list -> loose questions -> bottom settings + user config.
  *
  * The top slot is the app's name, not a Project switcher, while only one Project exists: a
  * dropdown with a single choice is furniture, and a role badge announcing that you own the only
  * thing that exists says nothing. The switcher reappears as soon as a second Project does —
- * hiding one that exists would strand it. Creating Projects and editing their settings live in
- * the developer console with the rest of the engine's surfaces, where they stay reachable
- * because Project settings still holds the default model.
+ * hiding one that exists would strand it.
  *
  * The first-class object is the **Trip**: each group is a journey, its header carries the
  * identity a traveller recognizes it by (destination, dates), and its rows are that journey's
@@ -25,9 +22,9 @@
  * each partition keeping its own order. Within a group, subagent / scheduled / archived
  * conversations stay in collapsed folders that load on first expand.
  *
- * Agents / Models / Usage / Traces / Benchmark are the engine's console, not a traveller's
- * navigation: they live behind the settings row at the bottom. They remain fully reachable —
- * demoted, not removed.
+ * Agents and Models are the engine's configuration surfaces; they live behind a Settings fold
+ * at the bottom of the sidebar. Project Settings (default model, approval mode, workspace)
+ * sits beside them.
  *
  * Desktop keeps the sidebar pinned as the left column; mobile puts the whole thing in a drawer.
  * New chats always enter draft state (/chat/new; route state carries the Agent and, for a new
@@ -91,7 +88,7 @@ import {
   useDraftSessions,
 } from "../../features/chat/draft-sessions";
 import type { DraftSessionEntry } from "../../features/chat/draft-sessions";
-import { CreateProjectDialog, ProjectSettingsDialog } from "./project-dialogs";
+import { ProjectSettingsDialog } from "./project-dialogs";
 import { ChangePasswordDialog } from "../account/change-password-dialog";
 import { ProxySettingsDialog } from "../account/proxy-settings-dialog";
 import { UpdateDialog } from "../account/update-dialog";
@@ -214,7 +211,7 @@ export function Sidebar({
 
   const [projectOpen, setProjectOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -736,9 +733,6 @@ export function Sidebar({
   const navItems: Array<{ to: string; label: string; icon: string }> = [
     { to: "/agents", label: S.nav.agents, icon: NAV_ICONS.agents },
     { to: "/models", label: S.nav.models, icon: NAV_ICONS.models },
-    { to: "/usage", label: S.nav.usage, icon: NAV_ICONS.usage },
-    { to: "/traces", label: S.nav.traces, icon: NAV_ICONS.traces },
-    { to: "/benchmark", label: S.nav.benchmark, icon: NAV_ICONS.benchmark },
   ];
 
   const themeOptions: ReadonlyArray<{ value: ThemeMode; label: string }> = [
@@ -1024,9 +1018,9 @@ export function Sidebar({
         {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom: the engine console, then user config. The console is the engine's surface,
-          not a traveller's navigation — demoted to a collapsed group here rather than removed,
-          because everything in it is still needed to run and debug an agent. */}
+      {/* Bottom: settings + user config. Agents and Models are the engine's configuration
+          surfaces; Project Settings holds the default model, approval mode and workspace.
+          Collapsed by default — a traveller does not visit these often. */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
         <button
           type="button"
@@ -1037,7 +1031,7 @@ export function Sidebar({
           <span className="text-gray-400 dark:text-gray-500">
             <Icon d={GEAR_ICON} size={16} />
           </span>
-          <span className="min-w-0 flex-1 text-left">{S.nav.developerConsole}</span>
+          <span className="min-w-0 flex-1 text-left">{S.nav.settings}</span>
           <span
             className={`text-gray-400 transition-transform duration-150 ${consoleOpen ? "rotate-180" : ""}`}
           >
@@ -1065,9 +1059,6 @@ export function Sidebar({
                 {item.label}
               </NavLink>
             ))}
-            {/* Projects are a tenancy concept, not a traveller's: they live here, where they
-                stay reachable — Project settings still holds the default model and the
-                new-chat defaults. */}
             {currentProject && (
               <button
                 type="button"
@@ -1080,16 +1071,6 @@ export function Sidebar({
                 {S.project.settings}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setCreateProjectOpen(true)}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-gray-600 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-            >
-              <span className="text-gray-500 dark:text-gray-400">
-                <Icon d="M12 5v14M5 12h14" />
-              </span>
-              {S.project.create}
-            </button>
           </nav>
         )}
         <Dropdown
@@ -1302,14 +1283,6 @@ export function Sidebar({
         onRunFinished={() => void forceUpdateCheck().catch(() => undefined)}
       />
 
-      <CreateProjectDialog
-        open={createProjectOpen}
-        onClose={() => setCreateProjectOpen(false)}
-        onCreated={(projectId) => {
-          setCreateProjectOpen(false);
-          void reloadProjects().then(() => setCurrentProjectId(projectId));
-        }}
-      />
       {currentProject && (
         <ProjectSettingsDialog
           open={projectSettingsOpen}

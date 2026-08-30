@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPreinstalledSkills } from "@prismshadow/penguin-skills";
-import type { BenchmarksResponse } from "../src/api/types.js";
+
 import { apiClient, createTestApp, provisionUser, type TestApp } from "./helpers.js";
 
 interface AgentsResponse {
@@ -75,36 +75,6 @@ describe("built-in Agent provisioning", () => {
       await owner.post("/api/projects", { projectId: "owner1-new", name: "New project" })
     ).json()) as ProjectCreateResponse;
     await expectBuiltinAgents(created.project.projectId);
-  });
-
-  it("default_agent ships a sample Benchmark readable via GET /benchmarks", async () => {
-    const projects = (await (await owner.get("/api/projects")).json()) as ProjectsResponse;
-    const projectId = projects.projects[0]!.projectId;
-    const res = await owner.get(`/api/projects/${projectId}/agents/default_agent/benchmarks`);
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as BenchmarksResponse;
-    const bench = body.benchmarks.find((b) => b.id === "example-benchmark")!;
-    expect(bench).toBeDefined();
-    expect(bench.title).toBe("Example Benchmark");
-    // description explicitly states it's a built-in sample (the whole directory can be deleted or replaced).
-    expect(bench.description).toContain("example");
-    expect(bench.runs).toBe(2);
-    expect(bench.caseCount).toBe(2);
-    expect(bench.evaluations).toHaveLength(3);
-    for (const evaluation of bench.evaluations) {
-      expect(evaluation.thinkingLevel).toBe("medium");
-      expect(evaluation.summary).toBeTruthy();
-      expect(evaluation.cases).toHaveLength(2);
-      for (const c of evaluation.cases) {
-        expect(c.runs).toHaveLength(2);
-        for (const run of c.runs!) {
-          expect(run.sessionId).toMatch(/^session-/);
-        }
-      }
-    }
-    // The sample data tells an optimization story: scores increase across evaluation rounds (the evaluation center shows a rising curve out of the box).
-    const scores = bench.evaluations.map((e) => e.score);
-    expect(scores).toEqual([...scores].sort((a, b) => a - b));
   });
 
   it("default_agent cannot be deleted (409)", async () => {

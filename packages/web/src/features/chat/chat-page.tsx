@@ -1485,7 +1485,7 @@ export function ChatPage() {
                     <StatChip
                       icon={STAT_ICONS.cost}
                       value={`${hs.costText}${hs.costUncosted ? " *" : ""}`}
-                      label={`${S.common.cost}（${currency}）${hs.costUncosted ? ` · ${S.usage.uncostedNote}` : ""}`}
+                      label={`${S.common.cost}（${currency}）${hs.costUncosted ? ` · ${"* only models with configured pricing"}` : ""}`}
                     />
                   )}
                   <StatChip

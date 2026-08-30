@@ -20,8 +20,14 @@ const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
 const U = "compactuser";
 const P = "password123";
-/** Context window: the engine takes 75% as the compaction threshold (240 x 0.75 = 180), landing between the two requests' usage. */
-const CONTEXT_WINDOW = 240;
+/**
+ * Context window: must be >= MIN_USABLE_CONTEXT_WINDOW (4096) or resolveContextWindow
+ * falls back to the 128k default and the mock's tiny usage never triggers compaction.
+ * Effective threshold = min(configured_max_context_length, CONTEXT_WINDOW - COMPACTION_HEADROOM)
+ * = min(128000, 5000 - 2048) = 2952. The mock's cache_read_input_tokens = 1000 * msgCount,
+ * so turn 1 (msgCount=1) total ~1080 < 2952, and turn 2 (msgCount >= 3) total ~3070 > 2952.
+ */
+const CONTEXT_WINDOW = 5000;
 
 test("compaction mid-turn: the reply's stats line is still reachable by hovering the reply", async ({
   page,
@@ -88,8 +94,9 @@ test("compaction mid-turn: the reply's stats line is still reachable by hovering
   // Compaction succeeded and no ordinary request has reported usage since, so the context ring must
   // read UNKNOWN (`—`), not 0. Zero would claim the context is empty — but the summary itself costs
   // tokens; we simply have not measured the new size yet.
-  await expect(page.getByText(`—/${CONTEXT_WINDOW}`)).toBeVisible();
-  await expect(page.getByText(`0/${CONTEXT_WINDOW}`)).toHaveCount(0);
+  // humanizeTokens(5000) = "5k", so the display reads "—/5k".
+  await expect(page.getByText(`—/5k`)).toBeVisible();
+  await expect(page.getByText(`0/5k`)).toHaveCount(0);
 
   // —— Trace page ——
   // Compaction is its own round: the user round's elapsed time and TPS don't include compaction

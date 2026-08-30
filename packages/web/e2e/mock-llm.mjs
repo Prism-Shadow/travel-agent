@@ -30,7 +30,7 @@ const PORT = Number(process.env.MOCK_PORT || 8931);
 /** Count of non-replay requests seen in the "bad stream" conversation: the 1st is cut off (malformed), later ones are retries that get a full tool call. */
 let malformedTurns = 0;
 
-/** Count of requests seen in the "quota retry" conversation: the first 5 are rejected 403 (insufficient_user_quota), the 6th streams normally. */
+/** Count of requests seen in the "quota retry" conversation: the first 2 are rejected 403 (insufficient_user_quota), the 3rd streams normally. */
 let quotaTurns = 0;
 
 function sse(res, event, data) {
@@ -58,7 +58,7 @@ function messageStart(res, msgCount = 1) {
       usage: {
         input_tokens: 40,
         output_tokens: 0,
-        cache_read_input_tokens: 40 * msgCount,
+        cache_read_input_tokens: 1000 * msgCount,
         cache_creation_input_tokens: 10,
       },
     },
@@ -154,15 +154,15 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // "Quota retry" test case: the first 5 requests of the conversation are rejected 403
+    // "Quota retry" test case: the first 2 requests of the conversation are rejected 403
     // with the provider's quota-exhaustion code (as OpenAI-compatible gateways do).
     // GenerativeModel classifies them retryable (timeout) and the engine reconnects with
-    // exponential backoff (250/500/1000/2000/4000ms) — the 4s wait before retry #5 is the
-    // window the spec uses to observe the live countdown and click "retry now"; the 6th
+    // exponential backoff (base 2000ms: 2s / 4s) — the 4s wait before retry #2 is the
+    // window the spec uses to observe the live countdown and click "retry now"; the 3rd
     // attempt streams a normal final answer.
     if (flat.includes("quota retry test") && !isTitle) {
       quotaTurns += 1;
-      if (quotaTurns <= 5) {
+      if (quotaTurns <= 2) {
         res.writeHead(403, { "content-type": "application/json" });
         res.end(
           JSON.stringify({

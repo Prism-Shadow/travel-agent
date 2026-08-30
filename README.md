@@ -8,19 +8,7 @@ Architecture, as built: [docs/architecture/iab-in-app-browser.md](docs/architect
 
 ## Status
 
-This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not merge that upstream. The engine stays; the downstream identity does not.
-
-| Milestone | Meaning | State |
-| --- | --- | --- |
-| M0 | Browser stack in-tree, Ctrip hotel page loads | done |
-| M1 | Human handoff (`requestHelp`) | done |
-| M2 | Transaction-layer experiment | retired; active responsibilities moved to their consumers |
-| M4 | Tab ownership | done; cross-site offer alignment dropped (see below) |
-
-The open milestones that used to follow (M3, the one-sentence acceptance run; M5, flights)
-were withdrawn on 2026-08-18. On 2026-08-19 the product UI was formally unfrozen: the engine
-baseline remains pinned, while the web and desktop experience now evolves as travel-agent's own
-consumer product surface, informed by the Mindtrip research snapshot
+This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not merge that upstream. The engine baseline remains pinned, while the web and desktop experience now evolves as travel-agent's own consumer product surface, informed by the Mindtrip research snapshot
 ([docs/research/mindtrip.md](docs/research/mindtrip.md)).
 
 `@travel-agent/domain` has been **removed**. It held three things. Two of them — choosing which

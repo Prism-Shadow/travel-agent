@@ -77,15 +77,14 @@ test("a malformed tool_call settles unpaired; the retry line shows and the retry
     .getByRole("button", { name: /运行完毕/ })
     .first()
     .click();
-  const group = page.locator(".anim-msg.my-2").first();
-  // Visibility is asserted explicitly: `toContainText` walks every descendant except
-  // SCRIPT/NOSCRIPT/STYLE, so the StatusIcon's own SVG <title>malformed</title> satisfies it
-  // even when nothing is drawn. This call never ran, so it has no output block to expand
-  // into — the row's `[malformed]` marker is the only explanation a touch user can reach.
+  // The stop-reason text markers (`[malformed]` etc.) were removed from the collapsed row
+  // during a per-user-feedback review — the StatusIcon's aria-label is now the single carrier
+  // of the outcome (see tool-call-card.tsx). Assert via the icon's accessible name.
+  const malformedIcon = page.getByRole("img", { name: "malformed" }).first();
   await expect(
-    group.getByText("[malformed]").filter({ visible: true }),
-    "the broken tool card shows a visible malformed marker",
-  ).toHaveCount(1);
+    malformedIcon,
+    "the broken tool card's StatusIcon is labeled malformed",
+  ).toBeVisible();
   // A running spinner has role=status; none should remain after the turn ends.
   await expect(page.locator('[role="status"]')).toHaveCount(0);
 });

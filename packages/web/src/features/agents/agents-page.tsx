@@ -59,10 +59,6 @@ const CARD_ICONS = {
   /** Installed skill count (open book, same family as the skill library) */
   skills:
     "M12 6.5C10.5 5 8 4.5 4 5v12c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5zm0 0V18",
-  /** Usage (bar chart, same as sidebar "Usage Center") */
-  usage: "M4 20V10m6 10V4m6 16v-7m4 7H2",
-  /** Traces (eye line icon: observability; follows text color, no fill) */
-  traces: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
   /** Memory (brain: two hemispheres + inner fold, lucide simplified), opens the settings tab */
   memory:
     "M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18ZM12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18ZM15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4",
@@ -361,30 +357,7 @@ export function AgentsPage() {
                       <GlyphIcon d={GEAR_ICON} />
                       {S.common.settings}
                     </Button>
-                    <Button
-                      size="icon"
-                      title={S.nav.usage}
-                      aria-label={S.nav.usage}
-                      onClick={() => navigate(`/usage?agentId=${encodeURIComponent(a.agentId)}`)}
-                    >
-                      <GlyphIcon
-                        d={CARD_ICONS.usage}
-                        size={15}
-                        className="text-gray-600 dark:text-gray-300"
-                      />
-                    </Button>
-                    <Button
-                      size="icon"
-                      title={S.nav.traces}
-                      aria-label={S.nav.traces}
-                      onClick={() => navigate(`/traces?agentId=${encodeURIComponent(a.agentId)}`)}
-                    >
-                      <GlyphIcon
-                        d={CARD_ICONS.traces}
-                        size={15}
-                        className="text-gray-600 dark:text-gray-300"
-                      />
-                    </Button>
+
                     {/* Built-in Agents can't be deleted: shown as a non-button light gray
                         placeholder (no border/background, no hover response, disabled cursor,
                         explained via tooltip); the transparent border keeps the same box size as

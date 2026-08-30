@@ -1,6 +1,7 @@
 /**
- * Project dialogs: create Project, Project settings
- * (member management and deletion, owner only). Invoked from the sidebar's Project switcher.
+ * Project settings dialog: default model, new-chat defaults (Agent / workspace / approval mode /
+ * thinking level), member management (owner), display name and deletion. Invoked from the
+ * sidebar's Settings fold.
  */
 import { useEffect, useState } from "react";
 import type {
@@ -13,11 +14,7 @@ import type {
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
-import {
-  PROJECT_ID_MAX_LENGTH,
-  PROJECT_SUFFIX_PATTERN,
-  SEMANTIC_ID_PATTERN,
-} from "../../lib/semantic-id";
+
 import { agentDisplayName, projectDisplayName, useProject } from "../../state/project";
 import { useAuth } from "../../state/auth";
 import { clearDraftChatDefaults, clearDraftModelRef } from "../../features/chat/draft-cache";
@@ -46,131 +43,6 @@ const APPROVAL_MODES: readonly ApprovalMode[] = [
   "deny-all",
 ];
 
-export function CreateProjectDialog({
-  open,
-  onClose,
-  onCreated,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: (projectId: string) => void;
-}) {
-  const { user } = useAuth();
-  // Non-admin Project ids are forced to have a "<username>-" prefix: the input locks the prefix segment, only the rest is editable.
-  const prefix = user && !user.isAdmin ? `${user.userId}-` : "";
-  const [idInput, setIdInput] = useState("");
-  const [name, setName] = useState("");
-  // The id is the only validated field; format problems and the server's rejection (e.g. duplicate id) both land beside it.
-  const [idError, setIdError] = useState<string | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-
-  // No draft is kept: the form starts empty every time it opens.
-  useEffect(() => {
-    if (!open) return;
-    setIdInput("");
-    setName("");
-    setIdError(undefined);
-  }, [open]);
-
-  const submit = async () => {
-    const id = prefix + idInput.trim();
-    if (!idInput.trim()) {
-      setIdError(S.common.requiredField);
-      return;
-    }
-    // Non-admin: validate the suffix segment (the hyphen is a reserved separator, appearing only once at the prefix join); admin: validate the whole string.
-    const valid = prefix
-      ? PROJECT_SUFFIX_PATTERN.test(idInput.trim()) && id.length <= PROJECT_ID_MAX_LENGTH
-      : SEMANTIC_ID_PATTERN.test(id);
-    if (!valid) {
-      setIdError(prefix ? S.project.idPrefixHint : S.project.idHint);
-      return;
-    }
-    setBusy(true);
-    setIdError(undefined);
-    try {
-      const res = await api.createProject({
-        projectId: id,
-        ...(name.trim() ? { name: name.trim() } : {}),
-      });
-      onCreated(res.project.projectId);
-    } catch (e) {
-      setIdError(apiErrorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      title={S.project.createTitle}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>{S.common.cancel}</Button>
-          <Button variant="primary" disabled={busy} onClick={() => void submit()}>
-            {S.common.create}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        {prefix ? (
-          <div>
-            <FieldLabel required>{S.project.id}</FieldLabel>
-            <div className="flex items-stretch">
-              <span className="flex shrink-0 items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-100 px-2 font-mono text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                {prefix}
-              </span>
-              <Input
-                size="sm"
-                className="rounded-l-none"
-                value={idInput}
-                invalid={Boolean(idError)}
-                onChange={(e) => {
-                  setIdInput(e.target.value);
-                  setIdError(undefined);
-                }}
-                autoFocus
-              />
-            </div>
-            {idError ? (
-              <FieldError>{idError}</FieldError>
-            ) : (
-              <FieldHint>{S.project.idPrefixHint}</FieldHint>
-            )}
-          </div>
-        ) : (
-          <Input
-            label={S.project.id}
-            required
-            size="sm"
-            value={idInput}
-            error={idError}
-            onChange={(e) => {
-              setIdInput(e.target.value);
-              setIdError(undefined);
-            }}
-            hint={S.project.idHint}
-            autoFocus
-          />
-        )}
-        <Input
-          label={S.project.name}
-          size="sm"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-    </Modal>
-  );
-}
-
-/**
- * Project settings dialog: display name (owner-editable), member management (owner) and
- * deletion (owner); members see the name and member list read-only.
- */
 export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, desktopMode } = useAuth();
   const { currentProject, setCurrentProjectId, projects, reloadProjects } = useProject();

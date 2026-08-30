@@ -176,7 +176,7 @@ Two things this gate does **not** cover, and neither is a reason to skip it:
   line-ending differences. `pre-release.yml` (manual) holds the Windows suite for the same reason.
 - **The agent loop.** `pnpm test:e2e` is one test: it asks a real model for a short reply and checks
   the stream and the token usage. It proves the model is reachable. It does not prove a task runs
-  end to end — that acceptance run was withdrawn on 2026-08-18 and has no replacement.
+  end to end — there is no end-to-end agent acceptance test today.
 
 Re-enable CI before anything ships.
 
@@ -248,9 +248,7 @@ its postmortem when one exists.
 
 ## Current State
 
-- Milestones M0–M2 and M4 are done. M3 (one-sentence acceptance run) and M5 (flights) were withdrawn
-  on 2026-08-18; the product UI was unfrozen on 2026-08-19 and now evolves as travel-agent's own
-  consumer surface.
+- The product UI evolves as travel-agent's own consumer surface.
 - Interaction cards are owned by `packages/server`; browser handover and the unconditional payment
   stop are owned by `packages/browser-cli`. There is no agent-triggered payment execution path.
 - Capability gates `vault.l2l3` and `secret_entry.live` are **fail-closed**,

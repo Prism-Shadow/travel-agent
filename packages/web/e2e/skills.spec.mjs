@@ -77,7 +77,7 @@ test("skills: built-in on every agent, and nowhere for a person to choose one", 
   // single developer-console entry when the sidebar became a list of trips. What a traveller
   // sees at this level is trips and conversations, and nothing that names the machinery.
   await page.goto(`${BASE}/chat`);
-  await expect(page.getByRole("button", { name: /开发者控制台/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /设置/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "技能库" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "智能体" })).toHaveCount(0);
 

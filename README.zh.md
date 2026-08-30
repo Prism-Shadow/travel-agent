@@ -8,17 +8,7 @@
 
 ## 现状
 
-本仓是 PenguinHarness `0.2.2`（`d14be6f`）的**硬分叉**。不再 merge 上游。引擎留下，下游身份去掉。
-
-| 里程碑 | 含义 | 状态 |
-| --- | --- | --- |
-| M0 | 浏览器栈进仓，携程酒店页能开 | 完成 |
-| M1 | 人机移交（`requestHelp`） | 完成 |
-| M2 | 事务层实验 | 已退役；仍在使用的职责已归还各消费端 |
-| M4 | tab 归属 | 完成；跨站方案对齐已废弃（见下） |
-
-原先排在后面的开放里程碑（M3 一句话验收闭环、M5 机票）已于 2026-08-18 撤出规划。2026-08-19
-正式解冻产品 UI：引擎基线继续锁定，web 与 desktop 界面则作为 travel-agent 自己的消费级产品面持续演进。
+本仓是 PenguinHarness `0.2.2`（`d14be6f`）的**硬分叉**。不再 merge 上游。引擎基线继续锁定，web 与 desktop 界面则作为 travel-agent 自己的消费级产品面持续演进。
 方向参考 Mindtrip 调研快照（[docs/research/mindtrip.md](docs/research/mindtrip.md)）。
 
 `@travel-agent/domain` 已**删除**。它原本装三样东西。其中两样——挑哪几个选项给人看、判断两条列表是不是
