@@ -852,6 +852,22 @@ export function Sidebar({
           </span>
           {S.chat.newSessionMenu}
         </button>
+        <NavLink
+          to="/models"
+          onClick={() => onNavigate?.()}
+          className={({ isActive }) =>
+            `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
+              isActive
+                ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+            }`
+          }
+        >
+          <span className="text-gray-500 dark:text-gray-400">
+            <Icon d={NAV_ICONS.models} size={16} />
+          </span>
+          {S.nav.models}
+        </NavLink>
       </div>
 
       {/* Scroll area: the page nav and the session list scroll together, so the nav rides up
@@ -1012,25 +1028,8 @@ export function Sidebar({
         {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom: Models link (API key configuration) + Settings button (new-chat defaults,
-          members, project management) + user config. */}
+      {/* Bottom: Settings button + user config. */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
-        <NavLink
-          to="/models"
-          onClick={() => onNavigate?.()}
-          className={({ isActive }) =>
-            `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
-              isActive
-                ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-                : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-            }`
-          }
-        >
-          <span className="text-gray-400 dark:text-gray-500">
-            <Icon d={NAV_ICONS.models} size={16} />
-          </span>
-          {S.models.title}
-        </NavLink>
         {currentProject && (
           <button
             type="button"
