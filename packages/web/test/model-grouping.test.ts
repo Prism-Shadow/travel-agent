@@ -19,8 +19,8 @@ import {
   matchesQuery,
   orderModelsLikeLibrary,
   visibleChatModels,
-} from "../src/features/models/model-grouping";
-import type { ModelCredentialRowLike, ModelRowLike } from "../src/features/models/model-grouping";
+} from "../src/lib/model-grouping";
+import type { ModelCredentialRowLike, ModelRowLike } from "../src/lib/model-grouping";
 
 const rows: ModelRowLike[] = [
   { provider: "anthropic", modelId: "claude-sonnet-4-6", displayName: "Claude Sonnet 4.6" },

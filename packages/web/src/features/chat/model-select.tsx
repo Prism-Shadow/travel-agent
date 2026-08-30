@@ -24,7 +24,7 @@ import {
   isFreeModel,
   sameModelRef,
   visibleChatModels,
-} from "../models/model-grouping";
+} from "../../lib/model-grouping";
 
 /** Display label for a model: the display name, or falls back to the upstream id (model_id is the raw field, no prefix parsing). */
 export function modelLabel(m: ModelInfo): string {

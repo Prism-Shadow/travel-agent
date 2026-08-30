@@ -96,7 +96,8 @@ import {
   type ChatDefaultsChangedDetail,
 } from "./chat-defaults-event";
 import { effectiveThinkingLevel } from "./thinking-level";
-import { sameModelRef } from "../models/model-grouping";
+import { pillClass } from "./workspace-select";
+import { sameModelRef } from "../../lib/model-grouping";
 
 /** Coalescing window for writing body text to the cache: keystrokes are frequent, so a short batch accumulates before persisting (option changes are still written immediately). */
 const DRAFT_SAVE_DEBOUNCE_MS = 300;

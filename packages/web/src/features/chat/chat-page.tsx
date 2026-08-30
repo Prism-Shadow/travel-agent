@@ -72,7 +72,7 @@ import { buildInputHistory } from "./input-history";
 import { buildOutline } from "./outline-model";
 import { InteractionCards } from "./interaction-cards";
 import { handoffMessage, modelSwitchMessage } from "./agent-handoff";
-import { sameModelRef } from "../models/model-grouping";
+import { sameModelRef } from "../../lib/model-grouping";
 import { providerInfo } from "@prismshadow/penguin-core/model-catalog";
 import { FilesPanel } from "./files-panel";
 import { useFilesPanel } from "./use-files-panel";

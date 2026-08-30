@@ -33,7 +33,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { NavLink, useMatch, useNavigate } from "react-router";
+import { useMatch, useNavigate } from "react-router";
 import type {
   SessionCategory,
   SessionCategoryCounts,
@@ -68,7 +68,7 @@ import type { FolderCategory, SessionPartition } from "../../lib/session-groupin
 import { Switch } from "../ui/switch";
 import { Dropdown } from "../ui/dropdown";
 import { AgentAvatar } from "../ui/agent-avatar";
-import { ChevronDown, GEAR_ICON, NAV_ICONS } from "../ui/icons";
+import { ChevronDown, GEAR_ICON } from "../ui/icons";
 import { FolderSection, GroupHeader, Icon, MoreRow } from "../ui/group-list";
 import { toastError, toastInfo, toastSuccess } from "../ui/toast";
 import { Truncated } from "../ui/truncated";
@@ -261,8 +261,7 @@ export function Sidebar({
    * ProxySettingsDialog.
    */
   const [proxySettingsOpen, setProxySettingsOpen] = useState(false);
-  /** Whether the engine console's entries are revealed (collapsed by default: they are not a traveller's navigation). */
-  const [consoleOpen, setConsoleOpen] = useState(false);
+
   const currentProjectId = currentProject?.projectId ?? null;
   const collapseStoreKey = currentProjectId === null ? null : collapsedGroupsKey(currentProjectId);
   const pinStoreKey = currentProjectId === null ? null : pinnedGroupsKey(currentProjectId);
@@ -730,11 +729,6 @@ export function Sidebar({
     />
   );
 
-  const navItems: Array<{ to: string; label: string; icon: string }> = [
-    { to: "/agents", label: S.nav.agents, icon: NAV_ICONS.agents },
-    { to: "/models", label: S.nav.models, icon: NAV_ICONS.models },
-  ];
-
   const themeOptions: ReadonlyArray<{ value: ThemeMode; label: string }> = [
     { value: "light", label: S.settings.themeLight },
     { value: "dark", label: S.settings.themeDark },
@@ -1018,60 +1012,21 @@ export function Sidebar({
         {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom: settings + user config. Agents and Models are the engine's configuration
-          surfaces; Project Settings holds the default model, approval mode and workspace.
-          Collapsed by default — a traveller does not visit these often. */}
+      {/* Bottom: Settings button (opens ProjectSettingsDialog: default model, API key,
+          new-chat defaults) + user config. A single button, no fold — there is nothing
+          else to fold. */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
-        <button
-          type="button"
-          onClick={() => setConsoleOpen((v) => !v)}
-          aria-expanded={consoleOpen}
-          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-gray-500 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-        >
-          <span className="text-gray-400 dark:text-gray-500">
-            <Icon d={GEAR_ICON} size={16} />
-          </span>
-          <span className="min-w-0 flex-1 text-left">{S.nav.settings}</span>
-          <span
-            className={`text-gray-400 transition-transform duration-150 ${consoleOpen ? "rotate-180" : ""}`}
+        {currentProject && (
+          <button
+            type="button"
+            onClick={() => setProjectSettingsOpen(true)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-gray-500 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
           >
-            <ChevronDown />
-          </span>
-        </button>
-        {consoleOpen && (
-          <nav className="mb-1 space-y-0.5 pl-3">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => onNavigate?.()}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
-                    isActive
-                      ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-                      : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-                  }`
-                }
-              >
-                <span className="text-gray-500 dark:text-gray-400">
-                  <Icon d={item.icon} />
-                </span>
-                {item.label}
-              </NavLink>
-            ))}
-            {currentProject && (
-              <button
-                type="button"
-                onClick={() => setProjectSettingsOpen(true)}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-gray-600 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-              >
-                <span className="text-gray-500 dark:text-gray-400">
-                  <Icon d={GEAR_ICON} />
-                </span>
-                {S.project.settings}
-              </button>
-            )}
-          </nav>
+            <span className="text-gray-400 dark:text-gray-500">
+              <Icon d={GEAR_ICON} size={16} />
+            </span>
+            {S.nav.settings}
+          </button>
         )}
         <Dropdown
           open={userOpen}

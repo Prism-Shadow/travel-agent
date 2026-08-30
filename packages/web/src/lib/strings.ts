@@ -15,8 +15,6 @@ export const zh = {
   nav: {
     chat: "对话",
     newChat: "新对话",
-    agents: "智能体",
-    models: "模型库",
     // Collapsed-rail tooltip (product-specified wording; new chat reuses chat.newSessionMenu, the other pages reuse the page names above).
     lastConversation: "最近一次对话",
     collapseSidebar: "收起侧栏",

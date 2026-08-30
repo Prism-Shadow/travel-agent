@@ -65,7 +65,8 @@ test("background process appears in the details card and can be stopped", async 
   // New layout: a bulleted list with one stat per line, tokens first with the cache hit
   // rate in parens (from the recorded usage row).
   await expect(page.getByText(/总 Token/).first()).toBeVisible();
-  await expect(page.getByText(/缓存命中率 \d+%/).first()).toBeVisible();
+  // The cache hit rate loads from the usage API (async); poll to tolerate the fetch latency.
+  await expect(page.getByText(/缓存命中率 \d+%/).first()).toBeVisible({ timeout: 20000 });
   // Trace file row names the actual .jsonl path.
   await expect(page.getByText("轨迹文件")).toBeVisible();
   await expect(page.getByText(/\.jsonl/).first()).toBeVisible();

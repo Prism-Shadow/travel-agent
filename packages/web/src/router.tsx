@@ -11,12 +11,7 @@ import { TripsProvider } from "./state/trips";
 import { AppLayout } from "./components/layout/app-layout";
 import { LoginPage } from "./pages/login";
 import { ChatPage } from "./features/chat/chat-page";
-import { AgentsPage } from "./features/agents/agents-page";
-import { AgentSettingsPage } from "./features/agents/agent-settings-page";
-import { ModelsPage } from "./features/models/models-page";
-import { UsagePage } from "./features/usage/usage-page";
-import { TracesPage } from "./features/traces/traces-page";
-import { BenchmarkPage } from "./features/benchmark/benchmark-page";
+
 import { AdminUsersPage } from "./features/admin/admin-users-page";
 import { PrivateProfilePage } from "./features/private-profile/private-profile-page";
 import { TripPage } from "./features/trips/trip-page";
@@ -53,12 +48,7 @@ export function AppRouter() {
           <Route index element={<Navigate to="/chat" replace />} />
           <Route path="/chat/:sessionId?" element={<ChatPage />} />
           <Route path="/trips/:tripId" element={<TripPage />} />
-          <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/agents/:agentId" element={<AgentSettingsPage />} />
-          <Route path="/models" element={<ModelsPage />} />
-          <Route path="/usage" element={<UsagePage />} />
-          <Route path="/traces" element={<TracesPage />} />
-          <Route path="/benchmark" element={<BenchmarkPage />} />
+
           <Route path="/settings/private-profile" element={<PrivateProfilePage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />

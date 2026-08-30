@@ -86,7 +86,7 @@ import { noAutofill } from "../../components/ui/input";
 import { toastError, toastInfo } from "../../components/ui/toast";
 import { ZoomableImage } from "../../components/ui/image-zoom";
 import { ProviderLogo } from "../../components/ui/provider-logo";
-import { sameModelRef } from "../models/model-grouping";
+import { sameModelRef } from "../../lib/model-grouping";
 import { filterAgents, stagedSendRoute } from "./agent-handoff";
 import { ModelMenuList, ModelSelect, PickerList, modelLabel } from "./model-select";
 import { matchSlash, removeSlashToken } from "./slash-token";

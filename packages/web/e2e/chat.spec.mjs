@@ -217,50 +217,32 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   await msgCopy.click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("Help me set up @theme");
 
-  // --- traces --- (scope to <main>; the global sidebar also lists the session title)
-  await page.goto(`${BASE}/traces`);
-  const main = page.locator("main");
-  // Auto-generated title should appear in the traces tree (agents default-expanded).
-  const titleNode = main.getByText("Configure Tailwind theme").first();
-  await expect(titleNode).toBeVisible();
-  await titleNode.click();
-  await expect(main.getByText("轨迹观测").first()).toBeVisible();
-  // Legend shows the 5 fixed categories (tool-exec renamed).
-  await expect(main.getByText("工具调用执行").first()).toBeVisible();
-  await expect(main.getByText("模型回复").first()).toBeVisible();
-  // Per-task label.
-  await expect(main.getByText("第 1 轮").first()).toBeVisible();
-  // Global summary is grouped (counts / tokens / time-cost-TPS). The old "Request 耗时" item is
-  // gone — its label said "duration" while it actually rendered a count.
-  await expect(main.getByText("全局统计")).toBeVisible();
-  await expect(main.getByText("Request 耗时")).toHaveCount(0);
-  for (const label of ["轮次", "工具调用", "压缩次数", "输入 tokens", "输出 TPS"]) {
-    await expect(main.getByText(label, { exact: true }).first()).toBeVisible();
-  }
-  // Time-axis zoom: Premiere-style scrubber (role=scrollbar) + −/＋ buttons.
-  await expect(main.getByText("缩放", { exact: true })).toBeVisible();
-  await expect(main.getByRole("scrollbar").first()).toBeVisible();
-  await expect(main.getByText("1.00×")).toBeVisible();
-  const timeline = main.locator(".no-scrollbar.overflow-x-auto").first();
-  // Wheel-to-zoom is deliberately NOT supported (#58): scrolling the page over the timeline must
-  // not change the zoom by accident — the ratio stays at 1.00×. Settle first, otherwise the
-  // assertion could pass on its first poll before a (regressed) wheel handler re-rendered.
-  await timeline.hover();
-  await page.mouse.wheel(0, -240);
-  await page.waitForTimeout(300);
-  await expect(main.getByText("1.00×")).toBeVisible();
-  // Zoom is still reachable through the ＋ button (1 × 1.4 = 1.40×).
-  await main.getByRole("button", { name: "放大" }).click();
-  await expect(main.getByText("1.00×")).toHaveCount(0);
-  await expect(main.getByText("1.40×")).toBeVisible();
-  // Timeline scroll container disables the vertical scrollbar (only horizontal on zoom).
-  const overflowY = await timeline.evaluate((el) => getComputedStyle(el).overflowY);
-  expect(overflowY).toBe("hidden");
-  // Hover a timeline tool-exec segment → the matching event row highlights (cross-link).
-  const seg = main.getByTitle(/exec_command · 工具调用执行/).first();
-  await expect(seg).toBeVisible();
-  await seg.hover();
-  await expect(main.locator("button.bg-amber-50").first()).toBeVisible();
+  // --- traces --- (the page was removed from the consumer surface; assert via API)
+  // Poll until the trace index has reconciled the session's files
+  // (the reconciler runs on the first list call; Trace files must be flushed first).
+  let traceSession;
+  await expect
+    .poll(
+      async () => {
+        const r = await page.request.get(
+          `${BASE}/api/projects/${projectId}/agents/default_agent/traces`,
+        );
+        const t = await r.json();
+        const all = (t.dates ?? []).flatMap((d) => d.sessions ?? []);
+        traceSession = all.find((s) => s.sessionId === sessionId);
+        return !!traceSession;
+      },
+      { timeout: 30000, intervals: [1000, 2000, 3000], message: "session appears in traces" },
+    )
+    .toBeTruthy();
+  const file = traceSession.files[0];
+  const analysisRes = await page.request.get(
+    `${BASE}/api/projects/${projectId}/agents/default_agent/traces/${sessionId}/${file.index}/analysis`,
+  );
+  expect(analysisRes.ok(), "analysis endpoint reachable").toBeTruthy();
+  const analysis = await analysisRes.json();
+  expect(analysis.tasks?.length).toBeGreaterThan(0);
+  expect(analysis.elapsedMs).toBeGreaterThan(0);
 
   // --- files: HTML preview (isolated separate-origin iframe, scripts + storage) + path hidden ---
   // run.sh binds 127.0.0.1 and the spec browses on localhost, so previewIsolated=true and the

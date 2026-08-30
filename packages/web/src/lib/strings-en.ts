@@ -13,9 +13,6 @@ export const en: Strings = {
   nav: {
     chat: "Chat",
     newChat: "New chat",
-    agents: "Agents",
-    models: "Models",
-
     // Collapsed-rail tooltip (product-specified wording; new chat reuses chat.newSessionMenu, the other pages reuse the page names above).
     lastConversation: "Last conversation",
     collapseSidebar: "Collapse sidebar",

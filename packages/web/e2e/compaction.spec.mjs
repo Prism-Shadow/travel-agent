@@ -98,29 +98,26 @@ test("compaction mid-turn: the reply's stats line is still reachable by hovering
   await expect(page.getByText(`—/5k`)).toBeVisible();
   await expect(page.getByText(`0/5k`)).toHaveCount(0);
 
-  // —— Trace page ——
-  // Compaction is its own round: the user round's elapsed time and TPS don't include compaction
-  // (matching the chat page's convention), and the compaction round has **its own TPS** (how
-  // fast the summary was generated), not a "—".
-  await page.goto(`${BASE}/traces`);
-  const main = page.locator("main");
-  const node = main.getByText(/Configure|新对话/).first();
-  await expect(node).toBeVisible();
-  await node.click();
-  await expect(main.getByText("第 1 轮")).toBeVisible();
-  await expect(main.getByText("第 2 轮")).toBeVisible();
-  const roundRows = main.locator("button").filter({ hasText: /第 \d 轮/ });
-  const compactionRow = roundRows.filter({ hasText: "第 2 轮" }).first();
-  await expect(compactionRow).toContainText("tok/s"); // the compaction round has its own TPS
-  await expect(compactionRow).not.toContainText("—");
-
-  // Global elapsed time = **the sum of each round's elapsed time (including the compaction
-  // round)**, matching the same scope as the per-round display below — adding up each round
-  // card's elapsed time must equal the total. But it's not "last message - first message" (that
-  // would include the gap while the user was thinking/away between rounds, which isn't the
-  // Agent's working time). Assert this property directly against the API — the elapsed time
-  // shown in the UI is rounded by humanizeDuration, so parsing it back out of the text would be
-  // both fragile and inaccurate.
+  // —— Trace API ——
+  // The traces page was removed from the consumer surface (router.tsx); the contract is
+  // asserted through the API directly. Compaction is its own round: it must have its own
+  // TPS (non-zero elapsed time), and the global elapsed time equals the sum of each round.
+  // Poll until the trace index has reconciled the session's files
+  // (the reconciler runs on the first list call; Trace files must be flushed first).
+  await expect
+    .poll(
+      async () => {
+        const r = await page.request.get(
+          `${BASE}/api/projects/${projectId}/agents/default_agent/traces`,
+        );
+        const t = await r.json();
+        return (t.dates ?? [])
+          .flatMap((d) => d.sessions ?? [])
+          .some((s) => s.sessionId === sess.session.sessionId);
+      },
+      { timeout: 30000, intervals: [1000, 2000, 3000] },
+    )
+    .toBeTruthy();
   const traces = await (
     await page.request.get(`${BASE}/api/projects/${projectId}/agents/default_agent/traces`)
   ).json();
