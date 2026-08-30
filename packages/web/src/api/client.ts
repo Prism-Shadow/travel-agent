@@ -40,6 +40,8 @@ export interface ApiFetchOptions {
   body?: unknown;
   /** Query parameters (undefined values are skipped). */
   query?: Record<string, string | number | undefined>;
+  /** Optional caller cancellation (used by typeahead requests superseded by newer input). */
+  signal?: AbortSignal;
 }
 
 /** Response metadata a caller may need alongside the parsed body. */
@@ -80,6 +82,7 @@ export async function apiFetchWithMeta<T>(
     response = await fetch(url, {
       method: options.method ?? "GET",
       credentials: "same-origin",
+      signal: options.signal,
       ...(options.body !== undefined
         ? {
             headers: { "Content-Type": "application/json" },

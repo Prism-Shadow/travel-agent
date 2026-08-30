@@ -1159,6 +1159,10 @@ export const en: Strings = {
       // Popover copy.
       wherePlaceholder: "City or region — several is fine",
       whereHint: "e.g. Tokyo, Osaka",
+      whereListLabel: "Location suggestions",
+      whereSearching: "Searching places…",
+      whereNoResults: "No matching places. You can keep this text.",
+      whereUnavailable: "Suggestions are unavailable. You can still enter any destination.",
       datesMode: "Dates",
       flexibleMode: "Flexible",
       startDate: "Start",

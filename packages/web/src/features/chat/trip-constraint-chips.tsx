@@ -13,25 +13,29 @@
  * state is committed on every keystroke. Calling it Update would promise work that does not
  * happen. It closes the dialog, which is the only thing left for it to do.
  *
- * Where stays free text: `SPEC.md` declines a proprietary POI layer, and autocomplete without one
- * would be a fake. A filled chip shows its short summary and grows an × that clears just that
+ * Where remains free text, but a debounced Photon/OpenStreetMap lookup can normalize a city or
+ * region without introducing the proprietary POI database `SPEC.md` declines. Provider failure
+ * never blocks Done. A filled chip shows its short summary and grows an × that clears just that
  * chip; everything clears together after a successful send.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarBlankIcon } from "@phosphor-icons/react/dist/csr/CalendarBlank";
 import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
 import { UsersIcon } from "@phosphor-icons/react/dist/csr/Users";
 import { WalletIcon } from "@phosphor-icons/react/dist/csr/Wallet";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type { Icon } from "@phosphor-icons/react";
+import type { LocationSuggestion } from "@prismshadow/penguin-server/api";
+import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
+import { CloseButton } from "../../components/ui/icons";
 import { Modal } from "../../components/ui/modal";
 import { RangeCalendar } from "./range-calendar";
 import { pillClass } from "./workspace-select";
 import { BUDGET_TIERS, whenIsSet } from "./trip-constraints";
 import type { TripConstraints, TripWhen, TripWho } from "./trip-constraints";
 
-/** Who defaults when the traveller popover is first touched (Mindtrip's own default: 1 adult). */
+/** Who defaults when the traveller dialog is first touched (Mindtrip's own default: 1 adult). */
 const DEFAULT_WHO: TripWho = { adults: 1, children: 0, infants: 0, pets: 0 };
 
 type ChipId = "where" | "when" | "who" | "budget";
@@ -43,7 +47,7 @@ export function TripConstraintChips({
   value: TripConstraints;
   onChange: (next: TripConstraints) => void;
 }) {
-  // At most one popover open (opening another closes the first, like Mindtrip's dialogs).
+  // At most one dialog open (opening another closes the first, like Mindtrip's dialogs).
   const [open, setOpen] = useState<ChipId | null>(null);
   const T = S.chat.tripChips;
 
@@ -54,6 +58,8 @@ export function TripConstraintChips({
   const whoTotal = value.who ? value.who.adults + value.who.children + value.who.infants : 0;
   const petCount = value.who?.pets ?? 0;
   const whoSet = value.who !== null && whoTotal + petCount > 0;
+  const displayedWho = value.who ?? DEFAULT_WHO;
+  const displayedWhoTotal = displayedWho.adults + displayedWho.children + displayedWho.infants;
   const budgetSet = value.budget !== null;
 
   return (
@@ -68,17 +74,7 @@ export function TripConstraintChips({
         setOpen={setOpen}
         onClear={() => onChange({ ...value, where: "" })}
       >
-        <div className="p-3">
-          <input
-            type="text"
-            value={value.where}
-            onChange={(e) => onChange({ ...value, where: e.target.value })}
-            placeholder={T.wherePlaceholder}
-            autoFocus
-            className={inputClass}
-          />
-          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">{T.whereHint}</p>
-        </div>
+        <WherePanel where={value.where} onChange={(where) => onChange({ ...value, where })} />
       </Chip>
 
       <Chip
@@ -100,11 +96,15 @@ export function TripConstraintChips({
         icon={UsersIcon}
         label={T.who}
         summary={whoSet ? T.whoSummary(whoTotal, petCount) : null}
+        dialogSubtitle={T.whoSummary(displayedWhoTotal, displayedWho.pets)}
         open={open}
         setOpen={setOpen}
+        onOpen={() => {
+          if (value.who === null) onChange({ ...value, who: DEFAULT_WHO });
+        }}
         onClear={() => onChange({ ...value, who: null })}
       >
-        <WhoPanel who={value.who ?? DEFAULT_WHO} onChange={(who) => onChange({ ...value, who })} />
+        <WhoPanel who={displayedWho} onChange={(who) => onChange({ ...value, who })} />
       </Chip>
 
       <Chip
@@ -113,14 +113,12 @@ export function TripConstraintChips({
         icon={WalletIcon}
         label={T.budget}
         summary={budgetSet ? T.tierShort[value.budget!] : null}
+        dialogSubtitle={T.budgetTitle}
         open={open}
         setOpen={setOpen}
         onClear={() => onChange({ ...value, budget: null })}
       >
-        <div className="p-2" role="radiogroup" aria-label={T.budgetTitle}>
-          <p className="px-1.5 pb-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {T.budgetTitle}
-          </p>
+        <div className="px-5 py-2 sm:px-6" role="radiogroup" aria-label={T.budgetTitle}>
           {BUDGET_TIERS.map((tier) => {
             const active = value.budget === tier;
             return (
@@ -129,20 +127,17 @@ export function TripConstraintChips({
                 type="button"
                 role="radio"
                 aria-checked={active}
-                onClick={() => {
-                  onChange({ ...value, budget: tier });
-                  setOpen(null);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                onClick={() => onChange({ ...value, budget: tier })}
+                className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left text-base text-gray-700 transition-colors duration-150 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <span
-                  className={`h-3.5 w-3.5 shrink-0 rounded-full border ${
+                  className={`h-5 w-5 shrink-0 rounded-full border ${
                     active
-                      ? "border-[4.5px] border-gray-900 dark:border-gray-100"
+                      ? "border-[6px] border-gray-900 dark:border-gray-100"
                       : "border-gray-300 dark:border-gray-600"
                   }`}
                 />
-                <span className="min-w-0 flex-1 truncate">{T.tiers[tier]}</span>
+                <span className="min-w-0 flex-1">{T.tiers[tier]}</span>
               </button>
             );
           })}
@@ -153,9 +148,212 @@ export function TripConstraintChips({
 }
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 " +
-  "placeholder:text-gray-400 focus:border-gray-500 focus:outline-none " +
+  "h-12 w-full rounded-full border border-gray-300 bg-white px-5 text-base text-gray-900 " +
+  "placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900/10 " +
   "dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-500";
+
+const dialogWidthClass: Record<ChipId, string> = {
+  where: "sm:max-w-md",
+  when: "sm:max-w-2xl",
+  who: "sm:max-w-sm",
+  budget: "sm:max-w-sm",
+};
+
+type WhereSearchStatus = "idle" | "loading" | "ready" | "unavailable";
+const WHERE_LISTBOX_ID = "trip-where-suggestions";
+
+/** The comma-separated tail is the live query, so "Tokyo, Osa" can still suggest Osaka. */
+function activeWhereQuery(value: string): string {
+  const separator = Math.max(value.lastIndexOf(","), value.lastIndexOf("，"));
+  return value.slice(separator + 1).trim();
+}
+
+function replaceActiveWhereQuery(value: string, label: string): string {
+  const separator = Math.max(value.lastIndexOf(","), value.lastIndexOf("，"));
+  if (separator === -1) return label;
+  return `${value.slice(0, separator + 1).trimEnd()} ${label}`;
+}
+
+/** Search-as-you-type destination input with a free-text fallback. */
+function WherePanel({ where, onChange }: { where: string; onChange: (where: string) => void }) {
+  const T = S.chat.tripChips;
+  const query = activeWhereQuery(where);
+  const selectedValue = useRef("");
+  const [focused, setFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [status, setStatus] = useState<WhereSearchStatus>("idle");
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    if (query.length < 2 || (selectedValue.current !== "" && where === selectedValue.current)) {
+      setSuggestions([]);
+      setStatus("idle");
+      setActiveIndex(-1);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setStatus("loading");
+      void api
+        .searchLocations(query, T.intlLocale, controller.signal)
+        .then((result) => {
+          if (controller.signal.aborted) return;
+          setSuggestions(result.suggestions);
+          setStatus(result.error === undefined ? "ready" : "unavailable");
+          setActiveIndex(-1);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setSuggestions([]);
+          setStatus("unavailable");
+          setActiveIndex(-1);
+        });
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, T.intlLocale, where]);
+
+  const choose = (suggestion: LocationSuggestion) => {
+    const next = replaceActiveWhereQuery(where, suggestion.label);
+    selectedValue.current = next;
+    onChange(next);
+    setSuggestions([]);
+    setStatus("idle");
+    setActiveIndex(-1);
+  };
+
+  const popupVisible =
+    focused && query.length >= 2 && where !== selectedValue.current && status !== "idle";
+
+  return (
+    <div className="px-6 py-5 sm:px-7">
+      <div className="relative">
+        <input
+          type="text"
+          role="combobox"
+          value={where}
+          onChange={(event) => {
+            selectedValue.current = "";
+            setSuggestions([]);
+            setStatus("idle");
+            setActiveIndex(-1);
+            onChange(event.target.value);
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={(event) => {
+            if (!popupVisible || suggestions.length === 0) return;
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setActiveIndex((index) => (index + 1) % suggestions.length);
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActiveIndex((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
+            } else if (event.key === "Enter" && activeIndex >= 0) {
+              event.preventDefault();
+              choose(suggestions[activeIndex]!);
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setSuggestions([]);
+              setStatus("idle");
+              setActiveIndex(-1);
+            }
+          }}
+          placeholder={T.wherePlaceholder}
+          autoFocus
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-expanded={popupVisible}
+          aria-controls={popupVisible ? WHERE_LISTBOX_ID : undefined}
+          aria-activedescendant={
+            activeIndex >= 0 ? `${WHERE_LISTBOX_ID}-option-${activeIndex}` : undefined
+          }
+          aria-busy={status === "loading"}
+          className={`${inputClass} ${where !== "" ? "pr-12" : ""}`}
+        />
+        {where !== "" && (
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              selectedValue.current = "";
+              onChange("");
+              setSuggestions([]);
+              setStatus("idle");
+              setActiveIndex(-1);
+            }}
+            aria-label={`${T.clear} ${T.where}`}
+            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gray-200 text-gray-500 transition-colors hover:bg-gray-300 hover:text-gray-800 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
+          >
+            <XIcon size={15} weight="bold" aria-hidden />
+          </button>
+        )}
+
+        {popupVisible && (
+          <div
+            id={WHERE_LISTBOX_ID}
+            role="listbox"
+            aria-label={T.whereListLabel}
+            className="z-20 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-xl sm:absolute sm:left-0 sm:right-0 sm:top-full dark:border-gray-700 dark:bg-gray-900"
+          >
+            {status === "loading" ? (
+              <p role="status" className="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">
+                {T.whereSearching}
+              </p>
+            ) : status === "unavailable" ? (
+              <p role="status" className="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">
+                {T.whereUnavailable}
+              </p>
+            ) : suggestions.length === 0 ? (
+              <p role="status" className="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">
+                {T.whereNoResults}
+              </p>
+            ) : (
+              suggestions.map((suggestion, index) => (
+                <button
+                  id={`${WHERE_LISTBOX_ID}-option-${index}`}
+                  key={suggestion.id}
+                  type="button"
+                  role="option"
+                  aria-selected={activeIndex === index}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => choose(suggestion)}
+                  className={`flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                    activeIndex === index
+                      ? "bg-gray-100 dark:bg-gray-800"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-800/70"
+                  }`}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                    <MapPinIcon size={18} weight="regular" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-medium text-gray-950 dark:text-white">
+                      {suggestion.name}
+                    </span>
+                    {suggestion.detail !== "" && (
+                      <span className="block truncate text-sm text-gray-500 dark:text-gray-400">
+                        {suggestion.detail}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      <p className="mt-2.5 px-1 text-sm text-gray-400 dark:text-gray-500">{T.whereHint}</p>
+    </div>
+  );
+}
 
 /** Filled chip's terse summary for the "when" modes (the full sentence goes into the message). */
 function whenSummary(when: TripWhen): string {
@@ -181,7 +379,7 @@ function whenSummary(when: TripWhen): string {
 }
 
 /**
- * One chip: pill trigger + popover. A filled chip shows its summary in stronger ink and an
+ * One chip: pill trigger + dialog. A filled chip shows its summary in stronger ink and an
  * × as a SIBLING button inside the pill-shaped group (never nested — the trigger and the
  * clear are separate buttons sharing the pill border).
  */
@@ -192,8 +390,10 @@ function Chip({
   summary,
   open,
   setOpen,
+  onOpen,
   onClear,
   title,
+  dialogSubtitle,
   children,
 }: {
   id: ChipId;
@@ -202,9 +402,13 @@ function Chip({
   summary: string | null;
   open: ChipId | null;
   setOpen: (id: ChipId | null) => void;
+  /** Called only when a closed chip opens; Who uses it to commit its visible one-adult default. */
+  onOpen?: () => void;
   onClear: () => void;
   /** Dialog heading — the chip's own word, so the dialog says what it is answering. */
   title: string;
+  /** Optional live context beneath the heading (for example, "1 traveler"). */
+  dialogSubtitle?: string;
   children: React.ReactNode;
 }) {
   const isOpen = open === id;
@@ -212,10 +416,21 @@ function Chip({
   const T = S.chat.tripChips;
   return (
     <>
-      <span className={`${pillClass} ${filled ? "text-gray-900! dark:text-gray-100!" : ""} p-0!`}>
+      <span
+        className={`${pillClass} trip-constraint-chip ${
+          filled ? "text-gray-900! dark:text-gray-100!" : ""
+        } p-0!`}
+      >
         <button
           type="button"
-          onClick={() => setOpen(isOpen ? null : id)}
+          onClick={() => {
+            if (isOpen) {
+              setOpen(null);
+              return;
+            }
+            onOpen?.();
+            setOpen(id);
+          }}
           className="flex min-w-0 items-center gap-1.5 py-1 pl-2 pr-1"
           aria-expanded={isOpen}
           aria-haspopup="dialog"
@@ -241,18 +456,46 @@ function Chip({
         open={isOpen}
         title={title}
         onClose={() => setOpen(null)}
-        widthClass="sm:max-w-lg"
-        footer={
-          <button
-            type="button"
-            onClick={() => setOpen(null)}
-            className="rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-          >
-            {T.dialogDone}
-          </button>
-        }
+        headerless
+        widthClass={dialogWidthClass[id]}
+        overlayClassName="bg-black/50 backdrop-blur-[1px]"
+        panelClassName={`${id === "where" ? "overflow-visible" : "overflow-hidden"} rounded-t-3xl! border-gray-200/80 shadow-2xl sm:rounded-3xl! dark:border-gray-700/80`}
+        contentClassName={`${id === "where" ? "max-h-none! overflow-visible!" : "max-h-[min(88vh,54rem)]! overflow-y-auto!"} p-0!`}
       >
-        {children}
+        <section data-trip-constraint-dialog={id}>
+          <header className="relative flex min-h-16 items-center justify-center border-b border-gray-100 px-14 py-3 text-center dark:border-gray-800">
+            <CloseButton
+              onClose={() => setOpen(null)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full! p-2! text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white [&_svg]:h-4 [&_svg]:w-4"
+            />
+            <div>
+              <h2 className="text-xl font-semibold tracking-[-0.01em] text-gray-950 dark:text-white">
+                {title}
+              </h2>
+              {dialogSubtitle && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{dialogSubtitle}</p>
+              )}
+            </div>
+          </header>
+          {children}
+          <footer className="border-t border-gray-100 px-5 py-4 sm:px-6 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={() => setOpen(null)}
+              className={`flex items-center justify-center rounded-full bg-gray-950 px-8 text-base font-medium text-white transition-colors duration-150 hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 ${
+                id === "where" ? "ml-auto min-h-10 w-full sm:w-40" : "min-h-10"
+              } ${
+                id === "who" || id === "budget"
+                  ? "w-full"
+                  : id === "when"
+                    ? "ml-auto w-full sm:w-40"
+                    : ""
+              }`}
+            >
+              {T.dialogDone}
+            </button>
+          </footer>
+        </section>
       </Modal>
     </>
   );
@@ -277,8 +520,8 @@ function WhenPanel({
   const flex =
     when?.kind === "flexible" ? when : { kind: "flexible" as const, days: 0, months: [] };
   return (
-    <div className="p-4">
-      <div className="mx-auto mb-4 flex max-w-xs rounded-full bg-gray-100 p-0.5 dark:bg-gray-800">
+    <div className="px-5 pb-3 pt-4 sm:px-6">
+      <div className="mx-auto mb-4 flex max-w-56 rounded-full bg-gray-100 p-1 dark:bg-gray-800">
         {(["dates", "flexible"] as const).map((m) => (
           <button
             key={m}
@@ -292,7 +535,7 @@ function WhenPanel({
                   : { kind: "flexible", days: 0, months: [] },
               );
             }}
-            className={`flex-1 rounded-full px-3 py-1.5 text-sm transition-colors duration-150 ${
+            className={`flex-1 rounded-full px-3 py-2 text-sm transition-colors duration-150 ${
               mode === m
                 ? "bg-white font-medium text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-100"
                 : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
@@ -353,25 +596,27 @@ function FlexiblePanel({
   };
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{T.daysLabel}</span>
-        <span className="flex items-center gap-2">
+      <div className="pb-4 pt-1 text-center">
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{T.daysLabel}</p>
+        <span className="mt-2 flex items-center justify-center gap-3">
           <StepButton
             sign="-"
             disabled={value.days <= 0}
             onClick={() => onChange({ ...value, days: Math.max(0, value.days - 1) })}
           />
-          <span className="w-8 text-center text-sm tabular-nums text-gray-900 dark:text-gray-100">
+          <span className="w-10 text-center text-xl font-medium tabular-nums text-gray-950 dark:text-white">
             {value.days}
           </span>
           <StepButton sign="+" onClick={() => onChange({ ...value, days: value.days + 1 })} />
         </span>
       </div>
-      <p className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">{T.monthsLabel}</p>
-      {/* No month selected means any month, which is the useful default rather than an error --
-          "a week, sometime" is a real answer. Saying so beats an empty grid that reads as unset. */}
-      <p className="mb-2 text-xs text-gray-400 dark:text-gray-500">{T.monthsHint}</p>
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{T.monthsLabel}</p>
+        {/* No month selected means any month, which is the useful default rather than an error --
+            "a week, sometime" is a real answer. Saying so beats an empty grid that reads as unset. */}
+        <p className="text-xs text-gray-400 dark:text-gray-500">{T.monthsHint}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {months.map((m) => {
           const active = value.months.includes(m);
           return (
@@ -380,12 +625,13 @@ function FlexiblePanel({
               type="button"
               aria-pressed={active}
               onClick={() => toggle(m)}
-              className={`rounded-lg border px-2 py-1.5 text-xs transition-colors duration-150 ${
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-sm transition-colors duration-150 ${
                 active
                   ? "border-gray-900 bg-gray-900 font-medium text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
                   : "border-gray-200 text-gray-600 hover:border-gray-400 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500"
               }`}
             >
+              <CalendarBlankIcon size={18} weight="regular" aria-hidden />
               {monthLabel(m)}
             </button>
           );
@@ -395,7 +641,7 @@ function FlexiblePanel({
   );
 }
 
-/** "Who" popover: three stepper rows (adults / children / infants with their age brackets). */
+/** "Who" dialog: traveller stepper rows with their age brackets. */
 function WhoPanel({ who, onChange }: { who: TripWho; onChange: (who: TripWho) => void }) {
   const T = S.chat.tripChips;
   const rows = [
@@ -405,25 +651,27 @@ function WhoPanel({ who, onChange }: { who: TripWho; onChange: (who: TripWho) =>
     { key: "pets" as const, label: T.petsLabel, hint: T.petsHint },
   ];
   return (
-    <div className="p-3">
+    <div className="px-5 sm:px-6">
       {rows.map(({ key, label, hint }, i) => (
         <div
           key={key}
-          className={`flex items-center justify-between gap-3 py-2 ${
+          className={`flex min-h-16 items-center justify-between gap-4 py-3 ${
             i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""
           }`}
         >
           <span className="min-w-0">
-            <span className="block text-sm text-gray-900 dark:text-gray-100">{label}</span>
-            <span className="block text-[11px] text-gray-400 dark:text-gray-500">{hint}</span>
+            <span className="block text-base font-medium text-gray-900 dark:text-gray-100">
+              {label}
+            </span>
+            <span className="mt-0.5 block text-sm text-gray-400 dark:text-gray-500">{hint}</span>
           </span>
-          <span className="flex shrink-0 items-center gap-1.5">
+          <span className="flex shrink-0 items-center gap-2">
             <StepButton
               sign="-"
               disabled={who[key] <= 0}
               onClick={() => onChange({ ...who, [key]: Math.max(0, who[key] - 1) })}
             />
-            <span className="w-6 text-center text-sm tabular-nums text-gray-900 dark:text-gray-100">
+            <span className="w-8 text-center text-base tabular-nums text-gray-900 dark:text-gray-100">
               {who[key]}
             </span>
             <StepButton sign="+" onClick={() => onChange({ ...who, [key]: who[key] + 1 })} />
@@ -450,7 +698,7 @@ function StepButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={sign}
-      className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-sm text-gray-600 transition-colors duration-150 hover:border-gray-500 hover:text-gray-900 disabled:cursor-default disabled:opacity-40 disabled:hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-400 dark:hover:text-gray-100"
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-lg font-light text-gray-600 transition-colors duration-150 hover:border-gray-500 hover:bg-gray-50 hover:text-gray-900 disabled:cursor-default disabled:opacity-35 disabled:hover:border-gray-300 disabled:hover:bg-transparent dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
     >
       {sign}
     </button>

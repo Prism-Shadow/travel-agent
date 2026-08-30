@@ -36,7 +36,9 @@ surface.
   A conversation belonging to no trip is an ordinary state and must never be forced into one.
 - **The composer's constraint chips**, which edit the owning Trip's identity when the conversation
   has one, and which materialize a trip on the first message rather than on the click that opened
-  the draft.
+  the draft. Where remains a free-text field; its debounced destination suggestions come from the
+  server's replaceable geocoder gateway and a gateway failure never disables Done. Opening Who
+  commits its visible one-adult default so the dialog summary and the closed chip cannot disagree.
 - **Rendering the model's documents without editing them.** `itinerary.md` and any map the agent
   drew are read-only here; relative image names resolve through the server's trip-file endpoint.
 - **The OmniMessage stream → view-model reduction** (`src/lib/omni/`): start/delta/stop aggregation,

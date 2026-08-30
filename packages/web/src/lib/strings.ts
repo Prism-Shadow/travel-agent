@@ -1099,6 +1099,10 @@ export const zh = {
       // Popover copy.
       wherePlaceholder: "城市或地区，可写多个",
       whereHint: "例如：东京、大阪",
+      whereListLabel: "地点建议",
+      whereSearching: "正在搜索地点…",
+      whereNoResults: "没有匹配地点，可以保留当前输入。",
+      whereUnavailable: "地点建议暂不可用，仍可直接输入任意目的地。",
       datesMode: "具体日期",
       flexibleMode: "灵活",
       startDate: "出发",

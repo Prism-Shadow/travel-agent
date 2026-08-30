@@ -38,7 +38,7 @@ export type { TripBudgetTier, TripWhen, TripWho };
 export const BUDGET_TIERS = TRIP_BUDGET_TIERS;
 
 export interface TripConstraints {
-  /** Free text — one destination or several ("Tokyo, Osaka"); no POI autocomplete to fake. */
+  /** Free text — one destination or several ("Tokyo, Osaka"); optional suggestions only normalize it. */
   where: string;
   when: TripWhen | null;
   who: TripWho | null;

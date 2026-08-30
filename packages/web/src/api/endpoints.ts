@@ -43,6 +43,7 @@ import type {
   MemoryFilesResponse,
   MemoryOverviewResponse,
   MessagesResponse,
+  LocationSearchResponse,
   ModelsResponse,
   ModelsUpdateRequest,
   ModelTestRequest,
@@ -403,6 +404,13 @@ export const getTripItinerary = (tripId: string) =>
  */
 export const tripFileUrl = (tripId: string, relPath: string) =>
   `/api/trips/${encodeURIComponent(tripId)}/file?path=${encodeURIComponent(relPath)}`;
+
+/** Fail-soft destination suggestions; free-text entry remains valid when the provider is unavailable. */
+export const searchLocations = (query: string, locale: string, signal?: AbortSignal) =>
+  apiFetch<LocationSearchResponse>("/api/locations/search", {
+    query: { q: query, lang: locale },
+    signal,
+  });
 
 /** Attach to a Trip, move between Trips, or detach (`null`). Never changes the workspace. */
 export const setSessionTrip = (sessionId: string, tripId: string | null) =>

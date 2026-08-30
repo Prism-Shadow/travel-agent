@@ -124,6 +124,15 @@
     outline: 3px solid rgb(107 114 128 / 0.4);
     outline-offset: 2px;
   }
+  /* A constraint chip can contain separate open and clear buttons. Draw keyboard focus around
+     their shared pill shell; outlining the borderless inner button produces a square box. */
+  .trip-constraint-chip > button:focus-visible {
+    outline: none;
+  }
+  .trip-constraint-chip:has(> button:focus-visible) {
+    outline: 3px solid rgb(107 114 128 / 0.4);
+    outline-offset: 2px;
+  }
   /* Consistent pointer cursor for clickable buttons: Tailwind 4 preflight reverted button to the browser's
      default arrow cursor (v3 used pointer); disabled state keeps the default. Explicit cursor-* utility
      classes (e.g. cursor-zoom-in) take precedence. */
