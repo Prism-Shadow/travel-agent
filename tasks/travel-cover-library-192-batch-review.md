@@ -110,7 +110,59 @@ Status: accepted
 | boarding-gate-silhouette | exec-08668bca-a0e9-4417-8443-97ada8288744 | 73459 | da01abf0cba89266c3d72a3b747e8197b5b3015f8565b3b0c9e3f3bfe3c339a6 | Accepted |
 | weekend-bag-entryway | exec-7a87387a-5889-4c79-ab7c-22c1002695e4 | 71913 | b5367e8b522379303c16d6211d663e0dbd2c0a106fb8464e1b91ef86c42200b4 | Accepted |
 
-## Batches C–D
+## Batch C — North and Latin America
 
-Not generated. Their ids and scene specifications are locked in
+Status: accepted
+
+- Accepted: 36 of 36
+- Runtime footprint: 4,162,517 bytes; 115,625 bytes average; 182,564 bytes maximum
+- Technical QA: all files are 960×720, three-component, progressive sRGB JPEGs with EXIF, ICC, and
+  XMP metadata removed; every file is at most 250 KiB
+- Visual QA: all assets were inspected at full runtime resolution in six 3×2 contact sheets, plus
+  targeted individual inspection where text, anatomy, vehicle, or equipment risk was higher
+- Reworked before acceptance: `road-atlas-dashboard` contained dense map labels and pseudo-text;
+  the accepted edit replaces them with sparse, unlabeled abstract route lines
+
+| Catalog id | ImageGen output id | Bytes | SHA-256 | Review |
+| --- | --- | ---: | --- | --- |
+| los-angeles-coast-sunset | exec-01a78da7-fb42-4b2a-a56a-47549e63c7f1 | 85988 | 11d045746b889bb3f699cd49d8887161c7579da22596ad6cfc508a683b646bca | Accepted |
+| yosemite-valley-morning | exec-11709971-472d-475d-b80f-9bc791b410f3 | 115543 | 3ad6a6de4399a5128955ea2eb8aabbd5ff5eef326ab0b12d4a383283e699d640 | Accepted |
+| utah-canyon-road | exec-6bb4647c-08e3-428f-820e-729c366a3033 | 121854 | ba29512f80919b196c2af62119bd1abd3376f332839c6d1f56e1c60bd855102e | Accepted |
+| hawaii-volcanic-coast | exec-29d8d72d-948c-4f18-b116-aa7d6d337207 | 107207 | 5ce2bf2339121f3152a78011dd001de9ae2b4c4614f030f5e1e9397c461c1d25 | Accepted |
+| chicago-river-dawn | exec-6cadb77b-9509-4d51-8ca4-cab1aaf6ed9a | 124189 | c8f4aec4f1ad588443920438d7799e22604dcebfc3da9a98348c97687cc216ad | Accepted |
+| new-orleans-courtyard | exec-d12b9965-58d1-47d8-8538-58f588c35d66 | 152213 | 3b7b2e080488d896f563d23a5f5a183cb0f712ce574b347fe0132dc29223d99f | Accepted |
+| miami-art-deco-morning | exec-31cd1058-b3fb-4043-996d-e4f56d08c34d | 104533 | 46644473188f4ccd40f2278668b21b59f8545610124d7abd261b100e60fa2c87 | Accepted |
+| vancouver-harbour-mountains | exec-a8513019-c1ac-4d1e-82f1-6bfdcc3f4f31 | 121794 | a41637174a4e52cd61ad23df2d2bbdc75c4c69c55aff8e427781b18a987b3c0f | Accepted |
+| banff-turquoise-lake | exec-786ee8b9-d7b2-4152-bef1-ebf13b67cfea | 171814 | 7ca6c532b2612e016d79feaa17e23c0d2897bdad4e0a0130911cd99bd3abb05e | Accepted |
+| toronto-islands-skyline | exec-10a94fce-97cb-4ed3-bc7b-447fd112059a | 91635 | a5ed95003b7529edce419ce128b1733a8f473815a195b59f48ea969edf0140ed | Accepted |
+| alaska-glacier-bay | exec-6b93560d-d8d8-4a1c-b6fc-04eeab1f559d | 117653 | bdebcb87f3ec628d0261a391c9f635f6a818070e9501d790e85554c44b8726b2 | Accepted |
+| mexico-city-courtyard | exec-f0586ca1-a341-4f06-9ae3-7210df1644fc | 174623 | 440a6ba4de8abac85d333b339140e8b74da845da0813f08ac5d5da3eb0979624 | Accepted |
+| costa-rica-cloud-forest | exec-98a3c328-2faf-4e19-8d1c-4c2a523880ec | 177898 | ec69b743242ad320e411e652f2207c91ecc72d6b74e485687960eeeef7087257 | Accepted |
+| havana-seafront-dawn | exec-35acac5e-27e6-4658-a5be-ce14ab55027c | 147699 | f88d01d96ce55162a54f4eb224367253aff06ee00394b5bea99dd1cbb8b679b4 | Accepted |
+| cartagena-balconies | exec-297bde52-e274-4797-a4c2-b330c62980f4 | 156685 | a7c4fea39703e3b3c0e7781e57079e5b43c3cc48426a7aa8fcb139b26eee081d | Accepted |
+| rio-coast-morning | exec-a985c5ba-931a-4932-abb9-caeccf773829 | 114816 | 1d76e1aa26e23fa055cad090ea20256d9f8d03f4764c73664b8b40a442036ff1 | Accepted |
+| cusco-andean-rooftops | exec-d85e4957-366a-4d99-a002-9682187e5141 | 125829 | 38392af8404fa8466a04d7f195d47bf39c489424c306a96bf0ad9d527a68f6aa | Accepted |
+| buenos-aires-cafe-street | exec-12f9bca4-75b9-45da-af98-1af98e08b304 | 141322 | 6560eeddc549bc0273c7a659c36fdab5244e40a01982b87ccc3b4e5f11f009ec | Accepted |
+| campervan-road-trip | exec-ada02ccb-0d91-4f7e-a1a2-962f422971f6 | 101938 | 4fdc12f8bdedec4c4fad07b8ba1f3e579adabde96028753569272b649177dd04 | Accepted |
+| taco-cooking-table | exec-c46a51aa-96ae-420b-a234-bc5cc7d89bae | 120799 | 18d621191704ed680d4ff29f74bb6c5beea200ae7189346fd1740aab13dc4e62 | Accepted |
+| coffee-farm-tasting | exec-ec2b9882-8929-42d4-b42d-597548a83508 | 97548 | ae3e75fe88f7dc7a26c1aab18b7fd62d321ce09b931594a8649b79a1ee6b014d | Accepted |
+| live-music-evening | exec-ed3fdea7-988d-4230-a104-271347f7145b | 78294 | 34d531f9805a13f39fe4cdff64552b6fd21bf0406e77caf8d163a7b6c90d6a4b | Accepted |
+| national-park-camping | exec-d0d5f424-20dd-4d6b-9ef6-76b6ddc88417 | 130694 | e431e37b0a344c189af22dfd32eebf79be16daa976bd6f936ec538db8de2365d | Accepted |
+| kayaking-mangroves | exec-0d26d4f1-ed45-4c3c-ae79-f61c69b65d5c | 146012 | 194b147d6c8ca8525d92374cbc04c0dd1f407d56685550b5e77cd5a5003126f1 | Accepted |
+| beach-resort-hammock | exec-1c5435da-0ed3-4235-a0dd-0810d97efa96 | 137573 | cd7d6f70cc94fe41bda80375fbc299a36332b8c99b00453c1c90473efe43630b | Accepted |
+| friends-weekend-trip | exec-c070c62c-53ef-4454-ad43-fdfc60bbef00 | 72493 | e3813d130bad7d5668cbb27bd9c28256f71cbed9de169b665c7213b324f2fd3c | Accepted |
+| solo-travel-viewpoint | exec-241052ca-6611-43c3-ab04-5ae75f31bdd4 | 64307 | 589038346fc03af11f7dd2ffa21a3824e5fd6fe0c5768f5ebca82b9120ae9137 | Accepted |
+| spring-desert-bloom | exec-261f5816-e5a7-4049-ab07-aed4d7f786e6 | 182564 | d22116ac775562e93024d213bccb095096dac3a00becad5d8d77bb4d054ee275 | Accepted |
+| summer-thunderstorm-plains | exec-05173f49-f51c-46cf-9885-c7d3c91fc57c | 81549 | 75f9c1281cdcbf49595a0decc08078a184b76e185217dc7f91efa6cb6dbf222c | Accepted |
+| autumn-maple-lake | exec-6828e514-123b-4491-92d4-f00499bd1ddf | 132356 | 1c9d4dca33e7cc8b13bcb9d418a21fea66da2e15ae4da48856f17f111ca5d3e3 | Accepted |
+| winter-rockies-sunrise | exec-99bb5036-7ba5-449a-a1fa-90f25068cb94 | 100575 | f173018aad196f4e336cf7792f5c3a6bef0b1108b8dc8a2b78ae9a078fa2f52f | Accepted |
+| road-atlas-dashboard | exec-a173e28a-9caf-402e-af27-89a0c6683e82 | 53229 | b354425097f416cc9a11de6205c4808ecd72377827e29ef5ca037c44ebc7e405 | Accepted after rework |
+| airport-walkway-light | exec-92df5c10-8502-4178-922a-4e79a5fcf983 | 80675 | b74061ecb8f57d3c0f6c4fde7bbf73305d7000e18f5b4ed24fd4518806be36c1 | Accepted |
+| camera-and-sunglasses | exec-9da5f907-1798-4cc9-a244-425673ccd209 | 72078 | 8623a6226dbee65c54d2c8518a8f3b87103dc2817d3b0d08a101c359122d9d58 | Accepted |
+| reusable-bottle-backpack | exec-269860d2-4bd9-4c61-8598-404e49dd35f6 | 71921 | 5bf4f5673f161919f865346e2e033533968f5876a4682fe9a14fd9eebf478fd7 | Accepted |
+| motel-arrival-twilight | exec-ed389d92-7994-4643-99ca-29ecfb333212 | 84617 | f1c1781e088b26e6467a18d47f69b2ff9b0f920c202f5bd6d2960fbaee04ba3e | Accepted |
+
+## Batch D
+
+Not generated. Its ids and scene specifications are locked in
 `tasks/travel-cover-library-192-prompts.md`.

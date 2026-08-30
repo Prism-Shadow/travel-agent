@@ -1,6 +1,6 @@
 # Travel cover library expansion: 48 → 192
 
-Status: in progress; Batches A–B accepted (120 of 192 total assets delivered)
+Status: in progress; Batches A–C accepted (156 of 192 total assets delivered)
 
 ## Goal
 
@@ -56,12 +56,12 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 
 ### Batch C — North and Latin America
 
-- [ ] Add 18 destination scenes across North America, Central America, South America, and the
+- [x] Add 18 destination scenes across North America, Central America, South America, and the
       Caribbean without over-concentrating on skyline imagery.
-- [ ] Add 9 activity scenes with emphasis on national parks, food, beaches, music, family travel,
+- [x] Add 9 activity scenes with emphasis on national parks, food, beaches, music, family travel,
       and self-drive itineraries.
-- [ ] Add 4 season/weather scenes that differ materially from Batches A and B.
-- [ ] Add 5 generic travel-tool and in-transit fallback scenes.
+- [x] Add 4 season/weather scenes that differ materially from Batches A and B.
+- [x] Add 5 generic travel-tool and in-transit fallback scenes.
 - [ ] Complete metadata, technical validation, visual QA, selection tests, and responsive UI QA.
 
 ### Batch D — Africa, Middle East, and gap fill
@@ -195,5 +195,7 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 - Batch B adds 36 accepted prompt-version-2 assets and brings the runtime catalog to 120. Its
   European destination, activity, season, and generic scenes pass the same technical and visual
   review contract.
+- Batch C adds 36 accepted prompt-version-2 assets and brings the runtime catalog to 156. Its North
+  and Latin America scenes pass the same technical and visual review contract.
 - The locked prompt matrix reaches 192 through three remaining 36-asset batches, keeping cost,
   review, rollback, and CI failures bounded to one batch at a time.
