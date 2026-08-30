@@ -122,27 +122,35 @@ export function RangeCalendar({
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between">
-        <NavButton onClick={() => shift(-1)} label="←">
-          <CaretLeftIcon size={16} weight="bold" aria-hidden />
-        </NavButton>
-        <NavButton onClick={() => shift(1)} label="→">
-          <CaretRightIcon size={16} weight="bold" aria-hidden />
-        </NavButton>
-      </div>
-      <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-        {months.map((m) => (
+      <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        {months.map((m, monthIndex) => (
           <div key={`${m.year}-${m.monthIndex}`}>
-            <p className="mb-2 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {m.label}
-            </p>
+            <div className="mb-2 grid grid-cols-[2.25rem_1fr_2.25rem] items-center">
+              {monthIndex === 0 ? (
+                <NavButton onClick={() => shift(-1)} label="←">
+                  <CaretLeftIcon size={18} weight="bold" aria-hidden />
+                </NavButton>
+              ) : (
+                <span />
+              )}
+              <p className="text-center text-base font-semibold text-gray-900 dark:text-gray-100">
+                {m.label}
+              </p>
+              {monthIndex === months.length - 1 ? (
+                <NavButton onClick={() => shift(1)} label="→">
+                  <CaretRightIcon size={18} weight="bold" aria-hidden />
+                </NavButton>
+              ) : (
+                <span />
+              )}
+            </div>
             <div className="grid grid-cols-7 gap-y-1">
               {weekdays.map((w, i) => (
                 <span
                   // Narrow weekday names repeat in several locales (S, S / 一 … ), so the index is
                   // the only stable key here.
                   key={i}
-                  className="pb-1 text-center text-[11px] font-medium text-gray-400 dark:text-gray-500"
+                  className="pb-1 text-center text-xs font-medium text-gray-400 dark:text-gray-500"
                 >
                   {w}
                 </span>
@@ -186,7 +194,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+      className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
     >
       {children}
     </button>
