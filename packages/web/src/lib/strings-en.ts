@@ -72,8 +72,6 @@ export const en: Strings = {
 
   settings: {
     language: "Language",
-    /** Sidebar Session list: also show CLI-created Sessions (default off — the list then never scans the Trace directories). */
-    showCliSessions: "Show CLI sessions",
     /** Admin-only user-menu row opening the proxy options dialog. */
     proxyMenu: "Proxy options…",
     proxyDialogTitle: "Proxy options",

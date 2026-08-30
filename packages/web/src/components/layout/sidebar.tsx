@@ -65,7 +65,6 @@ import {
   sessionCategory,
 } from "../../lib/session-grouping";
 import type { FolderCategory, SessionPartition } from "../../lib/session-grouping";
-import { Switch } from "../ui/switch";
 import { Dropdown } from "../ui/dropdown";
 import { AgentAvatar } from "../ui/agent-avatar";
 import { ChevronDown, NAV_ICONS } from "../ui/icons";
@@ -199,8 +198,6 @@ export function Sidebar({
     loading,
     remove,
     replace,
-    showCliSessions,
-    setShowCliSessions,
   } = useSessions();
   const { trips, loading: tripsLoading, byId: tripsById, remove: removeTrip } = useTrips();
   const chatMatch = useMatch("/chat/:sessionId");
@@ -1087,11 +1084,6 @@ export function Sidebar({
             </SettingRow>
             <SettingRow label={S.settings.language}>
               <Segmented options={langOptions} value={lang} onChange={setLang} />
-            </SettingRow>
-            {/* Off (default) = the sidebar lists only web-created Sessions, served straight
-                from the DB; on = CLI Sessions are discovered from the Trace directory too. */}
-            <SettingRow label={S.settings.showCliSessions}>
-              <Switch checked={showCliSessions} onChange={setShowCliSessions} />
             </SettingRow>
           </div>
           <div className="mt-1 border-t border-gray-100 pt-1 dark:border-gray-800">

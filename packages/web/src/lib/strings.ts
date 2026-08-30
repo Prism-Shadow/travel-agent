@@ -73,8 +73,6 @@ export const zh = {
 
   settings: {
     language: "语言",
-    /** Sidebar Session list: also show CLI-created Sessions (default off — the list then never scans the Trace directories). */
-    showCliSessions: "显示 CLI 会话",
     /** Admin-only user-menu row opening the proxy options dialog. */
     proxyMenu: "代理选项",
     proxyDialogTitle: "代理选项",

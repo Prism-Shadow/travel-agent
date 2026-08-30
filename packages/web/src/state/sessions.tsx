@@ -71,10 +71,6 @@ interface SessionsContextValue {
   setStatus: (sessionId: string, status: SessionStatus) => void;
   /** session_title server event → update the title in place. */
   setTitle: (sessionId: string, title: string) => void;
-  /** Whether CLI-created Sessions are listed too (persisted per user; default off = the list is served from the DB without Trace scanning). */
-  showCliSessions: boolean;
-  /** Flip the CLI-session preference: persists it and refetches the whole list under the new filter. */
-  setShowCliSessions: (value: boolean) => void;
 }
 
 const SessionsContext = createContext<SessionsContextValue | null>(null);
@@ -112,28 +108,6 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     ReadonlyMap<string, Readonly<Record<string, SessionCategoryCounts>>>
   >(new Map());
   const [loading, setLoading] = useState(true);
-  // "Show CLI sessions" preference: server-persisted per user (ui_prefs); hydrated once on
-  // mount, default off. Changing it recreates reload(), and the reset effect below refetches
-  // the whole list under the new filter.
-  const [showCliSessions, setShowCliSessionsState] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    void api
-      .getPrefs()
-      .then((res) => {
-        if (!cancelled && res.prefs.showCliSessions === true) setShowCliSessionsState(true);
-      })
-      .catch(() => undefined); // Unreachable prefs: stay with the default (web only).
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  const setShowCliSessions = useCallback((value: boolean) => {
-    setShowCliSessionsState(value);
-    // Fire-and-forget: PUT /me/prefs merges shallowly; a lost write only costs persistence,
-    // the in-memory toggle already took effect.
-    void api.putPrefs({ showCliSessions: value }).catch(() => undefined);
-  }, []);
   // Generation counter: invalidates any in-flight response once the Project/Agent set
   // changes or a reload happens.
   const gen = useRef(0);
@@ -168,7 +142,6 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
                   limit: SIDEBAR_PAGE_SIZE + 1,
                   category,
                   ...(category === "active" ? { withCounts: true } : {}),
-                  ...(showCliSessions ? { cli: true } : {}),
                 });
                 return {
                   category,
@@ -217,7 +190,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     } finally {
       if (g === gen.current) setLoading(false);
     }
-  }, [projectId, agentIdsKey, showCliSessions]);
+  }, [projectId, agentIdsKey]);
 
   useEffect(() => {
     setSessions([]);
@@ -259,7 +232,6 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
                 offset,
                 limit: SIDEBAR_PAGE_SIZE + 1,
                 category,
-                ...(showCliSessions ? { cli: true } : {}),
               })
             ).sessions;
             return { agentId, ...splitPage(fetched, SIDEBAR_PAGE_SIZE) };
@@ -289,7 +261,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [projectId, showCliSessions],
+    [projectId],
   );
 
   const isLoadedFor = useCallback(
@@ -441,8 +413,6 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       replace,
       setStatus,
       setTitle,
-      showCliSessions,
-      setShowCliSessions,
     };
   }, [
     sessions,
@@ -458,8 +428,6 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     replace,
     setStatus,
     setTitle,
-    showCliSessions,
-    setShowCliSessions,
   ]);
 
   return <SessionsContext.Provider value={value}>{children}</SessionsContext.Provider>;
