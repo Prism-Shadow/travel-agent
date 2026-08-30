@@ -51,12 +51,12 @@ function readJpegFrame(buffer: Buffer): JpegFrame {
 }
 
 describe("travel cover catalog", () => {
-  it("contains the 84 unique assets delivered through Batch A", () => {
-    expect(TRAVEL_COVER_CATALOG).toHaveLength(84);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(84);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(84);
+  it("contains the 120 unique assets delivered through Batch B", () => {
+    expect(TRAVEL_COVER_CATALOG).toHaveLength(120);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(120);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(120);
     expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 1)).toHaveLength(48);
-    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(36);
+    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(72);
     expect(
       Object.fromEntries(
         ["destination", "activity", "season", "generic"].map((kind) => [
@@ -64,7 +64,7 @@ describe("travel cover catalog", () => {
           TRAVEL_COVER_CATALOG.filter((asset) => asset.kind === kind).length,
         ]),
       ),
-    ).toEqual({ destination: 42, activity: 21, season: 12, generic: 9 });
+    ).toEqual({ destination: 60, activity: 30, season: 16, generic: 14 });
     expect(
       TRAVEL_COVER_CATALOG.every(
         (asset) => asset.src === `/travel-covers/${asset.id}.jpg` && asset.source === "generated",
@@ -130,6 +130,15 @@ describe("selectTravelCovers", () => {
     ["Palawan snorkeling over the reef", "snorkeling-lagoon"],
     ["Family holiday with grandparents", "multi-generation-family-holiday"],
     ["A spring rain garden escape", "spring-rain-garden"],
+    ["Lisbon hillside tram weekend", "lisbon-hillside-tram"],
+    ["爱丁堡秋日老城", "edinburgh-old-town-mist"],
+    ["Stockholm archipelago summer", "stockholm-archipelago"],
+    ["冰岛黑沙滩冬季之旅", "iceland-black-sand-coast"],
+    ["Vineyard lunch in autumn", "vineyard-lunch"],
+    ["Classical concert hall evening", "classical-concert-hall"],
+    ["海岸徒步周末", "coastal-cliff-hike"],
+    ["Anniversary city break", "anniversary-city-break"],
+    ["A misty autumn vineyard", "autumn-vineyard-mist"],
   ])("matches %s to %s", (title, expected) => {
     expect(selectTravelCovers([{ sessionId: "session-1", title }])[0]?.id).toBe(expected);
   });

@@ -58,8 +58,59 @@ Status: accepted
 | route-planning-table | exec-6b1e4ce7-db48-47e1-825f-2c6be1ea2a23 | 85033 | 43765f585dadabaf6313af6cb9a6e3440196e1df513acbc16a99229cd45081b1 | Accepted after rework |
 | train-window-landscape | exec-608b1488-491f-4c02-9af8-b9a185eb4cfa | 72921 | 1d53273b9880389cf1135dd699a4b629ffa473704fc5cce49611a92b8c930a71 | Accepted |
 
-## Batches B–D
+## Batch B — Europe
+
+Status: accepted
+
+- Accepted: 36 of 36
+- Runtime footprint: 4,208,521 bytes; 116,903 bytes average; 183,206 bytes maximum
+- Technical QA: all files are 960×720, three-component, progressive sRGB JPEGs with EXIF, ICC, and
+  XMP metadata removed; every file is at most 250 KiB
+- Visual QA: all assets were inspected at full runtime resolution in six 3×2 contact sheets, plus
+  targeted individual inspection where text or anatomy risk was higher
+- Reworked before acceptance: `lisbon-hillside-tram` had three readable house-number plaques;
+  the accepted edit removes them while preserving the tram, architecture, light, and crop
+
+| Catalog id | ImageGen output id | Bytes | SHA-256 | Review |
+| --- | --- | ---: | --- | --- |
+| london-riverside-morning | exec-eb9f20a0-79d6-496e-9b67-3eb09545e069 | 139036 | d89da643995481108794b282253a6001589d08c0f7669c454591826e0c95ad0f | Accepted |
+| edinburgh-old-town-mist | exec-7db5ee91-c10a-4836-83b9-325f85ca6251 | 134061 | 6e9de297e35586a8fd953a2977055d2c3432a15f0ba8c8d94bf75b7304d57406 | Accepted |
+| lisbon-hillside-tram | exec-7626415a-5c75-4a8d-822a-73a4a8c93929 | 137014 | 91549ad0dfa7b08d67c4a08c01ec7f83084abd215330068a51cb5fb9d0a5cbcf | Accepted after rework |
+| porto-riverside-dawn | exec-c6526bc6-9829-4856-bc33-6456c25eef8f | 90688 | 632056e082be3cab30cd85a791e24c9d129610e52d763e8bc43020c5fece425b | Accepted |
+| venice-canal-morning | exec-0af8971a-3c02-4cd6-bbaf-9a75f29df6e8 | 158455 | d9284a46057704e967bb2654f54ee18ae72d664b5bc2d8b4382602de6ce53084 | Accepted |
+| florence-rooftops-sunset | exec-4afca3c0-bd3f-4454-83ed-6cc622aeffb2 | 110347 | f1e8bbc445b4a3a4f30fb7956907d57d39a1bddbb94a2c9cea2cf4ece00dac79 | Accepted |
+| vienna-cafe-street | exec-6dbac014-509b-4909-95d4-801782358f45 | 120853 | afeba24f9ac62b1c29371119ee200607fccea44de31bb33272152d34dfd1ae4d | Accepted |
+| prague-rooftops-dawn | exec-e6dfbdf0-188e-46b6-8ca5-9aecc99876e5 | 80861 | b1c88344cfe59d233a13af7cfbe4c6d6efbcf83ac54ac6a781926b092cf21642 | Accepted |
+| budapest-danube-evening | exec-55aa893b-026c-4256-9099-4863aa956a3a | 125432 | 13af2f1bea9a2f761e4b04641731505db8e9d5bfbbc305e84401d6b80e41931f | Accepted |
+| copenhagen-harbour | exec-43943d49-9b1b-489e-881f-b7bb480cf894 | 164035 | 045de634d834114ef364394a5721e8df19b020b5b13e9150fd3b8235dd22c1b4 | Accepted |
+| stockholm-archipelago | exec-413e9399-9d3a-448f-8016-f8411e49c11c | 121373 | 7279ee7f4487b10cd14bbe11716b0b6a675b102d6b0f9442b6d5844a1c19d8f8 | Accepted |
+| norwegian-fjord-village | exec-6dfe3b17-fc19-4eb4-965b-7af532dc8719 | 141117 | a232a2dc4412bbb3e9b581cc23a28e862b7c1ecde9974692dc146bf536ae345f | Accepted |
+| iceland-black-sand-coast | exec-ded4beb9-04aa-4707-ac9b-4501cf39d535 | 77157 | c31fc8feb7e5ed2f42c6f56a9ffcdcce18e08f776c23205b78eb40aeff8cbdff | Accepted |
+| bavarian-alpine-village | exec-c167c769-8403-463a-abfa-645a9e2852f5 | 115459 | 7b671fb38cafb68ec5c55221522c9a850adc9cda2a7d56f2d9ae2a72b7effe58 | Accepted |
+| provence-lavender-road | exec-789ece45-3343-4766-8b9e-b0c8d2bcc002 | 151002 | 4769e3f25ae211b451b89222e6c54b7a61fdc60554da72f85daf186a0a54eb01 | Accepted |
+| croatian-adriatic-town | exec-f4900c29-b58e-419d-a4e3-75dcd6280c3c | 160548 | 2ca95fd9d657c428d4333dbd99701fe9a0b70aff76059ce913081363d1b8c52f | Accepted |
+| slovenia-lake-morning | exec-79d86057-ba7f-40c5-b0d7-2d56b4a0e6f5 | 74496 | 4663e597deb3a6d75ff0bd2a76bf7eb129890ef7a8ea0e79c1f6a1811245d579 | Accepted |
+| ireland-atlantic-cliffs | exec-a4f13ae1-d2f5-4061-a7af-dfa859ae1a78 | 161816 | 6c20794988699b9d19d5873bf1e56e1c2a8078f4c6b488c00ec3be19e3a8cbea | Accepted |
+| canal-boat-journey | exec-6b0b80fc-33bb-4307-85fe-5ab21a137c80 | 183206 | 75113c27b477acd9b8edcaa3db77b600184b2e2a3d023037752df8f12ae5d140 | Accepted |
+| bakery-crawl | exec-7b3ced26-68c8-46ad-8452-7e68fa5db74f | 95750 | 59f891901002fa97c532965161cffa9f8e68daa97bcf96233bc0006862a5b0d5 | Accepted |
+| vineyard-lunch | exec-7c565538-864e-4d3b-a2f3-80f2f2513a52 | 134145 | 9c756a466d15049c541e38b42ee559ac09cb0d1510264100bde94b91e09eae7d | Accepted |
+| historic-architecture-walk | exec-ac88dce1-0ff9-4a25-8c84-784764de9182 | 153430 | 04697c3d443ed616c052000d2c2b0d6762937a95d167000a75f55ba73f53cf29 | Accepted |
+| classical-concert-hall | exec-4ad2a4d3-b73a-483f-a902-3ab8dff271a0 | 155377 | af7306b6b985e584e43e2db9669c24d07d73e15ed8ca9a5c7aa8754626017890 | Accepted |
+| alpine-ski-touring | exec-2114ea93-9f10-4c5d-bd4c-03808b6db9b5 | 67299 | 31d8ccc8bbab05d4804519a8a89fa1ccd8286889c6168c185ee25dcd326a299d | Accepted |
+| coastal-cliff-hike | exec-8f538073-395a-4038-bb92-3a5392079beb | 136920 | 7ee5bb70f7e1c5354c76ba53be4298725c646906a3510b36c4270d0a36723d2f | Accepted |
+| boutique-hotel-breakfast | exec-f33721c0-1641-4dda-827c-91a91335e080 | 85049 | 5c99bc723ae5d69d0147ebaa23ba21a244b379f97bbad661b9dd2852c2fb374e | Accepted |
+| anniversary-city-break | exec-46db0bd2-5f80-4edd-9b0e-badc654c6b68 | 105803 | 8646b740c92c975c0252d5ec246c470636d1df2516c71a6397e815553ed734c3 | Accepted |
+| spring-meadow-cottage | exec-bb2718b5-d168-4d5c-9f92-732cec21b6f4 | 164526 | c6f3539a9f508cd39543b44286a547921f363d4946c472bb5bf5ab695ad3e8c7 | Accepted |
+| summer-mediterranean-evening | exec-be7fa829-053b-4468-b176-db1af243f437 | 100858 | b9261bd515449f98ee58c5dc924bcf95fbb00e4a1cac3d7931f0303e0d4b925c | Accepted |
+| autumn-vineyard-mist | exec-190b54f8-17fd-4ec2-86c1-875e65f9fac4 | 102931 | 614b1af45b34ed9b76c11109e59086cc0b21d7d6db3625018b6ca82d36427330 | Accepted |
+| winter-european-lake | exec-b3fa420d-1881-42ed-b696-bf34cb024d18 | 91309 | 1653d4eef707b8c98d8a61ae9e8e2d22841dff97ba06b965c1e57b33021bbf4b | Accepted |
+| hotel-key-and-luggage | exec-f4d5b7f8-e2e3-4e50-bade-9ffa1ee6017a | 75129 | c2bef37548d22b48f135effc2c5ba213ec5c80c09b86ce26ca88cdaf7ce60d0b | Accepted |
+| rainy-window-departure | exec-e0e3da37-f98e-49b5-a6b0-670f47360103 | 82681 | bc72da91ed4e38d9185d0b05158c60b5ef4ef2506187e7f4e4653a2e9aa62e10 | Accepted |
+| carry-on-cafe-table | exec-c659157c-57a2-4a7e-8471-2ce40dd83ee2 | 64986 | 5711076b213a765845231440482166224a7573cf2b7f2c637e924a38cdd38292 | Accepted |
+| boarding-gate-silhouette | exec-08668bca-a0e9-4417-8443-97ada8288744 | 73459 | da01abf0cba89266c3d72a3b747e8197b5b3015f8565b3b0c9e3f3bfe3c339a6 | Accepted |
+| weekend-bag-entryway | exec-7a87387a-5889-4c79-ab7c-22c1002695e4 | 71913 | b5367e8b522379303c16d6211d663e0dbd2c0a106fb8464e1b91ef86c42200b4 | Accepted |
+
+## Batches C–D
 
 Not generated. Their ids and scene specifications are locked in
-`tasks/travel-cover-library-192-prompts.md`. Add one section per completed batch before committing
-its runtime files.
+`tasks/travel-cover-library-192-prompts.md`.
