@@ -280,10 +280,8 @@ export const en: Strings = {
     users: "Users",
     roleAdmin: "Admin",
     roleUser: "User",
-    createUser: "Add user",
     initialPassword: "Initial password",
     initialPasswordFlag: "initial password",
-    defaultProjectNote: (id: string): string => `A default Project will be created: ${id}`,
     resetPassword: "Reset password",
     resetPasswordTitle: (u: string): string => `Reset password for ${u}`,
     resetPasswordNote:

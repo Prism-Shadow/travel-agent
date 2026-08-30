@@ -6,8 +6,6 @@
  */
 import type {
   AdminPasswordResetRequest,
-  AdminUserCreateRequest,
-  AdminUserCreateResponse,
   AdminUsersResponse,
   AgentConfigResponse,
   AgentConfigUpdateRequest,
@@ -113,9 +111,6 @@ export const putPrefs = (prefs: UiPrefs) =>
 // Admin user management (admin only) -----------------------------------------------------
 
 export const adminListUsers = () => apiFetch<AdminUsersResponse>("/api/admin/users");
-
-export const adminCreateUser = (body: AdminUserCreateRequest) =>
-  apiFetch<AdminUserCreateResponse>("/api/admin/users", { method: "POST", body });
 
 export const adminResetPassword = (userId: string, body: AdminPasswordResetRequest) =>
   apiFetch<void>(`/api/admin/users/${encodeURIComponent(userId)}/password`, {

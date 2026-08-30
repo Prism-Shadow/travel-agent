@@ -1,23 +1,19 @@
 /**
- * User management page (admin only): user list + create / reset password / delete.
- * Registration is closed: new users are created here, with the initial password set by the admin and
- * communicated offline; deleting a user also deletes all their Projects (including data directories),
- * with a confirmation dialog.
+ * User management page (admin only): user list + reset password / delete.
+ * Account provisioning is not part of the consumer surface; deleting an existing user also deletes
+ * all their Projects (including data directories), with a confirmation dialog.
  */
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import type { UserInfo } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
-import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
-import { USERNAME_PATTERN } from "../../lib/semantic-id";
 import { formatDateTime } from "../../lib/format";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { useAuth } from "../../state/auth";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
 import { PasswordInput } from "../../components/ui/password-input";
 import { Modal } from "../../components/ui/modal";
 
@@ -26,7 +22,6 @@ export function AdminUsersPage() {
   const { user, desktopMode } = useAuth();
   const [users, setUsers] = useState<UserInfo[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
   const [resetting, setResetting] = useState<UserInfo | null>(null);
   const [deleting, setDeleting] = useState<UserInfo | null>(null);
 
@@ -51,12 +46,7 @@ export function AdminUsersPage() {
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{S.admin.users}</h1>
-          <Button variant="primary" onClick={() => setCreateOpen(true)}>
-            {S.admin.createUser}
-          </Button>
-        </div>
+        <h1 className="mb-4 text-xl font-semibold">{S.admin.users}</h1>
 
         {users === null ? (
           <p className="text-sm text-gray-400">{S.common.loading}</p>
@@ -109,14 +99,6 @@ export function AdminUsersPage() {
         {listError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{listError}</p>}
       </div>
 
-      <CreateUserDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onDone={() => {
-          setCreateOpen(false);
-          void reload();
-        }}
-      />
       <ResetPasswordDialog user={resetting} onClose={() => setResetting(null)} />
       <DeleteUserDialog
         user={deleting}
@@ -127,109 +109,6 @@ export function AdminUsersPage() {
         }}
       />
     </div>
-  );
-}
-
-function CreateUserDialog({
-  open,
-  onClose,
-  onDone,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [userId, setUserId] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ userId?: string; password?: string }>({});
-  const [busy, setBusy] = useState(false);
-  const clearErrors = () => setErrors((p) => (p.userId || p.password ? {} : p));
-
-  useEffect(() => {
-    if (!open) return;
-    setUserId("");
-    setPassword("");
-    setErrors({});
-  }, [open]);
-
-  const submit = async () => {
-    const id = userId.trim();
-    const next: { userId?: string; password?: string } = {};
-    if (!id) next.userId = S.common.requiredField;
-    else if (!USERNAME_PATTERN.test(id)) next.userId = S.auth.usernameHint;
-    if (!password) next.password = S.common.requiredField;
-    if (next.userId || next.password) {
-      setErrors(next);
-      return;
-    }
-    setBusy(true);
-    setErrors({});
-    try {
-      await api.adminCreateUser({ userId: id, password });
-      onDone();
-    } catch (e) {
-      // Route by error code: invalid_password is about the password's strength;
-      // user_exists (and anything unrecognized) is about the id.
-      if (e instanceof ApiError && e.code === "invalid_password") {
-        setErrors({ password: apiErrorText(e) });
-      } else {
-        setErrors({ userId: apiErrorText(e) });
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      title={S.admin.createUser}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose} disabled={busy}>
-            {S.common.cancel}
-          </Button>
-          <Button variant="primary" disabled={busy} onClick={() => void submit()}>
-            {S.common.create}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <Input
-          label={S.common.username}
-          required
-          size="sm"
-          value={userId}
-          onChange={(e) => {
-            setUserId(e.target.value);
-            clearErrors();
-          }}
-          error={errors.userId}
-          hint={S.auth.usernameHint}
-          autoFocus
-        />
-        <PasswordInput
-          label={S.admin.initialPassword}
-          required
-          size="sm"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            clearErrors();
-          }}
-          error={errors.password}
-          autoComplete="new-password"
-          hint={S.auth.passwordHint}
-        />
-        {USERNAME_PATTERN.test(userId.trim()) && (
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            {S.admin.defaultProjectNote(`${userId.trim()}-default_project`)}
-          </p>
-        )}
-      </div>
-    </Modal>
   );
 }
 

@@ -27,7 +27,9 @@ On first visit without a configured key, the chat page shows a one-time credenti
 leads there. Interface preferences (language, theme, font, display currency) live in the
 sidebar's account menu; new-chat engine defaults (agent, approval mode, thinking level,
 workspace) still resolve from the Project's server-side defaults but are not editable on this
-surface.
+surface. The inherited multi-user server API remains available to deployments and test setup, but
+this consumer surface does not provision accounts: its admin Users page only lists existing users
+and supports password reset or removal.
 
 ## What it owns
 
