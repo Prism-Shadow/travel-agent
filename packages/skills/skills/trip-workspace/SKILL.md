@@ -72,8 +72,8 @@ not settled it, leave the file alone and ask.
   "tripId": "t-1a2b3c4d",
   "name": "Tokyo in October",
   "destination": "Tokyo",
-  "when": { "kind": "flexible", "days": 5, "month": "2026-10" },
-  "who": { "adults": 2, "children": 0, "infants": 0 },
+  "when": { "kind": "flexible", "days": 5, "months": ["2026-10", "2026-11"] },
+  "who": { "adults": 2, "children": 0, "infants": 0, "pets": 0 },
   "budget": "mid",
   "createdAt": "2026-08-26T09:00:00.000Z",
   "updatedAt": "2026-08-26T09:00:00.000Z"
@@ -81,8 +81,11 @@ not settled it, leave the file alone and ask.
 ```
 
 - `when` is either `{"kind":"dates","start","end"}` (either end may be `""`) or
-  `{"kind":"flexible","days","month"}`. Flexible dates are a licence to compare across days when
-  that finds a better option — use it.
+  `{"kind":"flexible","days","months"}` — `months` is a list of `YYYY-MM` entries and empty means
+  any month. Flexible dates are a licence to compare across days and months when that finds a
+  better option — use it.
+- `who.pets` changes what qualifies, not the price bracket: a stay that does not take animals is
+  not an option at all.
 - `budget` is a tier (`any`, `low`, `mid`, `high`, `luxury`), never a number. Treat it as the
   shape of what to propose, never as authority to spend.
 - A field may be `null` or `""`: that means the person has not said. Ask, or proceed and tell them

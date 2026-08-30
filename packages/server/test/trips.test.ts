@@ -82,6 +82,26 @@ describe("trips", () => {
     });
   });
 
+  it("reads rows written in the retired shapes as today's shapes", async () => {
+    // Before 2026-08-30, flexible `when` carried one `month: string` and `who` had no `pets`.
+    // Dev databases hold such rows; they must translate on read, not crash the sidebar's
+    // meta line (`when.months.join`) or degrade to "not set".
+    const trip = await createTrip({ destination: "Kyoto" });
+    t.deps.db
+      .prepare("UPDATE trips SET when_json = ?, who_json = ? WHERE trip_id = ?")
+      .run(
+        JSON.stringify({ kind: "flexible", days: 5, month: "2026-10" }),
+        JSON.stringify({ adults: 2, children: 1, infants: 0 }),
+        trip.tripId,
+      );
+
+    const res = await api.get(`/api/trips/${trip.tripId}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as TripResponse;
+    expect(body.trip.when).toEqual({ kind: "flexible", days: 5, months: ["2026-10"] });
+    expect(body.trip.who).toEqual({ adults: 2, children: 1, infants: 0, pets: 0 });
+  });
+
   it("creates a trip from nothing: no destination, no dates, an honest name", async () => {
     const trip = await createTrip({});
     expect(trip.name).toBe("Untitled trip");

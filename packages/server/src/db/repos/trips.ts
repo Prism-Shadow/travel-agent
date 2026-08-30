@@ -54,14 +54,35 @@ function parseJson<T>(raw: unknown): T | null {
   }
 }
 
+/**
+ * Shapes this schema has retired: flexible `when` carried one `month: string`, and `who` had no
+ * `pets`. A row written then still states a fact the person gave, so it is translated on read
+ * rather than degraded to "not set" — dropping it would silently unanswer a chip they answered.
+ * The next write re-mirrors the row in today's shape.
+ */
+function normalizeWhen(parsed: TripWhen | null): TripWhen | null {
+  if (parsed === null || parsed.kind !== "flexible" || Array.isArray(parsed.months)) return parsed;
+  const legacy = (parsed as { month?: unknown }).month;
+  return {
+    kind: "flexible",
+    days: parsed.days,
+    months: typeof legacy === "string" && legacy !== "" ? [legacy] : [],
+  };
+}
+
+function normalizeWho(parsed: TripWho | null): TripWho | null {
+  if (parsed === null || typeof parsed.pets === "number") return parsed;
+  return { ...parsed, pets: 0 };
+}
+
 function mapRow(r: Record<string, unknown>): TripRow {
   return {
     tripId: r.trip_id as string,
     projectId: r.project_id as string,
     name: r.name as string,
     destination: (r.destination as string | null) ?? "",
-    when: parseJson<TripWhen>(r.when_json),
-    who: parseJson<TripWho>(r.who_json),
+    when: normalizeWhen(parseJson<TripWhen>(r.when_json)),
+    who: normalizeWho(parseJson<TripWho>(r.who_json)),
     budget: (r.budget as TripBudgetTier | null) ?? null,
     dir: r.dir as string,
     createdAt: r.created_at as string,
