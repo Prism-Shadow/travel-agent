@@ -1,6 +1,6 @@
 # Travel cover library expansion: 48 → 192
 
-Status: in progress; Batches A–C accepted (156 of 192 total assets delivered)
+Status: in progress; Batches A–D accepted (192 of 192 assets delivered), final verification pending
 
 ## Goal
 
@@ -66,11 +66,11 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
 
 ### Batch D — Africa, Middle East, and gap fill
 
-- [ ] Add 18 destination scenes across Africa and the Middle East, then use remaining slots to fill
+- [x] Add 18 destination scenes across Africa and the Middle East, then use remaining slots to fill
       coverage gaps identified after Batches A–C.
-- [ ] Add 9 activity scenes needed to bring every activity intent group to eight assets.
-- [ ] Add 4 season/weather scenes needed to reach balanced final coverage.
-- [ ] Add 5 generic scenes needed to reach 24 neutral fallbacks.
+- [x] Add 9 activity scenes needed to bring every activity intent group to eight assets.
+- [x] Add 4 season/weather scenes needed to reach balanced final coverage.
+- [x] Add 5 generic scenes needed to reach 24 neutral fallbacks.
 - [ ] Complete metadata, technical validation, visual QA, selection tests, and responsive UI QA.
 
 ## Preparation before generation
@@ -197,5 +197,8 @@ Generate and review four independent batches. Each batch adds exactly 36 assets:
   review contract.
 - Batch C adds 36 accepted prompt-version-2 assets and brings the runtime catalog to 156. Its North
   and Latin America scenes pass the same technical and visual review contract.
-- The locked prompt matrix reaches 192 through three remaining 36-asset batches, keeping cost,
-  review, rollback, and CI failures bounded to one batch at a time.
+- Batch D adds 36 accepted prompt-version-2 assets and brings the runtime catalog to 192. Its Asia,
+  Africa, Middle East, activity-gap, season, and generic scenes pass the same technical and visual
+  review contract.
+- The four independent batch commits keep cost, review, rollback, and CI failures bounded to one
+  36-asset change at a time.

@@ -162,7 +162,55 @@ Status: accepted
 | reusable-bottle-backpack | exec-269860d2-4bd9-4c61-8598-404e49dd35f6 | 71921 | 5bf4f5673f161919f865346e2e033533968f5876a4682fe9a14fd9eebf478fd7 | Accepted |
 | motel-arrival-twilight | exec-ed389d92-7994-4643-99ca-29ecfb333212 | 84617 | f1c1781e088b26e6467a18d47f69b2ff9b0f920c202f5bd6d2960fbaee04ba3e | Accepted |
 
-## Batch D
+## Batch D — Asia, Africa, Middle East, and remaining intent gaps
 
-Not generated. Its ids and scene specifications are locked in
-`tasks/travel-cover-library-192-prompts.md`.
+Status: accepted
+
+- Accepted: 36 of 36
+- Runtime footprint: 3,975,808 bytes; 110,439 bytes average; 186,012 bytes maximum
+- Technical QA: all files are 960×720, three-component, progressive sRGB JPEGs with EXIF, ICC, and
+  XMP metadata removed; every file is at most 250 KiB
+- Visual QA: all assets were inspected at full runtime resolution in six 3×2 contact sheets, plus
+  targeted individual inspection where anatomy, equipment, or text risk was higher
+- Reworked before acceptance: `autumn-savanna-gold` repeated the acacia-silhouette composition and
+  palette of `serengeti-dawn`; the accepted edit uses a low grass-focused composition with no trees
+  or wildlife
+
+| Catalog id | ImageGen output id | Bytes | SHA-256 | Review |
+| --- | --- | ---: | --- | --- |
+| kanazawa-garden-winter | exec-f8a7316c-cabf-4fec-9c55-94b02e979279 | 186012 | c4edde1846da8e056731eed8ca9c41fc570e704c5a31c1ff8b69022cf1f519db | Accepted |
+| busan-coast-morning | exec-c8c7b043-3b7e-4a07-9c3f-50880e4bcad0 | 105448 | a5ae80d74f6c09185b474b54f69e4d61081979189e46899349a5788517e3669a | Accepted |
+| zhangjiajie-mist-mountains | exec-a116a9b7-fd36-45d8-b61d-5b27c3b01709 | 79951 | 580d38267f392dcc0d18fb0495ea8ac0e0a0e6c2f13dcea97bf6c06733f455ea | Accepted |
+| mongolia-steppe-camp | exec-ac406590-dfea-4cac-9f38-9828fc226f97 | 111753 | 029caecc3663574fa87245c40e7d50a53f1a227225fa93c2016809186b4820a9 | Accepted |
+| kuala-lumpur-tropical-rooftops | exec-922190de-edb5-46ce-9bf4-8400e2a1217c | 105642 | 4e2d6f9c19732a989f454d61802e6292686211d4cb7fcd36644c16db3320ecd0 | Accepted |
+| siem-reap-forest-temples | exec-8a67a5af-38d4-4590-be80-091fb7ee593f | 138502 | 69af2b36682e2839da44f7e447a68af2e9fe5502f577f3a20dc23a1c90517a34 | Accepted |
+| komodo-island-coast | exec-956a99c7-e2ac-4601-8340-931b6ae96a81 | 153124 | 5d2927426401ed414c46d0dc5be703456da3eedb22d90adcfbc2cbb4d117a17a | Accepted |
+| jaipur-courtyard-morning | exec-c9a8987d-6e68-4c54-ba24-69df150712c7 | 147937 | 15a8e01675a908e260421b7c094494ed06130c8a9cea821e8ddbaf80109f63ed | Accepted |
+| nepal-himalayan-village | exec-4750d62f-a401-42d1-8e0b-556a3d330344 | 178530 | bcf709dd7ecb2b5002ee434f3446b5d914c400a126aa871c43d957619320381f | Accepted |
+| sri-lanka-tea-hills | exec-ad069182-f563-49f3-a9ae-4b20251f0d7c | 139430 | 6bd0375633eb628806745b72ac80ae6275516a07d8ea5d3c3779fe4d1e415b3b | Accepted |
+| istanbul-bosphorus-dawn | exec-dac69761-a1ad-42f8-bb54-f0e53f1b1f0f | 95764 | 2c7a53653b5cbbc43ad9f197d1e433bff63d5b4cc9226f69209477638192df7e | Accepted |
+| jordan-wadi-desert | exec-4e4ce202-bd6d-4189-a7f9-6d64ff7ae256 | 96660 | f67e312ca706ff6a7b298342598e08ee962d78f910340abae881d7fece275c07 | Accepted |
+| oman-mountain-wadi | exec-e4b4d277-0923-4943-8e5f-8db2d5adab1c | 143146 | bdac7998a7fecab3f0c53602828e3fc12ccb3d72cc97978ae6bb3a7ef055cfc9 | Accepted |
+| serengeti-dawn | exec-8710fbc3-7ac1-4983-8aa0-bcd765f458c6 | 79002 | 465d8522b5242bd5e273181cdb86458ea128c6a703f7b8f9b1c9dc0c2cf16da5 | Accepted |
+| zanzibar-stone-town | exec-0e24c603-9b30-4c69-9dd6-ae9ecf448e4b | 175391 | 1dee092d17eb562602dae61077607aaf4c358c3c9440b06390c2373283347643 | Accepted |
+| namibia-dunes | exec-6913a7ed-ce9a-4918-b538-23b5a670a6c3 | 65115 | e7cef0e144f39caeb18f32e2456182646f779d7f4a838b292f800b9c9b69ac5a | Accepted |
+| cairo-nile-evening | exec-2480104a-a98f-4d8e-b1c7-d73d531f9614 | 106551 | 4e3496cd07144d6bdc37533a356ed8a2d9b132e491747ca37b0b4073ce5db8e4 | Accepted |
+| queensland-reef-islands | exec-e0c0b3fd-977a-4bac-97f5-da948f7e2622 | 107424 | 4e63ca203defb6a0508b6559d75fd463e78eac6a2673dd31c4c306e21253c8f8 | Accepted |
+| desert-road-journey | exec-0bb726aa-5d23-42ed-84ce-4c1b63b6957b | 59881 | 78801f82b7a8cf4b7fcab4c7b818282a145c506d6d5d7da9d294f34c6cf66f8a | Accepted |
+| spice-market-cooking | exec-25ca4542-b2c1-47d7-a21e-cc93624a00e2 | 72369 | d4ce6f3cd5f0960ed5cb96d3ddff99a3f8e437a1ac55ba2f8100f8f9c768f3fe | Accepted |
+| artisan-workshop-visit | exec-9a50d20d-7ea6-4fc8-a6e7-f278ed86ff85 | 91191 | 7d63019320cc9960606bf0ed39decc79bd98661ec72913ad20c2fffcdeb4ef6f | Accepted |
+| archaeological-site-walk | exec-131ce592-f11f-47c9-968b-7e55bdf2b773 | 139597 | 06366a8e1af9eea37918b869155cdb106b6d1d95211fd07319873f4c12e0d6c6 | Accepted |
+| safari-game-drive | exec-c9208b56-be6b-4789-8b20-5b430c211a04 | 65551 | a34f62e11a3b0c1f32c68c1ac7b3e8e0815d2fef4fa2c3bd6b861a352713b006 | Accepted |
+| desert-camp-evening | exec-925690a6-e94e-44b1-9fb7-b3c206212493 | 52863 | ad300291151f6ac59c2fc9c04e313b8e4cb4b187a17db08e6e723ee8d236b43c | Accepted |
+| eco-lodge-rainforest | exec-bc199035-5e7a-4181-9e0f-5eb3dea52807 | 155658 | 10a328c56337ad5fe25549fc18e568abd2c32cb07831ad1702c63733dfd33335 | Accepted |
+| honeymoon-island-escape | exec-3482d3d7-83e5-45eb-ab55-e42fc80280fc | 96989 | 13f12ed6686479bb14c5333a097e3943a729cae784506246e24aba23250802ac | Accepted |
+| accessible-travel-city-break | exec-0404c659-00dc-414b-8ea4-c1a8ca8140e4 | 127394 | cb80871a1283effa540b904539157ca0e73e9bd95794060eeec5f05ab54a5dd1 | Accepted |
+| spring-wildflower-valley | exec-9c784430-9676-4a0e-923f-a6e9e2d1637a | 135647 | 86bbd7c54c2adb9f8bb4d5d3b3d62727f17233a64c5778c66e5d75756d63acad | Accepted |
+| summer-tropical-rain | exec-a9fd77ea-1150-445e-8c89-8f50b30d19e3 | 174769 | 0099ad3facf9edb29fde6ba9b348c04cf7f10c5fb37d1e7a1b195fdfecc079f7 | Accepted |
+| autumn-savanna-gold | exec-a1f532a5-8fb3-4018-bcb2-0f3b4c123ae8 | 110902 | 1c982425fe0606d04f0a0e318d440a5339fc27b584d914be9a747cdc97c8f21b | Accepted after rework |
+| winter-desert-night | exec-47091559-edda-479d-98a5-0aa1ff3bdab6 | 86081 | 22743ce9eb5ee17543cbc83bb3ce67accd2fd5438f19c9432aaac1dab8f57a79 | Accepted |
+| itinerary-cards-flatlay | exec-4eaba83c-a2f1-4bd1-9ddc-85f7bf3c619d | 67635 | 86c5998ff940437bba25efec43448d8534a47a1eb6125e772e93993dbc2fd385 | Accepted |
+| charging-kit-travel | exec-f5fcb600-1660-4c2b-b459-fa7bc112e645 | 104770 | 4abdf7ee25eef5f3210e04dc77a48bdaf047697c8d00906d1590a60cbbfcc7eb | Accepted |
+| luggage-rack-room | exec-35f1517e-41c5-4345-bf70-9386d49c20bc | 75974 | e2ee47ac2ad9efe19dda7175074a52c0cde6d5a4bc13606f3f687a556835687e | Accepted |
+| sunrise-through-window | exec-81041f6e-2faf-405e-99f9-f5250090ac90 | 41382 | 8b6cebb05753b4bb332731eefaca3d67c9061202f572e51e2fb32640bcfa3981 | Accepted |
+| compass-and-boots | exec-c34feddc-d1e9-4594-999f-96cbee6a4834 | 101773 | 22732a972f230b3f4d03512aae30e730e6d7bec1594f4bf0b264b359a9f9ad68 | Accepted |

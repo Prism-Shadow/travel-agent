@@ -51,12 +51,12 @@ function readJpegFrame(buffer: Buffer): JpegFrame {
 }
 
 describe("travel cover catalog", () => {
-  it("contains the 156 unique assets delivered through Batch C", () => {
-    expect(TRAVEL_COVER_CATALOG).toHaveLength(156);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(156);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(156);
+  it("contains the complete 192-asset library", () => {
+    expect(TRAVEL_COVER_CATALOG).toHaveLength(192);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(192);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(192);
     expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 1)).toHaveLength(48);
-    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(108);
+    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(144);
     expect(
       Object.fromEntries(
         ["destination", "activity", "season", "generic"].map((kind) => [
@@ -64,7 +64,7 @@ describe("travel cover catalog", () => {
           TRAVEL_COVER_CATALOG.filter((asset) => asset.kind === kind).length,
         ]),
       ),
-    ).toEqual({ destination: 78, activity: 39, season: 20, generic: 19 });
+    ).toEqual({ destination: 96, activity: 48, season: 24, generic: 24 });
     expect(
       TRAVEL_COVER_CATALOG.every(
         (asset) => asset.src === `/travel-covers/${asset.id}.jpg` && asset.source === "generated",
@@ -148,6 +148,15 @@ describe("selectTravelCovers", () => {
     ["Mangrove kayaking adventure", "kayaking-mangroves"],
     ["Solo travel at sunrise", "solo-travel-viewpoint"],
     ["Summer thunderstorm over the plains", "summer-thunderstorm-plains"],
+    ["Kanazawa winter garden retreat", "kanazawa-garden-winter"],
+    ["张家界云雾山峰之旅", "zhangjiajie-mist-mountains"],
+    ["Jordan desert wadi journey", "jordan-wadi-desert"],
+    ["Serengeti dawn wildlife escape", "serengeti-dawn"],
+    ["Plan a safari game drive", "safari-game-drive"],
+    ["无障碍轮椅旅行城市周末", "accessible-travel-city-break"],
+    ["Spice-market cooking class", "spice-market-cooking"],
+    ["Rainforest eco-lodge retreat", "eco-lodge-rainforest"],
+    ["Winter desert night under the stars", "winter-desert-night"],
   ])("matches %s to %s", (title, expected) => {
     expect(selectTravelCovers([{ sessionId: "session-1", title }])[0]?.id).toBe(expected);
   });
