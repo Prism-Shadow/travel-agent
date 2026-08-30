@@ -1022,9 +1022,21 @@ export const zh = {
     draftSubtitle: "告诉我想去哪里，我会替你搜索、比较，并把关键取舍讲清楚。",
     draftPrompt: "从一个想法开始",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations).
+    // The returning-state rail leads with the person's own next trip, rendered purely from
+    // trip.json fields and the session index -- never a model call (the root spec declines a
+    // proactive AI opener; a countdown is arithmetic, not judgement).
+    upNext: {
+      title: "下一程",
+      departsToday: "今天出发",
+      departsTomorrow: "明天出发",
+      departsInDays: (n: number) => `距出发 ${n} 天`,
+      waitingOnYou: (n: number) => `${n} 件等你拍板`,
+      chats: (n: number) => `${n} 个对话`,
+      updated: (date: string) => `更新于 ${date}`,
+    },
     jumpBackIn: "接着上次继续",
-    // Always-available editorial prompts under the recent-session rail. A click starts a
-    // real draft task with the currently selected Agent / model / Workspace settings.
+    // First-run-only editorial prompts (the rail shows them until the first real trip or
+    // conversation exists). A click starts a real draft task with the current settings.
     getInspired: {
       title: "寻找旅行灵感",
       previous: "向左浏览旅行灵感",

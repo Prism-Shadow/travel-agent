@@ -1083,9 +1083,21 @@ export const en: Strings = {
       "Tell me where you want to go. I’ll search, compare, and make the trade-offs clear.",
     draftPrompt: "Start with an idea",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations).
+    // The returning-state rail leads with the person's own next trip, rendered purely from
+    // trip.json fields and the session index -- never a model call (the root spec declines a
+    // proactive AI opener; a countdown is arithmetic, not judgement).
+    upNext: {
+      title: "Up next",
+      departsToday: "Departs today",
+      departsTomorrow: "Departs tomorrow",
+      departsInDays: (n: number) => `Departs in ${n} days`,
+      waitingOnYou: (n: number) => (n === 1 ? "1 waiting on you" : `${n} waiting on you`),
+      chats: (n: number) => (n === 1 ? "1 chat" : `${n} chats`),
+      updated: (date: string) => `updated ${date}`,
+    },
     jumpBackIn: "Jump back in",
-    // Always-available editorial prompts under the recent-session rail. A click starts a
-    // real draft task with the currently selected Agent / model / Workspace settings.
+    // First-run-only editorial prompts (the rail shows them until the first real trip or
+    // conversation exists). A click starts a real draft task with the current settings.
     getInspired: {
       title: "Get inspired",
       previous: "Scroll travel inspiration left",

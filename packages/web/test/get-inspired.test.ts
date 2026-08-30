@@ -13,7 +13,9 @@ describe("welcome Get inspired catalog", () => {
     for (const card of INSPIRATION_CARDS) expect(coverIds.has(card.coverId)).toBe(true);
   });
 
-  it("reserves its covers so recent Sessions use different images", () => {
+  // The rail no longer reserves these covers (its two states are mutually exclusive), but the
+  // library option they used still has to work for the next caller with a reservation to make.
+  it("selectTravelCovers keeps excluded ids out of every pick", () => {
     const inspiredCoverIds = new Set<string>(INSPIRATION_CARDS.map((card) => card.coverId));
     const recentCovers = selectTravelCovers(
       [
