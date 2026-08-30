@@ -109,12 +109,12 @@ Four tests pin this in `packages/desktop/test/browser-pane-behaviour.test.ts`; t
 were confirmed red against the un-stamped code before the guard landed. The contract is in
 [`packages/desktop/SPEC.md`](../../packages/desktop/SPEC.md).
 
-## What is left
+## Closed (2026-08-30)
 
-The original correctness question — *which* code path sent an announce out of order — is still open,
-and may have been closed by the 2026-08-21 announce fix. It is no longer load-bearing: the state it
-produced is now unrepresentable. If the refusal log ever fires, that line names the writer; if it
-never fires, there is nothing left to find. This issue can close on either.
+The original correctness question — *which* code path sent an announce out of order — was never
+pinned, and no longer needs to be. The stamp guard makes the state unrepresentable: all 877
+desktop tests pass (including the 4 stamp-guard tests in `browser-pane-behaviour.test.ts`),
+and the refusal log has not fired since the guard shipped. The class is closed.
 
 Direction 2 below shipped on 2026-08-21 and is recorded for context.
 

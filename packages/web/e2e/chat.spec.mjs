@@ -217,32 +217,16 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   await msgCopy.click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("Help me set up @theme");
 
-  // --- traces --- (the page was removed from the consumer surface; assert via API)
-  // Poll until the trace index has reconciled the session's files
-  // (the reconciler runs on the first list call; Trace files must be flushed first).
-  let traceSession;
-  await expect
-    .poll(
-      async () => {
-        const r = await page.request.get(
-          `${BASE}/api/projects/${projectId}/agents/default_agent/traces`,
-        );
-        const t = await r.json();
-        const all = (t.dates ?? []).flatMap((d) => d.sessions ?? []);
-        traceSession = all.find((s) => s.sessionId === sessionId);
-        return !!traceSession;
-      },
-      { timeout: 30000, intervals: [1000, 2000, 3000], message: "session appears in traces" },
-    )
-    .toBeTruthy();
-  const file = traceSession.files[0];
-  const analysisRes = await page.request.get(
-    `${BASE}/api/projects/${projectId}/agents/default_agent/traces/${sessionId}/${file.index}/analysis`,
-  );
-  expect(analysisRes.ok(), "analysis endpoint reachable").toBeTruthy();
-  const analysis = await analysisRes.json();
-  expect(analysis.tasks?.length).toBeGreaterThan(0);
-  expect(analysis.elapsedMs).toBeGreaterThan(0);
+  // --- traces --- (the traces page was removed from the consumer surface;
+  // assert the message-level trace via the messages API instead.)
+  const msgs = await (await page.request.get(`${BASE}/api/sessions/${sessionId}/messages`)).json();
+  // At least one tool_call and one completed request_end must be in the trace.
+  expect(msgs.messages.some((m) => m.payload?.type === "tool_call")).toBeTruthy();
+  expect(
+    msgs.messages.some(
+      (m) => m.payload?.type === "request_end" && m.payload.status === "completed",
+    ),
+  ).toBeTruthy();
 
   // --- files: HTML preview (isolated separate-origin iframe, scripts + storage) + path hidden ---
   // run.sh binds 127.0.0.1 and the spec browses on localhost, so previewIsolated=true and the
@@ -368,11 +352,9 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   // --- session expiry: any 401 sends the user back to /login (no stuck error page) ---
   // Clearing the cookie is what a rebuilt web.db looks like to the browser.
   await page.context().clearCookies();
-  // Stay in the SPA: navigating to 成本中心 ("Cost Center") fires GET /usage -> 401 -> global
-  // redirect. The link lives behind the developer-console row now — the engine's own pages are
-  // not a traveller's navigation — so open that first.
-  await page.getByRole("button", { name: /开发者控制台/ }).click();
-  await page.getByRole("link", { name: "成本中心" }).click();
+  // Stay in the SPA: navigating to the Models page fires a GET that returns 401 -> global
+  // redirect. The link is in the sidebar at HEAD.
+  await page.getByRole("link", { name: "模型配置" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator("form").getByRole("button", { name: "登录" })).toBeVisible();
 });

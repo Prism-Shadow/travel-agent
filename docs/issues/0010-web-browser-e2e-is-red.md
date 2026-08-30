@@ -1,6 +1,28 @@
 # 0010 — The web browser e2e suite is red, and was red unnoticed
 
-`packages/web/e2e` has **five** failing specs, down from twenty-one. The two most valuable
+## Status update (2026-08-30) — the original five are fixed; three new ones surfaced
+
+The five specs named below are all fixed:
+
+| spec | root cause | fix |
+| --- | --- | --- |
+| `llm-errors` quota-403 | test assumed 250ms backoff base; engine uses 2000ms; status is `failed` not `timeout` | rewrote for 2-rejection mock with real 2s/4s ladder |
+| `compaction` mid-turn | `CONTEXT_WINDOW=240` < `MIN_USABLE_CONTEXT_WINDOW` (4096), so threshold fell back to 128k; mock usage never exceeded it | set threshold via Agent config API (`maxContextLength: 180`) with `CONTEXT_WINDOW=5000` |
+| `malformed` marker | `[malformed]` text markers removed from tool-call-card per user feedback; only StatusIcon `aria-label` carries the reason | assert `getByRole("img", { name: "malformed" })` |
+| `subagent` sidebar folder | trip-mode groups have no server-side per-category totals; the collapsed folder never renders without pre-loaded rows | replaced with API-based `category=subagent` list assertion |
+| `subagent` panel lifecycle | task boundaries no longer close an open panel (use-subagents-panel.ts: "an open panel is not closed here any more") | aligned test with the new behavior |
+
+Three further specs were broken by the consumer-surface refactoring (commits
+`eff07d2`–`0956fb9` that removed the developer console, traces, usage, and benchmark pages):
+`chat` (traces section and session-expiry 401 referenced removed pages), `chat-tweaks`
+(schedule form referenced the removed Agent-settings page), `processes` (cache hit rate
+removed from the details card). All three are also now fixed: **34 passed, 0 failed.**
+
+This issue is **closed**.
+
+---
+
+`packages/web/e2e` had **five** failing specs (down from twenty-one). The two most valuable
 findings were product defects, both now fixed; most of the rest were assertions describing a
 product this repository deliberately left behind.
 

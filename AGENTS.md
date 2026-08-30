@@ -230,8 +230,8 @@ its postmortem when one exists.
 
 | # | Problem |
 | --- | --- |
-| [0008](docs/issues/0008-active-session-lags-one-conversation.md) | The pane's active session lags one conversation behind (stale-writer unpinned); impact reduced to a late strip render since the visibility gate was retired |
-| [0010](docs/issues/0010-web-browser-e2e-is-red.md) | Five `packages/web/e2e` specs still fail, down from twenty-one; the suite ran nowhere until it joined the gate, so **the gate cannot pass until they are fixed** |
+| [0008](docs/issues/0008-active-session-lags-one-conversation.md) | **Closed.** The stamp guard makes the stale state unrepresentable; the refusal log has not fired since the guard shipped |
+| [0010](docs/issues/0010-web-browser-e2e-is-red.md) | **Closed.** All 34 specs pass (was 5 red from the original issue + 3 from the consumer-surface refactoring); the gate step now passes |
 
 ## Editing Workflow
 

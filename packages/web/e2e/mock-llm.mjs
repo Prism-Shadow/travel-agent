@@ -58,7 +58,7 @@ function messageStart(res, msgCount = 1) {
       usage: {
         input_tokens: 40,
         output_tokens: 0,
-        cache_read_input_tokens: 1000 * msgCount,
+        cache_read_input_tokens: 40 * msgCount,
         cache_creation_input_tokens: 10,
       },
     },
