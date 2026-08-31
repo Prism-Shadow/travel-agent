@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
@@ -7,26 +7,101 @@ import {
   type TravelCoverSubject,
 } from "../src/lib/travel-cover-library";
 
+const coverDirectory = fileURLToPath(new URL("../public/travel-covers/", import.meta.url));
+
+interface JpegFrame {
+  marker: number;
+  width: number;
+  height: number;
+  components: number;
+}
+
+function readJpegFrame(buffer: Buffer): JpegFrame {
+  expect(buffer.subarray(0, 2).equals(Buffer.from([0xff, 0xd8]))).toBe(true);
+  let offset = 2;
+  while (offset + 8 < buffer.length) {
+    if (buffer[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    while (buffer[offset] === 0xff) offset += 1;
+    const marker = buffer[offset++];
+    if (marker === undefined || marker === 0xd8 || marker === 0xd9) continue;
+    const segmentLength = buffer.readUInt16BE(offset);
+    if (
+      [0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(
+        marker,
+      )
+    ) {
+      return {
+        marker,
+        height: buffer.readUInt16BE(offset + 3),
+        width: buffer.readUInt16BE(offset + 5),
+        components: buffer[offset + 7] ?? 0,
+      };
+    }
+    offset += segmentLength;
+  }
+  throw new Error("JPEG frame header is missing");
+}
+
 describe("travel cover catalog", () => {
-  it("contains 48 unique optimized assets with generation metadata", () => {
-    expect(TRAVEL_COVER_CATALOG).toHaveLength(48);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(48);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(48);
+  it("contains the 84 unique Phase 1 and Batch A assets with generation metadata", () => {
+    expect(TRAVEL_COVER_CATALOG).toHaveLength(84);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(84);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(84);
     expect(
       TRAVEL_COVER_CATALOG.every(
         (asset) =>
           asset.src === `/travel-covers/${asset.id}.jpg` &&
           asset.source === "generated" &&
-          asset.promptVersion === 1,
+          (asset.promptVersion === 1 || asset.promptVersion === 2),
       ),
     ).toBe(true);
+    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 1)).toHaveLength(48);
+    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(36);
+    expect(
+      Object.fromEntries(
+        ["destination", "activity", "season", "generic"].map((kind) => [
+          kind,
+          TRAVEL_COVER_CATALOG.filter((asset) => asset.kind === kind).length,
+        ]),
+      ),
+    ).toEqual({ destination: 42, activity: 21, season: 12, generic: 9 });
   });
 
-  it("has every catalog image in the public asset directory", () => {
+  it("keeps the manifest and public asset directory in one-to-one parity", () => {
     for (const asset of TRAVEL_COVER_CATALOG) {
       const file = fileURLToPath(new URL(`../public${asset.src}`, import.meta.url));
       expect(existsSync(file), `${asset.id} is missing`).toBe(true);
     }
+    expect(
+      readdirSync(coverDirectory)
+        .filter((name) => name.endsWith(".jpg"))
+        .sort(),
+    ).toEqual(TRAVEL_COVER_CATALOG.map((asset) => `${asset.id}.jpg`).sort());
+  });
+
+  it("keeps every runtime image progressive 960x720 sRGB-compatible JPEG without metadata", () => {
+    let totalBytes = 0;
+    for (const asset of TRAVEL_COVER_CATALOG) {
+      const file = fileURLToPath(new URL(`../public${asset.src}`, import.meta.url));
+      const buffer = readFileSync(file);
+      const frame = readJpegFrame(buffer);
+      totalBytes += statSync(file).size;
+      expect(frame, asset.id).toEqual({ marker: 0xc2, width: 960, height: 720, components: 3 });
+      expect(buffer.includes(Buffer.from("Exif\0\0")), `${asset.id} has EXIF`).toBe(false);
+      expect(buffer.includes(Buffer.from("ICC_PROFILE")), `${asset.id} has an ICC profile`).toBe(
+        false,
+      );
+      expect(
+        buffer.includes(Buffer.from("http://ns.adobe.com/xap/1.0/")),
+        `${asset.id} has XMP metadata`,
+      ).toBe(false);
+      expect(statSync(file).size, `${asset.id} exceeds 250 KiB`).toBeLessThanOrEqual(250 * 1024);
+    }
+    expect(totalBytes / TRAVEL_COVER_CATALOG.length).toBeLessThanOrEqual(160 * 1024);
+    expect(totalBytes).toBeLessThanOrEqual(32 * 1024 * 1024);
   });
 });
 
@@ -37,6 +112,20 @@ describe("selectTravelCovers", () => {
     ["京都秋季红叶行程", "kyoto-temple"],
     ["Family holiday with two children", "family-trip"],
     ["Plan a northern lights escape", "northern-lights"],
+    ["Hokkaido flower fields in summer", "hokkaido-flower-fields"],
+    ["香港雨季城市漫游", "hong-kong-harbour-rain"],
+    ["墨尔本秋日咖啡慢游", "melbourne-laneway-morning"],
+    ["喀拉拉水乡放松之旅", "kerala-backwaters"],
+    ["Hanoi old-quarter weekend", "hanoi-old-quarter"],
+    ["Overnight sleeper train across Japan", "overnight-train-cabin"],
+    ["Ferry island hopping holiday", "ferry-island-hopping"],
+    ["Tea ceremony and tasting", "tea-ceremony-table"],
+    ["Night market food walk", "night-market-stroll"],
+    ["夜市美食散步", "night-market-stroll"],
+    ["Local food market tour", "food-market"],
+    ["Palawan snorkeling adventure", "snorkeling-lagoon"],
+    ["Family holiday with grandparents", "multi-generation-family-holiday"],
+    ["Spring rain garden escape", "spring-rain-garden"],
   ])("matches %s to %s", (title, expected) => {
     expect(selectTravelCovers([{ sessionId: "session-1", title }])[0]?.id).toBe(expected);
   });
