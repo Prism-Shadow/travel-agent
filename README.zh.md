@@ -52,6 +52,23 @@ flowchart TB
 
 选择按对话保存，任务运行时不能切换。在系统默认浏览器中打开当前页面不等于切换 agent 后端。所选后端不可用时不会静默切到另一套登录环境。
 
+## 从源码运行 Desktop
+
+运行应用需要 Node >= 24、pnpm 11，以及一个受支持模型服务商的 API key。
+
+```bash
+git clone https://github.com/Prism-Shadow/travel-agent.git
+cd travel-agent
+pnpm install
+pnpm desktop
+```
+
+`pnpm desktop` 会构建整个 workspace、启动内置服务并打开 Travel Agent 桌面应用。应用窗口会自动以内置管理员身份登录；源码运行的数据保存在 `~/.penguin/dev-data`。
+
+首次使用时，请打开 **Models**，为默认模型填写 API key。也可以先把 `.env.example` 复制为 `.env`，设置 `ANTHROPIC_API_KEY` 或 `DEEPSEEK_API_KEY`，再启动应用。之后新建 Trip 或对话，描述旅行任务即可。新对话默认使用可见的应用内浏览器，因此不需要安装浏览器扩展。
+
+如果希望复用已经登录的 Chrome profile，请按照[浏览器扩展安装说明](packages/browser-extension/README.md#getting-started)构建并加载源码版扩展，然后在任务之间从当前对话的 Browser 菜单选择 **My own Chrome (extension)**。
+
 ## 开发
 
 需要 Node >= 24、pnpm 11。
@@ -66,9 +83,3 @@ pnpm dev                 # server + web；数据在 ~/.penguin/dev-data
 在加入 `penguin-browser` 之前创建的 `default_agent`，下次加载会补上这个 skill。拉代码后请**开一个新对话**——系统提示在创建 session 时组装。
 
 `penguin-browser` CLI 需要在 `PATH` 上（`pnpm build` 会 link）。内置 Skill 会解析本仓 CLI，并使用自动后端路由，确保 agent 遵循 Browser 菜单。
-
-## 这不是什么
-
-- 不是携程 / 飞猪客户端。
-- 不是准备作为产品回赠给 PenguinHarness 的 fork。
-- 不是 PenguinHarness 的签名桌面安装包（那在上游）。

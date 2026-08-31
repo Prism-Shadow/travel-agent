@@ -63,6 +63,30 @@ The choice is stored per conversation and cannot change while a task runs. Openi
 in the system default browser does not switch the agent backend. There is no silent fallback between
 the two profiles when the selected backend is unavailable.
 
+## Run the desktop app from source
+
+Running the app requires Node >= 24, pnpm 11, and an API key for a supported model provider.
+
+```bash
+git clone https://github.com/Prism-Shadow/travel-agent.git
+cd travel-agent
+pnpm install
+pnpm desktop
+```
+
+`pnpm desktop` builds the workspace, starts the embedded server, and opens the Travel Agent desktop
+app. The app window signs in as the built-in administrator automatically, and source-run data is
+kept under `~/.penguin/dev-data`.
+
+On first use, open **Models** and add an API key for the default model. As an alternative for local
+runs, copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY` or `DEEPSEEK_API_KEY` before starting
+the app. Then start a new Trip or conversation and describe the travel task. New conversations use
+the visible in-app browser by default, so no browser extension is required.
+
+To reuse a signed-in Chrome profile instead, build and load the source-only extension by following
+the [browser extension setup](packages/browser-extension/README.md#getting-started), then choose
+**My own Chrome (extension)** from the conversation's Browser menu between tasks.
+
 ## Development
 
 Needs Node >= 24 and pnpm 11.
