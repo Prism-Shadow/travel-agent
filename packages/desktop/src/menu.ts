@@ -10,7 +10,7 @@ import { checkForUpdatesManually, updatesAvailableInThisForm } from "./updater.j
 export const INSTALL_CLI_MENU_LABEL = "Install CLI Commands…";
 
 const CHECK_FOR_UPDATES_MENU_LABEL = "Check for Updates…";
-const REPO_URL = "https://github.com/Youhai020616/travel-agent";
+const REPO_URL = "https://github.com/Prism-Shadow/travel-agent";
 
 export const LOAD_EXTENSION_MENU_LABEL = "Load Penguin Browser Extension…";
 
