@@ -79,6 +79,7 @@ function state(tabs: DesktopTabState[]): BrowserPaneState {
     onSplitterKeyDown: () => {},
     dragging: false,
     dragPreview: null,
+    occlusionPreview: null,
     pane,
   };
 }

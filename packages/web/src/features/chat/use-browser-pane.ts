@@ -118,6 +118,13 @@ export interface BrowserPaneState {
   dragging: boolean;
   /** Frozen frame of the page, shown in the hole while a splitter drag hides the native view. */
   dragPreview: DesktopPageCapture | null;
+  /**
+   * Frozen frame shown in the hole while an overlay occludes the pane (the session-info
+   * popover is the everyday case: a floating panel that really does intersect the pane, so the
+   * native view must hide — but a blank hole beside a small popover reads as "the browser
+   * vanished"). Captured before the hide, exactly like dragPreview.
+   */
+  occlusionPreview: DesktopPageCapture | null;
   /** What the view is doing, pushed from the main process. */
   pane: DesktopPaneState;
 }
@@ -171,6 +178,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   const [fraction, setFraction] = useState<number>(storedFraction);
   const [dragging, setDragging] = useState(false);
   const [dragPreview, setDragPreview] = useState<DesktopPageCapture | null>(null);
+  const [occlusionPreview, setOcclusionPreview] = useState<DesktopPageCapture | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
   const containerNode = useRef<HTMLElement | null>(null);
@@ -492,6 +500,10 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
   useEffect(() => {
     if (!bridge) return;
     let last: boolean | null = null;
+    // Rapid open/close flips invalidate any in-flight capture or capped hide from an earlier
+    // transition — the same token idiom the splitter drag uses.
+    let flip = 0;
+    let previewClear: number | null = null;
     const evaluate = (): void => {
       const node = nodeRef.current;
       const rect = node?.getBoundingClientRect();
@@ -502,7 +514,37 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       const occluded = computeOcclusion(occlusionEntries(), paneRect);
       if (occluded === last) return;
       last = occluded;
-      void bridge.setOccluded(occluded).catch(() => {});
+      const token = ++flip;
+      if (occluded) {
+        // Freeze first, hide second — hiding alone leaves the hole blank around the overlay,
+        // and capture refuses once the view is already hidden (the splitter drag's exact
+        // ladder). The hide waits for the capture or 80ms, whichever is first: a slow capture
+        // must not leave the native surface painting over the overlay that claimed the space.
+        if (previewClear !== null) {
+          window.clearTimeout(previewClear);
+          previewClear = null;
+        }
+        const capture = bridge.captureActivePage().catch(() => null);
+        void capture.then((captured) => {
+          if (token === flip && captured !== null) setOcclusionPreview(captured);
+        });
+        const cap = new Promise<null>((resolve) => {
+          window.setTimeout(() => resolve(null), 80);
+        });
+        void Promise.race([capture, cap]).then(() => {
+          if (token !== flip) return;
+          void bridge.setOccluded(true).catch(() => {});
+        });
+      } else {
+        void bridge.setOccluded(false).catch(() => {});
+        // Keep the frozen frame for a beat while the native surface comes back — the same
+        // 120ms grace endDrag takes — so the hole never blanks between the image and the page.
+        if (previewClear !== null) window.clearTimeout(previewClear);
+        previewClear = window.setTimeout(() => {
+          previewClear = null;
+          setOcclusionPreview(null);
+        }, 120);
+      }
     };
     // Membership is not the only thing that changes the answer: the pane moves when the splitter is
     // dragged or the window resizes, and a floating panel moves when the page scrolls under it. An
@@ -529,6 +571,8 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
       if (frame !== null) cancelAnimationFrame(frame);
+      flip += 1; // orphan any in-flight capture/hide
+      if (previewClear !== null) window.clearTimeout(previewClear);
     };
   }, [bridge, pane.requested]);
 
@@ -648,6 +692,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
     onSplitterKeyDown,
     dragging,
     dragPreview,
+    occlusionPreview,
     pane,
     tabs,
     activeTabId,

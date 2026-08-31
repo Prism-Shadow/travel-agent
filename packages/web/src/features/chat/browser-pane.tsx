@@ -880,9 +880,10 @@ export function BrowserPaneViewport({
   menuOpen: boolean;
   preview: DesktopPageCapture | null;
   /**
-   * Frozen frame pinned to the hole's own origin while a splitter drag hides the native view.
-   * Rendered at its captured pixel size — the live view keeps content anchored to the viewport
-   * origin while resizing, and the stand-in must behave the same instead of stretching.
+   * Frozen frame pinned to the hole's own origin while the native view is hidden — by a
+   * splitter drag or by an overlay occlusion. Rendered at its captured pixel size — the live
+   * view keeps content anchored to the viewport origin while resizing, and the stand-in must
+   * behave the same instead of stretching.
    */
   dragPreview?: DesktopPageCapture | null;
 }): React.ReactElement {
@@ -1052,7 +1053,10 @@ export function BrowserPanePanel({ state }: { state: BrowserPaneState }): React.
         measureRef={measureRef}
         menuOpen={menuOpen}
         preview={menuPreview}
-        dragPreview={state.dragPreview}
+        // One stand-in slot, two writers: a splitter drag's frozen frame wins (it is pinned to
+        // the drag it belongs to), else the occlusion freeze keeps the page visible while a
+        // floating overlay — the session-info popover — hides the native view.
+        dragPreview={state.dragPreview ?? state.occlusionPreview}
       />
     </div>
   );
