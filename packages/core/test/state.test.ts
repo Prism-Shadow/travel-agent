@@ -137,10 +137,9 @@ describe("loadOrInitAgentState", () => {
       expect(state.systemConfig.system_prompt).toContain("Caller agent");
       // The default AGENTS.md is empty: it carries no preset guidance.
       expect(state.agentsMd).toBe("");
-      // The default turn cap is the -1 sentinel: a new agent has no per-Task turn limit, so
-      // long runs are never cut off unless the user configures a positive cap. Existing
-      // agents keep their stored max_turns verbatim (config is never auto-merged).
-      expect(state.systemConfig.max_turns).toBe(-1);
+      // New Agents use the product's finite per-Task containment budget. Stored custom limits
+      // remain user-owned; the explicit kernel-update path advances only known old defaults.
+      expect(state.systemConfig.max_turns).toBe(200);
       expect(state.systemConfig.system_prompt).toContain(AGENTS_MD_PLACEHOLDER);
       expect(state.systemConfig.system_prompt).toContain(SESSION_ID_PLACEHOLDER);
       expect(state.systemConfig.system_prompt).toContain(CWD_PLACEHOLDER);

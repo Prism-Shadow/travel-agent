@@ -487,9 +487,9 @@ describe("ContextEngine ReAct loop (mock LLM, approve callback)", () => {
         toolConfig: execCommandToolConfig(),
       }),
     });
-    // Reads the fallback via a private field (white-box, only testing the fallback). The
-    // SDK-construction fallback for an omitted option now matches the agent-config default
-    // (defaultSystemConfig().max_turns, asserted in state.test.ts): -1 = no turn cap.
+    // Reads the fallback via a private field (white-box, only testing the fallback). Product
+    // policy lives in the materialized Agent config; direct SDK construction stays unlimited
+    // when the caller omits maxTurns.
     expect((engine as unknown as { maxTurns: number }).maxTurns).toBe(-1);
   });
 

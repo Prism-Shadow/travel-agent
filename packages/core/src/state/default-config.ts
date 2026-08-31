@@ -956,9 +956,9 @@ export function defaultSystemConfig(): SystemConfig {
     // also re-stamps.
     kernel_version: KERNEL_VERSION,
     system_prompt: DEFAULT_SYSTEM_PROMPT,
-    // -1 = unlimited (same sentinel as compaction.max_session_turns): an agent run is never
-    // cut off by a turn cap unless the user configures a positive limit themselves.
-    max_turns: -1,
+    // Product default: enough headroom for representative multi-site browser work while still
+    // bounding a run that keeps exploring without reaching a user-visible result.
+    max_turns: 200,
     model: {
       max_tokens: 32000,
       thinking_level: "medium",

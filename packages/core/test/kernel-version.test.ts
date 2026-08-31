@@ -37,9 +37,8 @@ function mutableConfig(config: SystemConfig): Record<string, unknown> {
 
 /**
  * A genuine pre-toggles (pre-#257) config: no vault/skills/schedules sections and no stamp —
- * exactly what a `system_config.yaml` of that era carries — with the frozen system prompt of
- * that generation, plus the
- * current values for every other leaf.
+ * exactly what a `system_config.yaml` of that era carries — with the frozen system prompt and
+ * historical -1 max-turn value of that generation, plus the current values for every other leaf.
  *
  * The prompt used to be reconstructed here by substituting the legacy sections back into the
  * *current* prompt, which only reproduced that era while the current generation was still the
@@ -59,7 +58,7 @@ function preTogglesDefaultConfig(): SystemConfig {
     kernel_version: _stamp,
     ...rest
   } = defaultSystemConfig();
-  return { ...rest, system_prompt: LEGACY_PRE_TOGGLES_SYSTEM_PROMPT };
+  return { ...rest, system_prompt: LEGACY_PRE_TOGGLES_SYSTEM_PROMPT, max_turns: -1 };
 }
 
 describe("kernel hash history (pinned-hash guard)", () => {
@@ -170,6 +169,7 @@ describe("applyKernelUpdate", () => {
     expect(result.kept).toEqual([]);
     expect(result.advanced).toEqual([
       "system_prompt",
+      "max_turns",
       "vault.enabled",
       "vault.prompt",
       "skills.enabled",
@@ -330,7 +330,7 @@ describe("applyKernelUpdate", () => {
     const raw = await fs.readFile(configPath(), "utf8");
     await fs.writeFile(
       configPath(),
-      `# my precious comment\n${raw.replace("max_turns: -1", "max_turns: 5")}`,
+      `# my precious comment\n${raw.replace("max_turns: 200", "max_turns: 5")}`,
       "utf8",
     );
     const result = await update();
