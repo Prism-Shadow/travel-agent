@@ -40,6 +40,13 @@ surface.
   countdown, aggregated waiting-on-you badge, the trip's meta line) over the "Jump back in"
   conversation tiles, waiting-on-you first. Every element is rendered from trip and session index
   fields; the rail makes no model call, because the root spec declines a proactive AI opener.
+- **The discovery rail's decorative travel covers.** A local catalog contains 192 generated,
+  lazily loaded 960×720 covers: 96 destinations, 48 activities, 24 season/weather scenes, and 24
+  location-neutral fallbacks. Explicit activity intent wins over a named destination, which wins
+  over seasonal mood; unknown titles can select only neutral fallbacks. Selection is deterministic
+  for the same Session and title and excludes images already reserved by another simultaneously
+  visible rail. Covers have empty alternative text because the card title is the accessible name,
+  and a generated cover is never evidence of the exact place or offer under discussion.
 - **The composer's constraint chips**, which edit the owning Trip's identity when the conversation
   has one, and which materialize a trip on the first message rather than on the click that opened
   the draft. Where remains a free-text field; its debounced destination suggestions come from the
