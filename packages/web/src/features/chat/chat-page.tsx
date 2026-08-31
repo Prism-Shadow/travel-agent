@@ -5,9 +5,8 @@
  * are no messages).
  * Files is no longer a mutually exclusive tab — it's a persistent, closable, resizable docked
  * panel on the right (use-files-panel.ts), and each message's trailing file summary card jumps to
- * and locates the file in the tree via onOpenFile. The subagents panel docks the same way
- * (use-subagents-panel.ts): subagent chips in the stream open it focused via onOpenSubagent,
- * and the two docked panels are mutually exclusive (coordinated here, not in the hooks).
+ * and locates the file in the tree via onOpenFile. Subagent chips in the stream navigate to the
+ * child conversation itself (an ordinary session route) via onOpenSubagent.
  * Approval mode and Model/context usage live in the input area's toolbar; context is compacted
  * via the /compact slash command.
  * Draft state (/chat/new) is carried by DraftView: Agent / Workspace / approval mode / Model are
@@ -59,7 +58,7 @@ import { EmptyState } from "../../components/ui/empty-state";
 import { toastError } from "../../components/ui/toast";
 import { MessageStream } from "./message-stream";
 import type { StreamRenderContext } from "./message-stream";
-import { latestTaskHasSubagent, taskStartCount } from "./agent-topology";
+import { taskStartCount } from "./subagent-meta";
 import { ChatInput } from "./chat-input";
 import { ConversationOutline, OutlineMenuButton, useOutlineRailFit } from "./conversation-outline";
 import { DraftView } from "./draft-view";
@@ -80,13 +79,6 @@ import type { FilesPanelState } from "./use-files-panel";
 import { BrowserPanePanel, BrowserPaneSplitter } from "./browser-pane";
 import { browserPaneOpenForRoute } from "./browser-pane-scope";
 import { useBrowserPane } from "./use-browser-pane";
-import { SubagentsPanel } from "./subagents-panel";
-import {
-  advancePanelTaskScope,
-  createPanelTaskScope,
-  useSubagentsPanel,
-} from "./use-subagents-panel";
-import type { SubagentsPanelState } from "./use-subagents-panel";
 import { useSessionDraft } from "./use-session-draft";
 import { useSessionStream } from "./use-session-stream";
 
@@ -107,14 +99,6 @@ const STAT_ICONS = {
 
 /** How often the background-process list refreshes while it can still change (a run may promote a command at any time; a running process can exit on its own). */
 const PROCESS_POLL_MS = 15_000;
-
-/**
- * Docked panel swap sequencing: how long the outgoing panel gets to retract before the
- * incoming one slides in. Matches the panels' own `transition-[width] duration-200`
- * (files-panel.tsx / subagents-panel.tsx) — shorter would cut the retract off, longer
- * would leave a dead gap.
- */
-const PANEL_SWAP_MS = 200;
 
 /** Iconized stat item: a symbol + a value, with the title giving the full meaning. */
 function StatChip({ icon, value, label }: { icon: string; value: ReactNode; label: string }) {
@@ -307,73 +291,21 @@ export function ChatPage() {
 
   const routeSessionId = params.sessionId ?? null;
   const filesPanelRaw = useFilesPanel(routeSessionId);
-  const subagentsPanelRaw = useSubagentsPanel(routeSessionId);
-  // The two docked panels are MUTUALLY EXCLUSIVE — side by side they'd crush the chat column at
-  // the 1024px breakpoint (and two stacked Sheets on mobile would be worse). Exclusivity is
-  // enforced here, on the panel objects every consumer receives, rather than at each call site:
-  // ANY path that opens one panel (toolbar toggles, message file cards via onOpenFile, subagent
-  // chips via onOpenSubagent, or a future caller) closes the other as a side effect of
-  // setOpen(true). Closing never cascades. The hooks stay uncoordinated on purpose — they don't
-  // know about each other; only this page, which owns both, does.
+  // The browser column and the Files panel are mutually exclusive (design/004: panel
+  // coordination) — side by side they'd crush the chat column and its composer.
   //
-  // Docked swaps are SEQUENCED, not simultaneous: with both width transitions running at
-  // once the total width is constant, so the closing panel's left-anchored content never
-  // moves — the incoming panel just wipes over it, which reads as "the old panel never
-  // retracted". Closing the old one fully first (its width animates while the chat column
-  // takes the space back), then sliding the new one in, makes both motions legible. A new
-  // swap/toggle cancels the pending open; mobile Sheets keep the instant switch — they
-  // overlay rather than share width, so the sequencing would only add dead time.
-  const panelSwapTimer = useRef<number | null>(null);
-  const cancelPanelSwap = () => {
-    if (panelSwapTimer.current !== null) {
-      window.clearTimeout(panelSwapTimer.current);
-      panelSwapTimer.current = null;
-    }
-  };
-  useEffect(() => cancelPanelSwap, []);
-  /** Opens `open` after retracting `closeFirst` when a docked swap needs sequencing; instant otherwise. */
-  const swapPanels = (
-    closeFirst: { open: boolean; isDocked: boolean; setOpen: (v: boolean) => void },
-    open: (v: boolean) => void,
-  ) => {
-    closeFirst.setOpen(false);
-    if (closeFirst.open && closeFirst.isDocked) {
-      panelSwapTimer.current = window.setTimeout(() => {
-        panelSwapTimer.current = null;
-        open(true);
-      }, PANEL_SWAP_MS);
-    } else {
-      open(true);
-    }
-  };
-  // The browser is a third docked utility and obeys the same exclusivity (design/004: three-panel
-  // coordination). Three fixed-width siblings leave the chat column and its composer unusable — the
-  // browser takes a fraction of the whole row and a utility panel independently takes up to half of
-  // it, which at an ordinary desktop width leaves the conversation a tenth of the window.
-  //
-  // Two halves to the rule. Opening a utility panel *from here* retracts the browser, because the
+  // Two halves to the rule. Opening the panel *from here* retracts the browser, because the
   // user chose the panel. The browser opening on its own — the agent opened a tab, and that arrives
-  // as a state push from main — instead **suppresses** the panels where they are rendered, leaving
-  // their own state untouched so whatever was open comes back when the browser closes. Closing
+  // as a state push from main — instead **suppresses** the panel where it is rendered, leaving
+  // its own state untouched so whatever was open comes back when the browser closes. Closing
   // someone's file tree because an agent started browsing would be the wrong way round.
   const filesPanel: FilesPanelState = {
     ...filesPanelRaw,
     setOpen: (next: boolean) => {
-      cancelPanelSwap();
       if (next) {
         browserPane.setOpen(false);
-        swapPanels(subagentsPanelRaw, filesPanelRaw.setOpen);
+        filesPanelRaw.setOpen(true);
       } else filesPanelRaw.setOpen(false);
-    },
-  };
-  const subagentsPanel: SubagentsPanelState = {
-    ...subagentsPanelRaw,
-    setOpen: (next: boolean) => {
-      cancelPanelSwap();
-      if (next) {
-        browserPane.setOpen(false);
-        swapPanels(filesPanelRaw, subagentsPanelRaw.setOpen);
-      } else subagentsPanelRaw.setOpen(false);
     },
   };
 
@@ -465,22 +397,6 @@ export function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [stream.version, routeSessionId],
   );
-  // The subagents panel's model view: the live model, with backfilled windows' items and
-  // nested subagent models merged in — a chip clicked on a backfilled turn must still
-  // resolve its historical Task slice and child conversation. Scalar fields snapshot per
-  // version, which is exactly as fresh as everything else the panel renders.
-  const panelModel = useMemo<StreamModel>(
-    () =>
-      stream.prefixItems.length > 0 || stream.prefixSubagents.size > 0
-        ? {
-            ...stream.model,
-            items: [...allItems],
-            subagents: new Map([...stream.prefixSubagents, ...stream.model.subagents]),
-          }
-        : stream.model,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stream.version, routeSessionId],
-  );
   // The message stream's scroll container, exposed by MessageStream for the outline's
   // jump/scrollspy (anchors are queried inside it, never document-wide).
   const streamScrollRef = useRef<HTMLDivElement | null>(null);
@@ -503,55 +419,20 @@ export function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSessionId, selectedAgentId, setCurrentAgentId]);
 
-  // A NEW chat starts with both panels closed: a panel opened for an earlier conversation must
+  // A NEW chat starts with the panel closed: a panel opened for an earlier conversation must
   // not carry into a freshly created one. The draft is the reset point — it renders no panels
   // itself, so the Session created from it (first send navigates to /chat/:id) begins closed,
   // while a plain conversation switch keeps whatever the user had open. This effect owns the
-  // ONLY automatic close of either panel.
+  // ONLY automatic close of the panel.
   useEffect(() => {
     if (!draft) return;
-    // A swap's pending delayed open must not fire into the fresh draft after this reset.
-    cancelPanelSwap();
     filesPanelRaw.setOpen(false);
-    subagentsPanelRaw.setOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
-  // Subagents panel AUTO-OPEN (the one visibility rule this panel has beyond the Files panel's):
-  // the pure tracker (advancePanelTaskScope, unit-tested) opens it on the CURRENT task's first
-  // live spawn, re-armed at every task boundary so a manual close is respected until the next
-  // one. Boundaries themselves no longer close anything — an open panel now survives Session
-  // switches and new Tasks alike, matching the Files panel.
-  // The auto-open applies only when docked (a mobile Sheet sliding over the conversation
-  // uninvited would be worse than staying discoverable via the row), never over an open Files
-  // panel (an automatic open must not steal an explicit one — the row and the toolbar's amber
-  // dot still signal), and never re-triggers an already-open panel (that would yank a pinned
-  // historical graph back to the latest Task); the tracker consumes the attempt regardless.
-  const panelTaskScopeRef = useRef(createPanelTaskScope());
-  // Deliberately the LIVE model's items only (never the backfilled prefix): the tracker
-  // reads an INCREASE as "the user started a new Task", and a scroll-up backfill growing
-  // the count would spuriously re-arm the auto-open mid-conversation. The latest Task
-  // always lives in the live tail window, so live-only loses nothing.
+  // Task-start count over the live items (1:1 with the model's startTask calls); the cost
+  // tracker reads an increase as a Task boundary (header-stats.ts).
   const taskCount = taskStartCount(stream.model.items);
-  const liveSpawn = stream.taskState !== "idle" && latestTaskHasSubagent(stream.model);
-  useEffect(() => {
-    const action = advancePanelTaskScope(panelTaskScopeRef.current, {
-      sessionId: selectedSessionId,
-      taskCount,
-      liveSpawn,
-    });
-    if (
-      action === "autoOpen" &&
-      subagentsPanelRaw.isDocked &&
-      !subagentsPanelRaw.open &&
-      !filesPanelRaw.open
-    ) {
-      subagentsPanelRaw.setOpen(true);
-    }
-    // The panel objects are rebuilt every render; the tracker only acts on real transitions of
-    // these three observed values.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSessionId, taskCount, liveSpawn]);
 
   // Skills installed on the session's Agent (candidates for the input area's skill dropdown):
   // fetched keyed on the session's Agent; on switch, cleared first (which also clears the input
@@ -1181,21 +1062,15 @@ export function ChatPage() {
       filesPanel.setOpen(true);
       filesPanel.browsePath(path);
     },
-    onOpenSubagent: (sessionId, origin) => {
-      // Chip click: open the panel focused on that child (the focus chain ends with the child's
-      // own id; the wrapped setOpen closes the Files panel). focusSubagent after setOpen: the
-      // open resets the Task scope to "latest", and the focus then pins it to this chip's Task.
-      subagentsPanel.setOpen(true);
-      subagentsPanel.focusSubagent(sessionId, [...origin, sessionId]);
+    onOpenSubagent: (sessionId) => {
+      // Chip click: the child is an ordinary session for reading — open its own conversation.
+      // Nested approvals are NOT answered there (the spawn runs inside this parent's task);
+      // the chip renders those inline (subagent-chip.tsx).
+      navigate(`/chat/${encodeURIComponent(sessionId)}`);
     },
     workspace: selected?.workspace ?? null,
     statFiles,
   };
-
-  // Any pending approval sitting inside a subagent (approvalKey = "originChain toolCallId";
-  // main-session keys start with a space): surfaces an amber dot on the toolbar button so a
-  // nested approval stays discoverable while the panel is closed.
-  const anySubagentPending = [...stream.pendingApprovals.keys()].some((k) => !k.startsWith(" "));
 
   if (!projectId || !agentId) {
     return (
@@ -1341,44 +1216,6 @@ export function ChatPage() {
               </span>
             )}
           </div>
-
-          {/* Subagents panel toggle: latest-Task call graph + child conversations dock on the right (use-subagents-panel.ts); opening closes the Files panel (wrapped setOpen). */}
-          <button
-            type="button"
-            aria-expanded={subagentsPanel.open}
-            onClick={() => subagentsPanel.setOpen(!subagentsPanel.open)}
-            title={S.chat.openAgents}
-            aria-label={S.chat.openAgents}
-            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ${
-              subagentsPanel.open
-                ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-            }`}
-          >
-            {/* Nodes/network glyph (spawn tree). */}
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              aria-hidden
-            >
-              <circle cx="5" cy="12" r="2.5" />
-              <circle cx="19" cy="5.5" r="2.5" />
-              <circle cx="19" cy="18.5" r="2.5" />
-              <path d="M7.4 11 16.7 6.6M7.4 13l9.3 4.4" />
-            </svg>
-            {/* At md widths the pinned sidebar leaves less room than the viewport breakpoint
-                suggests. Keep both panel actions icon-only until lg so the running status and
-                live stats retain their own layout space. */}
-            <span className="hidden lg:inline">{S.chat.openAgents}</span>
-            {/* A pending approval inside a subagent: amber dot (the chip in the stream carries the accessible announcement). */}
-            {anySubagentPending && (
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            )}
-          </button>
 
           {/* In-app browser toggle. Desktop only — a browser tab has no main process to host a
               WebContentsView, so the control is absent rather than disabled (desktop-bridge.ts). */}
@@ -1792,18 +1629,6 @@ export function ChatPage() {
         </div>
 
         {/* Suppressed, not closed, while the browser column is up — see the note by `filesPanel`. */}
-        {selected && !browserPaneOpen && (
-          <SubagentsPanel
-            session={selected}
-            panel={subagentsPanel}
-            // The merged view (backfilled windows included): a chip on an older turn keeps
-            // its historical graph and child conversation reachable after pagination.
-            model={panelModel}
-            version={stream.version}
-            taskRunning={stream.taskState !== "idle"}
-            ctx={ctx}
-          />
-        )}
         {selected && !browserPaneOpen && <FilesPanel session={selected} panel={filesPanel} />}
         {browserPane.supported && browserPaneOpen && !browserPane.fullscreen && (
           <>

@@ -1316,7 +1316,6 @@ export const zh = {
     statsLabel: "统计信息",
     removeImage: "移除图片",
     openWorkspace: "打开工作区",
-    openAgents: "智能体面板",
     /** File summary card at the end of a message (Codex-style): title, inline preview action, and collapsed row. */
     filesInMessage: (n: number) => `${n} 个文件`,
     imagesInMessage: (n: number) => `${n} 张图片`,
@@ -1423,16 +1422,6 @@ export const zh = {
     removeFile: "移除文件",
     /** Toast for a picked file rejected before reading (the server's per-file cap is 10MB). */
     attachmentTooLarge: (name: string): string => `${name} 超过 10MB 上限，未添加。`,
-  },
-
-  /** Subagents side panel: call-graph of the latest Task + the selected child conversation. */
-  subagentPanel: {
-    title: "智能体面板",
-    topologyLabel: "调用关系",
-    mainSessionNote: "主会话请在对话区查看",
-    empty: "本次任务尚未派生子智能体",
-    nodeRunning: "运行中",
-    nodeDone: "已完成",
   },
 
   files: {

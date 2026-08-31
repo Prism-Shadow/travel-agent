@@ -26,7 +26,7 @@ import { StatusIcon } from "../../components/ui/status-icon";
 import type { RunState } from "../../components/ui/status-icon";
 import { ApprovalButtons } from "./approval-buttons";
 import { LiveDuration } from "./live-duration";
-import { agentIdFromRunSubagentArgs } from "./agent-topology";
+import { agentIdFromRunSubagentArgs } from "./subagent-meta";
 import { SubagentChip } from "./subagent-chip";
 import type { StreamRenderContext } from "./message-stream";
 

@@ -1375,7 +1375,6 @@ export const en: Strings = {
     statsLabel: "Stats",
     removeImage: "Remove image",
     openWorkspace: "Open workspace",
-    openAgents: "Agents panel",
     filesInMessage: (n: number) => `${n} ${n === 1 ? "file" : "files"}`,
     imagesInMessage: (n: number) => `${n} ${n === 1 ? "image" : "images"}`,
     openPreview: "Click to preview",
@@ -1484,16 +1483,6 @@ export const en: Strings = {
     removeFile: "Remove file",
     attachmentTooLarge: (name: string): string =>
       `${name} exceeds the 10MB limit and was not attached.`,
-  },
-
-  /** Subagents side panel: call-graph of the latest Task + the selected child conversation. */
-  subagentPanel: {
-    title: "Agents panel",
-    topologyLabel: "Call graph",
-    mainSessionNote: "The main conversation stays in the chat area",
-    empty: "No subagents in the current task yet",
-    nodeRunning: "running",
-    nodeDone: "done",
   },
 
   files: {

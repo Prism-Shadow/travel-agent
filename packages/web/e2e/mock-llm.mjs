@@ -5,8 +5,8 @@
  *  - files-card probe ("files card test") -> text with two backtick paths (one real, one missing)
  *  - subagent's own turns (its prompt is the only user text) -> tool_use(exec_command) first,
  *    then the report text once the tool_result is back — the tool call gives the child a real
- *    approval point (under always-ask it parks on a NESTED approval, which the subagents-panel
- *    e2e approves from the panel; under allow-all it auto-runs)
+ *    approval point (under always-ask it parks on a NESTED approval, which the subagent e2e
+ *    answers inline under the chip in the parent conversation; under allow-all it auto-runs)
  *  - parent asked to delegate ("run a subagent") -> tool_use(run_subagent)
  *  - a repeat delegation later in the same conversation ("run another subagent", keyed on the
  *    LAST message so history can't shadow it) -> tool_use(run_subagent) again

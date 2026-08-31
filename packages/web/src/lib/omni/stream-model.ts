@@ -626,8 +626,8 @@ export function agentIdFromStatePath(agentStatePath: string): string | null {
 /**
  * Whether any pending approval sits at or below the given origin chain (prefix match on
  * approvalKey): `chain` is the ancestor chain ending with the subtree root's own session id.
- * Drives the subagent chip's amber dot and the toolbar badge — a nested approval must stay
- * discoverable even though the child conversation lives in the side panel.
+ * Drives the subagent chip's amber dot — a nested approval must stay discoverable from the
+ * parent conversation, which is also where it is answered (pendingWithinOrigin).
  */
 export function hasPendingWithinOrigin(
   pendingKeys: Iterable<string>,
@@ -644,6 +644,32 @@ export function hasPendingWithinOrigin(
     if (key.startsWith(`${prefix} `) || key.startsWith(`${prefix}/`)) return true;
   }
   return false;
+}
+
+/**
+ * The pending approvals at or below the given origin chain, parsed back to (origin,
+ * toolCallId). The subagent chip renders these inline in the parent conversation, which is
+ * where a nested approval is answered: the spawn runs inside the parent's task, so the child's
+ * own page — rebuilt from its Trace — holds no live approval to click. Same prefix rules and
+ * the same load-bearing delimiters as hasPendingWithinOrigin; change the three together.
+ */
+export function pendingWithinOrigin(
+  pendingKeys: Iterable<string>,
+  chain: readonly string[],
+): { origin: string[]; toolCallId: string }[] {
+  const prefix = chain.join("/");
+  const out: { origin: string[]; toolCallId: string }[] = [];
+  for (const key of pendingKeys) {
+    if (!key.startsWith(`${prefix} `) && !key.startsWith(`${prefix}/`)) continue;
+    // approvalKey = `origin.join("/") + " " + toolCallId`; session ids never contain spaces.
+    const sep = key.indexOf(" ");
+    const originJoined = key.slice(0, sep);
+    out.push({
+      origin: originJoined.length === 0 ? [] : originJoined.split("/"),
+      toolCallId: key.slice(sep + 1),
+    });
+  }
+  return out;
 }
 
 /** ISO timestamp → milliseconds (returns undefined if invalid). */
