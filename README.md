@@ -78,9 +78,3 @@ Existing `default_agent` instances created before `penguin-browser` was added pi
 
 The `penguin-browser` CLI must be on `PATH` (`pnpm build` links it). The bundled Skill resolves the
 in-tree CLI and uses automatic backend routing, so agent commands honor the Browser menu.
-
-## What this is not
-
-- Not a Ctrip / Fliggy client.
-- Not a fork we intend to send back to PenguinHarness as a product.
-- Not signed desktop builds of PenguinHarness (those live upstream).
