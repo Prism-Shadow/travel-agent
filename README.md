@@ -6,6 +6,22 @@ A user says one sentence. The agent searches, reduces the option space to a few 
 
 Architecture, as built: [docs/architecture/iab-in-app-browser.md](docs/architecture/iab-in-app-browser.md).
 
+## Development
+
+Needs Node >= 24 and pnpm 11.
+
+```bash
+pnpm install && pnpm build
+pnpm dev                 # server + web; data root ~/.penguin/dev-data
+```
+
+Dev data is separate from an installed PenguinHarness's `~/.penguin/data`.
+
+Existing `default_agent` instances created before `penguin-browser` was added pick the skill up on the next load. Start a **new** chat after pulling — the system prompt is assembled when the session is created.
+
+The `penguin-browser` CLI must be on `PATH` (`pnpm build` links it). The bundled Skill resolves the
+in-tree CLI and uses automatic backend routing, so agent commands honor the Browser menu.
+
 ## Status
 
 This repo is a **hard fork** of PenguinHarness `0.2.2` (`d14be6f`). We do not merge that upstream. The engine baseline remains pinned, while the web and desktop experience now evolves as travel-agent's own consumer product surface, informed by the Mindtrip research snapshot
@@ -86,19 +102,3 @@ the visible in-app browser by default, so no browser extension is required.
 To reuse a signed-in Chrome profile instead, build and load the source-only extension by following
 the [browser extension setup](packages/browser-extension/README.md#getting-started), then choose
 **My own Chrome (extension)** from the conversation's Browser menu between tasks.
-
-## Development
-
-Needs Node >= 24 and pnpm 11.
-
-```bash
-pnpm install && pnpm build
-pnpm dev                 # server + web; data root ~/.penguin/dev-data
-```
-
-Dev data is separate from an installed PenguinHarness's `~/.penguin/data`.
-
-Existing `default_agent` instances created before `penguin-browser` was added pick the skill up on the next load. Start a **new** chat after pulling — the system prompt is assembled when the session is created.
-
-The `penguin-browser` CLI must be on `PATH` (`pnpm build` links it). The bundled Skill resolves the
-in-tree CLI and uses automatic backend routing, so agent commands honor the Browser menu.

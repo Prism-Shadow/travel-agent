@@ -6,6 +6,21 @@
 
 架构现状见 [docs/architecture/iab-in-app-browser.md](docs/architecture/iab-in-app-browser.md)。
 
+## 开发
+
+需要 Node >= 24、pnpm 11。
+
+```bash
+pnpm install && pnpm build
+pnpm dev                 # server + web；数据在 ~/.penguin/dev-data
+```
+
+开发数据和已安装的 PenguinHarness 用的 `~/.penguin/data` 是分开的。
+
+在加入 `penguin-browser` 之前创建的 `default_agent`，下次加载会补上这个 skill。拉代码后请**开一个新对话**——系统提示在创建 session 时组装。
+
+`penguin-browser` CLI 需要在 `PATH` 上（`pnpm build` 会 link）。内置 Skill 会解析本仓 CLI，并使用自动后端路由，确保 agent 遵循 Browser 菜单。
+
 ## 现状
 
 本仓是 PenguinHarness `0.2.2`（`d14be6f`）的**硬分叉**。不再 merge 上游。引擎基线继续锁定，web 与 desktop 界面则作为 travel-agent 自己的消费级产品面持续演进。
@@ -68,18 +83,3 @@ pnpm desktop
 首次使用时，请打开 **Models**，为默认模型填写 API key。也可以先把 `.env.example` 复制为 `.env`，设置 `ANTHROPIC_API_KEY` 或 `DEEPSEEK_API_KEY`，再启动应用。之后新建 Trip 或对话，描述旅行任务即可。新对话默认使用可见的应用内浏览器，因此不需要安装浏览器扩展。
 
 如果希望复用已经登录的 Chrome profile，请按照[浏览器扩展安装说明](packages/browser-extension/README.md#getting-started)构建并加载源码版扩展，然后在任务之间从当前对话的 Browser 菜单选择 **My own Chrome (extension)**。
-
-## 开发
-
-需要 Node >= 24、pnpm 11。
-
-```bash
-pnpm install && pnpm build
-pnpm dev                 # server + web；数据在 ~/.penguin/dev-data
-```
-
-开发数据和已安装的 PenguinHarness 用的 `~/.penguin/data` 是分开的。
-
-在加入 `penguin-browser` 之前创建的 `default_agent`，下次加载会补上这个 skill。拉代码后请**开一个新对话**——系统提示在创建 session 时组装。
-
-`penguin-browser` CLI 需要在 `PATH` 上（`pnpm build` 会 link）。内置 Skill 会解析本仓 CLI，并使用自动后端路由，确保 agent 遵循 Browser 菜单。
