@@ -19,29 +19,24 @@ describe("travel starter tasks", () => {
   });
 
   it.each([
-    {
-      locale: "zh",
-      dictionary: zh,
-      markers: ["代表选项", "入选理由", "支付页", "右侧浏览器", "不做长期盯价"],
-    },
-    {
-      locale: "en",
-      dictionary: en,
-      markers: [
-        "representative options",
-        "made the cut",
-        "payment page",
-        "browser on the right",
-        "not price tracking",
-      ],
-    },
+    { locale: "zh", dictionary: zh },
+    { locale: "en", dictionary: en },
   ])(
-    "$locale starters preserve the travel-agent decision and safety contract",
-    ({ dictionary, markers }) => {
+    "$locale keeps the revised real-site scenarios and their user-choice boundary",
+    ({ dictionary }) => {
+      const comparison = dictionary.chat.exampleTasks.otaCompare.prompt;
+      expect(comparison).toContain("打开携程、飞猪");
+      expect(comparison).not.toContain("去哪儿");
+      expect(comparison).toContain("先不要进入订票流程");
+      expect(comparison).toContain("等我选择后再继续预定");
+
+      const guide = dictionary.chat.exampleTasks.xhsTrip.prompt;
+      expect(guide).toContain("成都三日美食及游玩攻略");
+      expect(guide).toContain("预算400以内一晚");
+
       const prompts = EXAMPLE_TASKS.map(
         (task) => dictionary.chat.exampleTasks[task.id].prompt,
       ).join(" ");
-      for (const marker of markers) expect(prompts).toContain(marker);
       expect(prompts).not.toContain("web-design");
       expect(prompts).not.toContain("run_subagent");
     },

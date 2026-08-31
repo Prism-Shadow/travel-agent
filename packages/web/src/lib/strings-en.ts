@@ -1212,15 +1212,15 @@ export const en: Strings = {
       },
       otaCompare: {
         label: "Compare Ctrip and Fliggy prices",
-        desc: "The same room in parallel tabs: true totals, rules, and where to book",
+        desc: "Nanjing to Beijing flights — find the cheapest fare without add-ons",
         prompt:
-          "Ask me for the hotel, room type, and dates first. Then open Ctrip and Fliggy side by side in separate tabs of the browser on the right, find the same room on each, and compare what the price actually buys: tax-inclusive totals, cancellation rules, breakfast, and member-only rates. Flag anything that makes the offers non-comparable. Recommend where to book and why — this is a one-time check, not price tracking. Wait for my choice, then continue on the winning site and stop at the payment page.",
+          "下周六我准备去北京旅游，帮我打开携程、飞猪，搜索南京去北京的机票，不需要附加服务，需要最便宜的一项；先不要进入订票流程，等我选择后再继续预定",
       },
       xhsTrip: {
         label: "Turn Xiaohongshu guides into a trip",
-        desc: "Search the notes, distill an itinerary, then book the flights and stays",
+        desc: "Build a three-day Chengdu itinerary, then find stays under ¥400 per night",
         prompt:
-          "Search Xiaohongshu in the browser on the right for recent guides on a three-day Chongqing food trip for two people from Shanghai. If the site asks for a login or verification, hand the tab to me. Keep what several guides agree on, note which post supports each pick, and distill a day-by-day itinerary with the key trade-offs. Then search the flights and stays that fit it — a few representative options for each, with why each made the cut. Book nothing until I choose, and stop at every payment page.",
+          "搜索上海出发、两人、成都三日美食及游玩攻略，综合多篇小红书笔记形成游玩逐日行程，结合旅游行程规划再打开携程搜索行程中相关的酒店住宿，预算400以内一晚。",
       },
     },
     sessionList: "Sessions",
