@@ -137,6 +137,18 @@ pnpm --filter @prismshadow/penguin-web test:e2e   # browser e2e against a mock L
 pnpm test:e2e                                     # core live-model e2e; needs DEEPSEEK_API_KEY
 ```
 
+### Local browser QA login
+
+For this checkout's current `~/.penguin/dev-data` only, use the following account for local
+Playwriter QA against `pnpm dev`:
+
+- Username: `admin`
+- Password: `penguin-2026`
+
+This is a machine-local development credential, not the product's seeded default. A fresh data root
+still receives a random initial password unless `PENGUIN_SEED_ADMIN_PASSWORD` pins one. Revalidate
+this login after resetting the development data or changing the admin password.
+
 ## The gate before a push
 
 **GitHub Actions CI is paused** (`ci.yml`, disabled manually on 2026-08-27; re-enable with
