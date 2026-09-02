@@ -61,11 +61,11 @@ import { AgentAvatar } from "../../components/ui/agent-avatar";
 import { Chevron } from "../../components/ui/chevron";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError } from "../../components/ui/toast";
-import { ChatInput } from "./chat-input";
+import { ChatInput, type ChatInputHandle } from "./chat-input";
 import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
 import type { ExampleTask, ExampleTaskId } from "./example-tasks";
-import { JumpBackIn, type InspirationCardId } from "./jump-back-in";
+import { JumpBackIn } from "./jump-back-in";
 import { TripConstraintChips } from "./trip-constraint-chips";
 import {
   EMPTY_TRIP_CONSTRAINTS,
@@ -191,6 +191,7 @@ export function DraftView({
   );
   const [modelRef, setModelRef] = useState<ModelRefDto | null>(cached.modelRef ?? null);
   const textRef = useRef(cached.text ?? "");
+  const composerRef = useRef<ChatInputHandle>(null);
   // Mutable because example-task sends preserve the typed draft: its old strip becomes the sent
   // Session's strip, while the still-cached draft must receive a fresh empty strip for next time.
   const browserScopeIdRef = useRef(browserScopeId);
@@ -801,22 +802,14 @@ export function DraftView({
     [exampleBusy, agentSkills, onSend],
   );
 
-  // Editorial inspiration cards use the same one-click first-task path as examples. They do
-  // not consume the composer's current text, so a partially written draft survives when the
-  // user explores an idea and returns later.
-  const [inspirationBusy, setInspirationBusy] = useState<InspirationCardId | null>(null);
-  const runInspiration = useCallback(
-    async (id: InspirationCardId, prompt: string) => {
-      if (inspirationBusy !== null) return;
-      setInspirationBusy(id);
-      try {
-        await onSend([{ type: "text", text: prompt }], true);
-      } finally {
-        setInspirationBusy(null);
-      }
-    },
-    [inspirationBusy, onSend],
-  );
+  // Editorial inspiration cards fill the composer with their prompt and stop there: the
+  // traveller reads it, edits it, and sends it — or does not. Nothing is created on the click;
+  // the Session (and the Trip, on a new-trip draft) still materialize on the first message,
+  // through the same send path as hand-typed text, chips included. Filling replaces whatever
+  // was typed: the click is the person choosing this prompt over their own half-sentence.
+  const fillInspiration = useCallback((prompt: string) => {
+    composerRef.current?.replaceText(prompt);
+  }, []);
 
   const travellerName = (userId ?? "").split("@")[0]?.trim() ?? "";
 
@@ -852,6 +845,7 @@ export function DraftView({
           <div className="mt-6 w-full text-left">
             <TripConstraintChips value={trip} onChange={setTripValue} />
             <ChatInput
+              ref={composerRef}
               appearance="travel"
               status="idle"
               onSend={sendWithTrip}
@@ -916,11 +910,7 @@ export function DraftView({
             </div>
           </div>
         </section>
-        <JumpBackIn
-          onStartInspiration={(id, prompt) => void runInspiration(id, prompt)}
-          inspirationBusy={inspirationBusy}
-          inspirationDisabled={sending || !agentId || !models}
-        />
+        <JumpBackIn onPickInspiration={fillInspiration} />
       </div>
     </div>
   );

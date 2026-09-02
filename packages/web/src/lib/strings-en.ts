@@ -1097,7 +1097,7 @@ export const en: Strings = {
     },
     jumpBackIn: "Jump back in",
     // First-run-only editorial prompts (the rail shows them until the first real trip or
-    // conversation exists). A click starts a real draft task with the current settings.
+    // conversation exists). A click fills the composer with the prompt and sends nothing.
     getInspired: {
       title: "Get inspired",
       previous: "Scroll travel inspiration left",

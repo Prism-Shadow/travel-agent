@@ -37,11 +37,13 @@ and supports password reset or removal.
   place of their own; the trip page shows identity, the journey's conversations, and the itinerary.
   A conversation belonging to no trip is an ordinary state and must never be forced into one.
 - **The draft screen's discovery rail**, in two mutually exclusive states. First run shows the
-  editorial "Get inspired" prompts; from the first real trip or conversation the rail belongs to
-  the person's own work — an "Up next" trip card (soonest future departure, else latest touched;
-  countdown, aggregated waiting-on-you badge, the trip's meta line) over the "Jump back in"
-  conversation tiles, waiting-on-you first. Every element is rendered from trip and session index
-  fields; the rail makes no model call, because the root spec declines a proactive AI opener.
+  editorial "Get inspired" prompts; choosing one fills the composer with its prompt and sends
+  nothing, so the person edits and sends it like any typed sentence. From the first real trip or
+  conversation the rail belongs to the person's own work — an "Up next" trip card (soonest
+  future departure, else latest touched; countdown, aggregated waiting-on-you badge, the trip's
+  meta line) over the "Jump back in" conversation tiles, waiting-on-you first. Every element is
+  rendered from trip and session index fields; the rail makes no model call, because the root
+  spec declines a proactive AI opener.
 - **The composer's constraint chips**, which edit the owning Trip's identity when the conversation
   has one, and which materialize a trip on the first message rather than on the click that opened
   the draft. Where remains a free-text field; its debounced destination suggestions come from the

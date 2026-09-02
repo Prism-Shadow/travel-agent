@@ -2,10 +2,12 @@
  * Image-first discovery column on the draft screen, in two mutually exclusive states.
  *
  * First run (no trips, no conversations): "Get inspired" — three editorial prompts that give
- * the empty product a first click. Inspiration is scaffolding, and scaffolding comes down when
- * the building stands: from the first real trip or conversation the rail belongs to the
- * person's own work, because a returning traveller wants "how is my Kyoto trip doing", not a
- * canned card blind to the Kyoto trip already in the sidebar.
+ * the empty product a first click. The click fills the composer and sends nothing: the prompt
+ * is a starting sentence the person edits and sends, not a task they triggered. Inspiration is
+ * scaffolding, and scaffolding comes down when the building stands: from the first real trip
+ * or conversation the rail belongs to the person's own work, because a returning traveller
+ * wants "how is my Kyoto trip doing", not a canned card blind to the Kyoto trip already in the
+ * sidebar.
  *
  * Returning: "Up next" — one large card for the trip that matters now (soonest future
  * departure, else latest touched), carrying a departure countdown, an aggregate
@@ -133,13 +135,10 @@ function useHorizontalRail(itemCount: number) {
 }
 
 export function JumpBackIn({
-  onStartInspiration,
-  inspirationBusy,
-  inspirationDisabled,
+  onPickInspiration,
 }: {
-  onStartInspiration: (id: InspirationCardId, prompt: string) => void;
-  inspirationBusy: InspirationCardId | null;
-  inspirationDisabled: boolean;
+  /** An inspiration card was chosen: the parent fills the composer with its prompt. */
+  onPickInspiration: (prompt: string) => void;
 }) {
   const navigate = useNavigate();
   const { locale } = useLocale();
@@ -292,9 +291,7 @@ export function JumpBackIn({
                       title={copy.title}
                       tag={copy.tag}
                       cover={cover}
-                      busy={inspirationBusy === card.id}
-                      disabled={inspirationDisabled || inspirationBusy !== null}
-                      onOpen={() => onStartInspiration(card.id, copy.prompt)}
+                      onPick={() => onPickInspiration(copy.prompt)}
                     />
                   );
                 })}
@@ -525,16 +522,12 @@ function InspirationCard({
   title,
   tag,
   cover,
-  busy,
-  disabled,
-  onOpen,
+  onPick,
 }: {
   title: string;
   tag: string;
   cover: TravelCoverAsset;
-  busy: boolean;
-  disabled: boolean;
-  onOpen: () => void;
+  onPick: () => void;
 }) {
   return (
     <button
@@ -542,10 +535,8 @@ function InspirationCard({
       data-rail-card
       title={title}
       aria-label={title}
-      aria-busy={busy}
-      disabled={disabled}
-      onClick={onOpen}
-      className="draft-discovery-card group relative h-52 w-52 shrink-0 snap-start overflow-hidden rounded-[1.75rem] bg-gray-900 text-left shadow-[0_2px_8px_rgb(0_0_0/0.08)] transition-[transform,box-shadow,opacity] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(0_0_0/0.16)] disabled:cursor-default disabled:opacity-60 disabled:hover:translate-y-0"
+      onClick={onPick}
+      className="draft-discovery-card group relative h-52 w-52 shrink-0 snap-start overflow-hidden rounded-[1.75rem] bg-gray-900 text-left shadow-[0_2px_8px_rgb(0_0_0/0.08)] transition-[transform,box-shadow,opacity] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(0_0_0/0.16)]"
     >
       <img
         src={cover.src}
@@ -560,7 +551,7 @@ function InspirationCard({
         className="absolute inset-0 bg-linear-to-t from-black/80 via-black/10 to-black/10"
       />
       <span className="absolute left-4 top-4 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-900 shadow-sm backdrop-blur-sm">
-        {busy ? S.common.loading : tag}
+        {tag}
       </span>
       <span className="absolute inset-x-0 bottom-0 px-5 pb-5">
         <span className="block line-clamp-2 text-base font-semibold leading-5 text-white">
