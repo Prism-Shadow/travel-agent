@@ -175,7 +175,8 @@ test("manual /compact between turns: reloading must not fold the compaction into
     (await page.getByRole("button", { name: "复制回复" }).first().locator("xpath=..").innerText())
       .replace(/\n/g, " ")
       .trim();
-  const costOf = (t) => t.match(/\$[\d.]+/)?.[0] ?? null;
+  // Either symbol: the home currency follows the UI language until set, so a zh run reads ¥.
+  const costOf = (t) => t.match(/[$¥][\d.]+/)?.[0] ?? null;
   const elapsedMsOf = (t) => {
     const hit = [...t.matchAll(/(\d+(?:\.\d+)?)(ms|s)(?![\w/])/g)].at(-1);
     return hit ? Number(hit[1]) * (hit[2] === "s" ? 1000 : 1) : null;

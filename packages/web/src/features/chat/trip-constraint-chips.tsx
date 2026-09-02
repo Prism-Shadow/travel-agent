@@ -28,12 +28,14 @@ import type { Icon } from "@phosphor-icons/react";
 import type { LocationSuggestion } from "@prismshadow/penguin-server/api";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
+import { currencyGlyph, formatTripAmount } from "../../lib/currency";
+import { useTheme } from "../../state/theme";
 import { CloseButton } from "../../components/ui/icons";
 import { Modal } from "../../components/ui/modal";
 import { RangeCalendar } from "./range-calendar";
 import { pillClass } from "./workspace-select";
-import { BUDGET_TIERS, whenIsSet } from "./trip-constraints";
-import type { TripConstraints, TripWhen, TripWho } from "./trip-constraints";
+import { BUDGET_CURRENCIES, BUDGET_TIERS, whenIsSet } from "./trip-constraints";
+import type { TripConstraints, TripCurrency, TripWhen, TripWho } from "./trip-constraints";
 
 /** Who defaults when the traveller dialog is first touched (Mindtrip's own default: 1 adult). */
 const DEFAULT_WHO: TripWho = { adults: 1, children: 0, infants: 0, pets: 0 };
@@ -60,13 +62,17 @@ export function TripConstraintChips({
   const whoSet = value.who !== null && whoTotal + petCount > 0;
   const displayedWho = value.who ?? DEFAULT_WHO;
   const displayedWhoTotal = displayedWho.adults + displayedWho.children + displayedWho.infants;
-  const budgetSet = value.budget !== null || value.budgetAmountCny !== null;
+  const budgetSet = value.budget !== null || value.budgetAmount !== null;
+  // The glyphs a tier is drawn with count in the stated currency, else the person's home one.
+  const { currency: homeCurrency } = useTheme();
+  const budgetCurrency = value.budgetCurrency ?? homeCurrency;
+  const glyph = currencyGlyph(budgetCurrency, T.intlLocale);
   // The stated number is the sharper fact, so it is the pill's summary when present.
   const budgetSummary =
-    value.budgetAmountCny !== null
-      ? T.amountShort(value.budgetAmountCny)
+    value.budgetAmount !== null
+      ? formatTripAmount(value.budgetAmount, budgetCurrency, T.intlLocale)
       : value.budget !== null
-        ? T.tierShort[value.budget]
+        ? T.tierShort(glyph)[value.budget]
         : null;
 
   return (
@@ -123,7 +129,9 @@ export function TripConstraintChips({
         dialogSubtitle={T.budgetTitle}
         open={open}
         setOpen={setOpen}
-        onClear={() => onChange({ ...value, budget: null, budgetAmountCny: null })}
+        onClear={() =>
+          onChange({ ...value, budget: null, budgetAmount: null, budgetCurrency: null })
+        }
       >
         <div className="px-5 py-2 sm:px-6" role="radiogroup" aria-label={T.budget}>
           {BUDGET_TIERS.map((tier) => {
@@ -144,13 +152,16 @@ export function TripConstraintChips({
                       : "border-gray-300 dark:border-gray-600"
                   }`}
                 />
-                <span className="min-w-0 flex-1">{T.tiers[tier]}</span>
+                <span className="min-w-0 flex-1">{T.tiers(glyph)[tier]}</span>
               </button>
             );
           })}
           <BudgetAmountField
-            value={value.budgetAmountCny}
-            onChange={(budgetAmountCny) => onChange({ ...value, budgetAmountCny })}
+            amount={value.budgetAmount}
+            currency={budgetCurrency}
+            onChange={(budgetAmount, currency) =>
+              onChange({ ...value, budgetAmount, budgetCurrency: currency })
+            }
           />
         </div>
       </Chip>
@@ -695,16 +706,21 @@ function WhoPanel({ who, onChange }: { who: TripWho; onChange: (who: TripWho) =>
 
 /**
  * Optional exact total under the budget tiers. A tier is the zero-thought path; the number is
- * for the person who already knows — "这趟两万以内" is how a budget is actually said in this
- * product's market, and it is the form the model can do arithmetic with. Digits only; the
- * formatted string ("¥20,000") belongs to summaries, where nobody has to edit around commas.
+ * for the person who already knows — "这趟两万以内" is how a budget is actually said, and it is
+ * the form the model can do arithmetic with. Digits only; the formatted string ("¥20,000")
+ * belongs to summaries, where nobody has to edit around commas. The unit sits where the ¥ sign
+ * used to: a picker defaulting to the person's home currency, so the common case is still
+ * "type a number", and the traveller budgeting a Tokyo trip in yen changes one thing.
  */
 function BudgetAmountField({
-  value,
+  amount,
+  currency,
   onChange,
 }: {
-  value: number | null;
-  onChange: (value: number | null) => void;
+  amount: number | null;
+  /** The unit shown — the stated one, else the home currency the parent resolved. */
+  currency: TripCurrency;
+  onChange: (amount: number | null, currency: TripCurrency) => void;
 }) {
   const T = S.chat.tripChips;
   return (
@@ -716,25 +732,34 @@ function BudgetAmountField({
         <span className="text-xs text-gray-400 dark:text-gray-500">{T.budgetAmountHint}</span>
       </label>
       <div className="mt-2 flex h-11 items-center gap-1.5 rounded-2xl border border-gray-300 px-3.5 focus-within:border-gray-500 dark:border-gray-700 dark:focus-within:border-gray-500">
-        <span aria-hidden className="text-gray-500 dark:text-gray-400">
-          ¥
-        </span>
+        <select
+          aria-label={T.budgetCurrencyLabel}
+          value={currency}
+          onChange={(event) => onChange(amount, event.target.value as TripCurrency)}
+          className="h-8 cursor-pointer rounded-lg bg-transparent pr-1 text-sm font-medium text-gray-600 focus:outline-none dark:text-gray-300"
+        >
+          {BUDGET_CURRENCIES.map((code) => (
+            <option key={code} value={code}>
+              {code}
+            </option>
+          ))}
+        </select>
         <input
           id="trip-budget-amount"
           type="text"
           inputMode="numeric"
-          value={value === null ? "" : String(value)}
+          value={amount === null ? "" : String(amount)}
           onChange={(event) => {
             const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
-            onChange(digits === "" ? null : Number(digits));
+            onChange(digits === "" ? null : Number(digits), currency);
           }}
           placeholder={T.budgetAmountPlaceholder}
           className="min-w-0 flex-1 bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
         />
-        {value !== null && (
+        {amount !== null && (
           <button
             type="button"
-            onClick={() => onChange(null)}
+            onClick={() => onChange(null, currency)}
             aria-label={`${T.clear} ${T.budgetAmountLabel}`}
             className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-gray-500 transition-colors hover:bg-gray-300 hover:text-gray-800 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >

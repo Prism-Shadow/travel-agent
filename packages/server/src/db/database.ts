@@ -32,16 +32,31 @@ export function openDatabase(dbPath: string): DatabaseSync {
   // table. Fresh databases get the constraint from SCHEMA_SQL; upgraded ones enforce
   // the same rule in TripService, which is the only writer.
   ensureColumn(db, "sessions", "trip_id", "TEXT");
-  ensureColumn(db, "trips", "budget_amount_cny", "INTEGER");
+  ensureColumn(db, "trips", "budget_amount", "INTEGER");
+  ensureColumn(db, "trips", "budget_currency", "TEXT");
+  // A budget used to be a bare number of yuan (`budget_amount_cny`). A row written then still
+  // states the fact the person gave, so it is carried over once, with the unit it always had;
+  // a row that already has a unit is left alone. The retired column stays in place (this list
+  // is additive) and nothing reads or writes it any more.
+  if (hasColumn(db, "trips", "budget_amount_cny")) {
+    db.exec(
+      `UPDATE trips SET budget_amount = budget_amount_cny, budget_currency = 'CNY'
+       WHERE budget_amount IS NULL AND budget_amount_cny IS NOT NULL`,
+    );
+  }
   ensureColumn(db, "sessions", "has_trace", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "auth_sessions", "via", "TEXT");
   ensureColumn(db, "trace_files", "page_stats", "TEXT");
   return db;
 }
 
+function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === column);
+}
+
 /** Idempotent per-column upgrade for databases formed before the column existed. */
 function ensureColumn(db: DatabaseSync, table: string, column: string, ddl: string): void {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  if (cols.some((c) => c.name === column)) return;
+  if (hasColumn(db, table, column)) return;
   db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
 }

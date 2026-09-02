@@ -10,19 +10,27 @@
  */
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { resolveSystemLocale } from "./locale";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type FontScale = "sm" | "md" | "lg";
 export type Accent = "neutral" | "blue" | "green" | "violet" | "rose" | "amber";
-/** Display currency (prices are always stored as USD/million Tokens; conversion happens only for display and input). */
+/**
+ * The home currency: the one the person thinks in. It is the default unit of a stated trip
+ * budget, and the display currency for model cost (API prices are stored in USD per million
+ * tokens; conversion happens only for display and input). The two are one preference because
+ * they are one fact about a person.
+ */
 export type Currency = "USD" | "CNY";
-/** 1 USD ≈ 7 CNY (fixed conversion rate). */
+/** 1 USD ≈ 7 CNY (fixed conversion rate, model-cost display only). */
 export const USD_TO_CNY = 7;
 
 const MODE_KEY = "penguin.theme";
 const FONT_KEY = "penguin.fontScale";
 const ACCENT_KEY = "penguin.accent";
 const CURRENCY_KEY = "penguin.currency";
+/** The language preference's key, read here only to default the currency (state/locale.tsx owns it). */
+const LANG_KEY = "penguin.lang";
 
 /** Font size tier → root font-size (px): overall slightly larger than the system default for readability. */
 const FONT_PX: Record<FontScale, string> = { sm: "16px", md: "18px", lg: "20px" };
@@ -36,7 +44,7 @@ interface ThemeContextValue {
   setFontScale: (scale: FontScale) => void;
   accent: Accent;
   setAccent: (accent: Accent) => void;
-  /** Display currency for prices (the chat header's cost and the Models page's pricing; always stored as USD). */
+  /** Home currency: the budget's default unit and the display currency for model cost. */
   currency: Currency;
   setCurrency: (currency: Currency) => void;
 }
@@ -70,8 +78,24 @@ function initialAccent(): Accent {
   return "neutral";
 }
 
+/**
+ * Unset, the home currency follows the UI language — a zh interface budgets in yuan — because
+ * the two are the same fact about a person far more often than not. An explicit choice wins.
+ * Pure, for tests: the stored language preference and the device language, as locale.tsx reads them.
+ */
+export function homeCurrencyForLanguage(
+  storedLang: string | null,
+  deviceLanguage: string | undefined,
+): Currency {
+  const lang =
+    storedLang === "zh" || storedLang === "en" ? storedLang : resolveSystemLocale(deviceLanguage);
+  return lang === "zh" ? "CNY" : "USD";
+}
+
 function initialCurrency(): Currency {
-  return localStorage.getItem(CURRENCY_KEY) === "CNY" ? "CNY" : "USD";
+  const stored = localStorage.getItem(CURRENCY_KEY);
+  if (stored === "CNY" || stored === "USD") return stored;
+  return homeCurrencyForLanguage(localStorage.getItem(LANG_KEY), navigator.language);
 }
 
 function systemDark(): boolean {

@@ -59,8 +59,8 @@ export const en: Strings = {
       flexibleAnyMonth: (days: number) => `${days} days, dates flexible`,
       flexibleMonthOnly: (month: string) => `in ${month}`,
       travellers: (n: number) => (n === 1 ? "1 traveller" : `${n} travellers`),
-      /** ¥ is unambiguous here: the product's market prices trips in RMB. */
-      budgetAmount: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
+      /** Intl locale the stated total is formatted in; the symbol follows the reader's language. */
+      intlLocale: "en-US",
       budgetTiers: {
         any: "Any budget",
         low: "On a budget",
@@ -635,7 +635,8 @@ export const en: Strings = {
     priceCacheRead: "Cache read price",
     priceCacheWrite: "Cache write price",
     priceOutput: "Output price",
-    currency: "Currency",
+    /** The home currency: the budget's default unit and the model-cost display currency. */
+    currency: "Home currency",
     currencyUsd: "USD $",
     currencyCny: "CNY ¥",
     apiKey: "API key",
@@ -1131,7 +1132,7 @@ export const en: Strings = {
       lineWhen: "When: ",
       lineWho: "Who: ",
       lineBudget: "Budget: ",
-      budgetAmount: (yuan: number) => `¥${yuan.toLocaleString("en-US")} total`,
+      budgetAmount: (formatted: string, code: string) => `${formatted} total (${code})`,
       dateRange: (start: string, end: string) => `${start} to ${end}`,
       dateFrom: (start: string) => `departing ${start}`,
       dateUntil: (end: string) => `returning by ${end}`,
@@ -1142,21 +1143,25 @@ export const en: Strings = {
       children: (n: number) => `${n} child${n > 1 ? "ren" : ""}`,
       infants: (n: number) => `${n} infant${n > 1 ? "s" : ""}`,
       whoJoin: ", ",
-      tiers: {
+      tiers: (g: string) => ({
         any: "any budget",
-        low: "on a budget (¥)",
-        mid: "sensibly priced (¥¥)",
-        high: "upscale (¥¥¥)",
-        luxury: "luxury (¥¥¥¥)",
-      },
+        low: `on a budget (${g})`,
+        mid: `sensibly priced (${g.repeat(2)})`,
+        high: `upscale (${g.repeat(3)})`,
+        luxury: `luxury (${g.repeat(4)})`,
+      }),
       // Chip labels (unfilled) and short summaries (filled).
       where: "Where",
       when: "When",
       who: "Who",
       budget: "Budget",
-      tierShort: { any: "Any", low: "¥", mid: "¥¥", high: "¥¥¥", luxury: "¥¥¥¥" },
-      /** Chip summary when an exact total is stated ("¥20,000"). */
-      amountShort: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
+      tierShort: (g: string) => ({
+        any: "Any",
+        low: g,
+        mid: g.repeat(2),
+        high: g.repeat(3),
+        luxury: g.repeat(4),
+      }),
       travellers: (n: number) => `${n} traveler${n > 1 ? "s" : ""}`,
       /** Chip summary: people, plus pets when there are any ("2 travelers · 1 pet"). */
       whoSummary: (people: number, pets: number): string => {
@@ -1195,7 +1200,8 @@ export const en: Strings = {
       petsHint: "Animals travelling with you",
       budgetTitle: "Pick a range, or state a number",
       budgetAmountLabel: "Total budget",
-      budgetAmountHint: "Optional · whole trip · CNY",
+      budgetAmountHint: "Optional · whole trip",
+      budgetCurrencyLabel: "Currency",
       budgetAmountPlaceholder: "e.g. 20000",
       clear: "Clear",
       /** Dialog footer: closes it. Not "Update" — nothing runs until the message is sent. */

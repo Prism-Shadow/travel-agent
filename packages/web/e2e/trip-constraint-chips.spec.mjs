@@ -49,6 +49,12 @@ test("trip constraint dialogs use content-sized layouts and stable confirmation"
   const openDialog = async (name) => {
     await page.getByRole("button", { name, exact: true }).click();
     await expect(dialog).toBeVisible();
+    // The panel pops in over 120ms (scale 0.96 → 1). A box measured mid-flight is up to 4%
+    // narrow, and which dialog gets caught there is paint timing — so the measurement waits
+    // for the animation's end state, not for a delay that is usually long enough.
+    await dialog.evaluate((panel) =>
+      Promise.all(panel.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+    );
     const box = await dialog.boundingBox();
     if (!box) throw new Error(`${name} dialog has no visible bounds`);
     return box;
@@ -103,7 +109,9 @@ test("trip constraint dialogs use content-sized layouts and stable confirmation"
   ).toBeLessThan(2);
   // Five radios plus the optional exact-total field; the cap moved when the field arrived.
   expect(budgetBox.height, "Budget choices and actions stay compact").toBeLessThan(600);
-  const budgetChoice = dialog.getByRole("radio", { name: "sensibly priced (¥¥)", exact: true });
+  // The en interface's home currency is USD until the person says otherwise, so the tier
+  // scale and the stated total both read in dollars.
+  const budgetChoice = dialog.getByRole("radio", { name: "sensibly priced ($$)", exact: true });
   await budgetChoice.click();
   await expect(budgetChoice).toHaveAttribute("aria-checked", "true");
   await expect(
@@ -115,7 +123,19 @@ test("trip constraint dialogs use content-sized layouts and stable confirmation"
   await dialog.getByLabel("Total budget").fill("20000");
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "¥20,000", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "$20,000", exact: true })).toBeVisible();
+
+  // The unit is the traveller's to change. In English, yuan is qualified — a bare ¥ would read
+  // as yen — and the tier scale follows the currency the budget now counts in.
+  await page.getByRole("button", { name: "$20,000", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Currency", { exact: true }).selectOption("CNY");
+  await expect(
+    dialog.getByRole("radio", { name: "sensibly priced (¥¥)", exact: true }),
+  ).toHaveAttribute("aria-checked", "true");
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "CN¥20,000", exact: true })).toBeVisible();
 });
 
 test("Where offers accessible location suggestions and keeps the selected canonical label", async ({

@@ -8,6 +8,7 @@
  * no line at all rather than an empty one.
  */
 import type { TripSummary, TripWhen, TripWho } from "@prismshadow/penguin-server/api";
+import { formatTripAmount } from "./currency";
 
 /** Locale copy the line needs (structural contract for strings.ts / strings-en.ts). */
 export interface TripMetaCopy {
@@ -19,8 +20,8 @@ export interface TripMetaCopy {
   flexibleMonthOnly: (month: string) => string;
   travellers: (n: number) => string;
   budgetTiers: Record<NonNullable<TripSummary["budget"]>, string>;
-  /** The stated whole-trip total ("¥20,000"). */
-  budgetAmount: (yuan: number) => string;
+  /** Intl locale the stated total is formatted in ("¥20,000" in zh, "CN¥20,000" in en). */
+  intlLocale: string;
   /** Separator between the parts ("·" reads the same in both languages). */
   separator: string;
 }
@@ -64,7 +65,9 @@ export function tripMetaLine(trip: TripSummary, copy: TripMetaCopy): string {
   if (travellers !== null) parts.push(copy.travellers(travellers));
   // The stated amount is the sharper fact, so it stands in for the tier when both exist —
   // "¥20,000" already implies its bracket, and a line carrying both says one thing twice.
-  if (trip.budgetAmountCny !== null) parts.push(copy.budgetAmount(trip.budgetAmountCny));
-  else if (trip.budget !== null && trip.budget !== "any") parts.push(copy.budgetTiers[trip.budget]);
+  if (trip.budgetAmount !== null && trip.budgetCurrency !== null) {
+    parts.push(formatTripAmount(trip.budgetAmount, trip.budgetCurrency, copy.intlLocale));
+  } else if (trip.budget !== null && trip.budget !== "any")
+    parts.push(copy.budgetTiers[trip.budget]);
   return parts.join(copy.separator);
 }

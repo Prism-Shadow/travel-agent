@@ -10,10 +10,11 @@
  * preferences are constructed while choosing, the model judges, code only
  * enforces where the model is in the threat model. Two boundaries follow:
  *
- * - **Budget is a tier, not a number.** Mindtrip's own Budget dialog offers only price
- *   tiers (£…££££) — the same insight transaction/commitment.ts is built on: people cannot
- *   state a numeric ceiling before seeing what the options cost. The tier is a preference
- *   signal for shaping the representative set, never a transaction gate; authorisation
+ * - **Budget is a tier, or a number with its unit.** Mindtrip's own Budget dialog offers only
+ *   price tiers (£…££££): people often cannot state a numeric ceiling before seeing what the
+ *   options cost, and the tier shapes the representative set. The person who does know says
+ *   "two万 for the whole trip" — an amount, always with its currency, because a bare number
+ *   means a different thing to every traveller. Neither is a transaction gate; authorisation
  *   remains the click on one concrete plan.
  *
  * "When" keeps Mindtrip's two modes because the flexible one is *more* valuable here than
@@ -23,19 +24,22 @@
 import type {
   TaskInputPart,
   TripBudgetTier,
+  TripCurrency,
   TripSummary,
   TripWhen,
   TripWho,
 } from "@prismshadow/penguin-server/api";
-import { TRIP_BUDGET_TIERS } from "@prismshadow/penguin-server/api";
+import { TRIP_BUDGET_TIERS, TRIP_CURRENCIES } from "@prismshadow/penguin-server/api";
+import { currencyGlyph, formatTripAmount } from "../../lib/currency";
 
 /**
  * The three constraint shapes now belong to the Trip, so the server defines them and this
  * module re-exports them: two definitions of "when" — one for the chips, one for the row they
  * are stored in — would drift the first time either side gained a field.
  */
-export type { TripBudgetTier, TripWhen, TripWho };
+export type { TripBudgetTier, TripCurrency, TripWhen, TripWho };
 export const BUDGET_TIERS = TRIP_BUDGET_TIERS;
+export const BUDGET_CURRENCIES = TRIP_CURRENCIES;
 
 export interface TripConstraints {
   /** Free text — one destination or several ("Tokyo, Osaka"); optional suggestions only normalize it. */
@@ -43,8 +47,10 @@ export interface TripConstraints {
   when: TripWhen | null;
   who: TripWho | null;
   budget: TripBudgetTier | null;
-  /** Whole-trip total in yuan; the number the model can do arithmetic with. */
-  budgetAmountCny: number | null;
+  /** Whole-trip total, in `budgetCurrency`; the number the model can do arithmetic with. */
+  budgetAmount: number | null;
+  /** The amount's unit. Held on its own while the dialog is open; sent with the amount or not at all. */
+  budgetCurrency: TripCurrency | null;
 }
 
 export const EMPTY_TRIP_CONSTRAINTS: TripConstraints = {
@@ -52,7 +58,8 @@ export const EMPTY_TRIP_CONSTRAINTS: TripConstraints = {
   when: null,
   who: null,
   budget: null,
-  budgetAmountCny: null,
+  budgetAmount: null,
+  budgetCurrency: null,
 };
 
 /**
@@ -66,7 +73,8 @@ export function tripToConstraints(trip: TripSummary): TripConstraints {
     when: trip.when,
     who: trip.who,
     budget: trip.budget,
-    budgetAmountCny: trip.budgetAmountCny,
+    budgetAmount: trip.budgetAmount,
+    budgetCurrency: trip.budgetCurrency,
   };
 }
 
@@ -83,14 +91,18 @@ export function constraintsToTripPatch(
   when: TripWhen | null;
   who: TripWho | null;
   budget: TripBudgetTier | null;
-  budgetAmountCny: number | null;
+  budgetAmount: number | null;
+  budgetCurrency: TripCurrency | null;
 }> {
+  // A unit with nothing to measure is not sent: the server would refuse to store the half pair,
+  // and the chip's own state may hold one while the dialog is still being filled in.
   const full = {
     destination: c.where.trim(),
     when: whenIsSet(c.when) ? c.when : null,
     who: c.who,
     budget: c.budget,
-    budgetAmountCny: c.budgetAmountCny,
+    budgetAmount: c.budgetAmount,
+    budgetCurrency: c.budgetAmount === null ? null : c.budgetCurrency,
   };
   if (!previous) return full;
 
@@ -104,14 +116,20 @@ export function constraintsToTripPatch(
     when: whenIsSet(previous.when) ? previous.when : null,
     who: previous.who,
     budget: previous.budget,
-    budgetAmountCny: previous.budgetAmountCny,
+    budgetAmount: previous.budgetAmount,
+    budgetCurrency: previous.budgetAmount === null ? null : previous.budgetCurrency,
   };
   const patch: Partial<typeof full> = {};
   if (full.destination !== before.destination) patch.destination = full.destination;
   if (JSON.stringify(full.when) !== JSON.stringify(before.when)) patch.when = full.when;
   if (full.who !== before.who) patch.who = full.who;
   if (full.budget !== before.budget) patch.budget = full.budget;
-  if (full.budgetAmountCny !== before.budgetAmountCny) patch.budgetAmountCny = full.budgetAmountCny;
+  // The amount and its unit travel together: a change to either sends both, so the server
+  // always settles the pair it is shown rather than half of one.
+  if (full.budgetAmount !== before.budgetAmount || full.budgetCurrency !== before.budgetCurrency) {
+    patch.budgetAmount = full.budgetAmount;
+    patch.budgetCurrency = full.budgetCurrency;
+  }
   return patch;
 }
 
@@ -135,9 +153,12 @@ export interface TripChipsCopy {
   /** Joins the traveller parts ("、" zh, ", " en). */
   whoJoin: string;
   pets: (n: number) => string;
-  tiers: Record<TripBudgetTier, string>;
-  /** The stated whole-trip total ("总预算 ¥20,000"). */
-  budgetAmount: (yuan: number) => string;
+  /** Tier labels carrying the scale glyph the currency uses ("舒适（¥¥）", "sensibly priced ($$)"). */
+  tiers: (glyph: string) => Record<TripBudgetTier, string>;
+  /** The stated whole-trip total: the formatted amount plus its ISO code, which ¥ and $ alone do not settle. */
+  budgetAmount: (formatted: string, code: TripCurrency) => string;
+  /** Intl locale the amount is formatted in, so the symbol follows the reader's language. */
+  intlLocale: string;
 }
 
 /** Whether the "when" chip holds anything sendable (a set mode with all fields blank does not count). */
@@ -154,8 +175,13 @@ export function isEmptyTrip(c: TripConstraints): boolean {
     !whenIsSet(c.when) &&
     c.who === null &&
     c.budget === null &&
-    c.budgetAmountCny === null
+    c.budgetAmount === null
   );
+}
+
+/** The currency a budget's glyphs count in when none is stated: the UI language's own. */
+function fallbackCurrency(copy: TripChipsCopy): TripCurrency {
+  return copy.intlLocale.toLowerCase().startsWith("zh") ? "CNY" : "USD";
 }
 
 /** The "when" line's body, or null when the mode is set but nothing in it is. */
@@ -181,6 +207,8 @@ export function composeTripPrefix(
   copy: TripChipsCopy,
   /** Absolute path of the Trip's folder, when this conversation belongs to one. */
   tripDir?: string,
+  /** The person's home currency: what a tier's glyphs count in until an amount states its own. */
+  homeCurrency?: TripCurrency,
 ): string {
   const lines: string[] = [];
   // The folder leads, because it is the instruction the agent acts on first: the trip-workspace
@@ -201,11 +229,19 @@ export function composeTripPrefix(
     if (parts.length > 0) lines.push(`${copy.lineWho}${parts.join(copy.whoJoin)}`);
   }
   // Tier and amount answer the same question at different precision; state whichever the
-  // person gave, both when they gave both.
+  // person gave, both when they gave both. The amount names its currency by ISO code: the
+  // model will compare it against prices in whatever currency the site shows, and ¥ alone
+  // would leave it guessing between yuan and yen.
   {
     const parts: string[] = [];
-    if (c.budget !== null) parts.push(copy.tiers[c.budget]);
-    if (c.budgetAmountCny !== null) parts.push(copy.budgetAmount(c.budgetAmountCny));
+    const currency = c.budgetCurrency ?? homeCurrency ?? fallbackCurrency(copy);
+    if (c.budget !== null)
+      parts.push(copy.tiers(currencyGlyph(currency, copy.intlLocale))[c.budget]);
+    if (c.budgetAmount !== null) {
+      parts.push(
+        copy.budgetAmount(formatTripAmount(c.budgetAmount, currency, copy.intlLocale), currency),
+      );
+    }
     if (parts.length > 0) lines.push(`${copy.lineBudget}${parts.join(" · ")}`);
   }
   return lines.join("\n");
@@ -221,8 +257,9 @@ export function applyTripPrefix(
   c: TripConstraints,
   copy: TripChipsCopy,
   tripDir?: string,
+  homeCurrency?: TripCurrency,
 ): TaskInputPart[] {
-  const prefix = composeTripPrefix(c, copy, tripDir);
+  const prefix = composeTripPrefix(c, copy, tripDir, homeCurrency);
   if (prefix === "") return input;
   const at = input.findIndex((p) => p.type === "text");
   if (at === -1) return [{ type: "text", text: prefix }, ...input];

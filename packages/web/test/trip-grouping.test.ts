@@ -70,7 +70,7 @@ const copy: TripMetaCopy = {
   flexibleAnyMonth: (d) => `${d} days, dates flexible`,
   flexibleMonthOnly: (m) => `in ${m}`,
   travellers: (n) => (n === 1 ? "1 traveller" : `${n} travellers`),
-  budgetAmount: (yuan) => `¥${yuan.toLocaleString("en-US")}`,
+  intlLocale: "en-US",
   budgetTiers: {
     any: "Any budget",
     low: "On a budget",
@@ -89,7 +89,8 @@ const trip = (over: Partial<TripSummary> = {}): TripSummary => ({
   when: null,
   who: null,
   budget: null,
-  budgetAmountCny: null,
+  budgetAmount: null,
+  budgetCurrency: null,
   dir: "/trips/t-1",
   dirExists: true,
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -121,6 +122,16 @@ describe("tripMetaLine", () => {
 
   it("does not repeat the destination when it is already the name", () => {
     expect(tripMetaLine(trip({ name: "Tokyo", destination: "Tokyo" }), copy)).toBe("");
+  });
+
+  it("shows a stated total in the locale's symbol, which stands in for the tier", () => {
+    const stated = trip({ name: "x", destination: "Kyoto", budget: "mid" });
+    expect(tripMetaLine({ ...stated, budgetAmount: 20000, budgetCurrency: "CNY" }, copy)).toBe(
+      "Kyoto · CN¥20,000",
+    );
+    expect(tripMetaLine({ ...stated, budgetAmount: 3000, budgetCurrency: "USD" }, copy)).toBe(
+      "Kyoto · $3,000",
+    );
   });
 
   it("omits an explicit 'any budget', which says nothing", () => {

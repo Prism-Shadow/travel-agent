@@ -24,7 +24,7 @@ developer console (Usage, Traces, Benchmark), the skills picker, and the per-pro
 dialog. Model configuration stays, as the **Models** page (`/models`, linked at the sidebar's
 top beside New trip and New chat): model entries and API keys, pricing, and the default model.
 On first visit without a configured key, the chat page shows a one-time credential guide that
-leads there. Interface preferences (language, theme, font, display currency) live in the
+leads there. Interface preferences (language, theme, font, home currency) live in the
 sidebar's account menu; new-chat engine defaults (agent, approval mode, thinking level,
 workspace) still resolve from the Project's server-side defaults but are not editable on this
 surface. The inherited multi-user server API remains available to deployments and test setup, but
@@ -49,6 +49,12 @@ and supports password reset or removal.
   the draft. Where remains a free-text field; its debounced destination suggestions come from the
   server's replaceable geocoder gateway and a gateway failure never disables Done. Opening Who
   commits its visible one-adult default so the dialog summary and the closed chip cannot disagree.
+  Budget is a tier, a stated amount, or both; an amount always carries its currency, picked in
+  the dialog and defaulting to the **home currency** — the account menu's one currency
+  preference, which follows the UI language until set (zh → CNY, else USD) and also selects the
+  model-cost display currency. Amounts render through `Intl` in the reader's language (¥ and
+  US$ in zh, $ and CN¥ in en), a tier's glyphs count in the budget's currency, and the composed
+  budget line names the ISO code. No exchange rate exists on this surface or the server's.
 - **Rendering the model's documents without editing them.** `itinerary.md` and any map the agent
   drew are read-only here; relative image names resolve through the server's trip-file endpoint.
 - **The OmniMessage stream → view-model reduction** (`src/lib/omni/`): start/delta/stop aggregation,

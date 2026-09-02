@@ -14,8 +14,14 @@
  * matters" is expressed, and it is why the handlers distinguish absent from null.
  */
 import { Hono } from "hono";
-import type { TripBudgetTier, TripPatchRequest, TripWhen, TripWho } from "../../api/types.js";
-import { TRIP_BUDGET_TIERS } from "../../api/types.js";
+import type {
+  TripBudgetTier,
+  TripCurrency,
+  TripPatchRequest,
+  TripWhen,
+  TripWho,
+} from "../../api/types.js";
+import { TRIP_BUDGET_TIERS, TRIP_CURRENCIES } from "../../api/types.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import { HttpError } from "../errors.js";
 import { badRequest, optionalString, pathParam, readJson, requireValidId } from "../validate.js";
@@ -103,19 +109,31 @@ function parseBudget(body: Record<string, unknown>): TripBudgetTier | null | und
 
 /** The identity fields shared by create and patch, each independently optional. */
 /**
- * Parses `budgetAmountCny`: absent leaves it alone, `null` clears it, otherwise a whole
- * number of yuan. The cap is a sanity bound, not a product opinion — an eight-figure trip
- * budget is a typo, not a plan.
+ * Parses `budgetAmount`: absent leaves it alone, `null` clears it, otherwise a whole number
+ * of the trip's `budgetCurrency`. The cap is a sanity bound, not a product opinion — an
+ * eight-figure trip budget is a typo, not a plan. Whether the amount has its unit is
+ * TripService's check, because a patch may carry one half against a row holding the other.
  */
 function parseBudgetAmount(body: Record<string, unknown>): number | null | undefined {
-  if (!("budgetAmountCny" in body)) return undefined;
-  const raw = body.budgetAmountCny;
+  if (!("budgetAmount" in body)) return undefined;
+  const raw = body.budgetAmount;
   if (raw === null) return null;
   const n = typeof raw === "number" ? Math.trunc(raw) : NaN;
   if (!Number.isFinite(n) || n < 1 || n > 99_999_999) {
-    throw badRequest("budgetAmountCny must be null or a number of yuan between 1 and 99999999.");
+    throw badRequest("budgetAmount must be null or a whole number between 1 and 99999999.");
   }
   return n;
+}
+
+/** Parses `budgetCurrency`: absent leaves it alone, `null` clears it, otherwise one of the closed list. */
+function parseBudgetCurrency(body: Record<string, unknown>): TripCurrency | null | undefined {
+  if (!("budgetCurrency" in body)) return undefined;
+  const raw = body.budgetCurrency;
+  if (raw === null) return null;
+  if (typeof raw !== "string" || !TRIP_CURRENCIES.includes(raw as TripCurrency)) {
+    throw badRequest(`budgetCurrency must be null or one of: ${TRIP_CURRENCIES.join(", ")}.`);
+  }
+  return raw as TripCurrency;
 }
 
 function readTripFields(body: Record<string, unknown>): TripPatchRequest {
@@ -130,8 +148,10 @@ function readTripFields(body: Record<string, unknown>): TripPatchRequest {
   if (who !== undefined) req.who = who;
   const budget = parseBudget(body);
   if (budget !== undefined) req.budget = budget;
-  const budgetAmountCny = parseBudgetAmount(body);
-  if (budgetAmountCny !== undefined) req.budgetAmountCny = budgetAmountCny;
+  const budgetAmount = parseBudgetAmount(body);
+  if (budgetAmount !== undefined) req.budgetAmount = budgetAmount;
+  const budgetCurrency = parseBudgetCurrency(body);
+  if (budgetCurrency !== undefined) req.budgetCurrency = budgetCurrency;
   return req;
 }
 

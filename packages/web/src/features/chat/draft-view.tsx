@@ -62,6 +62,7 @@ import { Chevron } from "../../components/ui/chevron";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError } from "../../components/ui/toast";
 import { ChatInput, type ChatInputHandle } from "./chat-input";
+import { useTheme } from "../../state/theme";
 import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
 import type { ExampleTask, ExampleTaskId } from "./example-tasks";
@@ -192,6 +193,8 @@ export function DraftView({
   const [modelRef, setModelRef] = useState<ModelRefDto | null>(cached.modelRef ?? null);
   const textRef = useRef(cached.text ?? "");
   const composerRef = useRef<ChatInputHandle>(null);
+  // The budget line's glyphs count in the home currency until an amount states its own.
+  const { currency: homeCurrency } = useTheme();
   // Mutable because example-task sends preserve the typed draft: its old strip becomes the sent
   // Session's strip, while the still-cached draft must receive a fresh empty strip for next time.
   const browserScopeIdRef = useRef(browserScopeId);
@@ -691,7 +694,8 @@ export function DraftView({
             when: patch.when,
             who: patch.who,
             budget: patch.budget,
-            budgetAmountCny: patch.budgetAmountCny,
+            budgetAmount: patch.budgetAmount,
+            budgetCurrency: patch.budgetCurrency,
           });
           tripId = created.tripId;
           createdTripId = created.tripId;
@@ -714,7 +718,13 @@ export function DraftView({
         const withTripFolder =
           tripDir === undefined
             ? input
-            : applyTripPrefix(input, EMPTY_TRIP_CONSTRAINTS, S.chat.tripChips, tripDir);
+            : applyTripPrefix(
+                input,
+                EMPTY_TRIP_CONSTRAINTS,
+                S.chat.tripChips,
+                tripDir,
+                homeCurrency,
+              );
         const res = await api.postTask(createdId, {
           input: withTripFolder,
         });
@@ -760,6 +770,7 @@ export function DraftView({
       isNewTripDraft,
       trip,
       createTrip,
+      homeCurrency,
       removeTrip,
       add,
       discardDraft,
@@ -778,12 +789,15 @@ export function DraftView({
     async (input: TaskInputPart[]): Promise<boolean> => {
       // Chips only. The trip's folder line is added by onSend, which is the first moment the
       // folder is known for a journey this send is about to create.
-      const ok = await onSend(applyTripPrefix(input, trip, S.chat.tripChips), false);
+      const ok = await onSend(
+        applyTripPrefix(input, trip, S.chat.tripChips, undefined, homeCurrency),
+        false,
+      );
       // Only the floating chips are scratch to be cleared; a Trip's identity outlives the send.
       if (ok && draftTrip === null) setLocalTrip(EMPTY_TRIP_CONSTRAINTS);
       return ok;
     },
-    [onSend, trip, draftTrip],
+    [onSend, trip, draftTrip, homeCurrency],
   );
   const runExample = useCallback(
     async (task: ExampleTask) => {

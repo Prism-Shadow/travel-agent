@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { openDatabase } from "../src/db/database.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
+import { TripsRepo } from "../src/db/repos/trips.js";
 
 const sqlite = process.getBuiltinModule("node:sqlite");
 
@@ -23,6 +24,48 @@ afterEach(async () => {
 });
 
 describe("openDatabase column upgrade", () => {
+  it("carries a yuan-only budget over as budget_amount + budget_currency = CNY, once", () => {
+    const dbPath = path.join(dir, "web.db");
+    // A database formed while the budget was a bare number of yuan.
+    const old = new sqlite.DatabaseSync(dbPath);
+    old.exec(`CREATE TABLE trips (
+      trip_id     TEXT PRIMARY KEY,
+      project_id  TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      destination TEXT NOT NULL DEFAULT '',
+      when_json   TEXT,
+      who_json    TEXT,
+      budget      TEXT,
+      budget_amount_cny INTEGER,
+      dir         TEXT NOT NULL,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    );`);
+    const insert = old.prepare(
+      `INSERT INTO trips (trip_id, project_id, name, budget_amount_cny, dir, created_at, updated_at)
+       VALUES (?, 'p1', ?, ?, ?, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
+    );
+    insert.run("t-yuan", "Kyoto", 20000, "/t/kyoto");
+    insert.run("t-none", "Blank", null, "/t/blank");
+    old.close();
+
+    const db = openDatabase(dbPath);
+    const repo = new TripsRepo(db);
+    // The stated fact keeps the unit it always had; a row that stated nothing gains no unit.
+    expect(repo.findById("t-yuan")).toMatchObject({ budgetAmount: 20000, budgetCurrency: "CNY" });
+    expect(repo.findById("t-none")).toMatchObject({ budgetAmount: null, budgetCurrency: null });
+    repo.update("t-yuan", { budgetCurrency: "USD" }, "2026-01-02T00:00:00.000Z");
+    db.close();
+
+    // Opening again is a no-op: the carry-over fills blanks and never overwrites a unit.
+    const again = openDatabase(dbPath);
+    try {
+      expect(new TripsRepo(again).findById("t-yuan")!.budgetCurrency).toBe("USD");
+    } finally {
+      again.close();
+    }
+  });
+
   it("adds client/has_trace/trip_id to a sessions table formed before the columns existed", () => {
     const dbPath = path.join(dir, "web.db");
     // A database formed by the pre-#139 schema: sessions without client / has_trace.

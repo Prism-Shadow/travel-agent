@@ -74,7 +74,7 @@ describe("trips", () => {
 
     const mirror = JSON.parse(await fs.readFile(path.join(trip.dir, "trip.json"), "utf8"));
     expect(mirror).toMatchObject({
-      version: 1,
+      version: 2,
       tripId: trip.tripId,
       name: "Tokyo",
       destination: "Tokyo",
@@ -102,20 +102,50 @@ describe("trips", () => {
     expect(body.trip.who).toEqual({ adults: 2, children: 1, infants: 0, pets: 0 });
   });
 
-  it("stores, patches and validates the whole-trip amount in yuan", async () => {
-    const trip = await createTrip({ destination: "Kyoto", budgetAmountCny: 20000 });
-    expect(trip.budgetAmountCny).toBe(20000);
+  it("stores, patches and validates the whole-trip amount together with its currency", async () => {
+    const trip = await createTrip({
+      destination: "Kyoto",
+      budgetAmount: 20000,
+      budgetCurrency: "CNY",
+    });
+    expect(trip.budgetAmount).toBe(20000);
+    expect(trip.budgetCurrency).toBe("CNY");
 
-    // Fractions truncate to whole yuan; the field is a statement, not accounting.
-    const patched = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmountCny: 8000.9 });
-    expect(((await patched.json()) as TripResponse).trip.budgetAmountCny).toBe(8000);
+    // Fractions truncate to whole units; the field is a statement, not accounting. The unit
+    // the row already holds carries over when only the amount is patched.
+    const patched = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmount: 8000.9 });
+    const afterPatch = ((await patched.json()) as TripResponse).trip;
+    expect(afterPatch.budgetAmount).toBe(8000);
+    expect(afterPatch.budgetCurrency).toBe("CNY");
 
-    const cleared = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmountCny: null });
-    expect(((await cleared.json()) as TripResponse).trip.budgetAmountCny).toBeNull();
+    const swapped = await api.patch(`/api/trips/${trip.tripId}`, { budgetCurrency: "USD" });
+    expect(((await swapped.json()) as TripResponse).trip.budgetCurrency).toBe("USD");
+
+    // Clearing the amount clears its unit: a currency with nothing to measure is noise.
+    const cleared = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmount: null });
+    const afterClear = ((await cleared.json()) as TripResponse).trip;
+    expect(afterClear.budgetAmount).toBeNull();
+    expect(afterClear.budgetCurrency).toBeNull();
+
+    // An amount never enters without its unit — nothing implies one any more.
+    expect((await api.patch(`/api/trips/${trip.tripId}`, { budgetAmount: 5000 })).status).toBe(400);
+    expect(
+      (await api.post(`/api/projects/${projectId}/trips`, { budgetAmount: 5000 })).status,
+    ).toBe(400);
 
     for (const bad of [0, -1, 100_000_000, "20000", true]) {
-      const res = await api.patch(`/api/trips/${trip.tripId}`, { budgetAmountCny: bad });
-      expect(res.status, `budgetAmountCny=${String(bad)}`).toBe(400);
+      const res = await api.patch(`/api/trips/${trip.tripId}`, {
+        budgetAmount: bad,
+        budgetCurrency: "CNY",
+      });
+      expect(res.status, `budgetAmount=${String(bad)}`).toBe(400);
+    }
+    for (const bad of ["cny", "RMB", "", 7]) {
+      const res = await api.patch(`/api/trips/${trip.tripId}`, {
+        budgetAmount: 5000,
+        budgetCurrency: bad,
+      });
+      expect(res.status, `budgetCurrency=${String(bad)}`).toBe(400);
     }
   });
 
