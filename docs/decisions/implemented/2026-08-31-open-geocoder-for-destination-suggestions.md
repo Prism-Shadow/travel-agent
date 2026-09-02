@@ -26,8 +26,10 @@ and failures for one minute, follows the application proxy setting through the p
 fetch dispatcher, and maps provider failures to an empty result with an error marker. The dialog
 keeps free entry and Done available in every failure state.
 
-Typed search fragments leave the machine for the configured Photon service unless the opt-out is
-set. Provider-specific source copy is omitted from the compact dialog so its hint remains focused
+Photon accepts only `de`, `en` and `fr` as a result language and answers HTTP 400 to anything
+else, so the gateway forwards those three and sends `default` for every other UI locale; `default`
+labels each place in its local script, the closest Photon offers for zh. Typed search fragments
+leave the machine for the configured Photon service unless the opt-out is set. Provider-specific source copy is omitted from the compact dialog so its hint remains focused
 on what the traveller can enter.
 
 ## Alternatives considered

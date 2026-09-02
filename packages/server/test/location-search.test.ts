@@ -4,6 +4,7 @@ import type { LocationSearchResponse } from "../src/api/types.js";
 import {
   LocationSearchService,
   parsePhotonSuggestions,
+  providerLanguage,
 } from "../src/services/location-search-service.js";
 import { apiClient, createTestApp, loginAdmin } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
@@ -59,6 +60,30 @@ describe("LocationSearchService", () => {
     expect(urls[0]!.searchParams.get("limit")).toBe("5");
     expect(urls[0]!.searchParams.get("lang")).toBe("en");
     expect(urls[0]!.searchParams.getAll("layer")).toEqual(["city", "state", "country"]);
+  });
+
+  it("forwards only the languages Photon accepts and sends `default` for every other UI locale", async () => {
+    // The public instance answers HTTP 400 to any other `lang`, which the fail-soft path would
+    // turn into a cached empty result: zh, the web's default language, got no suggestions at all.
+    expect(providerLanguage("zh-CN")).toBe("default");
+    expect(providerLanguage("ja")).toBe("default");
+    expect(providerLanguage("")).toBe("default");
+    expect(providerLanguage("de-DE")).toBe("de");
+    expect(providerLanguage("fr")).toBe("fr");
+    expect(providerLanguage("en-GB")).toBe("en");
+
+    const languages: string[] = [];
+    const service = new LocationSearchService({
+      env: {},
+      fetchImpl: async (input) => {
+        languages.push(new URL(String(input)).searchParams.get("lang") ?? "");
+        return photonResponse();
+      },
+    });
+    const response = await service.search("东京", "zh-CN");
+    expect(response.error).toBeUndefined();
+    expect(response.suggestions).toHaveLength(1);
+    expect(languages).toEqual(["default"]);
   });
 
   it("fails soft for rate limits, malformed data, and the explicit opt-out", async () => {
