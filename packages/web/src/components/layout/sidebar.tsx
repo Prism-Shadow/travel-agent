@@ -20,7 +20,8 @@
  *
  * Group collapse and pin state persist per Project in localStorage; pinned groups sort first,
  * each partition keeping its own order. Within a group, subagent / scheduled / archived
- * conversations stay in collapsed folders that load on first expand.
+ * conversations stay in collapsed folders that load on first expand; the archive action and its
+ * folder are presented as "Saved" (the wire field and the category stay `archived`).
  *
  * Models — the one configuration surface that remains — is a top link beside New trip and
  * New chat. The bottom of the sidebar is just the account row, whose menu holds the interface

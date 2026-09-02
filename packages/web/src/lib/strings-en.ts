@@ -1460,15 +1460,15 @@ export const en: Strings = {
     deleteDraft: "Delete draft",
     deleteDraftConfirm: (title: string) =>
       `Delete draft "${title}"? Unsent content will be discarded.`,
-    archiveSession: "Archive",
-    unarchiveSession: "Unarchive",
+    archiveSession: "Save",
+    unarchiveSession: "Unsave",
     /** Sidebar group "reveal/load next page" row (display cap + server paging). */
     loadMore: "More",
     /** Collapsed sidebar folders inside a group (lazy-loaded); the count is the group's exact server share. */
     folderGroups: {
       subagent: (n: number) => `Subagents (${n})`,
       schedule: (n: number) => `Scheduled (${n})`,
-      archived: (n: number) => `Archived (${n})`,
+      archived: (n: number) => `Saved (${n})`,
     },
     skillsBanner: (names: string[]): string =>
       `Using skill${names.length === 1 ? "" : "s"}: ${names.join(", ")}`,

@@ -1400,15 +1400,18 @@ export const zh = {
     draftUntitled: "（无标题草稿）",
     deleteDraft: "删除草稿",
     deleteDraftConfirm: (title: string) => `确定删除草稿「${title}」？未发送的内容将被丢弃。`,
-    archiveSession: "归档",
-    unarchiveSession: "取消归档",
+    // The archive action is presented as "Saved": a conversation the person set aside on
+    // purpose and wants to find again, kept under its trip. The wire field, the category and
+    // the folder key stay `archived`; only the words changed.
+    archiveSession: "收藏",
+    unarchiveSession: "取消收藏",
     /** Sidebar group "reveal/load next page" row (display cap + server paging). */
     loadMore: "更多",
     /** Collapsed sidebar folders inside a group (lazy-loaded); the count is the group's exact server share. */
     folderGroups: {
       subagent: (n: number) => `子智能体（${n}）`,
       schedule: (n: number) => `定时任务（${n}）`,
-      archived: (n: number) => `已归档（${n}）`,
+      archived: (n: number) => `已收藏（${n}）`,
     },
     skillsBanner: (names: string[]): string => `使用技能：${names.join("、")}`,
     /** Attached-file notice above a user message (file names only; the paths stay in the Trace). */

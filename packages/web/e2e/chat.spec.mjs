@@ -333,12 +333,12 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   await page.reload();
   const throwaway = sidebar.locator("li", { hasText: "新对话" }).first();
   await expect(throwaway).toBeVisible();
-  // Archive: moves it under the collapsed "已归档" group.
+  // Save (the archive action's product name): moves it under the collapsed "已收藏" group.
   await throwaway.hover();
-  await throwaway.getByRole("button", { name: "归档", exact: true }).click();
-  await expect(sidebar.getByText(/已归档（\d+）/).first()).toBeVisible();
+  await throwaway.getByRole("button", { name: "收藏", exact: true }).click();
+  await expect(sidebar.getByText(/已收藏（\d+）/).first()).toBeVisible();
   await sidebar
-    .getByText(/已归档（\d+）/)
+    .getByText(/已收藏（\d+）/)
     .first()
     .click();
   const archived = sidebar.locator("li", { hasText: "新对话" }).first();
