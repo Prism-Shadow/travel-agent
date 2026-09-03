@@ -1,5 +1,5 @@
 /**
- * Single-column sidebar, top to bottom: the application's name -> new trip + new chat -> the
+ * Single-column sidebar, top to bottom: the application's name -> new chat + new trip -> the
  * Trip list -> loose questions -> bottom settings + user config.
  *
  * The top slot is the app's name, not a Project switcher, while only one Project exists: a
@@ -23,8 +23,8 @@
  * conversations stay in collapsed folders that load on first expand; the archive action and its
  * folder are presented as "Saved" (the wire field and the category stay `archived`).
  *
- * Models — the one configuration surface that remains — is a top link beside New trip and
- * New chat. The bottom of the sidebar is just the account row, whose menu holds the interface
+ * Models — the one configuration surface that remains — is a top link beside New chat and
+ * New trip. The bottom of the sidebar is just the account row, whose menu holds the interface
  * preferences (language, theme, font, display currency, proxy).
  *
  * Desktop keeps the sidebar pinned as the left column; mobile puts the whole thing in a drawer.
@@ -812,9 +812,11 @@ export function Sidebar({
         )}
       </div>
 
-      {/* The two ways to start, pinned above the scroller. "New trip" leads because the Trip
-          is the product's object; "New chat" stays beside it, quieter, because a loose
-          question must not be pushed through a journey it does not need.
+      {/* The two ways to start, pinned above the scroller. "New chat" leads because the
+          product's entry shape is one sentence said before the person knows what it becomes
+          (root SPEC); "New trip" stays right beside it for the person who already knows
+          this is a journey — the Trip remains the product's object, but the everyday door
+          comes first.
           The gap to the scroll area below is this block's OWN pb-2, not padding inside the
           scroller: padding-top there belongs to the scrollable content and slides away with
           it, leaving a scrolled row flush against this button. Outside the scroller the 8px
@@ -825,16 +827,6 @@ export function Sidebar({
           squeezed to nine pixels and the document still grew by eleven. A window that short is
           reachable by browser zoom, and the page must scroll nothing but its own scrollers. */}
       <div className="min-h-0 shrink space-y-0.5 overflow-y-auto px-2 pb-2 pt-2">
-        <button
-          type="button"
-          onClick={newTrip}
-          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-        >
-          <span className="text-gray-500 dark:text-gray-400">
-            <Icon d={TRIP_ICON} />
-          </span>
-          {S.trip.newTrip}
-        </button>
         <button
           type="button"
           onClick={() => newChat(defaultAgentId)}
@@ -848,6 +840,16 @@ export function Sidebar({
             <Icon d={NEW_CHAT_ICON} />
           </span>
           {S.chat.newSessionMenu}
+        </button>
+        <button
+          type="button"
+          onClick={newTrip}
+          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
+        >
+          <span className="text-gray-500 dark:text-gray-400">
+            <Icon d={TRIP_ICON} />
+          </span>
+          {S.trip.newTrip}
         </button>
         <NavLink
           to="/models"

@@ -22,7 +22,7 @@ Its job is to make a traveller's journey the thing on screen. The engine's devel
 are removed: the Agents page (system prompt, tools, MCP, skills, memory, vault, schedules), the
 developer console (Usage, Traces, Benchmark), the skills picker, and the per-project settings
 dialog. Model configuration stays, as the **Models** page (`/models`, linked at the sidebar's
-top beside New trip and New chat): model entries and API keys, pricing, and the default model.
+top beside New chat and New trip): model entries and API keys, pricing, and the default model.
 On first visit without a configured key, the chat page shows a one-time credential guide that
 leads there. Interface preferences (language, theme, font, home currency) live in the
 sidebar's account menu; new-chat engine defaults (agent, approval mode, thinking level,
