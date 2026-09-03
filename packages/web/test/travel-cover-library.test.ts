@@ -46,10 +46,20 @@ function readJpegFrame(buffer: Buffer): JpegFrame {
 }
 
 describe("travel cover catalog", () => {
-  it("contains the 84 unique Phase 1 and Batch A assets with generation metadata", () => {
-    expect(TRAVEL_COVER_CATALOG).toHaveLength(84);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(84);
-    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(84);
+  it("contains the complete 192-asset library", () => {
+    expect(TRAVEL_COVER_CATALOG).toHaveLength(192);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.id)).size).toBe(192);
+    expect(new Set(TRAVEL_COVER_CATALOG.map((asset) => asset.src)).size).toBe(192);
+    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 1)).toHaveLength(48);
+    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(144);
+    expect(
+      Object.fromEntries(
+        ["destination", "activity", "season", "generic"].map((kind) => [
+          kind,
+          TRAVEL_COVER_CATALOG.filter((asset) => asset.kind === kind).length,
+        ]),
+      ),
+    ).toEqual({ destination: 96, activity: 48, season: 24, generic: 24 });
     expect(
       TRAVEL_COVER_CATALOG.every(
         (asset) =>
@@ -58,16 +68,6 @@ describe("travel cover catalog", () => {
           (asset.promptVersion === 1 || asset.promptVersion === 2),
       ),
     ).toBe(true);
-    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 1)).toHaveLength(48);
-    expect(TRAVEL_COVER_CATALOG.filter((asset) => asset.promptVersion === 2)).toHaveLength(36);
-    expect(
-      Object.fromEntries(
-        ["destination", "activity", "season", "generic"].map((kind) => [
-          kind,
-          TRAVEL_COVER_CATALOG.filter((asset) => asset.kind === kind).length,
-        ]),
-      ),
-    ).toEqual({ destination: 42, activity: 21, season: 12, generic: 9 });
   });
 
   it("keeps the manifest and public asset directory in one-to-one parity", () => {
@@ -126,6 +126,33 @@ describe("selectTravelCovers", () => {
     ["Palawan snorkeling adventure", "snorkeling-lagoon"],
     ["Family holiday with grandparents", "multi-generation-family-holiday"],
     ["Spring rain garden escape", "spring-rain-garden"],
+    ["Lisbon hillside tram weekend", "lisbon-hillside-tram"],
+    ["爱丁堡秋日老城", "edinburgh-old-town-mist"],
+    ["Stockholm archipelago summer", "stockholm-archipelago"],
+    ["冰岛黑沙滩冬季之旅", "iceland-black-sand-coast"],
+    ["Vineyard lunch in autumn", "vineyard-lunch"],
+    ["Classical concert hall evening", "classical-concert-hall"],
+    ["海岸徒步周末", "coastal-cliff-hike"],
+    ["Anniversary city break", "anniversary-city-break"],
+    ["A misty autumn vineyard", "autumn-vineyard-mist"],
+    ["Yosemite spring valley morning", "yosemite-valley-morning"],
+    ["墨西哥城庭院春日旅行", "mexico-city-courtyard"],
+    ["Costa Rica cloud forest escape", "costa-rica-cloud-forest"],
+    ["库斯科安第斯山之旅", "cusco-andean-rooftops"],
+    ["Campervan road trip", "campervan-road-trip"],
+    ["Taco cooking afternoon", "taco-cooking-table"],
+    ["Mangrove kayaking adventure", "kayaking-mangroves"],
+    ["Solo travel at sunrise", "solo-travel-viewpoint"],
+    ["Summer thunderstorm over the plains", "summer-thunderstorm-plains"],
+    ["Kanazawa winter garden retreat", "kanazawa-garden-winter"],
+    ["张家界云雾山峰之旅", "zhangjiajie-mist-mountains"],
+    ["Jordan desert wadi journey", "jordan-wadi-desert"],
+    ["Serengeti dawn wildlife escape", "serengeti-dawn"],
+    ["Plan a safari game drive", "safari-game-drive"],
+    ["无障碍轮椅旅行城市周末", "accessible-travel-city-break"],
+    ["Spice-market cooking class", "spice-market-cooking"],
+    ["Rainforest eco-lodge retreat", "eco-lodge-rainforest"],
+    ["Winter desert night under the stars", "winter-desert-night"],
   ])("matches %s to %s", (title, expected) => {
     expect(selectTravelCovers([{ sessionId: "session-1", title }])[0]?.id).toBe(expected);
   });

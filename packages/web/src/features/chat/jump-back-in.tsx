@@ -423,6 +423,8 @@ function UpNextCard({
         src={cover.src}
         alt=""
         aria-hidden
+        loading="lazy"
+        decoding="async"
         draggable={false}
         className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035]"
         style={{ objectPosition: cover.focalPoint }}
@@ -491,6 +493,8 @@ function SessionCard({
         src={cover.src}
         alt=""
         aria-hidden
+        loading="lazy"
+        decoding="async"
         draggable={false}
         className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035]"
         style={{ objectPosition: cover.focalPoint }}
@@ -551,6 +555,8 @@ function InspirationCard({
         src={cover.src}
         alt=""
         aria-hidden
+        loading="lazy"
+        decoding="async"
         draggable={false}
         className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         style={{ objectPosition: cover.focalPoint }}
