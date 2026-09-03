@@ -7,6 +7,7 @@
  * display formats for cost (USD), byte counts, and dates, reused by the
  * stats page and Trace page.
  */
+import { USD_TO_CNY } from "../state/theme";
 
 /** Keep one decimal place but drop a trailing `.0` (same convention as the CLI). */
 function trimZero(v: number): string {
@@ -118,7 +119,7 @@ export function formatMoney(
 ): string {
   if (usd == null) return "—";
   const symbol = currency === "CNY" ? "¥" : "$";
-  const v = currency === "CNY" ? usd * 7 : usd;
+  const v = currency === "CNY" ? usd * USD_TO_CNY : usd;
   if (v === 0) return `${symbol}0`;
   const abs = Math.abs(v);
   if (opts?.compact && abs < 1) return `${symbol}${Number(v.toPrecision(2))}`;

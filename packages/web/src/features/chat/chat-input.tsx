@@ -62,8 +62,16 @@
  * Renders only the card body itself: outer positioning such as bottom-docking or vertical
  * centering is decided by the page.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, ClipboardEvent, KeyboardEvent, ReactNode, RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ChangeEvent, ClipboardEvent, KeyboardEvent, ReactNode, Ref, RefObject } from "react";
 import type {
   AgentSummary,
   ApprovalMode,
@@ -708,6 +716,18 @@ function appendAttachmentParts(
   }
 }
 
+/**
+ * The composer's imperative seam, for the one thing a parent may do to the text from outside:
+ * put a sentence in it. Everything else — sending, clearing, staging — stays the composer's own.
+ */
+export interface ChatInputHandle {
+  /**
+   * Replaces the text body with `text`, caret at its end, focus on the textarea. Goes through
+   * the draft path (onTextChange), so the cache follows exactly as it does for typing.
+   */
+  replaceText(text: string): void;
+}
+
 export function ChatInput({
   status,
   onSend,
@@ -751,6 +771,7 @@ export function ChatInput({
   onRetryModelAuth,
   onNewSession,
   appearance = "default",
+  ref,
 }: {
   status: SessionStatus;
   /**
@@ -922,6 +943,8 @@ export function ChatInput({
   onNewSession?: () => void;
   /** The new-trip screen uses a softer, floating consumer surface; active conversations retain the compact default. */
   appearance?: "default" | "travel";
+  /** Receives the imperative handle (React 19 ref-as-prop). */
+  ref?: Ref<ChatInputHandle>;
 }) {
   const { locale } = useLocale();
   const [text, setText] = useState(initialText ?? "");
@@ -959,6 +982,26 @@ export function ChatInput({
   // Cursor position (tracked via onChange/onSelect): the slash menu matches the token at the caret.
   const [caret, setCaret] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      replaceText(next: string) {
+        // Same shape as history recall below: the value first, the caret once React has
+        // committed it, and focus back on the textarea so the next keystroke edits the fill.
+        setText(next);
+        onTextChange?.(next);
+        setCaret(next.length);
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+          el.scrollTop = el.scrollHeight;
+        });
+      },
+    }),
+    [onTextChange],
+  );
   // Shell-style ↑/↓ history recall state (null = not navigating); ended by the text-mismatch effect below.
   const historyNavRef = useRef<HistoryStep["nav"]>(null);
   // Short placeholder on narrow screens: a long hint would wrap and get clipped in a single-line textarea.

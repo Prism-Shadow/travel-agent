@@ -97,9 +97,16 @@ export function parsePhotonSuggestions(body: PhotonResponse): LocationSuggestion
   return suggestions;
 }
 
-function providerLanguage(locale: string): string {
+// Photon rejects any `lang` outside this set with HTTP 400, so an unsupported UI language (zh, the
+// web default, among them) must not be forwarded verbatim: it would turn every query into a cached
+// failure. `default` returns each place under its local-script name, which is the closest Photon
+// offers for those languages.
+const PHOTON_LANGUAGES = new Set(["de", "en", "fr"]);
+
+export function providerLanguage(locale: string): string {
   const match = /^[a-z]{2,3}/i.exec(locale.trim());
-  return match?.[0]?.toLowerCase() ?? "en";
+  const language = match?.[0]?.toLowerCase() ?? "";
+  return PHOTON_LANGUAGES.has(language) ? language : "default";
 }
 
 export class LocationSearchService {

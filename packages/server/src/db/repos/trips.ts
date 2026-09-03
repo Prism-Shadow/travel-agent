@@ -11,7 +11,7 @@
  * would buy nothing and would have to grow every time the shape does.
  */
 import type { DatabaseSync } from "node:sqlite";
-import type { TripBudgetTier, TripWhen, TripWho } from "../../api/types.js";
+import type { TripBudgetTier, TripCurrency, TripWhen, TripWho } from "../../api/types.js";
 
 export interface TripRow {
   tripId: string;
@@ -26,8 +26,10 @@ export interface TripRow {
   who: TripWho | null;
   /** Price tier; null = not set. */
   budget: TripBudgetTier | null;
-  /** Whole-trip total in yuan; null = not set. */
-  budgetAmountCny: number | null;
+  /** Whole-trip total in `budgetCurrency`; null = not set. */
+  budgetAmount: number | null;
+  /** The amount's unit; null exactly when the amount is (TripService keeps the pair honest). */
+  budgetCurrency: TripCurrency | null;
   /** Absolute path of the directory this Trip owns. */
   dir: string;
   createdAt: string;
@@ -41,7 +43,8 @@ export interface TripPatch {
   when?: TripWhen | null;
   who?: TripWho | null;
   budget?: TripBudgetTier | null;
-  budgetAmountCny?: number | null;
+  budgetAmount?: number | null;
+  budgetCurrency?: TripCurrency | null;
 }
 
 /**
@@ -87,7 +90,8 @@ function mapRow(r: Record<string, unknown>): TripRow {
     when: normalizeWhen(parseJson<TripWhen>(r.when_json)),
     who: normalizeWho(parseJson<TripWho>(r.who_json)),
     budget: (r.budget as TripBudgetTier | null) ?? null,
-    budgetAmountCny: (r.budget_amount_cny as number | null) ?? null,
+    budgetAmount: (r.budget_amount as number | null) ?? null,
+    budgetCurrency: (r.budget_currency as TripCurrency | null) ?? null,
     dir: r.dir as string,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -100,8 +104,8 @@ export class TripsRepo {
   insert(row: TripRow): void {
     this.db
       .prepare(
-        `INSERT INTO trips (trip_id, project_id, name, destination, when_json, who_json, budget, budget_amount_cny, dir, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trips (trip_id, project_id, name, destination, when_json, who_json, budget, budget_amount, budget_currency, dir, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         row.tripId,
@@ -111,7 +115,8 @@ export class TripsRepo {
         row.when === null ? null : JSON.stringify(row.when),
         row.who === null ? null : JSON.stringify(row.who),
         row.budget,
-        row.budgetAmountCny,
+        row.budgetAmount,
+        row.budgetCurrency,
         row.dir,
         row.createdAt,
         row.updatedAt,
@@ -167,9 +172,13 @@ export class TripsRepo {
       sets.push("budget = ?");
       values.push(patch.budget);
     }
-    if (patch.budgetAmountCny !== undefined) {
-      sets.push("budget_amount_cny = ?");
-      values.push(patch.budgetAmountCny);
+    if (patch.budgetAmount !== undefined) {
+      sets.push("budget_amount = ?");
+      values.push(patch.budgetAmount);
+    }
+    if (patch.budgetCurrency !== undefined) {
+      sets.push("budget_currency = ?");
+      values.push(patch.budgetCurrency);
     }
     if (sets.length === 0) return;
     sets.push("updated_at = ?");

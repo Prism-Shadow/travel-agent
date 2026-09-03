@@ -216,6 +216,12 @@ needed.
   socket outlives its server) rather than for a pinned cause. **When a class can be removed more
   cheaply than its instance can be reproduced, remove the class** and say in the test which of the
   two you did.
+- **Test a request that carries a locale with the locale the product ships, not the one you
+  type in.** The geocoder gateway forwarded `lang=zh` — the web's default language — to a
+  provider that accepts only `de`, `en` and `fr`, so every Chinese-UI query was an HTTP 400
+  mapped to "no suggestions", and the suite never saw it because it only ever asked in `en`.
+  When a provider parameter is derived from the UI locale, the test sends the default locale
+  first and the developer's second.
 - **Prove the class, not the instance.** When a static search says a file is unused, confirm it
   covers dynamic `import()` too — two `browser-cli` modules looked dead and are lazily imported by
   `cli.ts` on purpose, so that `--help` works without browser dependencies installed.

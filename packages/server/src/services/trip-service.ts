@@ -19,6 +19,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
   TripBudgetTier,
+  TripCurrency,
   TripItineraryResponse,
   TripSummary,
   TripWhen,
@@ -30,7 +31,8 @@ import type { SessionsRepo } from "../db/repos/sessions.js";
 import type { ProjectService } from "./project-service.js";
 
 /** Schema marker in `trip.json`, so a future shape change can be recognized rather than guessed. */
-const TRIP_JSON_VERSION = 1;
+// 2: `budgetAmount` + `budgetCurrency` replaced the yuan-only `budgetAmountCny`.
+const TRIP_JSON_VERSION = 2;
 
 /** Name a Trip carries until it has a destination or the person renames it. */
 const UNTITLED_TRIP_NAME = "Untitled trip";
@@ -40,6 +42,26 @@ const ITINERARY_FILENAME = "itinerary.md";
 
 /** The identity mirror this service writes — the one file in a Trip folder that is ours. */
 const TRIP_JSON_FILENAME = "trip.json";
+
+/**
+ * A stated amount is meaningless without its unit, and a unit with nothing to measure is
+ * noise: the pair is stored together or not at all. There is no implied currency any more —
+ * that implication (yuan, in a field name) is what made one traveller's "20000" everyone's.
+ */
+function settleBudget(
+  amount: number | null,
+  currency: TripCurrency | null,
+): { budgetAmount: number | null; budgetCurrency: TripCurrency | null } {
+  if (amount === null) return { budgetAmount: null, budgetCurrency: null };
+  if (currency === null) {
+    throw new HttpError(
+      400,
+      "budget_currency_required",
+      "budgetCurrency is required when budgetAmount is set.",
+    );
+  }
+  return { budgetAmount: amount, budgetCurrency: currency };
+}
 
 /**
  * Directory basename for a new Trip: a readable slug of the destination, suffixed with the
@@ -130,7 +152,8 @@ export class TripService {
       when: row.when,
       who: row.who,
       budget: row.budget,
-      budgetAmountCny: row.budgetAmountCny,
+      budgetAmount: row.budgetAmount,
+      budgetCurrency: row.budgetCurrency,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -208,7 +231,8 @@ export class TripService {
       when: row.when,
       who: row.who,
       budget: row.budget,
-      budgetAmountCny: row.budgetAmountCny,
+      budgetAmount: row.budgetAmount,
+      budgetCurrency: row.budgetCurrency,
       dir: row.dir,
       dirExists: await pathExists(row.dir),
       createdAt: row.createdAt,
@@ -233,10 +257,12 @@ export class TripService {
       when?: TripWhen | null;
       who?: TripWho | null;
       budget?: TripBudgetTier | null;
-      budgetAmountCny?: number | null;
+      budgetAmount?: number | null;
+      budgetCurrency?: TripCurrency | null;
     },
   ): Promise<TripSummary> {
     this.deps.projectService.requireProjectAccess(userId, projectId);
+    const budgetPair = settleBudget(fields.budgetAmount ?? null, fields.budgetCurrency ?? null);
     const now = new Date();
     const iso = now.toISOString();
     const destination = fields.destination?.trim() ?? "";
@@ -253,7 +279,7 @@ export class TripService {
       when,
       who: fields.who ?? null,
       budget: fields.budget ?? null,
-      budgetAmountCny: fields.budgetAmountCny ?? null,
+      ...budgetPair,
       dir,
       createdAt: iso,
       updatedAt: iso,
@@ -296,6 +322,17 @@ export class TripService {
 
   async patch(userId: string, tripId: string, patch: TripPatch): Promise<TripSummary> {
     const existing = this.requireTrip(userId, tripId);
+    // A patch may carry one half of the budget pair against a row holding the other, so the
+    // pair is settled against the row as it will be, not against the patch alone.
+    if (patch.budgetAmount !== undefined || patch.budgetCurrency !== undefined) {
+      Object.assign(
+        patch,
+        settleBudget(
+          patch.budgetAmount !== undefined ? patch.budgetAmount : existing.budgetAmount,
+          patch.budgetCurrency !== undefined ? patch.budgetCurrency : existing.budgetCurrency,
+        ),
+      );
+    }
     const updatedAt = new Date().toISOString();
     this.deps.trips.update(tripId, patch, updatedAt);
     const updated = this.deps.trips.findById(tripId) ?? existing;

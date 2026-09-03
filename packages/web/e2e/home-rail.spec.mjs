@@ -36,6 +36,25 @@ test("first run shows Get inspired and no trip rail", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Jump back in" })).toHaveCount(0);
 });
 
+test("choosing an inspiration card fills the composer and sends nothing", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
+  await provisionAndLogin(page.request, `railpick${RUN}`, "password123");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${BASE}/chat/new`);
+  await page.getByRole("button", { name: "Later", exact: true }).click();
+  await composer(page).waitFor();
+  await composer(page).fill("half a sentence");
+
+  await page.getByRole("button", { name: "Chase autumn in Kyoto" }).click();
+
+  // The prompt is now the draft — focused and editable — and no Session was created: the
+  // route is still the draft's, and the rail is still in its first-run state.
+  await expect(composer(page)).toHaveValue(/^Design a five-day Kyoto trip/);
+  await expect(composer(page)).toBeFocused();
+  await expect(page).toHaveURL(/\/chat\/new/);
+  await expect(page.getByRole("heading", { name: "Get inspired" })).toBeVisible();
+});
+
 test("a returning user leads with the next trip and the inspiration cards yield", async ({
   page,
 }) => {

@@ -894,6 +894,27 @@ export interface TripWho {
 export type TripBudgetTier = "any" | "low" | "mid" | "high" | "luxury";
 export const TRIP_BUDGET_TIERS: readonly TripBudgetTier[] = ["any", "low", "mid", "high", "luxury"];
 
+/**
+ * The currencies a stated budget may be in. A budget is a number *and* a unit: the unit used
+ * to be implied (yuan, baked into the field name), which made "20000" mean one thing for every
+ * traveller. A closed list rather than any ISO 4217 code, so the picker and this validator
+ * cannot disagree — enumerate, do not sample.
+ */
+export type TripCurrency =
+  "CNY" | "USD" | "EUR" | "GBP" | "JPY" | "HKD" | "SGD" | "AUD" | "KRW" | "THB";
+export const TRIP_CURRENCIES: readonly TripCurrency[] = [
+  "CNY",
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "HKD",
+  "SGD",
+  "AUD",
+  "KRW",
+  "THB",
+];
+
 /** A Trip as the sidebar and the trip page read it. */
 export interface TripSummary {
   tripId: string;
@@ -905,10 +926,12 @@ export interface TripSummary {
   who: TripWho | null;
   budget: TripBudgetTier | null;
   /**
-   * Whole-trip total the person stated, in yuan. Arithmetic input for the model's
+   * Whole-trip total the person stated, in `budgetCurrency`. Arithmetic input for the model's
    * comparisons — never authority to spend (the payment gate is unconditional).
    */
-  budgetAmountCny: number | null;
+  budgetAmount: number | null;
+  /** The unit of `budgetAmount`; null exactly when the amount is. */
+  budgetCurrency: TripCurrency | null;
   /** Absolute path of the directory this Trip owns — the person's own folder. */
   dir: string;
   /** False when `dir` no longer exists on disk: the Trip stays visible and says so. */
@@ -924,7 +947,8 @@ export interface TripCreateRequest {
   when?: TripWhen | null;
   who?: TripWho | null;
   budget?: TripBudgetTier | null;
-  budgetAmountCny?: number | null;
+  budgetAmount?: number | null;
+  budgetCurrency?: TripCurrency | null;
 }
 
 /** Declarative per-field patch: an omitted key leaves the stored value alone, `null` clears it. */

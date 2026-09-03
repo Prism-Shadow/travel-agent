@@ -60,8 +60,8 @@ export const zh = {
       flexibleAnyMonth: (days: number) => `${days} 天，时间灵活`,
       flexibleMonthOnly: (month: string) => `${month} 内`,
       travellers: (n: number) => `${n} 人`,
-      /** ¥ is unambiguous here: the product's market prices trips in RMB. */
-      budgetAmount: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
+      /** Intl locale the stated total is formatted in; the symbol follows the reader's language. */
+      intlLocale: "zh-CN",
       budgetTiers: {
         any: "预算不限",
         low: "经济",
@@ -600,7 +600,8 @@ export const zh = {
     priceCacheRead: "缓存读取价格",
     priceCacheWrite: "缓存写入价格",
     priceOutput: "输出价格",
-    currency: "币种",
+    /** The home currency: the budget's default unit and the model-cost display currency. */
+    currency: "常用货币",
     currencyUsd: "美元 $",
     currencyCny: "人民币 ¥",
     apiKey: "API key",
@@ -1036,7 +1037,7 @@ export const zh = {
     },
     jumpBackIn: "接着上次继续",
     // First-run-only editorial prompts (the rail shows them until the first real trip or
-    // conversation exists). A click starts a real draft task with the current settings.
+    // conversation exists). A click fills the composer with the prompt and sends nothing.
     getInspired: {
       title: "寻找旅行灵感",
       previous: "向左浏览旅行灵感",
@@ -1070,7 +1071,7 @@ export const zh = {
       lineWhen: "日期：",
       lineWho: "人数：",
       lineBudget: "预算：",
-      budgetAmount: (yuan: number) => `总预算 ¥${yuan.toLocaleString("en-US")}`,
+      budgetAmount: (formatted: string, code: string) => `总预算 ${formatted}（${code}）`,
       dateRange: (start: string, end: string) => `${start} 至 ${end}`,
       dateFrom: (start: string) => `${start} 出发`,
       dateUntil: (end: string) => `${end} 前返回`,
@@ -1081,21 +1082,25 @@ export const zh = {
       children: (n: number) => `${n} 儿童`,
       infants: (n: number) => `${n} 婴儿`,
       whoJoin: "、",
-      tiers: {
+      tiers: (g: string) => ({
         any: "不限",
-        low: "经济（¥）",
-        mid: "舒适（¥¥）",
-        high: "高档（¥¥¥）",
-        luxury: "奢华（¥¥¥¥）",
-      },
+        low: `经济（${g}）`,
+        mid: `舒适（${g.repeat(2)}）`,
+        high: `高档（${g.repeat(3)}）`,
+        luxury: `奢华（${g.repeat(4)}）`,
+      }),
       // Chip labels (unfilled) and short summaries (filled).
       where: "目的地",
       when: "日期",
       who: "人数",
       budget: "预算",
-      tierShort: { any: "不限", low: "¥", mid: "¥¥", high: "¥¥¥", luxury: "¥¥¥¥" },
-      /** Chip summary when an exact total is stated ("¥20,000"). */
-      amountShort: (yuan: number) => `¥${yuan.toLocaleString("en-US")}`,
+      tierShort: (g: string) => ({
+        any: "不限",
+        low: g,
+        mid: g.repeat(2),
+        high: g.repeat(3),
+        luxury: g.repeat(4),
+      }),
       travellers: (n: number) => `${n} 人`,
       /** Chip summary: people, plus pets when there are any ("2 人 · 1 只宠物"). */
       whoSummary: (people: number, pets: number): string =>
@@ -1135,7 +1140,8 @@ export const zh = {
       petsHint: "同行的动物",
       budgetTitle: "选个档位，或直接写数",
       budgetAmountLabel: "总预算",
-      budgetAmountHint: "可选 · 整趟旅程 · 人民币",
+      budgetAmountHint: "可选 · 整趟旅程",
+      budgetCurrencyLabel: "币种",
       budgetAmountPlaceholder: "如 20000",
       clear: "清除",
       /** Dialog footer: closes it. Not "Update" — nothing runs until the message is sent. */
@@ -1400,15 +1406,18 @@ export const zh = {
     draftUntitled: "（无标题草稿）",
     deleteDraft: "删除草稿",
     deleteDraftConfirm: (title: string) => `确定删除草稿「${title}」？未发送的内容将被丢弃。`,
-    archiveSession: "归档",
-    unarchiveSession: "取消归档",
+    // The archive action is presented as "Saved": a conversation the person set aside on
+    // purpose and wants to find again, kept under its trip. The wire field, the category and
+    // the folder key stay `archived`; only the words changed.
+    archiveSession: "收藏",
+    unarchiveSession: "取消收藏",
     /** Sidebar group "reveal/load next page" row (display cap + server paging). */
     loadMore: "更多",
     /** Collapsed sidebar folders inside a group (lazy-loaded); the count is the group's exact server share. */
     folderGroups: {
       subagent: (n: number) => `子智能体（${n}）`,
       schedule: (n: number) => `定时任务（${n}）`,
-      archived: (n: number) => `已归档（${n}）`,
+      archived: (n: number) => `已收藏（${n}）`,
     },
     skillsBanner: (names: string[]): string => `使用技能：${names.join("、")}`,
     /** Attached-file notice above a user message (file names only; the paths stay in the Trace). */

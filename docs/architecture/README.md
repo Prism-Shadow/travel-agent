@@ -78,7 +78,7 @@ fixes it at creation, records it in the append-only Trace, and derives memory sc
 
 ```
 server index
-  trips     tripId · projectId · name · destination · when · who · budget · dir
+  trips     tripId · projectId · name · destination · when · who · budget · budgetAmount + budgetCurrency · dir
   sessions  + trip_id (nullable)   ← attach / move / detach is one UPDATE
 
 ~/Penguin Trips/tokyo-2026-10/

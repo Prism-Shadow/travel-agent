@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS trips (       -- travel-agent's own first-class objec
   when_json   TEXT,                            -- JSON TripWhen: {kind:'dates',start,end} | {kind:'flexible',days,months[]}; NULL = not set
   who_json    TEXT,                            -- JSON TripWho: {adults,children,infants,pets}; NULL = not set
   budget      TEXT,                            -- price tier: any|low|mid|high|luxury; NULL = not set
-  budget_amount_cny INTEGER,                   -- whole-trip total the person stated, in yuan; NULL = not set
+  budget_amount   INTEGER,                     -- whole-trip total the person stated, in budget_currency; NULL = not set
+  budget_currency TEXT,                        -- ISO 4217 code from TRIP_CURRENCIES; NULL exactly when budget_amount is
   dir         TEXT NOT NULL,                   -- absolute path of the directory this Trip owns (trip.json + itinerary.md live there)
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL

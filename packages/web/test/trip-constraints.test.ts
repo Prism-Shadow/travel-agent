@@ -28,7 +28,8 @@ const full: TripConstraints = {
   when: { kind: "dates", start: "2026-10-01", end: "2026-10-05" },
   who: { adults: 2, children: 1, infants: 0, pets: 0 },
   budget: "mid",
-  budgetAmountCny: null,
+  budgetAmount: null,
+  budgetCurrency: null,
 };
 
 describe("composeTripPrefix", () => {
@@ -40,7 +41,7 @@ describe("composeTripPrefix", () => {
 
   it("renders the same constraints through the English copy", () => {
     expect(composeTripPrefix(full, EN)).toBe(
-      "Where: 东京、大阪\nWhen: 2026-10-01 to 2026-10-05\nWho: 2 adults, 1 child\nBudget: sensibly priced (¥¥)",
+      "Where: 东京、大阪\nWhen: 2026-10-01 to 2026-10-05\nWho: 2 adults, 1 child\nBudget: sensibly priced ($$)",
     );
   });
 
@@ -96,6 +97,31 @@ describe("composeTripPrefix", () => {
       who: { adults: 0, children: 0, infants: 1, pets: 0 },
     };
     expect(composeTripPrefix(infantsOnly, ZH)).toBe("人数：1 婴儿");
+  });
+
+  it("states an amount with its ISO code, formatted in the reader's locale", () => {
+    const stated = { ...EMPTY_TRIP_CONSTRAINTS, budget: "mid" as const, budgetAmount: 20000 };
+    expect(composeTripPrefix({ ...stated, budgetCurrency: "CNY" }, ZH)).toBe(
+      "预算：舒适（¥¥） · 总预算 ¥20,000（CNY）",
+    );
+    // en qualifies the yuan sign, which an English reader would otherwise take for yen.
+    expect(composeTripPrefix({ ...stated, budgetCurrency: "CNY" }, EN)).toBe(
+      "Budget: sensibly priced (¥¥) · CN¥20,000 total (CNY)",
+    );
+    expect(composeTripPrefix({ ...stated, budgetCurrency: "USD" }, ZH)).toBe(
+      "预算：舒适（$$） · 总预算 US$20,000（USD）",
+    );
+    expect(composeTripPrefix({ ...stated, budgetCurrency: "JPY" }, EN)).toBe(
+      "Budget: sensibly priced (¥¥) · ¥20,000 total (JPY)",
+    );
+  });
+
+  it("draws a bare tier's glyphs in the home currency, else the UI language's own", () => {
+    const tier = { ...EMPTY_TRIP_CONSTRAINTS, budget: "high" as const };
+    expect(composeTripPrefix(tier, ZH, undefined, "USD")).toBe("预算：高档（$$$）");
+    expect(composeTripPrefix(tier, EN, undefined, "CNY")).toBe("Budget: upscale (¥¥¥)");
+    expect(composeTripPrefix(tier, ZH)).toBe("预算：高档（¥¥¥）");
+    expect(composeTripPrefix(tier, EN)).toBe("Budget: upscale ($$$)");
   });
 
   it("treats the explicit any-budget tier as a real, sendable statement", () => {
@@ -187,7 +213,8 @@ describe("chips as a trip's identity", () => {
     when: { kind: "flexible", days: 5, months: ["2026-10"] },
     who: { adults: 2, children: 0, infants: 0, pets: 0 },
     budget: "mid",
-    budgetAmountCny: null,
+    budgetAmount: null,
+    budgetCurrency: null,
     dir: "/trips/t-1",
     dirExists: true,
     createdAt: "2026-08-01T00:00:00.000Z",
@@ -201,15 +228,40 @@ describe("chips as a trip's identity", () => {
       when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
-      budgetAmountCny: null,
+      budgetAmount: null,
+      budgetCurrency: null,
     });
     expect(constraintsToTripPatch(asChips)).toEqual({
       destination: "Tokyo",
       when: { kind: "flexible", days: 5, months: ["2026-10"] },
       who: { adults: 2, children: 0, infants: 0, pets: 0 },
       budget: "mid",
-      budgetAmountCny: null,
+      budgetAmount: null,
+      budgetCurrency: null,
     });
+  });
+
+  it("never sends a unit without an amount, and sends the pair whenever either changed", () => {
+    const base: TripConstraints = {
+      ...EMPTY_TRIP_CONSTRAINTS,
+      budgetAmount: null,
+      budgetCurrency: "CNY",
+    };
+    // A currency picked with nothing typed is dialog state, not a statement.
+    expect(constraintsToTripPatch(base).budgetCurrency).toBeNull();
+    expect(constraintsToTripPatch(base, base)).toEqual({});
+    const stated: TripConstraints = { ...base, budgetAmount: 20000 };
+    expect(constraintsToTripPatch(stated, base)).toEqual({
+      budgetAmount: 20000,
+      budgetCurrency: "CNY",
+    });
+    const swapped: TripConstraints = { ...stated, budgetCurrency: "USD" };
+    expect(constraintsToTripPatch(swapped, stated)).toEqual({
+      budgetAmount: 20000,
+      budgetCurrency: "USD",
+    });
+    expect(isEmptyTrip(base)).toBe(true);
+    expect(isEmptyTrip(stated)).toBe(false);
   });
 
   it("sends cleared fields as null, so emptying a chip clears the trip", () => {
@@ -220,7 +272,8 @@ describe("chips as a trip's identity", () => {
       when: null,
       who: null,
       budget: null,
-      budgetAmountCny: null,
+      budgetAmount: null,
+      budgetCurrency: null,
     });
   });
 
@@ -242,7 +295,8 @@ describe("chips as a trip's identity", () => {
       ...EMPTY_TRIP_CONSTRAINTS,
       where: "Shanghai",
       budget: "mid",
-      budgetAmountCny: null,
+      budgetAmount: null,
+      budgetCurrency: null,
     };
 
     it("sends only the changed field", () => {
@@ -270,7 +324,8 @@ describe("chips as a trip's identity", () => {
     it("still sends everything when there is no previous value (first write)", () => {
       expect(Object.keys(constraintsToTripPatch(base)).sort()).toEqual([
         "budget",
-        "budgetAmountCny",
+        "budgetAmount",
+        "budgetCurrency",
         "destination",
         "when",
         "who",

@@ -172,7 +172,8 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   const statsLine = copyBtn.locator("xpath=..");
   // Cost chip (pricing set). visible-filtered: the chip renders a desktop value plus a
   // display:none compact twin for phones, and both match the money pattern.
-  await expect(statsLine.locator("text=/\\$0\\.\\d+/").filter({ visible: true })).toBeVisible();
+  // Either symbol: the home currency follows the UI language until set, so a zh run reads ¥.
+  await expect(statsLine.locator("text=/[$¥]0\\.\\d+/").filter({ visible: true })).toBeVisible();
 
   // Hidden by default but SPACE-RESERVED (opacity-0, not hidden). Park the cursor first: after
   // clicking 允许 ("Allow") the pointer sits where that button was and the re-render can drop a
@@ -333,12 +334,12 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   await page.reload();
   const throwaway = sidebar.locator("li", { hasText: "新对话" }).first();
   await expect(throwaway).toBeVisible();
-  // Archive: moves it under the collapsed "已归档" group.
+  // Save (the archive action's product name): moves it under the collapsed "已收藏" group.
   await throwaway.hover();
-  await throwaway.getByRole("button", { name: "归档", exact: true }).click();
-  await expect(sidebar.getByText(/已归档（\d+）/).first()).toBeVisible();
+  await throwaway.getByRole("button", { name: "收藏", exact: true }).click();
+  await expect(sidebar.getByText(/已收藏（\d+）/).first()).toBeVisible();
   await sidebar
-    .getByText(/已归档（\d+）/)
+    .getByText(/已收藏（\d+）/)
     .first()
     .click();
   const archived = sidebar.locator("li", { hasText: "新对话" }).first();
