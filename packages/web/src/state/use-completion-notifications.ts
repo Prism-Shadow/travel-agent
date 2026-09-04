@@ -50,7 +50,7 @@ export function useCompletionNotifications(): void {
           body: S.notify.taskCompleteBody(title),
           // One notification per Session: a newer completion replaces the stale one.
           tag: `penguin-task-${sessionId}`,
-          icon: "/penguin-logo.svg",
+          icon: "/travel-agent-logo.svg",
         });
         notification.onclick = () => {
           notification.close();
