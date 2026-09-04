@@ -163,9 +163,9 @@ pnpm --filter @prismshadow/penguin-desktop test:e2e && \
 pnpm test:e2e
 ```
 
-About twenty minutes, most of it the web browser suite, and it reproduces every CI step except
-one: **Linux**. The in-app browser e2e
-needs `xvfb-run` only on Linux and runs natively on macOS; the live-model e2e needs
+About eight minutes on an 8-core Linux box (the web browser suite and the browser-cli unit tests
+are the two largest shares), and it reproduces every CI step except one: **Linux**. The in-app
+browser e2e needs `xvfb-run` only on Linux and runs natively on macOS; the live-model e2e needs
 `DEEPSEEK_API_KEY` in `.env` (leave `ANTHROPIC_API_KEY` empty, or the run takes the Claude path
 instead of the one CI used).
 
@@ -174,13 +174,6 @@ here: `pnpm test` does not run Playwright, and neither this gate nor `ci.yml` in
 `packages/web/e2e` at all, so twenty-one of its specs were free to go red and stay red without a
 single gate noticing. A suite nothing runs is not a slower gate; it is a suite that does not
 exist.
-
-**That step fails today.** Five of those specs are still red — issue
-[0010](docs/issues/0010-web-browser-e2e-is-red.md) — so this gate cannot currently be run to
-completion, and nothing may be pushed on the strength of it. The step is listed anyway rather than
-held back until the specs are fixed: a suite kept out of the gate to keep the gate green is
-precisely how these nineteen became invisible, and the cost of that is now written down instead of
-repeated.
 
 Two things this gate does **not** cover, and neither is a reason to skip it:
 
