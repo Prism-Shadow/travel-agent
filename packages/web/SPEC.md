@@ -39,15 +39,18 @@ and supports password reset or removal.
 - **The draft screen's discovery rail**, in two mutually exclusive states. First run shows the
   editorial "Get inspired" prompts; choosing one fills the composer with its prompt and sends
   nothing, so the person edits and sends it like any typed sentence. From the first real trip or
-  conversation the rail belongs to the person's own work — an "Up next" trip card (soonest
-  future departure, else latest touched; countdown, aggregated waiting-on-you badge, the trip's
-  meta line) over the "Jump back in" conversation tiles, waiting-on-you first. Every element is
+  conversation the rail belongs to the person's own work — an "Up next" rail of up to three trip
+  cards (soonest future departures first, then latest touched; each with countdown, aggregated
+  waiting-on-you badge, the trip's meta line) over the "Jump back in" conversation tiles,
+  waiting-on-you first. Every element is
   rendered from trip and session index fields; the rail makes no model call, because the root
   spec declines a proactive AI opener.
 - **The discovery rail's decorative travel covers.** A local catalog contains 192 generated,
   lazily loaded 960×720 covers: 96 destinations, 48 activities, 24 season/weather scenes, and 24
   location-neutral fallbacks. Explicit activity intent wins over a named destination, which wins
-  over seasonal mood; unknown titles can select only neutral fallbacks. Selection is deterministic
+  over seasonal mood; unknown titles can select only neutral fallbacks, and when simultaneously
+  visible subjects exhaust every semantic match, unused neutral fallbacks fill in rather than
+  repeating an image or borrowing another place's. Selection is deterministic
   for the same Session and title and excludes images already reserved by another simultaneously
   visible rail. Covers have empty alternative text because the card title is the accessible name,
   and a generated cover is never evidence of the exact place or offer under discussion.

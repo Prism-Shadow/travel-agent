@@ -1,7 +1,7 @@
-/** The Up next pick and its countdown are deterministic data rules; pin them as such. */
+/** The Up next ordering and its countdown are deterministic data rules; pin them as such. */
 import { describe, expect, it } from "vitest";
 import type { TripSummary } from "@prismshadow/penguin-server/api";
-import { daysUntil, pickUpNextTrip } from "../src/features/chat/jump-back-in";
+import { daysUntil, pickUpNextTrips } from "../src/features/chat/jump-back-in";
 
 const TODAY = "2026-09-21";
 
@@ -24,8 +24,8 @@ function trip(overrides: Partial<TripSummary>): TripSummary {
   };
 }
 
-describe("pickUpNextTrip", () => {
-  it("prefers the soonest future departure, counting today as future", () => {
+describe("pickUpNextTrips", () => {
+  it("orders future departures soonest-first, counting today as future", () => {
     const later = trip({
       tripId: "later",
       when: { kind: "dates", start: "2026-10-03", end: "2026-10-08" },
@@ -34,10 +34,13 @@ describe("pickUpNextTrip", () => {
       tripId: "sooner",
       when: { kind: "dates", start: TODAY, end: "2026-09-25" },
     });
-    expect(pickUpNextTrip([later, sooner], TODAY)?.tripId).toBe("sooner");
+    expect(pickUpNextTrips([later, sooner], TODAY).map((t) => t.tripId)).toEqual([
+      "sooner",
+      "later",
+    ]);
   });
 
-  it("ignores departed trips and falls back to the latest-touched one", () => {
+  it("fills remaining slots with departed and undated trips by latest touch", () => {
     const departed = trip({
       tripId: "departed",
       when: { kind: "dates", start: "2026-09-01", end: "2026-09-05" },
@@ -48,13 +51,32 @@ describe("pickUpNextTrip", () => {
       when: { kind: "flexible", days: 5, months: ["2026-11"] },
       updatedAt: "2026-09-18T00:00:00.000Z",
     });
-    // No future-dated trip: recency decides, and the departed trip may win on recency —
-    // it is still the one the person touched last.
-    expect(pickUpNextTrip([flexible, departed], TODAY)?.tripId).toBe("departed");
+    const upcoming = trip({
+      tripId: "upcoming",
+      when: { kind: "dates", start: "2026-10-03", end: "2026-10-08" },
+      updatedAt: "2026-09-02T00:00:00.000Z",
+    });
+    // The future departure leads even though it was touched least recently; the departed trip
+    // outranks the flexible one on recency — it is still the one the person touched last.
+    expect(pickUpNextTrips([flexible, departed, upcoming], TODAY).map((t) => t.tripId)).toEqual([
+      "upcoming",
+      "departed",
+      "flexible",
+    ]);
   });
 
-  it("returns null only when there are no trips at all", () => {
-    expect(pickUpNextTrip([], TODAY)).toBeNull();
+  it("caps the rail at three trips", () => {
+    const trips = ["a", "b", "c", "d"].map((id, i) =>
+      trip({
+        tripId: id,
+        when: { kind: "dates", start: `2026-10-0${i + 1}`, end: `2026-10-0${i + 2}` },
+      }),
+    );
+    expect(pickUpNextTrips(trips, TODAY).map((t) => t.tripId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns an empty list only when there are no trips at all", () => {
+    expect(pickUpNextTrips([], TODAY)).toEqual([]);
   });
 });
 

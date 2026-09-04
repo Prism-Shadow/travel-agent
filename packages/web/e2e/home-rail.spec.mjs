@@ -2,9 +2,10 @@
  * The draft screen's discovery rail has two mutually exclusive states.
  *
  * First run: "Get inspired" only — editorial prompts are scaffolding for the person with
- * nothing to continue. Returning: "Up next" (the soonest-departing trip as one data-rendered
- * card: countdown, meta line, chat count) over "Jump back in", and the inspiration cards are
- * gone — a returning traveller's own Kyoto trip outranks a canned card that cannot see it.
+ * nothing to continue. Returning: "Up next" (up to three trips as data-rendered cards,
+ * soonest departure first: countdown, meta line, chat count) over "Jump back in", and the
+ * inspiration cards are gone — a returning traveller's own Kyoto trip outranks a canned card
+ * that cannot see it.
  */
 import { test, expect } from "@playwright/test";
 import { provisionAndLogin, composer } from "./auth.mjs";
@@ -80,7 +81,8 @@ test("a returning user leads with the next trip and the inspiration cards yield"
   });
   expect(put.ok(), "put models").toBeTruthy();
 
-  // A dated future trip (the Up next pick), plus one attached and one loose conversation.
+  // Three dated future trips (Kyoto departs sooner, so it leads the rail), plus one attached
+  // and one loose conversation.
   const tripRes = await page.request.post(`${BASE}/api/projects/${projectId}/trips`, {
     data: {
       destination: "Kyoto",
@@ -91,6 +93,24 @@ test("a returning user leads with the next trip and the inspiration cards yield"
   });
   expect(tripRes.ok()).toBe(true);
   const { trip } = await tripRes.json();
+  const laterTripRes = await page.request.post(`${BASE}/api/projects/${projectId}/trips`, {
+    data: {
+      destination: "Lisbon",
+      when: { kind: "dates", start: isoPlusDays(30), end: isoPlusDays(35) },
+      who: { adults: 1, children: 0, infants: 0, pets: 0 },
+      budget: "mid",
+    },
+  });
+  expect(laterTripRes.ok()).toBe(true);
+  const latestTripRes = await page.request.post(`${BASE}/api/projects/${projectId}/trips`, {
+    data: {
+      destination: "Reykjavik",
+      when: { kind: "dates", start: isoPlusDays(45), end: isoPlusDays(50) },
+      who: { adults: 2, children: 0, infants: 0, pets: 0 },
+      budget: "mid",
+    },
+  });
+  expect(latestTripRes.ok()).toBe(true);
 
   const mkSession = async (title) => {
     const created = await page.request.post(
@@ -120,8 +140,13 @@ test("a returning user leads with the next trip and the inspiration cards yield"
   await composer(page).waitFor();
 
   await expect(page.getByRole("heading", { name: "Up next" })).toBeVisible();
-  const card = page.locator("[data-up-next-card]");
+  const cards = page.locator("[data-up-next-card]");
+  await expect(cards).toHaveCount(3);
+  // Soonest departure leads the rail; the later trips follow it in date order.
+  const card = cards.first();
   await expect(card).toContainText("Kyoto");
+  await expect(cards.nth(1)).toContainText("Lisbon");
+  await expect(cards.nth(2)).toContainText("Reykjavik");
   await expect(card).toContainText("Departs in 12 days");
   await expect(card).toContainText("2 travellers");
   // Dates compact to month-day on the card; the full ISO form belongs to the sidebar.
@@ -129,6 +154,26 @@ test("a returning user leads with the next trip and the inspiration cards yield"
   await expect(card).toContainText("1 chat");
   await expect(page.getByRole("heading", { name: "Jump back in" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Get inspired" })).toHaveCount(0);
+
+  // Cards beyond the visible pair are reachable through the rail controls, not merely present
+  // offscreen.
+  const rail = page.locator("[data-up-next-rail]");
+  const railSize = await rail.evaluate((node) => ({
+    clientWidth: node.clientWidth,
+    scrollWidth: node.scrollWidth,
+  }));
+  expect(railSize.scrollWidth, "the Up next cards overflow their rail").toBeGreaterThan(
+    railSize.clientWidth,
+  );
+  const next = page.getByRole("button", { name: "Scroll upcoming trips right" });
+  await expect(next).toBeVisible();
+  await next.click();
+  await expect.poll(() => rail.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
+  const previous = page.getByRole("button", { name: "Scroll upcoming trips left" });
+  await expect(previous).toBeVisible();
+  await previous.click();
+  await expect.poll(() => rail.evaluate((node) => node.scrollLeft)).toBeLessThanOrEqual(8);
+  await expect(previous).toHaveCount(0);
 
   // The card is the trip's front door.
   await card.click();

@@ -10,10 +10,12 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "brand:check": "node scripts/generate-brand-assets.mjs --check",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @prismshadow/penguin-core test:e2e",
-    "build": "pnpm -r build && pnpm link:browser-cli",
+    "build": "pnpm brand:check && pnpm -r build && pnpm link:browser-cli",
     "link:browser-cli": "node scripts/link-browser-cli.mjs",
     "dev": "concurrently -n server,web -c cyan,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
     "dev:server": "pnpm --filter @prismshadow/penguin-server dev",
@@ -24,6 +26,7 @@
     "@types/node": "^24.0.0",
     "concurrently": "^10.0.4",
     "prettier": "^3.9.4",
+    "sharp": "^0.34.5",
     "typescript": "^5.6.0"
   },
   "packageManager": "pnpm@11.18.0"

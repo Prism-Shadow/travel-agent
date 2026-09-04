@@ -1084,11 +1084,13 @@ export const en: Strings = {
       "Tell me where you want to go. I’ll search, compare, and make the trade-offs clear.",
     draftPrompt: "Start with an idea",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations).
-    // The returning-state rail leads with the person's own next trip, rendered purely from
-    // trip.json fields and the session index -- never a model call (the root spec declines a
-    // proactive AI opener; a countdown is arithmetic, not judgement).
+    // The returning-state rail leads with the person's own next trips (up to three), rendered
+    // purely from trip.json fields and the session index -- never a model call (the root spec
+    // declines a proactive AI opener; a countdown is arithmetic, not judgement).
     upNext: {
       title: "Up next",
+      previous: "Scroll upcoming trips left",
+      next: "Scroll upcoming trips right",
       departsToday: "Departs today",
       departsTomorrow: "Departs tomorrow",
       departsInDays: (n: number) => `Departs in ${n} days`,

@@ -4,7 +4,7 @@ Eight observations from using the product, triaged against the code. Four shippe
 has them: destination suggestions in zh, inspiration cards that fill the composer, "Saved",
 budgets with a currency). One was tried and withdrawn: removing the sidebar's "New chat" beside
 "New trip" (2026-09-02, the owner prefers both entries — a loose question should not have to
-become a journey). The three below wait on a decision, recorded under each.
+become a journey). The two below wait on a decision, recorded under each.
 
 ## Waiting on a decision
 
@@ -22,9 +22,3 @@ become a journey). The three below wait on a decision, recorded under each.
       "an inspiration feed, community" and "a planning hub that is itself the product". Building
       this means amending the root SPEC first. A second local user is easy regardless:
       `POST /api/admin/users {userId,password}` as admin (see `e2e/auth.mjs` `provisionUser`).
-- [ ] **(8) Logo and icons.** Text branding is already "Travel Agent"; every image asset still
-      derives from `packages/web/public/penguin-logo.svg` (favicon, `PenguinLogo` component,
-      desktop `build/icon.png` + `build/icons/*`, extension icon sets). No travel-agent mark
-      exists to swap in — needs a new mark, delivered as one SVG (square, survives `rounded-lg`
-      on white and dark) plus PNG renders at 16/32/48/128 and 1024. Note
-      `scripts/render-icon.mjs`, named by `electron-builder.yml` and `stage.mjs`, does not exist.

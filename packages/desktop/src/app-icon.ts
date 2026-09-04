@@ -4,8 +4,9 @@
  * Only Linux (and Windows dev runs) need it: a packaged Windows app gets its taskbar
  * icon from the exe resources electron-builder embeds, and macOS ignores BrowserWindow
  * icons entirely (the Dock icon comes from the bundle's icns). The PNG lives at
- * build/icon.png both in the source package (committed, rendered by
- * scripts/render-icon.mjs) and in the staged app directory (copied by scripts/stage.mjs),
+ * build/icon.png both in the source package (committed, rendered from the canonical
+ * brand SVG by `pnpm brand:generate`) and in the staged app directory (copied by
+ * scripts/stage.mjs),
  * so the same app-path-relative lookup serves dev and packaged runs.
  */
 import fs from "node:fs";

@@ -1023,11 +1023,13 @@ export const zh = {
     draftSubtitle: "告诉我想去哪里，我会替你搜索、比较，并把关键取舍讲清楚。",
     draftPrompt: "从一个想法开始",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations).
-    // The returning-state rail leads with the person's own next trip, rendered purely from
-    // trip.json fields and the session index -- never a model call (the root spec declines a
-    // proactive AI opener; a countdown is arithmetic, not judgement).
+    // The returning-state rail leads with the person's own next trips (up to three), rendered
+    // purely from trip.json fields and the session index -- never a model call (the root spec
+    // declines a proactive AI opener; a countdown is arithmetic, not judgement).
     upNext: {
       title: "下一程",
+      previous: "向左浏览即将出行的行程",
+      next: "向右浏览即将出行的行程",
       departsToday: "今天出发",
       departsTomorrow: "明天出发",
       departsInDays: (n: number) => `距出发 ${n} 天`,

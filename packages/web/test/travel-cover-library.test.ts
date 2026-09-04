@@ -176,6 +176,18 @@ describe("selectTravelCovers", () => {
     expect(new Set(selected.map((asset) => asset.id)).size).toBe(3);
   });
 
+  it("falls back to an unused generic cover when subjects exhaust a semantic match", () => {
+    // "上海" and "Shanghai" both match only the single shanghai-night cover; the second card
+    // must not repeat it, and must not borrow a different city's image either.
+    const selected = selectTravelCovers([
+      { sessionId: "trip-zh", title: "上海" },
+      { sessionId: "trip-en", title: "Shanghai" },
+    ]);
+    expect(selected[0]?.id).toBe("shanghai-night");
+    expect(selected[1]?.id).not.toBe("shanghai-night");
+    expect(selected[1]?.kind).toBe("generic");
+  });
+
   it("excludes covers reserved by another visible rail", () => {
     const selected = selectTravelCovers(
       [{ sessionId: "kyoto-session", title: "Kyoto Autumn Foliage Itinerary" }],
