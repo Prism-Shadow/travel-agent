@@ -9,11 +9,11 @@
  * wants "how is my Kyoto trip doing", not a canned card blind to the Kyoto trip already in the
  * sidebar.
  *
- * Returning: "Up next" — one large card for the trip that matters now (soonest future
- * departure, else latest touched), carrying a departure countdown, an aggregate
- * waiting-on-you badge (click-as-authorization is the product's core verb, so what waits for a
- * click leads the screen), the trip's own meta line, and its conversation count — followed by
- * "Jump back in", the recent conversations demoted to smaller tiles. Every pixel is rendered
+ * Returning: "Up next" — up to three large trip cards in a rail, most pressing first
+ * (soonest future departures, then latest touched), each carrying a departure countdown, an
+ * aggregate waiting-on-you badge (click-as-authorization is the product's core verb, so what
+ * waits for a click leads the screen), the trip's own meta line, and its conversation count —
+ * followed by "Jump back in", the recent conversations demoted to smaller tiles. Every pixel is rendered
  * from trip.json fields and the session index; there is no model call here, because the root
  * spec declines a proactive AI opener and a countdown is arithmetic, not judgement.
  *
@@ -44,6 +44,9 @@ import { travellerCount, whenText } from "../../lib/trip-format";
 
 /** Three cards keep the rail useful without duplicating the sidebar as another long list. */
 const RAIL_SIZE = 3;
+// Scroll snapping can settle a few subpixels from an edge after device-pixel rounding. Keep the
+// navigation hidden there: another click cannot reveal meaningful content.
+const RAIL_EDGE_TOLERANCE_PX = 8;
 
 export const INSPIRATION_CARDS = [
   { id: "kyotoAutumn", coverId: "kyoto-temple" },
@@ -62,26 +65,26 @@ function localTodayIso(): string {
 }
 
 /**
- * The trip the rail leads with. A deterministic data rule, deliberately not a judgement:
- * the soonest future departure wins (today counts — departure day is the day the card matters
- * most), and when no trip has a future date, the one touched most recently.
+ * The trips the rail leads with, most pressing first. A deterministic data rule, deliberately
+ * not a judgement: future departures order soonest-first (today counts — departure day is the
+ * day the card matters most), then the remaining trips by latest touch, capped at the rail
+ * size so the rail never duplicates the sidebar as another long list.
  */
-export function pickUpNextTrip(
+export function pickUpNextTrips(
   trips: readonly TripSummary[],
   todayIso: string,
-): TripSummary | null {
-  const dated = trips
-    .filter((t) => t.when?.kind === "dates" && t.when.start.trim() >= todayIso)
-    .sort((a, b) => {
-      const sa = a.when!.kind === "dates" ? a.when!.start : "";
-      const sb = b.when!.kind === "dates" ? b.when!.start : "";
-      return sa < sb ? -1 : sa > sb ? 1 : 0;
-    });
-  if (dated.length > 0) return dated[0]!;
-  const touched = [...trips].sort((a, b) =>
-    a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0,
-  );
-  return touched[0] ?? null;
+  count: number = RAIL_SIZE,
+): TripSummary[] {
+  const isFuture = (t: TripSummary) => t.when?.kind === "dates" && t.when.start.trim() >= todayIso;
+  const dated = trips.filter(isFuture).sort((a, b) => {
+    const sa = a.when!.kind === "dates" ? a.when!.start : "";
+    const sb = b.when!.kind === "dates" ? b.when!.start : "";
+    return sa < sb ? -1 : sa > sb ? 1 : 0;
+  });
+  const touched = trips
+    .filter((t) => !isFuture(t))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  return [...dated, ...touched].slice(0, count);
 }
 
 /** Whole days from `todayIso` to `startIso`, both local calendar days (0 = departs today). */
@@ -93,8 +96,8 @@ export function daysUntil(startIso: string, todayIso: string): number {
   return Math.round((parse(startIso) - parse(todayIso)) / 86_400_000);
 }
 
-/** Shared resize-aware behavior for both horizontal card rails. */
-function useHorizontalRail(itemCount: number) {
+/** Shared resize-aware behavior for the horizontal card rails. */
+function useHorizontalRail(itemCount: number, resetKey?: string) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollBack, setCanScrollBack] = useState(false);
   const [canScrollForward, setCanScrollForward] = useState(false);
@@ -102,13 +105,18 @@ function useHorizontalRail(itemCount: number) {
   const updateScrollState = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
-    setCanScrollBack(scroller.scrollLeft > 4);
-    setCanScrollForward(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 4);
+    setCanScrollBack(scroller.scrollLeft > RAIL_EDGE_TOLERANCE_PX);
+    setCanScrollForward(
+      scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - RAIL_EDGE_TOLERANCE_PX,
+    );
   }, []);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
+    // A Trip edit can reorder Up next without changing the number of cards. Return that rail to
+    // its new first item, otherwise the most pressing Trip can remain hidden at the old offset.
+    if (resetKey !== undefined) scroller.scrollTo({ left: 0 });
     updateScrollState();
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
@@ -118,7 +126,7 @@ function useHorizontalRail(itemCount: number) {
       observer?.disconnect();
       window.removeEventListener("resize", updateScrollState);
     };
-  }, [itemCount, updateScrollState]);
+  }, [itemCount, resetKey, updateScrollState]);
 
   const scrollCards = useCallback((direction: -1 | 1) => {
     const scroller = scrollerRef.current;
@@ -165,18 +173,24 @@ export function JumpBackIn({
   );
 
   const todayIso = useMemo(localTodayIso, []);
-  const upNext = useMemo(() => pickUpNextTrip(trips, todayIso), [trips, todayIso]);
-  // The trip's conversation footprint, from the index the sidebar already loaded.
-  const upNextSessions = useMemo(
-    () => (upNext === null ? [] : active.filter((s) => s.tripId === upNext.tripId)),
-    [active, upNext],
+  const upNextTrips = useMemo(() => pickUpNextTrips(trips, todayIso), [trips, todayIso]);
+  // Each trip's conversation footprint, from the index the sidebar already loaded.
+  const upNextStats = useMemo(
+    () =>
+      upNextTrips.map((trip) => {
+        const tripSessions = active.filter((s) => s.tripId === trip.tripId);
+        return {
+          chats: tripSessions.length,
+          pending: tripSessions.reduce((sum, s) => sum + s.pendingApprovalCount, 0),
+        };
+      }),
+    [active, upNextTrips],
   );
-  const upNextPending = upNextSessions.reduce((sum, s) => sum + s.pendingApprovalCount, 0);
 
   // Scaffolding rule: editorial inspiration exists only while there is nothing real to show.
   const firstRun = trips.length === 0 && recent.length === 0;
 
-  // One selection call across the trip card and the session tiles, so the dedup guarantee
+  // One selection call across the trip cards and the session tiles, so the dedup guarantee
   // spans everything visible at once. No cover is reserved for the inspiration cards: the two
   // states are mutually exclusive, so "Kyoto" may use the kyoto-temple image that the
   // first-run kyotoAutumn card also uses — they can never be on screen together.
@@ -184,14 +198,10 @@ export function JumpBackIn({
     () =>
       selectTravelCovers(
         [
-          ...(upNext === null
-            ? []
-            : [
-                {
-                  sessionId: upNext.tripId,
-                  title: upNext.name || upNext.destination,
-                },
-              ]),
+          ...upNextTrips.map((trip) => ({
+            sessionId: trip.tripId,
+            title: trip.name || trip.destination,
+          })),
           ...recent.map((session) => ({
             sessionId: session.sessionId,
             title: session.title,
@@ -199,17 +209,21 @@ export function JumpBackIn({
         ],
         TRAVEL_COVER_CATALOG,
       ),
-    [recent, upNext],
+    [recent, upNextTrips],
   );
-  const tripCover = upNext === null ? null : covers[0]!;
-  const sessionCovers = upNext === null ? covers : covers.slice(1);
+  const tripCovers = covers.slice(0, upNextTrips.length);
+  const sessionCovers = covers.slice(upNextTrips.length);
+  const upNextRail = useHorizontalRail(
+    upNextTrips.length,
+    upNextTrips.map((trip) => trip.tripId).join("\u001f"),
+  );
   const recentRail = useHorizontalRail(recent.length);
   const inspirationRail = useHorizontalRail(INSPIRATION_CARDS.length);
 
   return (
     <aside className="draft-jump-back-in hidden w-84 shrink-0 flex-col justify-center pb-14 xl:flex">
       <div className="flex flex-col gap-7">
-        {upNext !== null && tripCover !== null && (
+        {upNextTrips.length > 0 && (
           <section aria-labelledby="up-next-heading">
             <h3
               id="up-next-heading"
@@ -217,15 +231,35 @@ export function JumpBackIn({
             >
               {S.chat.upNext.title}
             </h3>
-            <UpNextCard
-              trip={upNext}
-              cover={tripCover}
-              chats={upNextSessions.length}
-              pending={upNextPending}
-              todayIso={todayIso}
-              locale={locale}
-              onOpen={() => navigate(`/trips/${upNext.tripId}`)}
-            />
+            <div className="relative -mx-1">
+              <div
+                ref={upNextRail.scrollerRef}
+                onScroll={upNextRail.updateScrollState}
+                data-up-next-rail
+                className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 py-1.5"
+              >
+                {upNextTrips.map((trip, index) => (
+                  <UpNextCard
+                    key={trip.tripId}
+                    trip={trip}
+                    cover={tripCovers[index]!}
+                    chats={upNextStats[index]!.chats}
+                    pending={upNextStats[index]!.pending}
+                    todayIso={todayIso}
+                    locale={locale}
+                    onOpen={() => navigate(`/trips/${trip.tripId}`)}
+                  />
+                ))}
+              </div>
+              <RailNavigation
+                canScrollBack={upNextRail.canScrollBack}
+                canScrollForward={upNextRail.canScrollForward}
+                previousLabel={S.chat.upNext.previous}
+                nextLabel={S.chat.upNext.next}
+                onPrevious={() => upNextRail.scrollCards(-1)}
+                onNext={() => upNextRail.scrollCards(1)}
+              />
+            </div>
           </section>
         )}
 
@@ -354,7 +388,7 @@ function RailNavigation({
 }
 
 /**
- * The returning-state lead card: one Trip as an object with state. Bigger than a session tile
+ * A returning-state lead card: one Trip as an object with state. Bigger than a session tile
  * and structured differently on purpose — identical cards with different verbs was the design
  * bug this rail replaces. Everything on it is data: countdown from `when.start`, badge from
  * summed `pendingApprovalCount`, meta from the trip's own fields.
@@ -412,9 +446,10 @@ function UpNextCard({
     <button
       type="button"
       data-up-next-card
+      data-rail-card
       onClick={onOpen}
       aria-label={trip.name}
-      className="draft-discovery-card group relative block h-59 w-full overflow-hidden rounded-[1.75rem] bg-gray-900 text-left shadow-[0_2px_8px_rgb(0_0_0/0.08)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(0_0_0/0.16)]"
+      className="draft-discovery-card group relative block h-59 w-76 shrink-0 snap-start overflow-hidden rounded-[1.75rem] bg-gray-900 text-left shadow-[0_2px_8px_rgb(0_0_0/0.08)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(0_0_0/0.16)]"
     >
       <img
         src={cover.src}

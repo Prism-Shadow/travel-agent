@@ -2288,7 +2288,10 @@ function stableHash(value: string): number {
  * generic images are eligible, preventing a greeting or coding Session from being labelled
  * with the wrong city. Covers reserved by another visible rail are removed before matching.
  * Within each candidate set, the Session id provides a stable order and already-used covers
- * move to the back so adjacent cards do not repeat where alternatives exist.
+ * move to the back so adjacent cards do not repeat where alternatives exist. When the visible
+ * subjects exhaust every semantic match (two "Shanghai" trips, one Shanghai cover), unused
+ * generic covers become eligible: a neutral image is honest, a repeat reads as a bug, and a
+ * different city's image would be worse than either.
  */
 export function selectTravelCovers(
   subjects: readonly TravelCoverSubject[],
@@ -2305,11 +2308,13 @@ export function selectTravelCovers(
     const scored = availableCatalog
       .map((asset) => ({ asset, score: semanticScore(asset, text) }))
       .filter(({ score }) => score > 0);
-    const candidates = scored.length
-      ? scored
-      : availableCatalog
-          .filter((asset) => asset.kind === "generic")
-          .map((asset) => ({ asset, score: 0 }));
+    const generics = availableCatalog
+      .filter((asset) => asset.kind === "generic")
+      .map((asset) => ({ asset, score: 0 }));
+    const matched = scored.length ? scored : generics;
+    const candidates = matched.every(({ asset }) => used.has(asset.id))
+      ? [...matched, ...generics.filter(({ asset }) => !used.has(asset.id))]
+      : matched;
     const ranked = [...candidates].sort(
       (a, b) =>
         Number(used.has(a.asset.id)) - Number(used.has(b.asset.id)) ||
