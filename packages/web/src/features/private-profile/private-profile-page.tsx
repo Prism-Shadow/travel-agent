@@ -9,7 +9,7 @@ import { ShieldCheckIcon } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 
 import * as api from "../../api/endpoints";
 import { Button } from "../../components/ui/button";
-import { PenguinLogo } from "../../components/ui/penguin-logo";
+import { TravelAgentLogo } from "../../components/ui/travel-agent-logo";
 import { Tabs } from "../../components/ui/tabs";
 import { S } from "../../lib/strings";
 import { useDocumentTitle } from "../../lib/use-document-title";
@@ -110,7 +110,7 @@ export function PrivateProfilePage() {
     <div className="h-full overflow-y-auto bg-white dark:bg-gray-950" data-testid="private-profile">
       <div className="w-full px-5 py-5 sm:pt-4 sm:pr-[52px] sm:pb-6 sm:pl-[70px]">
         <div className="-ml-5 mb-[35px] flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          <PenguinLogo className="h-7 w-7 rounded-md" />
+          <TravelAgentLogo className="h-7 w-7 rounded-md" />
           <span>{S.appName}</span>
         </div>
 

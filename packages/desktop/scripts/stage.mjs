@@ -101,7 +101,7 @@ for (const [what, file] of [
 // so src/app-icon.ts resolves it identically in both layouts.
 const iconSrc = path.join(pkgDir, "build", "icon.png");
 if (!fs.existsSync(iconSrc)) {
-  console.error("[stage] build/icon.png is missing — run `node scripts/render-icon.mjs`.");
+  console.error("[stage] build/icon.png is missing — run `pnpm brand:generate`.");
   process.exit(1);
 }
 fs.mkdirSync(path.join(appDir, "build"), { recursive: true });

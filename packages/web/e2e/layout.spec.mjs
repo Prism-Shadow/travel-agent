@@ -681,7 +681,7 @@ test("layout: login — blank start, non-crossing traces, lang/theme controls", 
   // The only graphic asset is the brand penguin logo above the form; the
   // background still has only the trace animation, and the page must have no other img elements.
   await expect(page.locator("img")).toHaveCount(1);
-  await expect(page.locator('img[src*="penguin-logo"]')).toBeVisible();
+  await expect(page.locator('img[src*="travel-agent-logo"]')).toBeVisible();
 
   // Asserting the mechanism behind the blank first paint: every trace's delay is non-negative
   // (no line is mid-animation on the first frame), and the base state (style before the

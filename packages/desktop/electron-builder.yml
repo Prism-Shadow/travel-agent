@@ -40,8 +40,8 @@ mac:
   # It was developer-tools, from when this shell was the engine's; the product is a travel
   # application.
   category: public.app-category.travel
-  # Brand icon (rendered from packages/web/public/penguin-logo.svg by
-  # scripts/render-icon.mjs, committed): electron-builder converts the 1024px PNG to
+  # Brand icon (generated from assets/brand/travel-agent-logo.svg by
+  # `pnpm brand:generate`, committed): electron-builder converts the 1024px PNG to
   # icns itself (app-builder-lib iconConverter; >=512px required).
   icon: build/icon.png
   hardenedRuntime: true
@@ -79,7 +79,7 @@ nsis:
   allowToChangeInstallationDirectory: true
 
 linux:
-  # Pre-rendered freedesktop icon set (scripts/render-icon.mjs): a directory of NxN.png
+  # Pre-rendered freedesktop icon set (`pnpm brand:generate`): a directory of NxN.png
   # files is used as-is for AppImage/deb, no conversion step.
   icon: build/icons
   # The scoped package name is not a valid executable file name.
