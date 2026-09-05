@@ -37,7 +37,9 @@ export default defineConfig({
         },
 
         {
-          src: resolve(__dirname, 'manifest.json'),
+          // Relative like `icons` above, for the same reason: an absolute Windows path is a
+          // glob to vite-plugin-static-copy, and `D:\...\manifest.json` matches nothing.
+          src: 'manifest.json',
           dest: '.',
           transform: (content) => {
             const manifest = JSON.parse(content)
