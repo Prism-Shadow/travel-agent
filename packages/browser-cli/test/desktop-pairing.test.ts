@@ -3,11 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
 import { randomBytes } from 'node:crypto'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startPenguinBrowserCDPRelayServer, type RelayServer } from '../src/relay/cdp-relay.js'
 import { writeDesktopRecord, readDesktopRecords, liveDesktopRecords, removeDesktopRecord, desktopRecordIsLive, type DesktopRecord } from '../src/relay/desktop-registry.js'
 import { resolveRelayEndpoint } from '../src/relay/relay-discovery.js'
-import { assertStandaloneRelayReplacement } from '../src/relay/relay-client.js'
+import { assertStandaloneRelayReplacement, resolveLocalRelay } from '../src/relay/relay-client.js'
 import { TRAVEL_EXTENSION_ID } from '../src/shared/desktop-connection.js'
 
 const roots: string[] = []
@@ -21,8 +21,30 @@ async function relay(): Promise<DesktopRecord> {
   return { ...desktop, port: server.port, pid: process.pid }
 }
 afterEach(async () => {
+  vi.unstubAllEnvs()
   for (const server of relays.splice(0)) await server.close()
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true })
+})
+
+describe('resolveLocalRelay caching', () => {
+  it('answers each host on its own, and forgets a failed resolution', async () => {
+    // Explicit hosts never touch discovery, so nothing here reads the real ~/.penguin-browser.
+    vi.stubEnv('PENGUIN_BROWSER_HOST', '')
+    vi.stubEnv('PENGUIN_RELAY_INSTANCE_ID', '')
+    const a = await resolveLocalRelay('relay-a.example')
+    const b = await resolveLocalRelay('relay-b.example')
+    expect(a.host).toBe('relay-a.example')
+    expect(b.host).toBe('relay-b.example')
+    expect(await resolveLocalRelay('relay-a.example')).toEqual(a)
+
+    // A Desktop-scoped call without its port cannot resolve; the rejection must not be cached.
+    vi.stubEnv('PENGUIN_RELAY_INSTANCE_ID', 'a'.repeat(32))
+    vi.stubEnv('PENGUIN_BROWSER_PORT', '')
+    await expect(resolveLocalRelay()).rejects.toThrow(/Desktop browser connection is unavailable/)
+    vi.stubEnv('PENGUIN_RELAY_INSTANCE_ID', '')
+    vi.stubEnv('PENGUIN_BROWSER_HOST', 'relay-c.example')
+    expect((await resolveLocalRelay()).host).toBe('relay-c.example')
+  })
 })
 
 describe('authenticated Desktop pairing', () => {

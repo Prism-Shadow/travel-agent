@@ -18,7 +18,13 @@ const __filename = fileURLToPath(import.meta.url)
 
 export const RELAY_PORT = Number(process.env.PENGUIN_BROWSER_PORT) || 19989
 
-let localEndpoint: ReturnType<typeof resolveRelayEndpoint> | undefined
+/**
+ * One resolution per (host, desktop-task) pair for the life of the process. A CLI invocation asks
+ * once; a long-lived importer (an MCP server) may ask with different hosts, and must not be handed
+ * the first caller's answer. A rejected resolution is dropped rather than cached, so a relay that
+ * was briefly unreachable is asked about again on the next call instead of failing forever.
+ */
+const localEndpoints = new Map<string, ReturnType<typeof resolveRelayEndpoint>>()
 export async function resolveLocalRelay(host?: string) {
   // An externally hosted dev server cannot inherit Desktop's launch environment. Its recorded
   // conversation choice still requires a live application; losing discovery must not auto-start CLI.
@@ -28,10 +34,16 @@ export async function resolveLocalRelay(host?: string) {
   if (externalDesktopTask && host) throw new Error('A Desktop conversation cannot override its application endpoint')
   // A long-lived external server may still carry an older shell's unscoped port. A recorded
   // Desktop conversation follows authenticated application discovery, never that stale override.
-  localEndpoint ??= resolveRelayEndpoint({ defaultPort: RELAY_PORT, host,
-    envHost: externalDesktopTask ? undefined : process.env.PENGUIN_BROWSER_HOST,
-    envPort: externalDesktopTask ? undefined : process.env.PENGUIN_BROWSER_PORT })
-  const endpoint = await localEndpoint
+  const cacheKey = `${externalDesktopTask ? 'desktop' : 'any'}\u0000${host ?? ''}`
+  let pending = localEndpoints.get(cacheKey)
+  if (!pending) {
+    pending = resolveRelayEndpoint({ defaultPort: RELAY_PORT, host,
+      envHost: externalDesktopTask ? undefined : process.env.PENGUIN_BROWSER_HOST,
+      envPort: externalDesktopTask ? undefined : process.env.PENGUIN_BROWSER_PORT })
+    localEndpoints.set(cacheKey, pending)
+    pending.catch(() => { if (localEndpoints.get(cacheKey) === pending) localEndpoints.delete(cacheKey) })
+  }
+  const endpoint = await pending
   if (desktopTask && endpoint.source !== 'desktop') {
     throw new Error('This conversation requires its Travel Agent application. Reopen it; no replacement relay was started.')
   }
