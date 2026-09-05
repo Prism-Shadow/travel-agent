@@ -103,6 +103,12 @@ jobs:
       # not in this workflow and not in the local pre-push gate — so its specs could go red and
       # stay red through any number of merges. `pnpm test` cannot stand in for it: that is vitest,
       # and none of these specs are vitest.
+      # @playwright/test resolves its browser from ~/.cache/ms-playwright, which a fresh runner
+      # does not have; `--with-deps` also installs the shared libraries Chromium needs on Ubuntu.
+      # (The penguin-browser job installs through playwright-core for its own, separate reasons.)
+      - name: Install the web suite's Chromium
+        run: pnpm --filter @prismshadow/penguin-web exec playwright install --with-deps chromium
+
       - name: Web end-to-end (Playwright, mock LLM)
         run: pnpm --filter @prismshadow/penguin-web test:e2e
 

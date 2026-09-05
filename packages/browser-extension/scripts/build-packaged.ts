@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 
@@ -129,10 +130,14 @@ async function main(): Promise<void> {
   // clear the variant directory here to keep the artifact self-contained.
   fs.rmSync(outDir, { recursive: true, force: true })
 
-  const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  // Run vite's own entry under this Node rather than `pnpm exec vite`: on Windows that resolves
+  // to pnpm.cmd, which Node refuses to spawn without a shell (the CVE-2024-27980 hardening,
+  // `spawn EINVAL`), and a shell would mean quoting arguments for two command languages.
+  const vitePackage = createRequire(path.join(extensionDir, 'package.json')).resolve('vite/package.json')
+  const viteBin = path.join(path.dirname(vitePackage), 'bin', 'vite.js')
   await runCommand({
-    command: pnpmCommand,
-    args: ['exec', 'vite', 'build', '--config', 'vite.config.mts'],
+    command: process.execPath,
+    args: [viteBin, 'build', '--config', 'vite.config.mts'],
     cwd: extensionDir,
     env: {
       ...process.env,
