@@ -20,9 +20,8 @@ import { BUILD_DATE, VERSION, compareVersions, normalizeVersion } from "@prismsh
 import type { UpdateCheckResponse } from "../api/types.js";
 
 /**
- * Repository the released artifacts come from. release.yml cuts them there. While the
- * repository is private the endpoint answers 404 to anonymous callers and the check finds
- * nothing (fail-soft); it starts reporting once the repository is public.
+ * Repository the released artifacts come from. release.yml cuts them there. The check is
+ * fail-soft: until a Release is published the endpoint answers 404 and nothing is reported.
  */
 const REPO_SLUG = "Prism-Shadow/travel-agent";
 /** Releases API endpoint for the newest published release. */

@@ -41,8 +41,8 @@ illustrations, not live connection status or a completed agent task.
 The root READMEs link language-matched covers to two silent H.264 MP4 files hosted as GitHub
 attachments on [PR #14](https://github.com/Prism-Shadow/travel-agent/pull/14#issuecomment-5550067681).
 The exports stay under the git-ignored `demos/` beside their covers; neither they nor the original,
-user-supplied recordings enter the repository history. Attachments on a private repository are
-visible only to members; re-check both links once the repository is public and re-attach if needed.
+user-supplied recordings enter the repository history. Both links were verified to resolve
+anonymously after the repository went public on 2026-09-05.
 
 - `xiaohongshu-amap.mp4` (38 seconds, 6.8 MB):
   <https://github.com/user-attachments/assets/ca3aa959-d8ee-4ae0-ad20-740afac84a32>

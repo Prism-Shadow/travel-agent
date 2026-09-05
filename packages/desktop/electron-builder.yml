@@ -17,8 +17,8 @@ productName: Travel Agent
 # (latest.yml / latest-mac.yml / latest-linux.yml and the .blockmap files) next to the
 # installers; nothing is uploaded from here — release.yml attaches them to the GitHub
 # Release. electron-updater reads the same metadata from that Release, so the target must
-# be this repository and never upstream's. While the repository is private the updater
-# cannot read it anonymously and reports no update; it starts working when it goes public.
+# be this repository and never upstream's. The updater finds nothing until a Release is
+# published there.
 publish:
   provider: github
   owner: Prism-Shadow

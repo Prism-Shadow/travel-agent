@@ -200,12 +200,11 @@ three-OS Electron installers, then creates a **draft** GitHub Release with the i
 updater metadata and SHA256SUMS; a person reviews the draft and publishes it, which is what creates
 the tag. `desktop-build.yml` can also be dispatched alone for a dry run. macOS artifacts are signed
 and notarized only when the `apple-signing` environment holds the Apple secrets and the run asks
-for it; Windows artifacts are unsigned today. This repository is private, so Actions minutes are
-billed, and Windows bills at 2x, macOS at 10x: a full `ci.yml` run is 16 billed minutes across its
-three jobs, and a Release run is the most expensive thing here. Pushing once per batch of commits
-costs one run instead of one per push, and is the lever that does not trade away verification.
-A private repository's Releases are visible to collaborators only; they become public downloads
-when the repository does.
+for it; Windows artifacts are unsigned today. The repository has been public since 2026-09-05, so
+GitHub-hosted standard runners are free of charge and Releases are public downloads. (While it was
+private, minutes were billed — Windows at 2x, macOS at 10x — which is why `ci.yml` was paused for a
+month and why the workflow comments still weigh cost.) Pushing once per batch of commits is still
+the habit: it keeps the Actions history readable and a red run attributable to one change.
 
 Pull requests branch from `main` and keep to one topic; new user-facing behaviour comes with tests,
 and with the spec update that keeps Hard Rule 2 true.
