@@ -73,6 +73,10 @@ failures actually observed.
 **Evidence:** the issue reports failures in browser-cli's `relay-core`, `extension-connection` and
 `popup-relocation` suites, plus Web's `compact-abort`, under load while isolated runs pass. The latest
 gate passed; no basis found to declare the intermittent problem fixed from that run.
+One more data point, 2026-09-05, from the first `pre-release.yml` runs on Windows: desktop's
+`browser-import-stores` > "does not let an old import move a page's last-visited time backwards" — a
+synchronous SQLite case that takes 1 ms locally — hit the 5 s timeout once and passed on rerun of
+the same commit. Nothing in the test waits; the worker itself stalled.
 
 **First step:** record commands, host/load conditions, assertions and repeat count. Follow the
 [testing lessons](lessons.md#testing-and-verification); do not assume all failures share a cause
