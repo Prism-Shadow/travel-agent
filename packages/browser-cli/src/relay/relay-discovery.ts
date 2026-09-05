@@ -1,77 +1,33 @@
 /**
- * Shared browser preferences and relay discovery under ~/.penguin-browser.
- * Desktop publishes authenticated per-installation records through desktop-registry.ts.
- * The legacy single-record reader remains for older local installations.
+ * The small shared-state files under `~/.penguin-browser`, and the rules for reading them.
+ *
+ * They exist because one process has a fact another needs and no other channel to it: the
+ * desktop shell publishes where its relay is, and the app records which browser backend a
+ * conversation chose, so a `penguin-browser` the agent starts later — from a shell that knows
+ * nothing about Electron's application-support directory — has exactly one place to look.
+ * The directory is shared with the relay's own log for the same reason.
+ *
+ * ## Relay discovery
+ *
+ * The desktop shell binds an OS-assigned port and publishes an installation-scoped record through
+ * desktop-registry.ts (`desktop-instances/<installationId>.json`). Discovery answers "where"
+ * and, for those records, proves "who": the record carries an extension credential (never the
+ * per-launch `/iab` key, which travels only through the environment of processes the app forks),
+ * and a reader must obtain a fresh HMAC proof from the live relay before following it. A record
+ * whose owner is dead, whose port was reused, or whose proof fails is not a relay.
+ *
+ * The conventional port 19989 belongs to standalone `penguin-browser serve`. It is the last resort
+ * here, never a fallback for a desktop-scoped call: a task that was started by an application must
+ * reach that application's relay or fail, because a stranger's relay has never heard of its
+ * session and would refuse it forever, silently.
  */
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import net from 'node:net'
 import { randomBytes } from 'node:crypto'
 
 /** Base directory, shared with the relay log so a user has one place to look. */
 export const DISCOVERY_BASE_DIR = process.env.PENGUIN_BROWSER_HOME || path.join(os.homedir(), '.penguin-browser')
-
-export function discoveryFilePath(baseDir: string = DISCOVERY_BASE_DIR): string {
-  return path.join(baseDir, 'desktop-relay.json')
-}
-
-export interface RelayDiscoveryRecord {
-  /** Loopback port the relay is listening on. */
-  port: number
-  /** The process that owns it, so a stale record can be told from a live one. */
-  pid: number
-  /** Random per-launch id. Lets an owner recognise its own record without trusting the pid alone. */
-  instanceId: string
-  /** ISO timestamp, for humans reading the file. Never used to decide freshness. */
-  startedAt: string
-}
-
-/** Reads the record, or null when missing, unreadable or malformed. Never throws. */
-export function readDiscovery(baseDir: string = DISCOVERY_BASE_DIR): RelayDiscoveryRecord | null {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(discoveryFilePath(baseDir), 'utf8')) as Partial<RelayDiscoveryRecord>
-    if (typeof parsed.port !== 'number' || !Number.isInteger(parsed.port) || parsed.port <= 0 || parsed.port > 65535) {
-      return null
-    }
-    if (typeof parsed.pid !== 'number' || !Number.isInteger(parsed.pid) || parsed.pid <= 0) return null
-    if (typeof parsed.instanceId !== 'string' || parsed.instanceId === '') return null
-    return {
-      port: parsed.port,
-      pid: parsed.pid,
-      instanceId: parsed.instanceId,
-      startedAt: typeof parsed.startedAt === 'string' ? parsed.startedAt : '',
-    }
-  } catch {
-    return null
-  }
-}
-
-/** Atomic write, owner-only. Atomic so a reader never sees half a record. */
-export function writeDiscovery(record: RelayDiscoveryRecord, baseDir: string = DISCOVERY_BASE_DIR): void {
-  const file = discoveryFilePath(baseDir)
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  const temporary = `${file}.${process.pid}.tmp`
-  fs.writeFileSync(temporary, JSON.stringify(record), { mode: 0o600 })
-  fs.renameSync(temporary, file)
-}
-
-/**
- * Removes the record **only if it is still ours**.
- *
- * A shell that crashed and was restarted will have published a new record; deleting unconditionally
- * on the old instance's way out would erase the live one and leave the CLI with nothing to find.
- */
-export function clearDiscoveryIfOwned(instanceId: string, baseDir: string = DISCOVERY_BASE_DIR): boolean {
-  const current = readDiscovery(baseDir)
-  if (!current || current.instanceId !== instanceId) return false
-  try {
-    fs.unlinkSync(discoveryFilePath(baseDir))
-    return true
-  } catch {
-    return false
-  }
-}
 
 /** Whether a process exists. Signal 0 tests existence without delivering anything. */
 export function isPidAlive(pid: number): boolean {
@@ -85,45 +41,24 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-/** Whether something is accepting connections on a loopback port. */
-export function isPortListening(port: number, timeoutMs = 500): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.connect({ port, host: '127.0.0.1' })
-    const done = (value: boolean) => {
-      socket.removeAllListeners()
-      socket.destroy()
-      resolve(value)
-    }
-    socket.setTimeout(timeoutMs)
-    socket.once('connect', () => done(true))
-    socket.once('timeout', () => done(false))
-    socket.once('error', () => done(false))
-  })
-}
-
 /**
- * Decides whether a record may be followed.
+ * Where a client should send its relay requests.
  *
- * Both halves matter, and for different reasons. A dead owner means the record outlived its process
- * and the port may since have been taken by something unrelated. A live owner with a closed port
- * means the relay died while the shell lived on. Following either would send a caller — and in the
- * shell's case, its key — somewhere it does not belong.
+ * The order is a trust order, not a convenience one:
  *
- * The checks are injected so this can be tested without spawning processes or binding sockets.
- */
-export async function isDiscoveryUsable(
-  record: RelayDiscoveryRecord | null,
-  checks: { isPidAlive: (pid: number) => boolean; isPortListening: (port: number) => Promise<boolean> },
-): Promise<boolean> {
-  if (!record) return false
-  if (!checks.isPidAlive(record.pid)) return false
-  return checks.isPortListening(record.port)
-}
-
-/**
- * Desktop-scoped calls pin their launch identity and cannot override it. Other calls honor
- * explicit host/port, then one live authenticated Desktop, legacy discovery, and standalone port.
- * Multiple live applications require an explicit choice; discovery never chooses arbitrarily.
+ *   1. **A launch identity in the environment** (`PENGUIN_RELAY_INSTANCE_ID`, set by the desktop
+ *      shell for every process it spawns). The call belongs to that application: its port is
+ *      pinned, the relay must prove it is that launch, and nothing below may override it — not a
+ *      `--host`, not an inherited `PENGUIN_BROWSER_HOST`. An application that is gone is an error,
+ *      never a reason to go looking for another relay.
+ *   2. **An explicit `--host`.** The caller named a machine; local discovery describes *this* one
+ *      and is not consulted.
+ *   3. **`PENGUIN_BROWSER_HOST`.** Same reasoning, set once in an environment instead of per call.
+ *   4. **`PENGUIN_BROWSER_PORT`.** Names a port on this machine, so it overrides discovery but not
+ *      a host.
+ *   5. **One live, authenticated desktop record.** Two or more is an error: discovery never picks
+ *      an application on the caller's behalf.
+ *   6. **The conventional standalone port.**
  */
 export async function resolveRelayEndpoint(options: {
   baseDir?: string
@@ -132,8 +67,7 @@ export async function resolveRelayEndpoint(options: {
   envHost?: string
   envPort?: string
   envInstanceId?: string
-  checks?: { isPidAlive: (pid: number) => boolean; isPortListening: (port: number) => Promise<boolean> }
-}): Promise<{ host: string; port: number; source: 'host' | 'env-host' | 'env-port' | 'discovery' | 'desktop' | 'default'; instanceId?: string }> {
+}): Promise<{ host: string; port: number; source: 'host' | 'env-host' | 'env-port' | 'desktop' | 'default'; instanceId?: string }> {
   const explicitPort = Number(options.envPort)
   const portFromEnv = Number.isInteger(explicitPort) && explicitPort > 0 && explicitPort <= 65535 ? explicitPort : null
 
@@ -162,19 +96,6 @@ export async function resolveRelayEndpoint(options: {
   if (desktops.length === 1) {
     const desktop = desktops[0]!
     return { host: '127.0.0.1', port: desktop.port, source: 'desktop', instanceId: desktop.instanceId }
-  }
-  const checks = options.checks ?? { isPidAlive, isPortListening }
-  const record = readDiscovery(baseDir)
-  if (await isDiscoveryUsable(record, checks)) {
-    return { host: '127.0.0.1', port: record!.port, source: 'discovery' }
-  }
-  if (record) {
-    // Stale, and we are the ones who looked: clear it so the next reader does not repeat the probe.
-    try {
-      fs.unlinkSync(discoveryFilePath(baseDir))
-    } catch {
-      // Someone else got there first, or the directory is read-only. Harmless either way.
-    }
   }
   return { host: '127.0.0.1', port: options.defaultPort, source: 'default' }
 }
