@@ -2,12 +2,10 @@
  * Draft view (/chat/new): the pre-persistence form of a new
  * conversation, before any Session exists. The input card sits vertically centered (on xl
  * screens a "Jump back in" rail of recent Sessions sits to its right — jump-back-in.tsx);
- * before sending, this is where Agent / Workspace / approval mode / Model are all
- * chosen in one place — two small dropdown pills sit right below the card (pill
- * buttons, styled after ChatGPT's project picker): Agent selection and Workspace
- * directory selection (the menu browses server-side directories, and the current
- * path can be edited directly); the model picker lives in the input card's bottom
- * toolbar, left of the send button (with a vendor logo). The Session is only
+ * approval and model controls remain in the composer. Agent and Workspace resolve
+ * from the Project's defaults without exposing engine setup on the welcome screen.
+ * New trip starts independently; a Trip's New chat action carries its id.
+ * The Session is only
  * created when **the first message is sent**; once created, Agent / Workspace /
  * Model are locked in via meta, and only approval mode remains editable (in the
  * session-mode input area).
@@ -19,7 +17,7 @@
  * the page resumes where you left off; on successful send the cache clears, except
  * the model selection, which carries over as the next conversation's default
  * (switch-becomes-default, mirroring the thinking level persisting on the Agent).
- * The sidebar's Trip card "+" / menu "New conversation" explicitly specify an
+ * The sidebar's Trip card "+" / menu "New chat" explicitly specify an
  * Agent via route state (overriding the cached selection), and a Trip card also
  * carries its Trip id. Workspace is no longer offered here — it is seeded from the
  * Project's new-chat defaults and has no picker. A direct visit or refresh
@@ -40,6 +38,8 @@ import { useLocation, useNavigate } from "react-router";
 import { AirplaneTiltIcon } from "@phosphor-icons/react/dist/csr/AirplaneTilt";
 import { BookOpenTextIcon } from "@phosphor-icons/react/dist/csr/BookOpenText";
 import { BrowsersIcon } from "@phosphor-icons/react/dist/csr/Browsers";
+import { BedIcon } from "@phosphor-icons/react/dist/csr/Bed";
+import { CalendarBlankIcon } from "@phosphor-icons/react/dist/csr/CalendarBlank";
 import type {
   AgentModelConfigDto,
   AgentSummary,
@@ -58,32 +58,27 @@ import { useAuth } from "../../state/auth";
 import { agentDisplayName, useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { AgentAvatar } from "../../components/ui/agent-avatar";
+import { WelcomePenguin } from "../../components/ui/welcome-penguin";
 import { Chevron } from "../../components/ui/chevron";
 import { Dropdown } from "../../components/ui/dropdown";
 import { toastError } from "../../components/ui/toast";
 import { ChatInput, type ChatInputHandle } from "./chat-input";
 import { useTheme } from "../../state/theme";
-import { buildSkillsMessage } from "./skill-use";
 import { EXAMPLE_TASKS } from "./example-tasks";
-import type { ExampleTask, ExampleTaskId } from "./example-tasks";
 import { JumpBackIn } from "./jump-back-in";
 import { TripConstraintChips } from "./trip-constraint-chips";
+import { DraftBrowserSelect } from "./draft-browser-select";
+import type { BrowserPaneState } from "./use-browser-pane";
 import {
   EMPTY_TRIP_CONSTRAINTS,
   applyTripPrefix,
+  applySharedTrip,
   constraintsToTripPatch,
   tripToConstraints,
 } from "./trip-constraints";
 import type { TripConstraints } from "./trip-constraints";
-import { useTrips } from "../../state/trips";
-import {
-  clearDraft,
-  createDraftBrowserScopeId,
-  draftBrowserScope,
-  draftKey,
-  loadDraft,
-  saveDraft,
-} from "./draft-cache";
+import { tripDisplayName, useTrips } from "../../state/trips";
+import { clearDraft, draftBrowserScope, draftKey, loadDraft, saveDraft } from "./draft-cache";
 import type { DraftCache } from "./draft-cache";
 import {
   DRAFT_FLUSH_EVENT,
@@ -105,8 +100,8 @@ const DRAFT_SAVE_DEBOUNCE_MS = 300;
 
 /**
  * "Applied" markers for the route-state overrides (one slot per field, holding the last
- * consumed location.key). React Router persists location.state AND location.key in
- * history.state, which survives a full page reload, while a ref resets with the JS
+ * consumed entryKey). The router key, or the original key retained while settings changes
+ * the query, lives in history.state and survives a full page reload; a ref resets with the JS
  * context — with a ref alone, a reload would re-apply the override and clobber whatever
  * the user changed since (restored from the draft cache). sessionStorage is per-tab
  * exactly like history.state, so the marker follows the history entry; on storage
@@ -135,13 +130,21 @@ const TASK_ICONS = {
   xhsTrip: BookOpenTextIcon,
 } as const;
 
+const TRIP_STARTERS = [
+  { id: "accommodation", Icon: BedIcon },
+  { id: "transport", Icon: AirplaneTiltIcon },
+  { id: "days", Icon: CalendarBlankIcon },
+] as const;
+
 export function DraftView({
   projectId,
   models,
   draftId,
   browserScopeId,
   onReassignBrowserScope,
+  browserState,
 }: {
+  browserState: BrowserPaneState;
   projectId: string;
   /** Project model config (already fetched by ChatPage): candidate list and default model. */
   models: ModelsResponse | null;
@@ -154,6 +157,9 @@ export function DraftView({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  // Settings changes the query, not the identity or initialization intent of this conversation.
+  const entryKey =
+    (location.state as { settingsEntryKey?: string } | null)?.settingsEntryKey ?? location.key;
   const { agents, currentAgent, setCurrentAgentId } = useProject();
   const { add } = useSessions();
   // The draft key includes a user dimension (#68 cross-account leakage). RequireAuth
@@ -191,12 +197,14 @@ export function DraftView({
     cached.approvalMode ?? "allow-all",
   );
   const [modelRef, setModelRef] = useState<ModelRefDto | null>(cached.modelRef ?? null);
+  const [localTrip, setLocalTrip] = useState<TripConstraints>(
+    cached.constraints ?? EMPTY_TRIP_CONSTRAINTS,
+  );
   const textRef = useRef(cached.text ?? "");
   const composerRef = useRef<ChatInputHandle>(null);
   // The budget line's glyphs count in the home currency until an amount states its own.
   const { currency: homeCurrency } = useTheme();
-  // Mutable because example-task sends preserve the typed draft: its old strip becomes the sent
-  // Session's strip, while the still-cached draft must receive a fresh empty strip for next time.
+  // Keep the draft's original strip identity available for rollback if its first send fails.
   const browserScopeIdRef = useRef(browserScopeId);
   // —— Project new-chat defaults ([default_chat]) ——
   // Fetched once per Project mount (fail-soft: an error reads as "no defaults", so the
@@ -236,7 +244,7 @@ export function DraftView({
   // Unified resolution of the Agent selection (a single effect, single writer):
   // explicit route state > current valid value (from cache / panel selection) >
   // default_agent > the first one. Explicit intent (sidebar group header "+" / menu
-  // "New conversation") is applied only once per location.key — clicking "+" again
+  // "New chat") is applied only once per entryKey — clicking "+" again
   // for the same Agent gets a new key and re-aligns, while the user's subsequent
   // reselection in the panel won't keep getting overridden. Merging this into one
   // effect is essential: splitting it into an "apply state" effect and a "fallback
@@ -246,26 +254,18 @@ export function DraftView({
   const routeState = location.state as {
     agentId?: string;
     workspace?: string;
-    tripId?: string;
-    newTrip?: boolean;
+    tripId?: string | null;
   } | null;
-  /**
-   * Which journey this draft belongs to, carried from the sidebar.
-   *
-   * `tripId` names an existing Trip (a trip's "+"); `newTrip` means "new trip" was clicked and
-   * the journey does not exist yet — the first message creates it, the same way the first
-   * message creates the Session. Nothing is written until then, so a click someone thought
-   * better of leaves nothing behind, and the trip can be named for a destination the person
-   * has by then actually stated.
-   *
-   * Both are read straight from route state rather than the draft cache, for the same reason
-   * the chips are not cached: they are what the person clicked just now, not a preference of
-   * this screen. A refresh lands on an ordinary floating draft — the honest fallback, rather
-   * than silently filing the conversation under a journey they are no longer looking at.
-   */
-  const draftTripId = routeState?.tripId ?? null;
-  const isNewTripDraft = routeState?.newTrip === true;
-  const { byId: tripsById, patch: patchTrip, create: createTrip, remove: removeTrip } = useTrips();
+  // An explicit start states its scope. Parked drafts and reloads keep that same scope.
+  const draftTripId =
+    routeState?.tripId !== undefined ? routeState.tripId : (cached.tripId ?? null);
+  const {
+    byId: tripsById,
+    patch: patchTrip,
+    loading: tripsLoading,
+    error: tripsError,
+    reload: reloadTrips,
+  } = useTrips();
   const stateAgentId = routeState?.agentId;
   const appliedStateKey = useRef<string | null>(null);
   /** One-shot marker for the project-default Agent (seeding precedence, see below). */
@@ -276,11 +276,11 @@ export function DraftView({
       !!id && agents.some((a) => a.agentId === id);
     if (
       stateAgentId &&
-      appliedStateKey.current !== location.key &&
-      loadAppliedRouteKey("agentId") !== location.key
+      appliedStateKey.current !== entryKey &&
+      loadAppliedRouteKey("agentId") !== entryKey
     ) {
-      appliedStateKey.current = location.key;
-      saveAppliedRouteKey("agentId", location.key);
+      appliedStateKey.current = entryKey;
+      saveAppliedRouteKey("agentId", entryKey);
       if (valid(stateAgentId)) {
         setAgentId(stateAgentId);
         return;
@@ -305,9 +305,9 @@ export function DraftView({
     }
     if (valid(agentId)) return;
     setAgentId((agents.find((a) => a.agentId === "default_agent") ?? agents[0])?.agentId ?? null);
-  }, [agents, agentId, location.key, stateAgentId, chatDefaults, cached.agentId]);
+  }, [agents, agentId, entryKey, stateAgentId, chatDefaults, cached.agentId]);
 
-  // Explicit Workspace from route state: applied once per location.key, same convention as the
+  // Explicit Workspace from route state: applied once per entryKey, same convention as the
   // Agent above, overriding the cached selection ("" pre-fills the temporary workspace). Unlike
   // the Agent there's no list to validate against, so this is a separate effect that never has
   // to wait for a load.
@@ -320,15 +320,15 @@ export function DraftView({
   useEffect(() => {
     if (
       stateWorkspace === undefined ||
-      appliedWorkspaceKey.current === location.key ||
-      loadAppliedRouteKey("workspace") === location.key
+      appliedWorkspaceKey.current === entryKey ||
+      loadAppliedRouteKey("workspace") === entryKey
     ) {
       return;
     }
-    appliedWorkspaceKey.current = location.key;
-    saveAppliedRouteKey("workspace", location.key);
+    appliedWorkspaceKey.current = entryKey;
+    saveAppliedRouteKey("workspace", entryKey);
     setWorkspace(stateWorkspace);
-  }, [location.key, stateWorkspace]);
+  }, [entryKey, stateWorkspace]);
 
   // Project defaults for Workspace / approval mode: the same apply-once discipline as the
   // route-state effects above, deferred until the defaults resolve. A field is only seeded
@@ -485,11 +485,8 @@ export function DraftView({
   // mount render would trigger ChatInput's pruning effect and wrongly clear the
   // quick-invoke preselection.
   const [agentSkills, setAgentSkills] = useState<SkillMetadataItem[]>([]);
-  /** Whether the skills fetch for the current Agent has settled — the example task waits for it so its `[use_skills]` pinning doesn't silently depend on network timing. */
-  const [skillsLoaded, setSkillsLoaded] = useState(false);
   useEffect(() => {
     setAgentSkills((prev) => (prev.length > 0 ? [] : prev));
-    setSkillsLoaded(false);
     if (!agentId) return;
     let cancelled = false;
     api
@@ -497,10 +494,7 @@ export function DraftView({
       .then((res) => {
         if (!cancelled) setAgentSkills(res.skills);
       })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) setSkillsLoaded(true);
-      });
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -511,6 +505,7 @@ export function DraftView({
   // immediately on change; body text is keystroke-frequent: debounced trailing write,
   // with a final flush on unmount if there's an unsaved change.
   const saveTimer = useRef<number | null>(null);
+  const discardedRef = useRef(false);
   const cancelPendingSave = useCallback(() => {
     if (saveTimer.current !== null) {
       window.clearTimeout(saveTimer.current);
@@ -520,9 +515,11 @@ export function DraftView({
 
   const persistNow = useCallback(() => {
     cancelPendingSave();
-    if (!userId) return;
+    if (!userId || discardedRef.current) return;
     const data: DraftCache = {
       text: textRef.current,
+      tripId: draftTripId,
+      ...(draftTripId === null ? { constraints: localTrip } : {}),
       workspace,
       approvalMode,
       browserScopeId: browserScopeIdRef.current,
@@ -532,7 +529,18 @@ export function DraftView({
     // A parked draft writes back into its own list entry; the active draft into its slot.
     if (draftId !== undefined) saveDraftSession(userId, projectId, draftId, data);
     else saveDraft(draftKey(userId, projectId), data);
-  }, [cancelPendingSave, userId, projectId, draftId, agentId, workspace, approvalMode, modelRef]);
+  }, [
+    cancelPendingSave,
+    userId,
+    projectId,
+    draftId,
+    agentId,
+    workspace,
+    approvalMode,
+    modelRef,
+    draftTripId,
+    localTrip,
+  ]);
 
   // The timer and unmount cleanup read persistNow via a ref to always get the **latest version**: a stale closure would write back outdated options.
   const persistRef = useRef(persistNow);
@@ -591,9 +599,9 @@ export function DraftView({
    */
   const discardDraft = useCallback(() => {
     cancelPendingSave();
-    // The unmount flush routes through persistNow, which would otherwise write the
-    // just-sent content back (into the parked entry, resurrecting a deleted row): with
-    // the text gone the flush becomes an idempotent empty-shell write.
+    // Retire this writer before resetting chips or navigating: a final render/effect must
+    // not restore the sent draft's approval mode or constraints into the next draft's slot.
+    discardedRef.current = true;
     textRef.current = "";
     if (!userId) return;
     if (draftId !== undefined) {
@@ -612,18 +620,10 @@ export function DraftView({
     setApprovalMode(mode);
   }, []);
 
-  // One in-flight guard shared by both send entry points (composer send / example task): a
-  // second submission while one is running would create a second Session with
-  // its own first task and a racing navigation. The ref is the synchronous guard; the state
-  // drives disabled styling on the example button (the composer has its own busy state).
+  // Guard duplicate first sends synchronously; disable starter cards while the composer sends.
   const sendingRef = useRef(false);
   const [sending, setSending] = useState(false);
 
-  // First message sent: only now is the Session created (Agent / Workspace / Model / approval
-  // mode are all locked in together), then the route jumps once sent; returns false on any
-  // failure, so the input area keeps the draft and can resend. `keepDraft` is set by sends
-  // that did not consume the composer text (the example task), so a typed-but-unsent draft
-  // survives the navigation instead of being silently discarded.
   /**
    * Trip-constraint chips (Where/When/Who/Budget), in one of two modes.
    *
@@ -633,15 +633,13 @@ export function DraftView({
    *
    * **On a floating conversation** they stay what they were — local scaffolding for this one
    * message, cleared after a successful send. Filling them does not quietly create a Trip:
-   * a journey begins when the person says so ("new trip", or moving this conversation into
-   * one afterwards), not as a side effect of naming a city in a question.
+   * a journey begins when the person explicitly adds this conversation to one, not as a side effect of naming a city in a question.
    *
    * Either way the values are prepended to the outgoing message as visible text, so what the
-   * model receives is exactly what the person can see they sent. Later messages in the
-   * conversation do not repeat it; the trip skill has the agent read `trip.json` instead.
+   * model receives is exactly what the person can see they sent. Trip conversations also
+   * resolve current identity and notes for subsequent sends.
    */
   const draftTrip = draftTripId === null ? null : (tripsById.get(draftTripId) ?? null);
-  const [localTrip, setLocalTrip] = useState<TripConstraints>(EMPTY_TRIP_CONSTRAINTS);
   const trip = draftTrip ? tripToConstraints(draftTrip) : localTrip;
   const setTripValue = useCallback(
     (next: TripConstraints) => {
@@ -663,14 +661,19 @@ export function DraftView({
     [draftTrip, patchTrip],
   );
 
+  const browserNotReady =
+    browserState.supported &&
+    (!browserState.scopeSettled ||
+      browserState.backendChanging ||
+      browserState.backendLocked ||
+      (browserState.backend === "extension" && !browserState.extensionBackendAvailable));
+
   const onSend = useCallback(
-    async (input: TaskInputPart[], keepDraft = false): Promise<boolean> => {
-      if (!agentId || sendingRef.current) return false;
+    async (input: TaskInputPart[]): Promise<boolean> => {
+      if (!agentId || sendingRef.current || browserNotReady) return false;
       sendingRef.current = true;
       setSending(true);
       let createdId: string | null = null;
-      /** Trip created by THIS send, to be rolled back if the send does not complete. */
-      let createdTripId: string | null = null;
       let browserReassigned = false;
       try {
         const body: SessionCreateRequest = { approvalMode };
@@ -680,61 +683,24 @@ export function DraftView({
           body.provider = modelRef.provider;
         }
         if (workspace.trim()) body.workspace = workspace.trim();
-        // A "new trip" draft materializes its journey now, from what the chips say: this is the
-        // only moment a destination is known, and it is what lets the folder be named for the
-        // place rather than the date. Created before the Session so the Session can join it in
-        // one step; rolled back below if anything after this fails, so a failed send leaves no
-        // empty trip — the same contract the empty-Session cleanup already has.
-        let tripId = draftTripId;
-        let tripDir = draftTrip?.dir;
-        if (tripId === null && isNewTripDraft) {
-          const patch = constraintsToTripPatch(trip);
-          const created = await createTrip({
-            destination: patch.destination,
-            when: patch.when,
-            who: patch.who,
-            budget: patch.budget,
-            budgetAmount: patch.budgetAmount,
-            budgetCurrency: patch.budgetCurrency,
-          });
-          tripId = created.tripId;
-          createdTripId = created.tripId;
-          tripDir = created.dir;
-        }
-        // The Session joins its Trip at creation. Membership is a column on the session row,
-        // so this decides nothing about where the conversation's files or memory live.
-        if (tripId !== null) body.tripId = tripId;
+        // Resolve an explicit topic target before creating anything. An unavailable Trip
+        // never silently turns this into an independent conversation.
+        const targetTrip = draftTripId === null ? null : (await api.getTrip(draftTripId)).trip;
+        if (targetTrip) body.tripId = targetTrip.tripId;
         const created = await api.createSession(projectId, agentId, body);
         createdId = created.session.sessionId;
         // Promote before starting the task. Otherwise a fast first agent browser call races main,
         // which would still be showing the draft scope and correctly refuse the hidden Session.
         await onReassignBrowserScope(createdId);
         browserReassigned = true;
-        // The trip's folder is named here, not by the composer: for a journey created by this
-        // very send there was no folder to name when the message was composed. Without this the
-        // trip-workspace skill has no path to act on and never touches the trip at all — which
-        // is what happened to every trip started from "new trip" until it was caught by reading
-        // a real message the agent had received.
-        const withTripFolder =
-          tripDir === undefined
-            ? input
-            : applyTripPrefix(
-                input,
-                EMPTY_TRIP_CONSTRAINTS,
-                S.chat.tripChips,
-                tripDir,
-                homeCurrency,
-              );
+        const withTripFolder = targetTrip
+          ? applySharedTrip(input, targetTrip, S.chat.tripChips, homeCurrency)
+          : input;
         const res = await api.postTask(createdId, {
           input: withTripFolder,
         });
         add(created.session);
-        if (keepDraft) {
-          browserScopeIdRef.current = createDraftBrowserScopeId();
-          persistRef.current();
-        } else {
-          discardDraft();
-        }
+        discardDraft();
         navigate(`/chat/${res.sessionId}`, { replace: true });
         return true;
       } catch (e) {
@@ -742,9 +708,6 @@ export function DraftView({
         // this empty Session, otherwise every resend attempt would create another one, piling up
         // empty sessions with no messages in the sidebar (best-effort cleanup).
         if (createdId) void api.deleteSession(createdId).catch(() => undefined);
-        // A journey that never carried a message is not a journey. Only a trip created by this
-        // very send is removed — never one the draft merely belonged to.
-        if (createdTripId) void removeTrip(createdTripId).catch(() => undefined);
         if (browserReassigned) {
           // Keep the browser pages with the still-editable draft. Main accepts only this exact
           // inverse of the immediately preceding promotion, so this cannot move another Session.
@@ -767,65 +730,51 @@ export function DraftView({
       workspace,
       draftTripId,
       draftTrip,
-      isNewTripDraft,
       trip,
-      createTrip,
       homeCurrency,
-      removeTrip,
       add,
       discardDraft,
       navigate,
       onReassignBrowserScope,
+      browserNotReady,
     ],
   );
 
-  // Example tasks: one click submits the canned prompt exactly like a hand-typed send (the
-  // busy id drives the clicked card's spinner; the shared in-flight guard and all failure
-  // handling live in onSend). keepDraft: an example never consumes the composer text, so a
-  // typed-but-unsent draft must survive. The selected model / Workspace / approval mode apply as-is.
-  const [exampleBusy, setExampleBusy] = useState<ExampleTaskId | null>(null);
-
   const sendWithTrip = useCallback(
     async (input: TaskInputPart[]): Promise<boolean> => {
-      // Chips only. The trip's folder line is added by onSend, which is the first moment the
-      // folder is known for a journey this send is about to create.
+      // Independent drafts carry their local chips. Topic starts resolve shared context in onSend.
       const ok = await onSend(
-        applyTripPrefix(input, trip, S.chat.tripChips, undefined, homeCurrency),
-        false,
+        draftTripId === null
+          ? applyTripPrefix(input, trip, S.chat.tripChips, undefined, homeCurrency)
+          : input,
       );
       // Only the floating chips are scratch to be cleared; a Trip's identity outlives the send.
       if (ok && draftTrip === null) setLocalTrip(EMPTY_TRIP_CONSTRAINTS);
       return ok;
     },
-    [onSend, trip, draftTrip, homeCurrency],
+    [onSend, trip, draftTrip, draftTripId, homeCurrency],
   );
-  const runExample = useCallback(
-    async (task: ExampleTask) => {
-      if (exampleBusy !== null) return;
-      setExampleBusy(task.id);
-      try {
-        const names = task.skills.filter((n) => agentSkills.some((s) => s.name === n));
-        await onSend(
-          [{ type: "text", text: buildSkillsMessage(names, S.chat.exampleTasks[task.id].prompt) }],
-          true,
-        );
-      } finally {
-        setExampleBusy(null);
-      }
-    },
-    [exampleBusy, agentSkills, onSend],
-  );
-
-  // Editorial inspiration cards fill the composer with their prompt and stop there: the
+  // Starter, topic and inspiration cards fill the composer with their prompt and stop there: the
   // traveller reads it, edits it, and sends it — or does not. Nothing is created on the click;
-  // the Session (and the Trip, on a new-trip draft) still materialize on the first message,
+  // only the Session materializes on the first message,
   // through the same send path as hand-typed text, chips included. Filling replaces whatever
   // was typed: the click is the person choosing this prompt over their own half-sentence.
   const fillInspiration = useCallback((prompt: string) => {
+    if (sendingRef.current) return;
     composerRef.current?.replaceText(prompt);
   }, []);
 
   const travellerName = (userId ?? "").split("@")[0]?.trim() ?? "";
+  // Both entry points share one card layout; only the prompts reflect the draft's Trip scope.
+  const starters = draftTrip
+    ? TRIP_STARTERS.map(({ id, Icon }) => {
+        const copy = S.trip.flow.topicPrompts[id];
+        return { id, Icon, ...copy, description: copy.prompt };
+      })
+    : EXAMPLE_TASKS.map(({ id }) => {
+        const copy = S.chat.exampleTasks[id];
+        return { id, Icon: TASK_ICONS[id], ...copy, description: copy.desc };
+      });
 
   // Capability info for the currently selected model (vision/context window) switches instantly with the selection (matched by paired reference).
   const modelInfo = models?.models.find((m) => sameModelRef(m, modelRef));
@@ -842,26 +791,41 @@ export function DraftView({
 
       <div className="draft-welcome-layout flex min-h-144 flex-1 flex-col xl:flex-row xl:justify-center xl:gap-8 xl:px-8">
         <section className="draft-welcome-primary mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 pb-14 pt-2 text-center md:px-8 md:pb-16 md:pt-0 xl:mx-0">
-          <img
-            src="/travel-collage.png"
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="mb-2 h-32 w-32 select-none object-contain sm:h-36 sm:w-36"
-          />
+          <WelcomePenguin />
           <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-gray-950 sm:text-[2.5rem] dark:text-white">
             {S.chat.draftGreeting(travellerName)}
           </h2>
           <p className="mt-3 max-w-xl text-base leading-7 text-gray-500 dark:text-gray-400">
-            {S.chat.draftSubtitle}
+            {draftTrip
+              ? S.trip.flow.topicSubtitle(tripDisplayName(draftTrip, S.trip.untitled))
+              : S.chat.draftSubtitle}
           </p>
 
+          {draftTripId && !draftTrip && (
+            <p role="status" className="mt-4 text-sm text-gray-500">
+              {tripsLoading
+                ? S.common.loading
+                : tripsError
+                  ? S.trip.flow.loadingError
+                  : S.trip.notFound}
+              {tripsError && (
+                <button type="button" className="ml-2 underline" onClick={() => void reloadTrips()}>
+                  {S.trip.overview.retry}
+                </button>
+              )}
+            </p>
+          )}
           <div className="mt-6 w-full text-left">
-            <TripConstraintChips value={trip} onChange={setTripValue} />
+            <TripConstraintChips value={trip} onChange={setTripValue}>
+              {browserState.supported && (
+                <DraftBrowserSelect state={browserState} disabled={sending} />
+              )}
+            </TripConstraintChips>
             <ChatInput
               ref={composerRef}
               appearance="travel"
               status="idle"
+              sendDisabled={browserNotReady}
               onSend={sendWithTrip}
               onStop={async () => undefined}
               onCompact={async () => undefined}
@@ -885,6 +849,9 @@ export function DraftView({
               onTextChange={onTextChange}
             />
 
+            <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+              {draftTrip ? S.trip.flow.topicHint : S.trip.flow.startHint}
+            </p>
             {/* Agent and Workspace are the engine's vocabulary, and neither is a choice a
                 traveller has any basis to make before their first sentence. Both still resolve
                 — from the Project's server-side new-chat defaults — they are simply not asked
@@ -897,30 +864,21 @@ export function DraftView({
               {S.chat.draftPrompt}
             </p>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-2">
-              {EXAMPLE_TASKS.map((task) => {
-                const copy = S.chat.exampleTasks[task.id];
-                const TaskIcon = TASK_ICONS[task.id];
-                return (
-                  <button
-                    key={task.id}
-                    type="button"
-                    title={copy.desc}
-                    disabled={
-                      exampleBusy !== null || sending || !skillsLoaded || !agentId || !models
-                    }
-                    onClick={() => void runExample(task)}
-                    className="group flex min-h-12 items-center gap-2.5 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 shadow-[0_1px_2px_rgb(0_0_0/0.03)] transition-[border-color,background-color,color,transform] duration-150 hover:-translate-y-px hover:border-gray-300 hover:text-gray-950 disabled:cursor-default disabled:opacity-50 disabled:hover:translate-y-0 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors duration-150 group-hover:bg-gray-900 group-hover:text-white dark:bg-gray-800 dark:text-gray-300 dark:group-hover:bg-gray-100 dark:group-hover:text-gray-950">
-                      <TaskIcon size={17} weight="regular" aria-hidden />
-                    </span>
-                    <span className="min-w-0 flex-1 leading-5">{copy.label}</span>
-                    {exampleBusy === task.id && (
-                      <span className="shrink-0 text-xs text-gray-400">{S.common.loading}</span>
-                    )}
-                  </button>
-                );
-              })}
+              {starters.map(({ id, Icon, label, prompt, description }) => (
+                <button
+                  key={id}
+                  type="button"
+                  title={description}
+                  disabled={sending}
+                  onClick={() => fillInspiration(prompt)}
+                  className="group flex min-h-12 items-center gap-2.5 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 shadow-[0_1px_2px_rgb(0_0_0/0.03)] transition-[border-color,background-color,color,transform] duration-150 hover:-translate-y-px hover:border-gray-300 hover:text-gray-950 disabled:cursor-default disabled:opacity-50 disabled:hover:translate-y-0 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors duration-150 group-hover:bg-gray-900 group-hover:text-white dark:bg-gray-800 dark:text-gray-300 dark:group-hover:bg-gray-100 dark:group-hover:text-gray-950">
+                    <Icon size={17} weight="regular" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-5">{label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </section>

@@ -1,0 +1,11 @@
+.connection-page { max-width: 640px; margin: 64px auto; padding: 0 24px; }
+.connection-page h1 { font-size: 32px; line-height: 1.25; margin: 36px 0 16px; }
+.connection-page p { line-height: 1.7; }
+.connection-page h2 { font-size: 18px; }
+.connection-card { margin-top: 24px; padding: 24px; background: var(--surface, #fff); border: 1px solid #dfe4ee; border-radius: 20px; }
+.connection-page button { display: block; margin-top: 16px; padding: 12px 18px; border: 1px solid #dfe4ee; border-radius: 12px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.connection-page button:focus-visible { outline: 3px solid #3159ef; outline-offset: 3px; }
+.connection-page button:disabled { opacity: .5; cursor: wait; }
+#applications button { width: 100%; text-align: left; }
+#error { color: #b33a36; }
+@media (prefers-color-scheme: dark) { .connection-card { background: #182131; border-color: #334155; } .connection-page button { border-color: #475569; } #error { color: #fda4af; } }

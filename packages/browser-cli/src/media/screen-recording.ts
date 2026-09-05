@@ -725,7 +725,7 @@ export async function startRecording(options: StartRecordingOptions): Promise<Re
         `Failed to start recording: ${errorMsg}\n\n` +
           `For automated recording, start a managed Penguin Browser browser with the bundled extension loaded:\n\n` +
           `  ${restartCmd}\n\n` +
-          `Or click the Penguin Browser extension icon on the tab once to grant permission.`,
+          `Or click the Travel Browser extension icon on the tab once to grant permission.`,
       )
     }
 
@@ -832,7 +832,7 @@ export async function startStream(
         `Failed to start stream: ${errorMsg}\n\n` +
           `For automated streaming, start a managed Penguin Browser browser with the bundled extension loaded:\n\n` +
           `  ${restartCmd}\n\n` +
-          `Or click the Penguin Browser extension icon on the tab once to grant permission.`,
+          `Or click the Travel Browser extension icon on the tab once to grant permission.`,
       )
     }
     throw new Error(`Failed to start stream: ${errorMsg}`)

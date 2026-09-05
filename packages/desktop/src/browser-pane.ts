@@ -253,10 +253,8 @@ export interface BrowserPaneOptions {
   /**
    * Whether the Chrome extension backend can be reached at all in this run.
    *
-   * False when the shell had to bind an ephemeral relay port because something else already owned
-   * the conventional one. The extension's port is fixed at build time, so it connects to that other
-   * relay — and every command this app runs resolves *this* one. Offering the choice anyway would
-   * produce a conversation whose sessions cannot be created at all.
+   * Requires this application's relay and registered native connection helper. Chrome can remain
+   * selectable while the person installs or pairs the extension.
    */
   extensionBackendAvailable?: boolean;
   /**
@@ -425,7 +423,7 @@ export class BrowserPane {
    */
   private readonly endedTasks = new Set<string>();
   private readonly askedAbout = new Set<string>();
-  private readonly extensionBackendAvailable: boolean;
+  private extensionBackendAvailable: boolean;
   /** Conversations whose current choice was loaded from or successfully written to shared state. */
   private readonly persistedBackendSessions = new Set<string>();
   /** Download directory per conversation, resolved by main from its own data root. */
@@ -1540,6 +1538,12 @@ export class BrowserPane {
     this.log(`dropped browser scope ${sessionId}`);
   }
 
+  /** Availability changes never alter the persisted backend, including during a running task. */
+  setExtensionBackendAvailable(available: boolean): void {
+    this.extensionBackendAvailable = available;
+    this.publishState();
+  }
+
   /** Which browser the next agent session should use. A task-level decision. */
   setBackend(backend: PaneBackend): void {
     const sessionId = this.requireActiveSession();
@@ -1555,21 +1559,19 @@ export class BrowserPane {
     }
     if (backend === "extension" && !this.extensionBackendAvailable) {
       throw new Error(
-        "The Chrome extension backend cannot be reached in this run: another program already owns " +
-          "the relay port the extension connects to, so this app is running its own relay on a " +
-          "different one. Close the other program and restart the app to use your own Chrome.",
+        "The Chrome connection helper is unavailable. Restart the updated Travel Agent app to repair its registration.",
       );
     }
     if (this.backendFor(sessionId) === backend) {
       // An explicit re-selection repairs any out-of-band or previously failed preference write and
       // also gives Chrome users a way to reopen setup without pretending the backend changed.
-      if (!isDraftBrowserScope(sessionId)) this.requireBackendPersistence(sessionId, backend);
+      this.requireBackendPersistence(sessionId, backend);
       this.options.onBackendSelected?.(backend);
       return;
     }
-    // A draft has no agent task yet and therefore needs no cross-process preference. Its choice is
-    // written under the real Session id by `reassignActiveSession` before the first task is posted.
-    if (!isDraftBrowserScope(sessionId)) this.requireBackendPersistence(sessionId, backend);
+    // Explicit draft choices survive a desktop restart under the draft's cached scope id.
+    // Promotion persists the same choice under the real Session before its first task is posted.
+    this.requireBackendPersistence(sessionId, backend);
     this.backendBySession.set(sessionId, backend);
     this.options.onBackendSelected?.(backend);
     this.applyLayout();

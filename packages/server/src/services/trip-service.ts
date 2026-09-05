@@ -113,7 +113,8 @@ export class TripService {
   /**
    * Creates the Trip's directory under the configured root, resolving a name collision by
    * suffixing `-2`, `-3`, … rather than reusing a folder that already holds another Trip's
-   * files. `recursive: true` on the root keeps a first run from failing on a missing parent.
+   * files. After 50 readable candidates, mkdtemp atomically claims a random suffix without a
+   * fixed collision ceiling. `recursive: true` on the root handles a missing parent.
    */
   private async allocateDir(basename: string): Promise<string> {
     await fs.mkdir(this.deps.tripsDir, { recursive: true });
@@ -130,11 +131,7 @@ export class TripService {
         throw err;
       }
     }
-    throw new HttpError(
-      500,
-      "trip_dir_unavailable",
-      `Could not allocate a directory for the trip under ${this.deps.tripsDir}.`,
-    );
+    return fs.mkdtemp(path.join(this.deps.tripsDir, `${basename}-`));
   }
 
   /**
@@ -149,6 +146,7 @@ export class TripService {
       tripId: row.tripId,
       name: row.name,
       destination: row.destination,
+      notes: row.notes,
       when: row.when,
       who: row.who,
       budget: row.budget,
@@ -171,11 +169,8 @@ export class TripService {
   /**
    * Adopts a destination the agent discovered, but only into a blank.
    *
-   * A Trip is created by the first message, and its identity comes from the chips above the
-   * composer. Someone who writes "I'm going to Shanghai tomorrow" and never touches the chips
-   * gets a Trip called "Untitled trip" — the destination was in the sentence, and the naming
-   * only listened to the form. The model reading that sentence knows the answer; it just had no
-   * way to say so.
+   * Explicit Trip creation can leave the destination blank even when a conversation names it.
+   * The model reading that conversation may record the destination in the shared file.
    *
    * So the agent may now write `trip.json`, and this reconciles it on read. The rule is
    * deliberately one-directional: **a blank may be filled, a value may never be overwritten.**
@@ -228,6 +223,7 @@ export class TripService {
       projectId: row.projectId,
       name: row.name,
       destination: row.destination,
+      notes: row.notes,
       when: row.when,
       who: row.who,
       budget: row.budget,
@@ -253,6 +249,7 @@ export class TripService {
     projectId: string,
     fields: {
       name?: string;
+      notes?: string;
       destination?: string;
       when?: TripWhen | null;
       who?: TripWho | null;
@@ -275,6 +272,7 @@ export class TripService {
       tripId: `t-${randomUUID().slice(0, 8)}`,
       projectId,
       name,
+      notes: fields.notes?.trim() ?? "",
       destination,
       when,
       who: fields.who ?? null,

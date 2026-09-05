@@ -32,6 +32,8 @@ const VIEWPORT_MARGIN = 8;
 export interface DropdownPortal {
   direction: "up" | "down";
   align: "left" | "right";
+  /** Keep both horizontal edges aligned with the trigger, including after its width changes. */
+  matchTriggerWidth?: boolean;
 }
 
 export function Dropdown({
@@ -71,6 +73,7 @@ export function Dropdown({
     top?: number;
     bottom?: number;
     left: number;
+    width?: number;
     maxHeight: number;
   } | null>(null);
 
@@ -121,7 +124,12 @@ export function Dropdown({
     // animation, and a mid-animation rect reports a smaller box — which would under-clamp the
     // left edge and let the settled panel overrun the viewport. The offset box is untransformed.
     const panel = panelRef.current;
-    const panelWidth = panel?.offsetWidth ?? 0;
+    const width = portal.matchTriggerWidth
+      ? Math.min(rect.width, Math.max(0, window.innerWidth - VIEWPORT_MARGIN * 2))
+      : undefined;
+    // Measure height at the matched width so wrapping cannot pick the wrong opening direction.
+    if (panel && width !== undefined) panel.style.width = `${width}px`;
+    const panelWidth = width ?? panel?.offsetWidth ?? 0;
     const panelHeight = panel?.offsetHeight ?? 0;
     const wanted = portal.align === "right" ? rect.right - panelWidth : rect.left;
     const left = Math.max(
@@ -138,13 +146,14 @@ export function Dropdown({
     const up = fits ? wantUp : roomAbove > roomBelow;
     setPos({
       left,
+      width,
       maxHeight: Math.max(0, up ? roomAbove : roomBelow),
       ...(up
         ? { bottom: window.innerHeight - rect.top + PANEL_GAP }
         : { top: rect.bottom + PANEL_GAP }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, portal?.direction, portal?.align, children]);
+  }, [open, portal?.direction, portal?.align, portal?.matchTriggerWidth, children]);
 
   useLayoutEffect(place, [place]);
 
@@ -161,9 +170,13 @@ export function Dropdown({
     };
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", place);
+    // Font preferences and sidebar layout can resize the trigger without a window resize.
+    const observer = portal.matchTriggerWidth ? new ResizeObserver(place) : null;
+    if (ref.current) observer?.observe(ref.current);
     return () => {
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", place);
+      observer?.disconnect();
     };
   }, [open, portal, place]);
 
@@ -195,6 +208,7 @@ export function Dropdown({
                 ...(pos
                   ? {
                       left: pos.left,
+                      width: pos.width,
                       maxHeight: pos.maxHeight,
                       ...(pos.top !== undefined ? { top: pos.top } : {}),
                       ...(pos.bottom !== undefined ? { bottom: pos.bottom } : {}),

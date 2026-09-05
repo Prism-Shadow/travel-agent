@@ -345,6 +345,13 @@ const api = {
     ipcRenderer.on("iab:focus-address", wrapped);
     return () => ipcRenderer.removeListener("iab:focus-address", wrapped);
   },
+
+  /** A user-requested Chrome connection check succeeded; presentation belongs to the app. */
+  onExtensionReady: (listener: () => void): (() => void) => {
+    const wrapped = (): void => listener();
+    ipcRenderer.on("iab:extension-ready", wrapped);
+    return () => ipcRenderer.removeListener("iab:extension-ready", wrapped);
+  },
 };
 
 export type TravelAgentBrowserBridge = typeof api;

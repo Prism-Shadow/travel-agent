@@ -77,6 +77,8 @@ export interface BrowserPaneState {
   backend: DesktopBackend;
   /** Whether the backend choice is held shut by a running task. */
   backendLocked: boolean;
+  /** A user selection is waiting for the desktop to acknowledge it. */
+  backendChanging: boolean;
   /** False when this run's relay is not one a Chrome extension can reach. */
   extensionBackendAvailable: boolean;
   /** Whether clearing the browser data is held shut by a running task. */
@@ -175,6 +177,8 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
    */
   const [confirmedScope, setConfirmedScope] = useState<string | null>(null);
   const [pane, setPane] = useState<DesktopPaneState>(EMPTY_STATE);
+  const [backendChanging, setBackendChanging] = useState(false);
+  const backendChangeRef = useRef<Promise<void> | null>(null);
   const [fraction, setFraction] = useState<number>(storedFraction);
   const [dragging, setDragging] = useState(false);
   const [dragPreview, setDragPreview] = useState<DesktopPageCapture | null>(null);
@@ -597,6 +601,8 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
     };
     return {
       reassignSession: async (nextSessionId) => {
+        // A rapid send must wait for the selected backend, including a failed selection.
+        await backendChangeRef.current;
         if (requestedScopeRef.current !== sessionId) {
           throw new Error("The draft browser scope is no longer active");
         }
@@ -646,7 +652,22 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
       // Not quiet: main refuses this for reasons the user can act on, and a control that silently
       // does nothing is worse than one that says why.
       setBackend: async (backend) => {
-        await bridge?.setBackend(backend);
+        if (!bridge) return;
+        if (requestedScopeRef.current !== sessionId || !scopeSettledRef.current) {
+          throw new Error("The browser scope is not ready for a selection");
+        }
+        if (backendChangeRef.current) throw new Error("A browser selection is already pending");
+        const change = bridge.setBackend(backend);
+        backendChangeRef.current = change;
+        setBackendChanging(true);
+        try {
+          await change;
+        } finally {
+          if (backendChangeRef.current === change) {
+            backendChangeRef.current = null;
+            setBackendChanging(false);
+          }
+        }
       },
       openInDefaultBrowser: async () => (await bridge?.handoffOpen()) ?? false,
     };
@@ -700,6 +721,7 @@ export function useBrowserPane(sessionId: string | null): BrowserPaneState {
     scopeSettled,
     backend: pane.backend,
     backendLocked: pane.backendLocked,
+    backendChanging,
     extensionBackendAvailable: pane.extensionBackendAvailable,
     profileResetLocked: pane.profileResetLocked,
     actions,

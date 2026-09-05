@@ -62,7 +62,6 @@ login, SSO, certificate, profile, or an already-open tab.
 ### 3. Check the selected backend's prerequisites
 
 ```bash
-lsof -nP -iTCP:19989 -sTCP:LISTEN 2>/dev/null || true
 penguin-browser session list
 ```
 
@@ -73,8 +72,12 @@ extension session stays visible so its state is not silently discarded, and it r
 if the same installation reconnects after a brief worker or network interruption. Browser names,
 account emails, and profile labels are display metadata, never safe session-rebinding identities.
 
-For a standalone Chrome run, if nothing is listening on `19989`, start the relay and leave it
-running. Do not start a second relay for IAB; the Desktop owns and authenticates that relay:
+Desktop owns a private relay for both backends. Never start or replace a relay for a Desktop
+conversation. If the paired application is unavailable, ask the user to reopen that application;
+do not connect to another port. Chrome pairing is visible in the extension's Connection settings.
+
+For a standalone Chrome run, choose Standalone CLI in the extension's Connection settings. Start
+the configured relay if needed and leave it running (the default standalone port is `19989`):
 
 ```bash
 penguin-browser serve
@@ -109,7 +112,7 @@ Two explicit user actions grant different scopes:
 - Selecting **My own Chrome (extension)** in the Browser menu authorizes this conversation to use
   the Chrome backend. Once its extension is connected, the task may create and control its own new
   tabs. It does not adopt arbitrary tabs the user already has open.
-- Clicking the Penguin Browser extension icon on an existing Chrome tab explicitly adds that tab to
+- Clicking the Travel Browser extension icon on an existing Chrome tab explicitly adds that tab to
   the available automation pool. Attachment is consent for that existing tab only.
 
 Before controlling an existing tab, tell the user which tab or site is needed and ask them to click
@@ -371,7 +374,7 @@ Classify the failure before retrying:
 3. **Extension disconnected:** ask the user to open Chrome or finish the setup opened from the
    Browser menu. If Chrome is connected and an agent-owned tab was closed, create a new task tab.
    Ask for an extension-icon click only when the task needs a specific existing user tab.
-4. **Relay unavailable:** run `penguin-browser logfile`, inspect `~/.penguin-browser/relay-server.log`, and verify that `19989` belongs to the relay. Do not kill an unknown listener.
+4. **Relay unavailable:** run `penguin-browser logfile`, inspect `~/.penguin-browser/relay-server.log`, and reopen the owning Desktop application. Its relay port is assigned per launch. For explicit standalone use, verify the configured port; never kill an unknown listener.
 5. **Stale Playwright/CDP connection:** reset only after connection-level evidence:
 
 ```bash

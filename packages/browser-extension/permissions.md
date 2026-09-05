@@ -6,6 +6,13 @@ Connects browser tabs to local Playwright automation scripts via Chrome DevTools
 
 ## Permission Justifications
 
+### nativeMessaging
+
+Discovers the selected local Travel Agent application through the registered
+`com.prismshadow.travel_browser` host. The host accepts only `list` and `connect` and returns
+an authenticated loopback endpoint. It does not receive page contents, execute scripts, or
+start a browser relay. Chrome permits only this extension's fixed origin to call it.
+
 ### activeTab
 
 Required to attach the Chrome debugger to the current tab when the user clicks the extension icon. This grants the gesture-scoped access needed to adopt that already-open tab; it is separate from task tabs the extension creates after the user selects the Chrome backend or starts a local CLI session.
@@ -34,15 +41,15 @@ The build process (vite.config.mts) automatically removes this permission when T
 
 ### webNavigation
 
-Required to detect when one tab opens a new tab/window via `window.open`, `target="_blank"`, or similar navigation-triggered tab creation. The extension listens for `chrome.webNavigation.onCreatedNavigationTarget` to build a `new tab id → source tab id` mapping. When a Chrome popup window is created by a Penguin Browser-connected tab, the extension uses this mapping to know whether to relocate the popup into the source tab's main window so Playwright automation can control it. No URL or page content is collected — only tab-ID correlations.
+Required to detect when one tab opens a new tab/window via `window.open`, `target="_blank"`, or similar navigation-triggered tab creation. The extension listens for `chrome.webNavigation.onCreatedNavigationTarget` to build a `new tab id → source tab id` mapping. When a Chrome popup window is created by a Travel Browser-connected tab, the extension uses this mapping to know whether to relocate the popup into the source tab's main window so Playwright automation can control it. No URL or page content is collected — only tab-ID correlations.
 
 ### scripting (updated use)
 
 The `scripting` permission was originally added for iframe cleanup before debugger attachment. It is now also used to:
 
-1. **Inject the in-page toolbar** (`initPenguinBrowserToolbar`) into the MAIN world of every tab connected to Penguin Browser. The toolbar is a closed Shadow DOM element that floats in the top-right corner and provides quick AI-integration tools (e.g. pin-element copy mode).
+1. **Inject the in-page toolbar** (`initPenguinBrowserToolbar`) into the MAIN world of every tab connected to Travel Browser. The toolbar is a closed Shadow DOM element that floats in the top-right corner and provides quick AI-integration tools (e.g. pin-element copy mode).
 2. **Re-inject the toolbar** after page navigations via `chrome.webNavigation.onDOMContentLoaded`.
-3. **Destroy the toolbar** when the user disconnects Penguin Browser from a tab, so no extension UI is left behind on pages the user is actively browsing.
+3. **Destroy the toolbar** when the user disconnects Travel Browser from a tab, so no extension UI is left behind on pages the user is actively browsing.
 
 All injections target only connected tabs: either a tab explicitly adopted with the extension icon or a task tab the extension created following a local user-initiated backend/session choice. Injections use only the top-level frame (`allFrames: false`). No code is injected into unrelated pre-existing tabs.
 
@@ -57,7 +64,7 @@ Required to attach the debugger to tabs on any domain the user chooses to automa
 All extension code (JavaScript, HTML, CSS) is fully bundled within the extension package and statically reviewed.
 
 **WebSocket Connection (localhost only):**
-The extension establishes a WebSocket connection to `ws://localhost:19989` - a local server running on the user's own machine. This connection is used exclusively for **message passing** (sending and receiving JSON data), NOT code execution.
+The extension establishes a WebSocket connection to an authenticated, application-owned loopback endpoint (or port 19989 in explicit standalone mode). This connection is used exclusively for **message passing** (sending and receiving JSON data), NOT code execution.
 
 **What the WebSocket is used for:**
 
@@ -71,13 +78,13 @@ The extension establishes a WebSocket connection to `ws://localhost:19989` - a l
 - Connecting to external/remote servers (strictly localhost only)
 - Loading remote configurations that modify extension behavior
 
-This is functionally similar to Native Messaging but uses WebSockets for cross-platform compatibility with existing Playwright tooling. The WebSocket serves as a local IPC (inter-process communication) channel, not a remote code delivery mechanism.
+Native Messaging discovers and pairs the application; WebSockets carry the existing CDP transport. The WebSocket serves as a local IPC (inter-process communication) channel, not a remote code delivery mechanism.
 
 ## Data Collection & Privacy
 
 - No data is collected or transmitted to external servers
 - All browser control happens locally through Chrome DevTools Protocol
-- WebSocket connection is localhost-only (ws://localhost:19989)
+- WebSocket connections are loopback-only; Desktop assigns its own port
 - Extension operates entirely on the user's machine
 - No analytics, tracking, or telemetry
 

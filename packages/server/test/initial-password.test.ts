@@ -34,9 +34,9 @@ describe("initial password file", () => {
 
   it("stores, reads back and clears the plaintext in the data root", () => {
     expect(readInitialAdminPassword(t.root)).toBeNull();
-    storeInitialAdminPassword(t.root, "penguin-1234");
+    storeInitialAdminPassword(t.root, "travel-1234");
     expect(fs.existsSync(path.join(t.root, "initial-admin-password"))).toBe(true);
-    expect(readInitialAdminPassword(t.root)).toBe("penguin-1234");
+    expect(readInitialAdminPassword(t.root)).toBe("travel-1234");
     clearInitialAdminPassword(t.root);
     expect(readInitialAdminPassword(t.root)).toBeNull();
     // Idempotent on an already-missing file.
@@ -86,7 +86,7 @@ describe("initial password file", () => {
 
 describe("renderInitialPasswordNotice", () => {
   it("frames the credentials and the reminder in an aligned ASCII box", () => {
-    const notice = renderInitialPasswordNotice("admin", "penguin-1234");
+    const notice = renderInitialPasswordNotice("traveler", "travel-1234");
     const lines = notice.split("\n");
     expect(lines.length).toBeGreaterThanOrEqual(5);
     expect(lines[0]).toMatch(/^\+-+\+$/);
@@ -94,7 +94,7 @@ describe("renderInitialPasswordNotice", () => {
     // Every row is exactly as wide as the frame, so the right edge lines up.
     for (const line of lines) expect(line.length).toBe(lines[0]!.length);
     for (const line of lines.slice(1, -1)) expect(line).toMatch(/^\|.*\|$/);
-    expect(notice).toContain("admin / penguin-1234");
+    expect(notice).toContain("traveler / travel-1234");
     expect(notice).toContain("change it soon");
     // Plain ASCII only: box-drawing characters misrender on legacy code pages.
     expect([...notice].every((ch) => ch.codePointAt(0)! < 128)).toBe(true);
@@ -102,7 +102,7 @@ describe("renderInitialPasswordNotice", () => {
 
   it("widens with a long pinned password instead of breaking the frame", () => {
     const long = "a-very-long-pinned-password-for-automation-use-only";
-    const lines = renderInitialPasswordNotice("admin", long).split("\n");
+    const lines = renderInitialPasswordNotice("traveler", long).split("\n");
     for (const line of lines) expect(line.length).toBe(lines[0]!.length);
     expect(lines.some((line) => line.includes(long))).toBe(true);
   });

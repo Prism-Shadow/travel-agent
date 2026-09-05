@@ -185,10 +185,10 @@ export function wrapCode(code: string): string {
   return `(async () => { ${code} })()`
 }
 
-const EXTENSION_NOT_CONNECTED_ERROR = `The Penguin Browser Chrome extension is not connected. Make sure you have:
-1. From the Penguin Browser project root, run: pnpm install && pnpm build
+const EXTENSION_NOT_CONNECTED_ERROR = `The Travel Browser Chrome extension is not connected. Make sure you have:
+1. From the travel-agent project root, run: pnpm install && pnpm build
 2. Open chrome://extensions, enable Developer mode, choose "Load unpacked", and select packages/browser-extension/dist
-3. Click the Penguin Browser extension icon on the tab you want to control
+3. Click the Travel Browser extension icon on the tab you want to control
 Alternatively, use \`penguin-browser session new --browser headless\`, or connect to a Chrome debugging endpoint with \`penguin-browser session new --direct [endpoint]\`.`
 
 export class BoundExtensionDisconnectedError extends Error {
@@ -1758,7 +1758,7 @@ export class PlaywrightExecutor {
 
       // Screen recording functions (via chrome.tabCapture in extension - survives navigation)
       // Recording uses chrome.tabCapture which requires activeTab permission.
-      // This permission is granted when the user clicks the Penguin Browser extension icon on a tab.
+      // This permission is granted when the user clicks the Travel Browser extension icon on a tab.
       const relayPort = this.cdpConfig.port || 19989
       const self = this
       const ghostCursorController = this.ghostCursorController

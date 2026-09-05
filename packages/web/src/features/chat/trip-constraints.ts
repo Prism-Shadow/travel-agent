@@ -62,6 +62,56 @@ export const EMPTY_TRIP_CONSTRAINTS: TripConstraints = {
   budgetCurrency: null,
 };
 
+/** Restore local prompt scaffolding field by field; malformed storage must not break a draft. */
+export function parseTripConstraints(value: unknown): TripConstraints | undefined {
+  const record = (v: unknown): Record<string, unknown> | null =>
+    typeof v === "object" && v !== null && !Array.isArray(v)
+      ? (v as Record<string, unknown>)
+      : null;
+  const o = record(value);
+  if (!o) return undefined;
+  const out = { ...EMPTY_TRIP_CONSTRAINTS };
+  if (typeof o.where === "string") out.where = o.where;
+  const when = record(o.when);
+  if (when?.kind === "dates" && typeof when.start === "string" && typeof when.end === "string") {
+    out.when = { kind: "dates", start: when.start, end: when.end };
+  } else if (
+    when?.kind === "flexible" &&
+    typeof when.days === "number" &&
+    Number.isSafeInteger(when.days) &&
+    when.days >= 0 &&
+    Array.isArray(when.months)
+  ) {
+    out.when = {
+      kind: "flexible",
+      days: when.days,
+      months: when.months.filter(
+        (m): m is string => typeof m === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(m),
+      ),
+    };
+  }
+  const who = record(o.who);
+  if (who) {
+    const counts = [who.adults, who.children, who.infants, who.pets ?? 0];
+    if (counts.every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0)) {
+      const [adults, children, infants, pets] = counts as [number, number, number, number];
+      if (adults >= 1) out.who = { adults, children, infants, pets };
+    }
+  }
+  if (BUDGET_TIERS.includes(o.budget as TripBudgetTier)) out.budget = o.budget as TripBudgetTier;
+  if (BUDGET_CURRENCIES.includes(o.budgetCurrency as TripCurrency)) {
+    out.budgetCurrency = o.budgetCurrency as TripCurrency;
+    if (
+      typeof o.budgetAmount === "number" &&
+      Number.isFinite(o.budgetAmount) &&
+      o.budgetAmount >= 0
+    ) {
+      out.budgetAmount = o.budgetAmount;
+    }
+  }
+  return out;
+}
+
 /**
  * A Trip's stored identity as the chips render it. The chips and the Trip hold the same four
  * things under different names (`where` is the Trip's `destination`), so this is the single
@@ -137,6 +187,9 @@ export function constraintsToTripPatch(
 export interface TripChipsCopy {
   /** Names the trip's folder for the agent (`trip-workspace` skill reads it from there). */
   lineFolder: string;
+  lineShared: string;
+  lineNotes: string;
+  notesEmpty: string;
   lineWhere: string;
   lineWhen: string;
   lineWho: string;
@@ -267,5 +320,20 @@ export function applyTripPrefix(
     i === at && p.type === "text"
       ? { type: "text", text: p.text.trim() === "" ? prefix : `${prefix}\n\n${p.text}` }
       : p,
+  );
+}
+
+/** Current shared context is visible in the message, including an explicitly cleared notes field. */
+export function applySharedTrip(
+  input: TaskInputPart[],
+  trip: TripSummary,
+  copy: TripChipsCopy,
+  currency?: TripCurrency,
+): TaskInputPart[] {
+  const context = `${copy.lineShared}${trip.name}\n${composeTripPrefix(tripToConstraints(trip), copy, trip.dir, currency)}\n${copy.lineNotes}${trip.notes?.trim() || copy.notesEmpty}`;
+  const at = input.findIndex((part) => part.type === "text");
+  if (at === -1) return [{ type: "text", text: context }, ...input];
+  return input.map((part, i) =>
+    i === at && part.type === "text" ? { type: "text", text: `${context}\n\n${part.text}` } : part,
   );
 }

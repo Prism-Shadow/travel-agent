@@ -103,7 +103,7 @@ export function Modal({
     >
       <div
         {...(headerless ? { role: "dialog", "aria-label": title } : {})}
-        className={`anim-pop w-full ${widthClass ?? "sm:max-w-md"} rounded-t-lg border border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl sm:rounded-lg sm:pb-0 dark:border-gray-800 dark:bg-gray-900 ${panelClassName ?? ""}`}
+        className={`anim-pop w-full ${widthClass ?? "sm:max-w-md"} overflow-hidden rounded-t-dialog border border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl sm:rounded-dialog sm:pb-0 dark:border-gray-800 dark:bg-gray-900 ${panelClassName ?? ""}`}
       >
         {!headerless && (
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">

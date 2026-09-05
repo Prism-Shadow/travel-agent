@@ -36,9 +36,9 @@ describe("resolveServerConfig: desktop-mode seed password", () => {
     const a = resolveServerConfig({ ...base, PENGUIN_DESKTOP_TOKEN: "tok" }).seedAdminPassword;
     const b = resolveServerConfig({ ...base, PENGUIN_DESKTOP_TOKEN: "tok" }).seedAdminPassword;
     expect(a).not.toBeNull();
-    // base64url of 24 random bytes: far beyond the printable penguin-<4 digits> space.
+    // base64url of 24 random bytes: far beyond the printable travel-<4 digits> space.
     expect(a!.length).toBeGreaterThanOrEqual(24);
-    expect(a).not.toMatch(/^penguin-\d{4}$/);
+    expect(a).not.toMatch(/^travel-\d{4}$/);
     expect(a).not.toBe(b);
   });
 
@@ -47,12 +47,12 @@ describe("resolveServerConfig: desktop-mode seed password", () => {
       resolveServerConfig({
         ...base,
         PENGUIN_DESKTOP_TOKEN: "tok",
-        PENGUIN_SEED_ADMIN_PASSWORD: "penguin-2026",
+        PENGUIN_SEED_ADMIN_PASSWORD: "travel-2026",
       }).seedAdminPassword,
-    ).toBe("penguin-2026");
+    ).toBe("travel-2026");
   });
 
-  it("outside desktop mode the unpinned value stays null (random penguin-<4 digits> at seed time)", () => {
+  it("outside desktop mode the unpinned value stays null (random travel-<4 digits> at seed time)", () => {
     expect(resolveServerConfig({ ...base }).seedAdminPassword).toBeNull();
   });
 });
@@ -67,8 +67,8 @@ describe("resolveServerConfig: PENGUIN_SEED_ADMIN_PASSWORD parsing", () => {
       resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: "  " }).seedAdminPassword,
     ).toBeNull();
     expect(
-      resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: " penguin-9999 " })
+      resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: " travel-9999 " })
         .seedAdminPassword,
-    ).toBe("penguin-9999");
+    ).toBe("travel-9999");
   });
 });

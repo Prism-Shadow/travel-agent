@@ -10,7 +10,7 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.js
 }
 // Every manifest release bump must update this baseline in the same change. Exact
 // equality makes a later rollback fail instead of leaving a permanently stale floor.
-const EXPECTED_EXTENSION_RELEASE = '0.0.107'
+const EXPECTED_EXTENSION_RELEASE = '0.0.108'
 
 const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, 'manifest.json'), 'utf8')) as {
   version: string

@@ -4,10 +4,8 @@
  * SQLite stores only indexes and aggregates: users / login sessions / Project authorization /
  * Agent & Session indexes / usage summaries / error records / UI preferences. Agent State,
  * Trace, and Workspace still follow the local directory-based storage rules.
- * Product not yet released: no migration branches — everything is CREATE IF NOT EXISTS, formed
- * once. The one exception: columns added to an existing table after release of a web.db are
- * ALTERed in by the idempotent per-column guard in database.ts (ensureColumn), since CREATE
- * TABLE IF NOT EXISTS never touches an existing table.
+ * CREATE IF NOT EXISTS defines fresh tables. database.ts owns additive column upgrades and
+ * the explicit legacy administrator identity migration for existing data roots.
  */
 
 export const SCHEMA_SQL = `
@@ -16,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash       TEXT NOT NULL,               -- scrypt$N$r$p$salt$hash(base64)
   is_admin            INTEGER NOT NULL DEFAULT 0,  -- 1 for the built-in admin (seeded at startup)
   password_is_initial INTEGER NOT NULL DEFAULT 0,  -- 1=initial password (seeded/admin-set); cleared once the user changes it
+  previous_user_id    TEXT,                       -- verified identity migration source, used to carry browser drafts
   created_at          TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -46,6 +45,7 @@ CREATE TABLE IF NOT EXISTS trips (       -- travel-agent's own first-class objec
   trip_id     TEXT PRIMARY KEY,
   project_id  TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
   name        TEXT NOT NULL,                   -- display name; seeded from the destination, renameable
+  notes       TEXT NOT NULL DEFAULT '',        -- user-maintained shared context
   destination TEXT NOT NULL DEFAULT '',        -- free text, possibly several places ('Tokyo, Osaka'); '' = not set yet
   when_json   TEXT,                            -- JSON TripWhen: {kind:'dates',start,end} | {kind:'flexible',days,months[]}; NULL = not set
   who_json    TEXT,                            -- JSON TripWho: {adults,children,infants,pets}; NULL = not set

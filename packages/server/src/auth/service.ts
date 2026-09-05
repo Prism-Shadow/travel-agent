@@ -3,7 +3,7 @@
  * login / logout / password change / session validation.
  *
  * - No open registration: on startup, if there are no users at all, the built-in
- *   admin `admin` is seeded with a random `penguin-<4 digits>` initial password
+ *   administrator `traveler` is seeded with a random `travel-<4 digits>` initial password
  *   (printed once by the startup entrypoint; PENGUIN_SEED_ADMIN_PASSWORD injects
  *   a fixed one for tests/e2e), and it adopts `default_project`; all other users
  *   are created by an admin via the user backend (admin-service).
@@ -22,10 +22,10 @@ import { hashPassword, verifyPassword } from "./password.js";
 export const MIN_PASSWORD_LENGTH = 8;
 
 /** Built-in admin user_id. */
-export const ADMIN_USER_ID = "admin";
+export const ADMIN_USER_ID = "traveler";
 
 /**
- * Login throttling (per userId): the seeded initial password is `penguin-<4 digits>` —
+ * Login throttling (per userId): the seeded initial password is `travel-<4 digits>` —
  * 10,000 combinations — so unthrottled guessing would enumerate it in minutes. After
  * LOGIN_FREE_ATTEMPTS consecutive failures, the next attempt is admitted only after an
  * exponentially growing delay from the last failure (1s, 2s, … capped at 60s; attempts
@@ -45,12 +45,12 @@ const LOGIN_BACKOFF_CAP_MS = 60_000;
 const LOGIN_FAILURE_IDLE_MS = 15 * 60_000;
 
 /**
- * Random initial password for the seeded admin: `penguin-<4 digits>` — brand-related and
+ * Random initial password for the seeded admin: `travel-<4 digits>` — brand-related and
  * easy to type, shown once in the server startup output (the README, docs and login-page
  * hint all describe this form).
  */
 export function generateInitialAdminPassword(): string {
-  return "penguin-" + String(randomInt(0, 10000)).padStart(4, "0");
+  return "travel-" + String(randomInt(0, 10000)).padStart(4, "0");
 }
 
 function sha256Hex(value: string): string {
@@ -71,6 +71,7 @@ export function toUserInfo(row: UserRow): UserInfo {
     isAdmin: row.isAdmin,
     passwordIsInitial: row.passwordIsInitial,
     createdAt: row.createdAt,
+    ...(row.previousUserId ? { previousUserId: row.previousUserId } : {}),
   };
 }
 
@@ -113,7 +114,7 @@ export class AuthService {
     // The override (PENGUIN_SEED_ADMIN_PASSWORD) must meet the same policy as every
     // other initial/reset password; rejecting it here, before any insert, keeps a
     // configuration typo from creating a trivially weak privileged account. Generated
-    // passwords are always 12 characters and never trip this.
+    // passwords are always 11 characters and never trip this.
     if (password.length < MIN_PASSWORD_LENGTH) {
       throw new Error(
         `PENGUIN_SEED_ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`,

@@ -26,6 +26,18 @@ somewhere, and this is the somewhere.
 - **Process supervision.** It forks the server (`server-process.ts`) and starts the relay
   (`browser-relay.ts`, a `utilityProcess`), handing the broker socket and token across by
   environment. A packaged install therefore needs no second terminal.
+- **Chrome pairing.** The application owns a private relay and publishes an installation-scoped
+  endpoint after readiness. A restricted Native Messaging entry answers only application discovery
+  and pairing requests from Travel Browser; it does not load the UI, acquire its single-instance
+  lock, execute commands, or relax Electron security fuses. Startup repairs per-user registration.
+  The helper serves ordered requests until Chrome closes its native channel. On macOS its entry
+  synchronously prohibits Dock activation and windows before loading discovery code; the normal
+  Desktop entry retains its standard activation behavior.
+  Shutdown removes only this launch's discovery record. Explicit host removal checks registration
+  ownership. Relay failure updates extension availability without changing the persisted backend
+  or replaying a task; restarting the application creates a new endpoint for the same pairing.
+  A successful user-requested connection check notifies the renderer for localized confirmation;
+  a check overtaken by a window close, scope change, or backend change produces no prompt.
 - **The visible in-app browser.** `WebContentsView` tabs beside the chat, driven over the `/iab`
   channel through `iab-transport.ts`. The architecture and lifecycle rules are [[arch-iab]]; they
   are not restated here.
@@ -58,7 +70,10 @@ knows the other is there.
   ([issue 0008](../../docs/issues/0008-active-session-lags-one-conversation.md)).
 - **The backend choice**, whose contract is [[goal-travel-agent]] requirement 5. This package is
   where it is honoured: the relay serves the conversation's selected backend or reports it
-  unavailable, and never substitutes the other one.
+  unavailable, and never substitutes the other one. Explicit draft choices are persisted under
+  their opaque draft scope, restored at startup and written under the real Session id before its
+  first task can start. A failed preference write leaves the previous choice intact. Promotion
+  and its exact rollback retain the selected backend without opening an unrelated scope.
 - **Redaction before output, which is a guardrail and not a boundary.** Immediately before ARIA,
   page Markdown, clean HTML or a labelled screenshot is produced, the executor pulls that target's
   fingerprint registry over the authenticated relay channel; text is replaced before it enters diff

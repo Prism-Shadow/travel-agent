@@ -12,7 +12,15 @@
  * because a Trip's identity can also change underneath the UI (a rename from another window,
  * a folder the person moved away).
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import type {
   TripCreateRequest,
@@ -25,6 +33,7 @@ import { useProject } from "./project";
 interface TripsContextValue {
   trips: TripSummary[];
   loading: boolean;
+  error: boolean;
   /** Trip by id, for a conversation that knows only its `tripId`. */
   byId: ReadonlyMap<string, TripSummary>;
   reload: () => Promise<void>;
@@ -41,65 +50,118 @@ export function tripDisplayName(trip: TripSummary, untitled: string): string {
 }
 
 export function TripsProvider({ children }: { children: ReactNode }) {
-  const { currentProject } = useProject();
+  const { currentProject, projectsLoading } = useProject();
   const projectId = currentProject?.projectId ?? null;
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
+  const requestId = useRef(0);
+  const scope = useMemo(() => ({ projectId }), [projectId]);
+  const activeScope = useRef<typeof scope | null>(scope);
+  activeScope.current = scope;
 
   const reload = useCallback(async () => {
+    if (activeScope.current !== scope) return;
+    const request = ++requestId.current;
     if (!projectId) {
       setTrips([]);
       setLoading(false);
+      setError(false);
+      setLoadedProjectId(null);
       return;
     }
     setLoading(true);
+    setError(false);
     try {
-      setTrips((await api.listTrips(projectId)).trips);
+      const response = await api.listTrips(projectId);
+      if (activeScope.current !== scope || request !== requestId.current) return;
+      setTrips(response.trips);
+    } catch {
+      if (activeScope.current !== scope || request !== requestId.current) return;
+      setError(true);
     } finally {
-      setLoading(false);
+      if (activeScope.current === scope && request === requestId.current) {
+        setLoadedProjectId(projectId);
+        setLoading(false);
+      }
     }
-  }, [projectId]);
+  }, [projectId, scope]);
 
   // Switching Project clears the list in the same tick as the refetch starts: a render
   // carrying the new Project's id beside the old Project's trips would show one person's
   // journeys under another's name, however briefly.
   useEffect(() => {
+    activeScope.current = scope;
     setTrips([]);
     void reload();
-  }, [reload]);
+    return () => {
+      requestId.current++;
+      if (activeScope.current === scope) activeScope.current = null;
+    };
+  }, [reload, scope]);
 
   const create = useCallback(
     async (body: TripCreateRequest = {}) => {
       if (!projectId) throw new Error("No current project");
       const { trip } = await api.createTrip(projectId, body);
-      setTrips((prev) => [trip, ...prev]);
+      if (activeScope.current === scope) {
+        setTrips((prev) => [trip, ...prev.filter((t) => t.tripId !== trip.tripId)]);
+        // Supersede every pre-mutation snapshot, including the first load. Refetching also
+        // settles loading if that superseded request was the Project's initial index.
+        void reload();
+      }
       return trip;
     },
-    [projectId],
+    [projectId, reload, scope],
   );
 
-  const patch = useCallback(async (tripId: string, body: TripPatchRequest) => {
-    const { trip } = await api.patchTrip(tripId, body);
-    setTrips((prev) => prev.map((t) => (t.tripId === tripId ? trip : t)));
-    return trip;
-  }, []);
+  const patch = useCallback(
+    async (tripId: string, body: TripPatchRequest) => {
+      const { trip } = await api.patchTrip(tripId, body);
+      if (activeScope.current === scope) {
+        setTrips((prev) => prev.map((t) => (t.tripId === tripId ? trip : t)));
+        void reload();
+      }
+      return trip;
+    },
+    [reload, scope],
+  );
 
-  const remove = useCallback(async (tripId: string) => {
-    await api.deleteTrip(tripId);
-    setTrips((prev) => prev.filter((t) => t.tripId !== tripId));
-  }, []);
+  const remove = useCallback(
+    async (tripId: string) => {
+      await api.deleteTrip(tripId);
+      if (activeScope.current === scope) {
+        setTrips((prev) => prev.filter((t) => t.tripId !== tripId));
+        void reload();
+      }
+    },
+    [reload, scope],
+  );
 
   const value = useMemo<TripsContextValue>(
     () => ({
-      trips,
-      loading,
-      byId: new Map(trips.map((t) => [t.tripId, t])),
+      trips: loadedProjectId === projectId ? trips : [],
+      loading: projectsLoading || loading || loadedProjectId !== projectId,
+      error: loadedProjectId === projectId && error,
+      byId: new Map(loadedProjectId === projectId ? trips.map((t) => [t.tripId, t]) : []),
       reload,
       create,
       patch,
       remove,
     }),
-    [trips, loading, reload, create, patch, remove],
+    [
+      trips,
+      loading,
+      projectsLoading,
+      error,
+      loadedProjectId,
+      projectId,
+      reload,
+      create,
+      patch,
+      remove,
+    ],
   );
 
   return <TripsContext.Provider value={value}>{children}</TripsContext.Provider>;

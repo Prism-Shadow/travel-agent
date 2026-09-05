@@ -767,6 +767,7 @@ export function ChatInput({
   initialPendingModelRef,
   onPendingModelChange,
   modelAuthDead = false,
+  sendDisabled = false,
   onOpenModels,
   onRetryModelAuth,
   onNewSession,
@@ -774,6 +775,8 @@ export function ChatInput({
   ref,
 }: {
   status: SessionStatus;
+  /** Wait for parent-owned pre-send settings without blocking text editing. */
+  sendDisabled?: boolean;
   /**
    * Returns whether it succeeded: on failure the input draft is kept (not cleared).
    */
@@ -1033,7 +1036,8 @@ export function ChatInput({
   // chip (/agent or /model) and selected skills each carry a message on their own — a handoff's
   // first message may be just a [handoff_from] source block, and the empty-text fallbacks fill in
   // the rest (S.chat.modelSwitchAutoMessage for a staged model switch — see sendNormal).
-  const canSend = !running && !compacting && !busy && !modelAuthDead && draftHasContent;
+  const canSend =
+    !sendDisabled && !running && !compacting && !busy && !modelAuthDead && draftHasContent;
 
   // Mid-run steering: while running, Enter/send queues the text **and the attached images
   // and files** for the running agent (delivered between turns as a [user_steering] user

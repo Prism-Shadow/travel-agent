@@ -171,7 +171,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   await expect(page.getByRole("complementary").getByText("随手问", { exact: true })).toBeVisible();
 
   // —— A second conversation, which the per-session input draft below needs ——
-  await page.getByRole("complementary").getByRole("button", { name: "新建对话" }).click();
+  await page.getByRole("complementary").getByRole("button", { name: "新行程" }).click();
   await expect(page.getByRole("heading", { name: /今天想去哪里/ })).toBeVisible();
   await ta.fill("First message for the second conversation");
   await page.getByRole("button", { name: "发送" }).click();

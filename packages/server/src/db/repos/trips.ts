@@ -14,6 +14,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { TripBudgetTier, TripCurrency, TripWhen, TripWho } from "../../api/types.js";
 
 export interface TripRow {
+  notes: string;
   tripId: string;
   projectId: string;
   /** Display name; seeded from the destination at creation, renameable afterwards. */
@@ -38,6 +39,7 @@ export interface TripRow {
 
 /** The identity fields a caller may change; an omitted key leaves the stored value alone. */
 export interface TripPatch {
+  notes?: string;
   name?: string;
   destination?: string;
   when?: TripWhen | null;
@@ -83,6 +85,7 @@ function normalizeWho(parsed: TripWho | null): TripWho | null {
 
 function mapRow(r: Record<string, unknown>): TripRow {
   return {
+    notes: (r.notes as string | null) ?? "",
     tripId: r.trip_id as string,
     projectId: r.project_id as string,
     name: r.name as string,
@@ -104,13 +107,14 @@ export class TripsRepo {
   insert(row: TripRow): void {
     this.db
       .prepare(
-        `INSERT INTO trips (trip_id, project_id, name, destination, when_json, who_json, budget, budget_amount, budget_currency, dir, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trips (trip_id, project_id, name, notes, destination, when_json, who_json, budget, budget_amount, budget_currency, dir, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         row.tripId,
         row.projectId,
         row.name,
+        row.notes,
         row.destination,
         row.when === null ? null : JSON.stringify(row.when),
         row.who === null ? null : JSON.stringify(row.who),
@@ -152,6 +156,10 @@ export class TripsRepo {
   update(tripId: string, patch: TripPatch, updatedAt: string): void {
     const sets: string[] = [];
     const values: (string | number | null)[] = [];
+    if (patch.notes !== undefined) {
+      sets.push("notes = ?");
+      values.push(patch.notes);
+    }
     if (patch.name !== undefined) {
       sets.push("name = ?");
       values.push(patch.name);

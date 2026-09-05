@@ -2,7 +2,7 @@
  * e2e auth helper: with signup disabled, test users are always provisioned via
  * the built-in admin account, then logged in. The seeded admin password is
  * random in production; run.sh starts the e2e server with
- * PENGUIN_SEED_ADMIN_PASSWORD=penguin-2026 to pin it to the constant below.
+ * PENGUIN_SEED_ADMIN_PASSWORD=travel-2026 to pin it to the constant below.
  * A single e2e run shares one data root, and provisioning is idempotent
  * (reuses the user if it already exists) so a single spec can be rerun on its
  * own.
@@ -10,8 +10,8 @@
 import { request } from "@playwright/test";
 
 const BASE = process.env.BASE_URL;
-export const ADMIN_ID = "admin";
-export const ADMIN_PASSWORD = "penguin-2026";
+export const ADMIN_ID = "traveler";
+export const ADMIN_PASSWORD = "travel-2026";
 
 /** Log in: the cookie lands in the given request context (page.request is the browser context); returns user. */
 export async function login(ctx, userId, password) {

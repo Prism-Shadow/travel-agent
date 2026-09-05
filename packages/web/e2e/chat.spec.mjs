@@ -307,6 +307,7 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   // The username button shares its name with the Project switcher (the initial Project's
   // display name defaults to the username), so take the last match — the bottom user menu.
   await page.getByRole("button", { name: "e2euser" }).last().click();
+  await page.getByRole("menuitem", { name: "设置", exact: true }).click();
   await page.getByRole("button", { name: "蓝", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.accent))
@@ -327,28 +328,36 @@ test("chat + tool approval + stats/cost/copy + traces + files", async ({ page })
   await page.reload();
   await expect(sidebar.getByText("My renamed title")).toBeVisible();
 
-  // --- session archive + delete (throwaway session) ---
-  await page.request.post(`${BASE}/api/projects/${projectId}/agents/${agentId}/sessions`, {
-    data: { provider: "custom", modelId: "claude-4-8" },
-  });
+  // --- save + rename + delete (throwaway session) ---
+  const throwawayResponse = await page.request.post(
+    `${BASE}/api/projects/${projectId}/agents/${agentId}/sessions`,
+    {
+      data: { provider: "custom", modelId: "claude-4-8" },
+    },
+  );
+  expect(throwawayResponse.ok()).toBeTruthy();
+  const throwawayId = (await throwawayResponse.json()).session.sessionId;
   await page.reload();
   const throwaway = sidebar.locator("li", { hasText: "新对话" }).first();
   await expect(throwaway).toBeVisible();
-  // Save (the archive action's product name): moves it under the collapsed "已收藏" group.
+  // Saved conversations have a dedicated top-level page, not a nested sidebar folder.
   await throwaway.hover();
   await throwaway.getByRole("button", { name: "收藏", exact: true }).click();
-  await expect(sidebar.getByText(/已收藏（\d+）/).first()).toBeVisible();
-  await sidebar
-    .getByText(/已收藏（\d+）/)
-    .first()
-    .click();
-  const archived = sidebar.locator("li", { hasText: "新对话" }).first();
-  await expect(archived).toBeVisible();
-  // Delete from the archived group (delete + archive share one action group).
-  await archived.hover();
-  await archived.getByRole("button", { name: "删除对话" }).click();
+  await expect(throwaway).toHaveCount(0);
+  await sidebar.getByRole("link", { name: "收藏", exact: true }).click();
+  const archived = page.getByRole("main").locator(`[data-saved-conversation="${throwawayId}"]`);
+  await expect(archived.getByRole("link", { name: "新对话", exact: true })).toBeVisible();
+  await archived.getByRole("button", { name: "对话操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "重命名对话", exact: true }).click();
+  await page.getByLabel("标题").fill("Saved trip notes");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.reload();
+  await expect(archived.getByRole("link", { name: "Saved trip notes" })).toBeVisible();
+  // The Saved page retains confirmed deletion after a rename and reload.
+  await archived.getByRole("button", { name: "对话操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "删除对话", exact: true }).click();
   await page.getByRole("button", { name: "删除", exact: true }).click();
-  await expect(sidebar.getByText("新对话")).toHaveCount(0);
+  await expect(archived).toHaveCount(0);
 
   // --- session expiry: any 401 sends the user back to /login (no stuck error page) ---
   // Clearing the cookie is what a rebuilt web.db looks like to the browser.

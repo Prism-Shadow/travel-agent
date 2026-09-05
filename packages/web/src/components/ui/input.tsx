@@ -4,7 +4,7 @@
  * and the label/hint/error scaffolding with the other form controls via field.tsx.
  */
 import { forwardRef, useId } from "react";
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { Field, controlBase } from "./field";
 
 // Adds width, placeholder and disabled styling on top of the shared control look; each of Input/Textarea appends its own font size and padding (see their size).
@@ -25,6 +25,8 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   label?: string;
   hint?: string;
   error?: string;
+  /** Decorative prefix, positioned against the control so errors cannot shift it. */
+  leadingIcon?: ReactNode;
   /**
    * Marks the field red without rendering error text: use this when the input has a
    * custom wrapper (prefix glyph, unit suffix, etc.) and the caller places the error
@@ -85,6 +87,7 @@ export function Input({
   label,
   hint,
   error,
+  leadingIcon,
   invalid,
   required,
   size = "base",
@@ -97,18 +100,33 @@ export function Input({
   // `required` drives the label's asterisk + aria-required only; the native `required`
   // attribute is intentionally not forwarded (the app validates on submit, so browser
   // validation bubbles would collide with the inline field errors).
+  const control = (
+    <input
+      className={`${baseClass} ${sizeClass[size]} ${leadingIcon ? (size === "sm" ? "!pl-8" : "!pl-10") : ""} ${bad ? errorClass : ""} ${className ?? ""}`}
+      aria-invalid={bad ? true : undefined}
+      aria-required={required || undefined}
+      aria-describedby={error ? errorId : undefined}
+      // Secret while masked; PasswordInput's reveal toggle flips the type to text, and the
+      // opt-out that matters was already read from the password state.
+      {...autofillProps(autoComplete, rest.type === "password")}
+      {...rest}
+    />
+  );
   return (
     <Field label={label} hint={hint} error={error} errorId={errorId} required={required}>
-      <input
-        className={`${baseClass} ${sizeClass[size]} ${bad ? errorClass : ""} ${className ?? ""}`}
-        aria-invalid={bad ? true : undefined}
-        aria-required={required || undefined}
-        aria-describedby={error ? errorId : undefined}
-        // Secret while masked; PasswordInput's reveal toggle flips the type to text, and the
-        // opt-out that matters was already read from the password state.
-        {...autofillProps(autoComplete, rest.type === "password")}
-        {...rest}
-      />
+      {leadingIcon ? (
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center text-gray-400 ${size === "sm" ? "w-8" : "w-10"}`}
+          >
+            {leadingIcon}
+          </span>
+          {control}
+        </div>
+      ) : (
+        control
+      )}
     </Field>
   );
 }

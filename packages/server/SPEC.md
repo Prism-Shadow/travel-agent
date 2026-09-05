@@ -25,14 +25,31 @@ Two things live here, and keeping them distinguishable is this module's main dis
 
 ## What it owns
 
+- **The built-in administrator is `traveler`.** Fresh web-mode data roots receive a random
+  `travel-<4 digits>` initial password unless `PENGUIN_SEED_ADMIN_PASSWORD` supplies one.
+  Opening an existing index applies `admin` -> `travel` -> `traveler` in one transaction to
+  a privileged legacy account and its project
+  ownership, memberships, preferences and schedule creators, preserving its password hash and
+  initial-password flag. Existing login sessions for that account are invalidated. Project,
+  Session and Trip ids and directories stay unchanged. An occupied target at either step refuses
+  startup and rolls back the entire chain without merging accounts; unrelated users are untouched.
+  Both retired names are reserved against new account creation and supply no login aliases.
+  `previousUserId` retains the original login id (`admin` or `travel`) so browsers that skipped
+  an upgrade can recover their own cached drafts. Desktop token
+  sign-in resolves the same `traveler` identity and uses an unprinted random seed password when
+  no override is set. The inherited-baseline decision is recorded
+  [here](../../docs/decisions/implemented/2026-09-05-traveler-login-identity.md).
 - **The Trip.** A row in the server's index that *owns* a directory rather than being one, so a
   conversation's membership is a nullable `sessions.trip_id` and attach / move / detach never touch
   a Session's `workspace`. The reasoning, the four engine invariants that forced it, and the six
   rejected alternatives are in
   [the decision note](../../docs/decisions/implemented/2026-08-26-trip-as-server-entity-owning-a-directory.md);
   they are not restated here.
+- **Trip directory allocation.** Readable basenames try the bare name and numeric suffixes
+  through `-50`, then use an atomically created random suffix. Occupied names never impose a
+  fixed creation ceiling or reuse another Trip's files; real filesystem failures propagate.
 - **The split of ownership inside a trip directory.** The server writes what it renders — the row
-  and its `trip.json` mirror; the model owns `itinerary.md` and everything else the work produces.
+  and its `trip.json` mirror, including user-maintained shared notes (up to 8,000 characters); the model owns `itinerary.md` and everything else the work produces.
   The server never edits the model's documents. It deletes a trip directory only when nothing but
   its own `trip.json` is in it.
 - **The one field the model may write back.** The model may set `destination` in `trip.json` when

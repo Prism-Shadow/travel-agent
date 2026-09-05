@@ -23,6 +23,7 @@ import type { ModelRefDto } from "@prismshadow/penguin-server/api";
 import { useAuth } from "../../state/auth";
 import { clearDraft, loadDraft, saveDraft, sessionDraftKey } from "./draft-cache";
 import type { DraftCache } from "./draft-cache";
+import { DRAFT_FLUSH_EVENT } from "./draft-sessions";
 
 const SAVE_DEBOUNCE_MS = 300;
 
@@ -84,6 +85,15 @@ export function useSessionDraft(sessionId: string | null): {
       }
     };
   }, [initial, persistNow]);
+
+  // Settings can change the language and remount the conversation before the debounce expires.
+  useEffect(() => {
+    const flush = () => {
+      if (timer.current !== null) persistNow();
+    };
+    window.addEventListener(DRAFT_FLUSH_EVENT, flush);
+    return () => window.removeEventListener(DRAFT_FLUSH_EVENT, flush);
+  }, [persistNow]);
 
   const onTextChange = useCallback(
     (text: string) => {

@@ -1,6 +1,6 @@
 /**
- * Single-column sidebar, top to bottom: the application's name -> new chat + new trip -> the
- * Trip list -> loose questions -> bottom settings + user config.
+ * Single-column sidebar, top to bottom: the application's name -> New trip / My Trips / Saved / Models -> the
+ * Trips overview link + Trip list -> loose questions -> bottom settings + user config.
  *
  * The top slot is the app's name, not a Project switcher, while only one Project exists: a
  * dropdown with a single choice is furniture, and a role badge announcing that you own the only
@@ -19,13 +19,11 @@
  * touches where its files or its memory live.
  *
  * Group collapse and pin state persist per Project in localStorage; pinned groups sort first,
- * each partition keeping its own order. Within a group, subagent / scheduled / archived
- * conversations stay in collapsed folders that load on first expand; the archive action and its
- * folder are presented as "Saved" (the wire field and the category stay `archived`).
+ * each partition keeping its own order. Subagent and scheduled conversations stay in collapsed
+ * folders. Saved conversations live on /saved, outside these groups; the wire category remains
+ * `archived`.
  *
- * Models — the one configuration surface that remains — is a top link beside New chat and
- * New trip. The bottom of the sidebar is just the account row, whose menu holds the interface
- * preferences (language, theme, font, display currency, proxy).
+ * Models — the one configuration surface that remains — is a top link beside New trip, My Trips and Saved. The account row opens a compact action menu; preferences live in the shared settings dialog.
  *
  * Desktop keeps the sidebar pinned as the left column; mobile puts the whole thing in a drawer.
  * New chats always enter draft state (/chat/new; route state carries the Agent and, for a new
@@ -33,7 +31,6 @@
  * solid gray fill, running status a small dot, no large blocks of colour.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { NavLink, useMatch, useNavigate } from "react-router";
 import type {
   SessionCategory,
@@ -44,13 +41,8 @@ import type {
 import * as api from "../../api/endpoints";
 import { desktopBrowserBridge } from "../../lib/desktop-bridge";
 import { S } from "../../lib/strings";
-import { formatMonthDay } from "../../lib/format";
 import { apiErrorText } from "../../lib/api-error";
 import { useAuth } from "../../state/auth";
-import { useLocale } from "../../state/locale";
-import type { LangPref } from "../../state/locale";
-import { ACCENT_SWATCHES, useTheme } from "../../state/theme";
-import type { Accent, Currency, FontScale, ThemeMode } from "../../state/theme";
 import { agentDisplayName, projectDisplayName, useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { tripDisplayName, useTrips } from "../../state/trips";
@@ -68,33 +60,32 @@ import {
 import type { FolderCategory, SessionPartition } from "../../lib/session-grouping";
 import { Dropdown } from "../ui/dropdown";
 import { AgentAvatar } from "../ui/agent-avatar";
+import { TravelAgentLogo } from "../ui/travel-agent-logo";
 import { ChevronDown, NAV_ICONS } from "../ui/icons";
 import { FolderSection, GroupHeader, Icon, MoreRow } from "../ui/group-list";
-import { toastError, toastInfo, toastSuccess } from "../ui/toast";
+import { toastError } from "../ui/toast";
+import { AccountMenu } from "../account/account-menu";
 import { Truncated } from "../ui/truncated";
 import { Badge } from "../ui/badge";
 import { Modal } from "../ui/modal";
 import { ConfirmModal } from "../ui/confirm-modal";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Segmented } from "../ui/segmented";
 import { SkeletonList } from "../ui/skeleton";
+import { SuitcaseSimpleIcon } from "@phosphor-icons/react/dist/csr/SuitcaseSimple";
+import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import { BookmarkSimpleIcon } from "@phosphor-icons/react/dist/csr/BookmarkSimple";
+import { useStartConversation } from "../../features/chat/use-start-conversation";
 import { DRAFT_SESSION_ID } from "../../features/chat/chat-page";
 import { clearDraft, sessionDraftKey } from "../../features/chat/draft-cache";
 import {
   draftSessionTitle,
-  parkActiveDraft,
   removeDraftSession,
   useDraftSessions,
 } from "../../features/chat/draft-sessions";
 import type { DraftSessionEntry } from "../../features/chat/draft-sessions";
 
-import { ChangePasswordDialog } from "../account/change-password-dialog";
-import { ProxySettingsDialog } from "../account/proxy-settings-dialog";
-import { UpdateDialog } from "../account/update-dialog";
-import { forceUpdateCheck, updateCheckOutcome, useVersionInfo } from "../../lib/use-version-info";
-
-/** New-chat pencil (the pinned "New chat" button and the collapsed rail share it). */
+/** Pencil for independent conversations and the loose-questions group. */
 export const NEW_CHAT_ICON = "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z";
 
 /** A Trip: a suitcase (lid handle + body with a clasp). The product's first-class object. */
@@ -138,7 +129,7 @@ function saveGroupSet(storageKey: string | null, next: ReadonlySet<string>): voi
 }
 
 /**
- * Open-state key of a collapsed folder (subagent / scheduled / archived) inside a group:
+ * Open-state key of an origin folder (subagent / scheduled) inside a group:
  * each folder has its own state. "\0" never appears in Agent ids or Workspace paths, so
  * the composite never collides across groups or with plain group keys.
  */
@@ -176,10 +167,7 @@ export function Sidebar({
   onCollapse?: () => void;
 }) {
   const navigate = useNavigate();
-  const { user, logout, desktopMode } = useAuth();
-  const { mode, setMode, fontScale, setFontScale, accent, setAccent, currency, setCurrency } =
-    useTheme();
-  const { lang, locale, setLang } = useLocale();
+  const { user } = useAuth();
   const {
     projects,
     currentProject,
@@ -199,6 +187,7 @@ export function Sidebar({
     loading,
     remove,
     replace,
+    reload: reloadSessions,
   } = useSessions();
   const { trips, loading: tripsLoading, byId: tripsById, remove: removeTrip } = useTrips();
   const chatMatch = useMatch("/chat/:sessionId");
@@ -208,57 +197,6 @@ export function Sidebar({
   const openTripId = tripMatch?.params.tripId ?? null;
 
   const [projectOpen, setProjectOpen] = useState(false);
-  const [userOpen, setUserOpen] = useState(false);
-
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
-  // Version row + update reminder: nothing is fetched until the dropdown first opens.
-  const { version, update } = useVersionInfo(userOpen);
-  const updateAvailable = update?.updateAvailable === true;
-  /**
-   * The newer release's version string, or null while none is known — the single update row's
-   * whole state machine. A resolved version is required, not just the boolean: the row's label
-   * names it, so a would-be "available but unnamed" result stays on the check action rather
-   * than rendering a versionless reminder.
-   */
-  const newVersion = updateAvailable ? (update?.latestVersion ?? null) : null;
-  // The running version's release date, stamped into core's BUILD_DATE at build time by
-  // the release workflow — displayed as-is, no network involved. Dev builds and releases
-  // that predate the stamping (v0.1.2 and earlier) carry null. Shown as the localized
-  // "last updated" tooltip on the check-for-updates row (the row itself stays uncluttered).
-  const versionDate = version?.buildDate ?? null;
-  /** Manual "check for updates" in flight (row disabled, busy label). */
-  const [updateChecking, setUpdateChecking] = useState(false);
-  /**
-   * Manual update check (owner request): forces a lookup past the server's TTL cache and
-   * pushes the result into the shared version-info store, so the reminder rows, badge,
-   * and dot appear immediately when a newer release is found. Every outcome also toasts —
-   * up to date, found (naming the release; the row below turns into the update entry),
-   * checks disabled, and a failed lookup (the check is fail-soft — failure arrives as the
-   * `error` field, not an exception; the catch handles our own server being unreachable).
-   */
-  const runUpdateCheck = async () => {
-    if (updateChecking) return;
-    setUpdateChecking(true);
-    try {
-      const outcome = updateCheckOutcome(await forceUpdateCheck());
-      if (outcome.kind === "disabled") toastInfo(S.update.checkDisabled);
-      else if (outcome.kind === "failed") toastError(S.update.checkFailed);
-      else if (outcome.kind === "found") toastSuccess(S.update.foundNew(outcome.latestVersion));
-      else toastSuccess(S.update.upToDate);
-    } catch (e) {
-      toastError(apiErrorText(e));
-    } finally {
-      setUpdateChecking(false);
-    }
-  };
-  /**
-   * Admin-only server-global proxy settings dialog: the menu carries only the opener
-   * row; the controls, their form semantics, and the open-time hydration all live in
-   * ProxySettingsDialog.
-   */
-  const [proxySettingsOpen, setProxySettingsOpen] = useState(false);
-
   const currentProjectId = currentProject?.projectId ?? null;
   const collapseStoreKey = currentProjectId === null ? null : collapsedGroupsKey(currentProjectId);
   const pinStoreKey = currentProjectId === null ? null : pinnedGroupsKey(currentProjectId);
@@ -276,7 +214,7 @@ export function Sidebar({
     setPinnedGroups(loadGroupSet(pinStoreKey));
     setGroupCap(SIDEBAR_GROUP_PAGE_SIZE);
   }, [collapseStoreKey, pinStoreKey]);
-  /** Expanded folders (subagent / scheduled / archived; collapsed by default), keyed by folderKey — each folder has its own open state. */
+  /** Expanded origin folders (collapsed by default), keyed by folderKey. */
   const [openFolders, setOpenFolders] = useState<ReadonlySet<string>>(new Set());
   /** "More" rows with a fetch in flight, keyed `${category}\0${groupKey}` — the row disables and reads "loading" so a page that lands entirely in other groups still visibly did something. */
   const [pendingLoads, setPendingLoads] = useState<ReadonlySet<string>>(new Set());
@@ -307,7 +245,7 @@ export function Sidebar({
   const tripGroups = useMemo(
     () =>
       groupSessionsByTrip(
-        sessions,
+        sessions.filter((session) => !session.archived),
         trips.map((t) => t.tripId),
       ),
     [sessions, trips],
@@ -320,7 +258,7 @@ export function Sidebar({
     [tripGroups, pinnedGroups],
   );
 
-  /** Group key of a Session (collapse / archived-open state): its Trip, or the scratch group. */
+  /** Group key of a Session: its Trip, or the scratch group. */
   const sessionGroupKey = (s: SessionInfo) => s.tripId ?? SCRATCH_GROUP_KEY;
 
   const toggleGroup = (key: string) => {
@@ -380,9 +318,8 @@ export function Sidebar({
   };
 
   // The open chat is an automation-created Session: expand exactly its origin's folder in its
-  // group, so the active row is never hidden inside a collapsed folder (mirrors the archived
-  // expansion on archiving the open chat; archived wins, so an archived Session is left to
-  // that folder). Auto-expansion fires ONCE per (group, active session): the ref guard
+  // group, so the active row is never hidden inside a collapsed origin folder. Saved rows
+  // are reached from /saved instead. Auto-expansion fires ONCE per (group, active session): the ref guard
   // keeps list mutations (status ticks, reloads) from re-opening a folder the user explicitly
   // collapsed while that chat stays open. `sessions` must remain a dependency — the active
   // session may not be in the list yet on first render, and the guard is only set once the
@@ -407,17 +344,14 @@ export function Sidebar({
     if (!isLoadedFor(s.agentId, category)) void loadMoreFor([s.agentId], category);
   }, [activeSessionId, sessions, isLoadedFor, loadMoreFor]);
 
-  /** Archive / unarchive: persists immediately and updates in place (fails silently; the next list refresh self-corrects). */
+  /** Saving keeps the conversation open and makes it reachable through the Saved entry. */
   const toggleArchive = async (s: SessionInfo) => {
-    // Archiving the currently open chat: expand the "archived" folder so it doesn't silently vanish from the sidebar with no way back.
-    if (!s.archived && s.sessionId === activeSessionId) {
-      setOpenFolders((prev) => new Set(prev).add(folderKey(sessionGroupKey(s), "archived")));
-    }
     try {
       const res = await api.patchSession(s.sessionId, { archived: !s.archived });
       replace(res.session);
-    } catch {
-      /* Ignore: non-critical operation */
+      await reloadSessions();
+    } catch (error) {
+      toastError(apiErrorText(error));
     }
   };
 
@@ -478,49 +412,12 @@ export function Sidebar({
     onNavigate?.();
   };
 
-  /**
-   * New chat: enters draft state (/chat/new) without creating a Session — Model and approval
-   * mode are chosen on the draft input card, and the Session is only actually created when the
-   * first message is sent. The route state explicitly carries the target Agent: a Trip card's
-   * "+" uses the currently selected Agent, while the top "New chat" uses default_agent; this
-   * explicit intent overrides the previously selected Agent in the draft cache (the rest of the
-   * draft content, such as the message body, is preserved).
-   *
-   * Workspace is not among them. It left the draft card with the sidebar's workspace grouping:
-   * a traveller picks a Trip, not a directory, so a new conversation takes the Workspace from
-   * the Project's new-chat defaults and the Trip decides nothing about it.
-   *
-   * `trip` says which journey the draft belongs to: an existing one by id, or `{ newTrip: true }`
-   * for one that the first message will create.
-   */
-  const newChat = (agentId?: string, trip?: string | { newTrip: true }) => {
-    // Typed-but-unsent text in the ACTIVE new-chat draft becomes a parked draft
-    // conversation first (a row in the list below, sendable anytime — draft-sessions.ts),
-    // so this click always lands on an empty composer and never silently shelves content.
-    if (user && currentProjectId) parkActiveDraft(user.userId, currentProjectId);
-    if (agentId) setCurrentAgentId(agentId);
-    const state = {
-      ...(agentId ? { agentId } : {}),
-      ...(typeof trip === "string" ? { tripId: trip } : {}),
-      ...(typeof trip === "object" ? { newTrip: true } : {}),
-    };
-    navigate(`/chat/${DRAFT_SESSION_ID}`, Object.keys(state).length > 0 ? { state } : undefined);
+  const startConversation = useStartConversation();
+  const newChat = (agentId?: string, tripId: string | null = null) => {
+    startConversation(tripId, agentId);
     onNavigate?.();
   };
-
-  /**
-   * New trip: lands on a draft that will *become* a trip, and creates nothing yet.
-   *
-   * The journey is materialized by the first message, exactly as a conversation is — which is
-   * what makes both of the things immediate creation got wrong go away. The folder can be named
-   * for the destination, because by then the person has said one; and a click someone thought
-   * better of leaves no empty trip and no empty directory behind.
-   *
-   * Nothing is asked for up front either way: no form stands between the click and the sentence.
-   */
-  const newTrip = () => {
-    newChat(defaultAgentId, { newTrip: true });
-  };
+  const newTrip = () => newChat(defaultAgentId);
 
   /**
    * Confirmed trip deletion. The conversations are deliberately not refetched: they keep the
@@ -606,7 +503,7 @@ export function Sidebar({
   );
 
   /**
-   * Collapsed-by-default lazy folder (subagent / scheduled / archived): nothing is
+   * Collapsed-by-default lazy folder (subagent / scheduled): nothing is
    * fetched until the first expand, and once open the folder pages independently with
    * its own "More" row.
    *
@@ -660,7 +557,7 @@ export function Sidebar({
   /**
    * Expanded group body shared by every group: active user rows (display-capped; "More"
    * reveals and loads further **active-only** pages — the folders below never feed it) +
-   * the collapsed-by-default subagent / scheduled / archived folders, each loading on
+   * the collapsed-by-default subagent / scheduled folders, each loading on
    * first expand and paging on its own. `totals` / `agentsFor` carry the group's exact
    * server share and its fetch fan-out set per category.
    */
@@ -688,8 +585,9 @@ export function Sidebar({
     const hasMore =
       parts.active.length > cap ||
       (totals === undefined ? moreOnServer : parts.active.length < activeTotal && moreOnServer);
-    const folders = FOLDER_CATEGORIES.map((category) =>
-      renderFolder(groupKey, category, parts, withAgentHint, agentsFor(category), totals),
+    const folders = FOLDER_CATEGORIES.filter((category) => category !== "archived").map(
+      (category) =>
+        renderFolder(groupKey, category, parts, withAgentHint, agentsFor(category), totals),
     );
     const empty = parts.active.length === 0 && folders.every((f) => f === null);
     const activePending = pendingLoads.has(loadKey(groupKey, "active"));
@@ -709,9 +607,7 @@ export function Sidebar({
           />
         )}
 
-        {/* Folders (collapsed by default): subagent first — spawned from the conversations
-            at hand — then scheduled background runs, then archived (archived wins over the
-            origin folders). */}
+        {/* Origin folders stay here; Saved conversations have their own top-level page. */}
         {folders}
       </>
     );
@@ -726,41 +622,10 @@ export function Sidebar({
     />
   );
 
-  const themeOptions: ReadonlyArray<{ value: ThemeMode; label: string }> = [
-    { value: "light", label: S.settings.themeLight },
-    { value: "dark", label: S.settings.themeDark },
-    { value: "system", label: S.settings.followSystem },
-  ];
-  const langOptions: ReadonlyArray<{ value: LangPref; label: string }> = [
-    { value: "en", label: S.settings.langEn },
-    { value: "zh", label: S.settings.langZh },
-    { value: "system", label: S.settings.followSystem },
-  ];
-  const fontOptions: ReadonlyArray<{ value: FontScale; label: string }> = [
-    { value: "sm", label: S.settings.fontSmall },
-    { value: "md", label: S.settings.fontMedium },
-    { value: "lg", label: S.settings.fontLarge },
-  ];
-  const currencyOptions: ReadonlyArray<{ value: Currency; label: string }> = [
-    { value: "USD", label: S.models.currencyUsd },
-    { value: "CNY", label: S.models.currencyCny },
-  ];
-
   return (
     <div className="flex h-full w-full flex-col">
-      {/* Project switcher (+ collapse sidebar) */}
-      <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
-        {onCollapse && (
-          <button
-            type="button"
-            title={S.nav.collapseSidebar}
-            aria-label={S.nav.collapseSidebar}
-            onClick={onCollapse}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-          >
-            <Icon d="M15 6l-6 6 6 6M4 4v16" size={18} />
-          </button>
-        )}
+      {/* Brand or Project switcher, with the collapse control at the trailing edge. */}
+      <div className="flex shrink-0 items-center gap-2 px-3 pt-2.5">
         {/* With one Project there is nothing to switch between, so this is the application's
             name, not a control: a dropdown offering a single choice — and a badge announcing
             that you own the only thing that exists — is furniture. The switcher returns the
@@ -768,8 +633,10 @@ export function Sidebar({
             unreachable. Creating Projects and editing their settings live in the developer
             console below, with the rest of the engine's surfaces. */}
         {projects.length <= 1 ? (
-          <span className="min-w-0 flex-1 truncate px-2 py-1.5 text-base font-semibold">
-            {S.appName}
+          <span className="flex h-10 min-w-0 flex-1 items-center gap-2.5 pr-2 text-lg font-semibold leading-6">
+            {/* The mark sits low within its square asset; align its visible silhouette with the label. */}
+            <TravelAgentLogo className="relative -top-0.5 h-8 w-8 shrink-0 rounded-md" />
+            <span className="relative -top-px truncate">{S.appName}</span>
           </span>
         ) : (
           <Dropdown
@@ -781,9 +648,10 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => setProjectOpen(!projectOpen)}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-base font-semibold transition-colors duration-150 hover:bg-gray-200/70 dark:hover:bg-gray-800"
+                className="flex h-10 w-full items-center gap-2.5 rounded-md pr-2 text-lg font-semibold leading-6 transition-colors duration-150 hover:bg-gray-200/70 dark:hover:bg-gray-800"
               >
-                <span className="min-w-0 flex-1 truncate text-left">
+                <TravelAgentLogo className="relative -top-0.5 h-8 w-8 shrink-0 rounded-md" />
+                <span className="relative -top-px min-w-0 flex-1 truncate text-left">
                   {currentProject ? projectDisplayName(currentProject) : S.common.loading}
                 </span>
                 <span className="text-gray-400">
@@ -810,26 +678,25 @@ export function Sidebar({
             ))}
           </Dropdown>
         )}
+        {onCollapse && (
+          <button
+            type="button"
+            title={S.nav.collapseSidebar}
+            aria-label={S.nav.collapseSidebar}
+            aria-expanded={true}
+            onClick={onCollapse}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+          >
+            <SidebarSimpleIcon size={18} aria-hidden />
+          </button>
+        )}
       </div>
 
-      {/* The two ways to start, pinned above the scroller. "New chat" leads because the
-          product's entry shape is one sentence said before the person knows what it becomes
-          (root SPEC); "New trip" stays right beside it for the person who already knows
-          this is a journey — the Trip remains the product's object, but the everyday door
-          comes first.
-          The gap to the scroll area below is this block's OWN pb-2, not padding inside the
-          scroller: padding-top there belongs to the scrollable content and slides away with
-          it, leaving a scrolled row flush against this button. Outside the scroller the 8px
-          stays put at every scroll offset. */}
-      {/* The two create actions. `min-h-0` + `overflow-y-auto` rather than `shrink-0`: the header,
-          this block and the user row are each unshrinkable at 50 / 92 / 100px, which is already
-          242px of the 240px a window docked beside devtools has — the conversation list was
-          squeezed to nine pixels and the document still grew by eleven. A window that short is
-          reachable by browser zoom, and the page must scroll nothing but its own scrollers. */}
-      <div className="min-h-0 shrink space-y-0.5 overflow-y-auto px-2 pb-2 pt-2">
+      {/* Navigation can shrink and scroll independently in short windows. */}
+      <div className="min-h-0 shrink space-y-1 overflow-y-auto px-3 pb-4 pt-2">
         <button
           type="button"
-          onClick={() => newChat(defaultAgentId)}
+          onClick={newTrip}
           className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150 ${
             activeSessionId === DRAFT_SESSION_ID
               ? "bg-gray-200/70 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
@@ -837,20 +704,31 @@ export function Sidebar({
           }`}
         >
           <span className="text-gray-500 dark:text-gray-400">
-            <Icon d={NEW_CHAT_ICON} />
-          </span>
-          {S.chat.newSessionMenu}
-        </button>
-        <button
-          type="button"
-          onClick={newTrip}
-          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-gray-200"
-        >
-          <span className="text-gray-500 dark:text-gray-400">
             <Icon d={TRIP_ICON} />
           </span>
           {S.trip.newTrip}
         </button>
+        <NavLink
+          to="/trips"
+          end
+          onClick={() => onNavigate?.()}
+          className={({ isActive }) =>
+            `flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100" : "text-gray-600 hover:bg-gray-200/50 dark:text-gray-400 dark:hover:bg-gray-800/70"}`
+          }
+        >
+          <SuitcaseSimpleIcon size={17} aria-hidden />
+          {S.trip.overview.title}
+        </NavLink>
+        <NavLink
+          to="/saved"
+          onClick={() => onNavigate?.()}
+          className={({ isActive }) =>
+            `flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-gray-200/70 font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100" : "text-gray-600 hover:bg-gray-200/50 dark:text-gray-400 dark:hover:bg-gray-800/70"}`
+          }
+        >
+          <BookmarkSimpleIcon size={17} aria-hidden />
+          {S.saved.title}
+        </NavLink>
         <NavLink
           to="/models"
           onClick={() => onNavigate?.()}
@@ -915,11 +793,9 @@ export function Sidebar({
 
         {/* Section header. The separator spans the sidebar's full width (-mx-2 undoes the
             scroller's padding, px-3 puts the row's own inset back). */}
-        <div className="-mx-2 mt-1 flex items-center justify-between border-t border-gray-200 px-3 pt-2 dark:border-gray-800">
-          <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            {S.trip.trips}
-          </span>
-        </div>
+        <p className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          {S.trip.trips}
+        </p>
 
         {loading && sessions.length === 0 && tripsLoading ? (
           <SkeletonList rows={5} />
@@ -1027,212 +903,7 @@ export function Sidebar({
         {orderedTripGroups.length > groupCap ? moreGroupsRow(orderedTripGroups.length) : null}
       </div>
 
-      {/* Bottom: user config. */}
-      <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
-        <Dropdown
-          open={userOpen}
-          setOpen={setUserOpen}
-          menuClass="bottom-full left-0 right-0 mb-1 origin-bottom"
-          button={
-            <button
-              type="button"
-              onClick={() => setUserOpen(!userOpen)}
-              {...(newVersion !== null
-                ? {
-                    // The dot alone is mysterious: name the release on the trigger (hover
-                    // tooltip + accessible name), in the update row's exact wording.
-                    title: S.update.newVersion(newVersion),
-                    "aria-label": `${user?.userId ?? ""} · ${S.update.newVersion(newVersion)}`,
-                  }
-                : {})}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-150 hover:bg-gray-200/70 dark:hover:bg-gray-800"
-            >
-              <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white dark:bg-gray-200 dark:text-gray-900">
-                {(user?.userId ?? "?").slice(0, 1).toUpperCase()}
-                {/* Update reminder dot: only once the lazy check has actually run and found a
-                    newer release (the trigger button's tooltip/label above explains it). The
-                    border (sidebar background color) separates it from the avatar for every
-                    accent — the neutral accent matches the avatar fill. */}
-                {updateAvailable && (
-                  <span
-                    aria-hidden
-                    className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-gray-50 bg-(--accent-bg) dark:border-gray-900"
-                  />
-                )}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{user?.userId}</span>
-              {user?.isAdmin && (
-                <span className="text-xs text-gray-400 dark:text-gray-500">{S.auth.admin}</span>
-              )}
-            </button>
-          }
-        >
-          <div className="space-y-2.5 px-3 py-2">
-            <SettingRow label={S.settings.theme}>
-              <Segmented options={themeOptions} value={mode} onChange={setMode} />
-            </SettingRow>
-            <SettingRow label={S.settings.fontSize}>
-              <Segmented options={fontOptions} value={fontScale} onChange={setFontScale} />
-            </SettingRow>
-            <SettingRow label={S.settings.accent}>
-              <AccentPicker value={accent} onChange={setAccent} />
-            </SettingRow>
-            <SettingRow label={S.models.currency}>
-              <Segmented
-                options={currencyOptions}
-                value={currency}
-                onChange={setCurrency}
-                cols={2}
-              />
-            </SettingRow>
-            <SettingRow label={S.settings.language}>
-              <Segmented options={langOptions} value={lang} onChange={setLang} />
-            </SettingRow>
-          </div>
-          <div className="mt-1 border-t border-gray-100 pt-1 dark:border-gray-800">
-            <button
-              type="button"
-              className={menuItemClass}
-              onClick={() => {
-                setUserOpen(false);
-                go("/settings/private-profile");
-              }}
-            >
-              {S.privateProfile.menu}
-            </button>
-            <button
-              type="button"
-              className={menuItemClass}
-              onClick={() => {
-                setUserOpen(false);
-                setChangePasswordOpen(true);
-              }}
-            >
-              {S.account.changePassword}
-            </button>
-            {/* Admin-only, server-global proxy settings: one menu row opening the
-                dialog (same idiom as Change password above) — the switch, address
-                input and their live-save semantics live in ProxySettingsDialog. */}
-            {user?.isAdmin && (
-              <button
-                type="button"
-                className={menuItemClass}
-                onClick={() => {
-                  setUserOpen(false);
-                  setProxySettingsOpen(true);
-                }}
-              >
-                {S.settings.proxyMenu}
-              </button>
-            )}
-            {/* THE update row — one button, two jobs, directly below Change password (owner
-                layout: the menu used to stack a release-notes link, an admin "Update now" row
-                and this check row on top of each other). It reads "Check for updates" and runs
-                the manual check until a newer release is known; from then on it reads "New
-                version vX available" with a leading accent dot and opens the update dialog
-                instead, which carries the release-notes link and the admin-only self-update.
-                The running version sits muted on the right — no product-name prefix, and no
-                superscript badge any more: the label itself already names the new version.
-                The "last updated" date lives in the row tooltip, keeping the row uncluttered.
-                While checking, the label swaps to the busy text and the version stays put.
-                Nothing is fetched until the menu first opens; the version span appears once
-                /api/version resolves. */}
-            {/* Hidden in desktop mode: updates are the desktop app's job (electron-updater),
-                and the dialog's admin self-update re-runs the CLI entry, which does not
-                exist under the desktop shell. */}
-            {!desktopMode && (
-              <button
-                type="button"
-                disabled={updateChecking}
-                onClick={() => {
-                  if (newVersion !== null) {
-                    setUserOpen(false);
-                    setUpdateDialogOpen(true);
-                  } else {
-                    void runUpdateCheck();
-                  }
-                }}
-                {...(versionDate !== null
-                  ? { title: S.update.lastUpdated(formatMonthDay(versionDate, locale)) }
-                  : {})}
-                className={`${menuItemClass} flex items-center justify-between gap-2 disabled:cursor-default disabled:opacity-60`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  {updateChecking && (
-                    <span
-                      aria-hidden
-                      className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-current border-t-transparent opacity-70"
-                    />
-                  )}
-                  {!updateChecking && newVersion !== null && (
-                    <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-(--accent-bg)" />
-                  )}
-                  <span className="min-w-0 truncate">
-                    {updateChecking
-                      ? S.update.checking
-                      : newVersion !== null
-                        ? S.update.newVersion(newVersion)
-                        : S.update.checkNow}
-                  </span>
-                </span>
-                {version !== null && (
-                  <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                    {`v${version.version}`}
-                  </span>
-                )}
-              </button>
-            )}
-            {/* User management is visible only to admins (the page route also has its own
-                guard as a fallback), and never in desktop mode: the desktop app is
-                single-user and the server rejects the routes (desktop_single_user). */}
-            {user?.isAdmin && !desktopMode && (
-              <button
-                type="button"
-                className={menuItemClass}
-                onClick={() => {
-                  setUserOpen(false);
-                  go("/admin/users");
-                }}
-              >
-                {S.admin.users}
-              </button>
-            )}
-            {/* Hidden in desktop mode: the window IS the session — logging out would
-                strand the user on a login page whose password was never shown. */}
-            {!desktopMode && (
-              <button
-                type="button"
-                className="block w-full px-3.5 py-2 text-left text-sm text-red-600 transition-colors duration-150 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                onClick={() => {
-                  setUserOpen(false);
-                  void logout().then(() => navigate("/login"));
-                }}
-              >
-                {S.auth.logout}
-              </button>
-            )}
-          </div>
-        </Dropdown>
-      </div>
-
-      <ChangePasswordDialog
-        open={changePasswordOpen}
-        onClose={() => setChangePasswordOpen(false)}
-      />
-      <ProxySettingsDialog open={proxySettingsOpen} onClose={() => setProxySettingsOpen(false)} />
-      <UpdateDialog
-        open={updateDialogOpen}
-        onClose={() => setUpdateDialogOpen(false)}
-        latestVersion={newVersion}
-        releaseUrl={update?.releaseUrl ?? null}
-        canUpdate={user?.isAdmin === true}
-        /* A finished self-update makes the reminder stale, and the row stops offering the
-           manual check while a newer release is known — so re-check here, or the row would
-           still read "New version vX available" after updating to exactly that version, with
-           no way back short of reloading the page. Silent: the row's own change is the
-           feedback, and a toast would fire while the user is closing the dialog. */
-        onRunFinished={() => void forceUpdateCheck().catch(() => undefined)}
-      />
+      <AccountMenu onNavigate={onNavigate} />
 
       {/* Rename chat */}
       <Modal
@@ -1550,14 +1221,7 @@ function SessionRow({
             onClick={() => onToggleArchive(s)}
             className={`${actionBtn} hover:bg-gray-300/60 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200`}
           >
-            <Icon
-              d={
-                s.archived
-                  ? "M3 8h18M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M4 8l1.5-3h13L20 8M12 17v-5m-2.5 2L12 11l2.5 3"
-                  : "M3 8h18M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M4 8l1.5-3h13L20 8M9.5 13.5 12 16l2.5-2.5"
-              }
-              size={14}
-            />
+            <BookmarkSimpleIcon size={14} weight={s.archived ? "fill" : "regular"} aria-hidden />
           </button>
           <button
             type="button"
@@ -1575,38 +1239,5 @@ function SessionRow({
         </div>
       </div>
     </li>
-  );
-}
-
-function SettingRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <p className="mb-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-/** Accent color picker: a row of swatches, with a ring on the selected one. */
-function AccentPicker({ value, onChange }: { value: Accent; onChange: (a: Accent) => void }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      {ACCENT_SWATCHES.map((s) => (
-        <button
-          key={s.value}
-          type="button"
-          title={S.settings.accentNames[s.value]}
-          aria-label={S.settings.accentNames[s.value]}
-          aria-pressed={value === s.value}
-          onClick={() => onChange(s.value)}
-          className={`h-5 w-5 rounded-full border transition-transform duration-150 hover:scale-110 ${
-            value === s.value
-              ? "border-gray-500 ring-2 ring-gray-400/50 dark:border-gray-300"
-              : "border-transparent"
-          }`}
-          style={{ backgroundColor: s.color }}
-        />
-      ))}
-    </div>
   );
 }

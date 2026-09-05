@@ -1,5 +1,5 @@
 /**
- * Offscreen document for Penguin Browser screen recording.
+ * Offscreen document for Travel Browser screen recording.
  *
  * WHY OFFSCREEN DOCUMENT?
  * Manifest V3 service workers cannot use MediaRecorder or getUserMedia directly.
@@ -428,4 +428,4 @@ function toError(error: unknown, fallbackMessage: string): Error {
   return new Error(fallbackMessage)
 }
 
-console.log('Penguin Browser offscreen document loaded')
+console.log('Travel Browser offscreen document loaded')

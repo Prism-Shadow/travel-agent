@@ -1,7 +1,7 @@
 /** The Up next ordering and its countdown are deterministic data rules; pin them as such. */
 import { describe, expect, it } from "vitest";
 import type { TripSummary } from "@prismshadow/penguin-server/api";
-import { daysUntil, pickUpNextTrips } from "../src/features/chat/jump-back-in";
+import { daysUntil, pickUpNextTrips } from "../src/lib/trip-order";
 
 const TODAY = "2026-09-21";
 
@@ -10,6 +10,7 @@ function trip(overrides: Partial<TripSummary>): TripSummary {
     tripId: "t-x",
     projectId: "p",
     name: "Trip",
+    notes: "",
     destination: "",
     when: null,
     who: null,

@@ -47,6 +47,7 @@ function state(tabs: DesktopTabState[]): BrowserPaneState {
     activeTab: tabs[0] ?? null,
     backend: "iab",
     backendLocked: false,
+    backendChanging: false,
     extensionBackendAvailable: true,
     profileResetLocked: false,
     actions: {

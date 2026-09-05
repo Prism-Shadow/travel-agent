@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, utilityProcess } from "electron";
 import type { UtilityProcess } from "electron";
-import { browserRelayPort, pathWithPackagedBin } from "./browser-relay.js";
+import { browserTaskEnvironment, pathWithPackagedBin } from "./browser-relay.js";
 import { osProxyEnv } from "./os-proxy.js";
 import { choosePort, readPreferredPort, rememberPreferredPort } from "./port-memory.js";
 import { developmentWebDistEnv, tripsDirEnv } from "./runtime-env.js";
@@ -132,7 +132,7 @@ export async function startEmbeddedServer(opts: {
     serviceName: "penguin-server",
     stdio: "pipe",
     env: {
-      ...process.env,
+      ...browserTaskEnvironment(process.env),
       ...bundledShellEnv(),
       ...developmentWebDistEnv(app.isPackaged),
       ...tripsDirEnv(app.isPackaged),
@@ -148,10 +148,6 @@ export async function startEmbeddedServer(opts: {
       // Finder-launched apps do not inherit a login PATH. The agent runs
       // exec_command in this process, so it must see bin/penguin-browser.
       PATH: pathWithPackagedBin(process.env.PATH),
-      // The shell's relay listens on a dynamic port, so the agent's CLI has to be told which one.
-      // Every penguin-browser invocation under this server inherits it and reaches *this* relay
-      // rather than whatever happens to be on the conventional 19989.
-      ...(browserRelayPort() === null ? {} : { PENGUIN_BROWSER_PORT: String(browserRelayPort()) }),
       // The broker socket + token, when the vault started. Last, so nothing above shadows them.
       ...(opts.extraEnv ?? {}),
     },

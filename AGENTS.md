@@ -142,8 +142,8 @@ pnpm test:e2e                                     # core live-model e2e; needs D
 For this checkout's current `~/.penguin/dev-data` only, use the following account for local
 Playwriter QA against `pnpm dev`:
 
-- Username: `admin`
-- Password: `penguin-2026`
+- Username: `traveler`
+- Password: `traveler-2026`
 
 This is a machine-local development credential, not the product's seeded default. A fresh data root
 still receives a random initial password unless `PENGUIN_SEED_ADMIN_PASSWORD` pins one. Revalidate
@@ -237,6 +237,7 @@ its postmortem when one exists.
 | --- | --- |
 | [0008](docs/issues/0008-active-session-lags-one-conversation.md) | **Closed.** The stamp guard makes the stale state unrepresentable; the refusal log has not fired since the guard shipped |
 | [0010](docs/issues/0010-web-browser-e2e-is-red.md) | **Closed.** All 34 specs pass (was 5 red from the original issue + 3 from the consumer-surface refactoring); the gate step now passes |
+| [0011](docs/issues/0011-trip-directory-collision-ceiling.md) | **Closed.** Atomic random suffix allocation handles exhausted readable names without reusing existing directories |
 
 ## Editing Workflow
 

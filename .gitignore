@@ -68,3 +68,7 @@ packages/browser-cli/tmp/
 
 # design-QA captures and other binary scratch (regenerated on demand, never product)
 artifacts/
+
+# README demo videos are hosted as GitHub attachments (assets/readme/README.md records the URLs);
+# the local exports stay beside their covers but never enter history
+assets/readme/demos/*.mp4

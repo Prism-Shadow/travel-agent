@@ -1,8 +1,8 @@
 /**
  * Global styles: single-file Tailwind CSS 4 entry point.
  * Visual tone: GitHub-style simplicity — solid white background + 1px borders + a single brand blue accent,
- * no glassmorphism/gradients; the login page background is a circuit-trace animation (.login-trace, see
- * login-circuit.tsx). Dark theme is toggled via the html.dark class.
+ * the login welcome surface owns its decorative map and scoped styling in pages/login.css.
+ * Dark theme is toggled via the html.dark class.
  *
  * Stacking-context convention (to avoid contexts masking each other): chrome (top bar/navigation) does not
  * create a stacking context; dropdown/user menus use z-40; modal and drawer overlays use z-50.
@@ -14,6 +14,7 @@
 
 /* Brand color scale (Google blue family): generates utility classes like bg-brand-600 / text-brand-300. */
 @theme {
+  --radius-dialog: 1.5rem;
   --color-brand-25: #f8fbff;
   --color-brand-50: #e8f0fe;
   --color-brand-100: #d2e3fc;
@@ -335,56 +336,6 @@
   animation: drawer-in-right 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
-/* Login page circuit traces (login-circuit.tsx): pathLength=1 normalization, draw-in -> hold -> fade-out
-   loop. Base state is fully hidden: the positive animation-delay wait keeps the first paint blank, and
-   lines only start growing after load; once reduced-motion globally disables animation, the override below
-   restores fully static lines. */
-@keyframes login-trace-draw {
-  0% {
-    stroke-dashoffset: 1;
-    opacity: 0;
-  }
-  6% {
-    opacity: 1;
-  }
-  45% {
-    stroke-dashoffset: 0;
-  }
-  78% {
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-  92%,
-  100% {
-    stroke-dashoffset: 0;
-    opacity: 0;
-  }
-}
-@keyframes login-via-blink {
-  0%,
-  40% {
-    opacity: 0;
-  }
-  50%,
-  78% {
-    opacity: 1;
-  }
-  92%,
-  100% {
-    opacity: 0;
-  }
-}
-.login-trace {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  opacity: 0;
-  animation: login-trace-draw var(--trace-dur, 14s) linear infinite;
-}
-.login-via {
-  opacity: 0;
-  animation: login-via-blink var(--trace-dur, 14s) linear infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -392,14 +343,6 @@
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
-  }
-  /* With the trace animation disabled, the base state is fully hidden; this overrides it back to static full lines. */
-  .login-trace {
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-  .login-via {
-    opacity: 1;
   }
 }
 

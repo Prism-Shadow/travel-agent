@@ -60,6 +60,6 @@ export function getBundledExtensionPath(): string {
   }
 
   throw new Error(
-    `Bundled Penguin Browser extension not found under ${packageDir}. Run \`pnpm -r build\` in a source checkout, or reinstall the app.`,
+    `Bundled Travel Browser extension not found under ${packageDir}. Run \`pnpm -r build\` in a source checkout, or reinstall the app.`,
   )
 }

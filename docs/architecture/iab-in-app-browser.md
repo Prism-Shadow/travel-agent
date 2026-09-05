@@ -271,3 +271,49 @@ the same architecture** — including the decisive choices.
 - No browser-automation dependency in the CLI and no IAB source in the repository: verified item by
   item against `openai/codex`'s `Cargo.toml`, a recursive tree, and `gh search code`, all empty
   (`BrowserUseRequirements.ts` contains only a trivial type).
+
+
+## Application discovery and pairing
+
+Desktop owns a loopback relay bound directly to port 0, then receives its actual port through the
+child's readiness message. `desktop-relay-entry.ts` also watches the owning process so a crashed
+Desktop cannot leave its child running indefinitely. Standalone relays and Playwriter retain
+independent ports and lifetimes.
+
+The shell writes `~/.penguin-browser/desktop-instances/<installation-id>.json` atomically after
+readiness. It contains the installation id, launch id, port, owner PID and an extension-only secret;
+the IAB key stays in the owned child environment. POSIX directories/files are owner-only.
+Discovery validates file ownership and authenticates the endpoint with a fresh HMAC challenge,
+so a reused PID or port cannot masquerade as the registered application.
+
+Chrome keeps a Native Messaging port to the user-level host `com.prismshadow.travel_browser`. Its fixed
+Electron entry loads only the discovery handler and supports `list` and `connect`; it never starts
+a relay or interprets browser commands. Only Travel Browser's fixed extension origin is registered.
+No RunAsNode or inspector fuse is enabled. macOS/Linux use per-user browser manifests; Windows
+uses the current user's Chrome registry key. Explicit removal checks the launcher and manifest
+still belong to that installation. A moved application's next startup repairs registration.
+
+The extension worker serializes discovery and settings requests over that port. A missing Desktop
+is a normal response, so periodic discovery reuses the same helper through application shutdown
+and restart. Native transport failures or a five-second response timeout close the channel;
+reopening backs off from three seconds to a one-minute ceiling, reset by a valid response. A late
+reply from a discarded channel cannot answer another request. Chrome owns the helper's lifetime
+through the native pipe. The helper sets macOS activation policy to `prohibited` synchronously,
+before asynchronous discovery imports, so it cannot enter the Dock or create windows. This policy
+applies only to the restricted host entry, not the Desktop window.
+
+The extension persists an installation choice. A single live application can be paired initially;
+multiple applications require selection on the extension's Connection page. Every reconnect
+resolves the chosen installation again and sends its launch id and secret to `/extension`, in
+addition to the existing origin check. No endpoint or secret is exposed by the settings page.
+A missing application stays disconnected; standalone mode requires an explicit choice. Switching
+applications disconnects existing authorized tabs first. Reconnecting to the same application
+preserves tab authorization but never replays a pending command.
+
+CLI calls inherit port and launch id from the embedded server, or discover one live application
+when run externally. Endpoint resolution is shared across ensure, status, session creation and
+execution, and remains pinned for that invocation. A managed invocation cannot start or replace a
+relay. A recorded Desktop conversation on an external dev server uses authenticated discovery,
+ignoring unscoped host/port variables that an older shell left in that server's environment. It
+still fails if no application is available. These pairing checks do not isolate arbitrary local processes running as the same OS user;
+the unresolved runtime isolation decision D3 remains in force.

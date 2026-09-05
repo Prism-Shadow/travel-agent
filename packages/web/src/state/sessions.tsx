@@ -5,7 +5,7 @@
  *
  * **Paged per (Agent, category)**: the default load fetches only the **active** category
  * (user-created, non-archived) plus per-category totals — archived / subagent / schedule
- * Sessions are not loaded until their collapsed folder is opened. Each pair fetches
+ * Sessions are not loaded until their folder or the Saved page is opened. Each pair fetches
  * SIDEBAR_PAGE_SIZE sessions per page (requesting one extra to detect "has more" — see
  * splitPage); `loadMoreFor` fetches a pair's first page when unloaded and the next page
  * otherwise (deduplicated by sessionId — new sessions shift server offsets), so every
@@ -59,8 +59,8 @@ interface SessionsContextValue {
   hasMoreFor: (agentId: string, category: SessionCategory) => boolean;
   loading: boolean;
   reload: () => Promise<void>;
-  /** Fetches a category's first page for each given unloaded Agent and the next page for each loaded one with more (no-op otherwise). */
-  loadMoreFor: (agentIds: string[], category: SessionCategory) => Promise<void>;
+  /** Fetches the next category page for each Agent. False means at least one fetch failed or a reload invalidated it. */
+  loadMoreFor: (agentIds: string[], category: SessionCategory) => Promise<boolean>;
   /** Prepend to the list on success (draft materialized by the first message, or explicit creation via dialog). */
   add: (session: SessionInfo) => void;
   /** Remove from the list in place after deletion. */
@@ -215,13 +215,13 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
    */
   const loadMoreFor = useCallback(
     async (agentIds: string[], category: SessionCategory) => {
-      if (!projectId) return;
+      if (!projectId) return false;
       const targets = [...new Set(agentIds)].filter((agentId) => {
         const position = pageStateRef.current.get(pageKey(agentId, category));
         if (position === undefined) return (countsRef.current.get(agentId)?.[category] ?? 0) > 0;
         return position.hasMore;
       });
-      if (targets.length === 0) return;
+      if (targets.length === 0) return true;
       const g = gen.current;
       const results = await Promise.all(
         targets.map(async (agentId) => {
@@ -242,7 +242,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
           }
         }),
       );
-      if (g !== gen.current) return; // Project switch / reload raced this page: drop it.
+      if (g !== gen.current) return false; // Project switch / reload raced this page: drop it.
       const ok = results.filter((r) => r !== null);
       setSessions((prev) => {
         const seen = new Set(prev.map((s) => s.sessionId));
@@ -260,6 +260,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      return ok.length === results.length;
     },
     [projectId],
   );

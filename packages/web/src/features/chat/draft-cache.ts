@@ -11,10 +11,16 @@
  * previous user's text, Workspace, model selection, and handoff target — a cross-account information leak.
  */
 import type { ApprovalMode } from "@prismshadow/penguin-server/api";
+import { parseTripConstraints } from "./trip-constraints";
+import type { TripConstraints } from "./trip-constraints";
 
 const APPROVAL_MODES: ApprovalMode[] = ["always-ask", "read-only", "allow-all", "deny-all"];
 
 export interface DraftCache {
+  /** Persisted topic ownership; null explicitly means an independent conversation. */
+  tripId?: string | null;
+  /** Independent draft chips travel with the same user/Project-scoped text cache. */
+  constraints?: TripConstraints;
   text?: string;
   agentId?: string;
   workspace?: string;
@@ -95,6 +101,10 @@ export function draftFromUnknown(parsed: unknown): DraftCache {
   if (typeof parsed !== "object" || parsed === null) return {};
   const o = parsed as Record<string, unknown>;
   const out: DraftCache = {};
+  const constraints = parseTripConstraints(o.constraints);
+  if (constraints) out.constraints = constraints;
+  if (o.tripId === null || (typeof o.tripId === "string" && /^t-[a-zA-Z0-9-]+$/.test(o.tripId)))
+    out.tripId = o.tripId;
   if (typeof o.text === "string") out.text = o.text;
   if (typeof o.agentId === "string") out.agentId = o.agentId;
   if (typeof o.workspace === "string") out.workspace = o.workspace;

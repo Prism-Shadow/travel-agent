@@ -3,382 +3,310 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welcome to Penguin Browser</title>
-    <style>
-      :root {
-        --color-bg: #ffffff;
-        --color-text: #262626;
-        --color-heading: #171717;
-        --color-border: #d4d4d4;
-        --color-code-bg: transparent;
-        --color-link: #0969da;
-        --color-link-hover: #0550ae;
-        --color-success: #16a34a;
-        --color-muted: #737373;
-        --max-width: 640px;
-        --spacing: 1.5rem;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --color-bg: #0a0a0a;
-          --color-text: #e5e5e5;
-          --color-heading: #fafafa;
-          --color-border: #404040;
-          --color-code-bg: transparent;
-          --color-link: #4493f8;
-          --color-link-hover: #539bf5;
-          --color-success: #22c55e;
-          --color-muted: #a3a3a3;
-        }
-      }
-
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-        font-size: 16px;
-        line-height: 1.6;
-        color: var(--color-text);
-        background-color: var(--color-bg);
-        padding: 2rem 1rem;
-      }
-
-      main {
-        max-width: var(--max-width);
-        margin: 0 auto;
-      }
-
-      h2 {
-        font-size: 1.75rem;
-        font-weight: 600;
-        color: var(--color-heading);
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid var(--color-border);
-      }
-
-      h3 {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--color-heading);
-        margin-top: 1.5rem;
-        margin-bottom: 0.75rem;
-      }
-
-      p {
-        margin-bottom: 1rem;
-        opacity: 0.8;
-      }
-
-      a {
-        color: var(--color-link);
-        text-decoration: none;
-      }
-
-      a:hover {
-        color: var(--color-link-hover);
-        text-decoration: underline;
-      }
-
-      code {
-        font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-        font-size: 0.875em;
-      }
-
-      pre {
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        margin-bottom: 1rem;
-        overflow: visible;
-        white-space: pre;
-      }
-
-      pre code {
-        background: transparent !important;
-        padding: 0 !important;
-        font-size: 0.875rem;
-        white-space: pre;
-      }
-
-      ol,
-      ul {
-        margin-bottom: 1rem;
-        padding-left: 2rem;
-      }
-
-      li {
-        margin-bottom: 0.5rem;
-        opacity: 0.8;
-      }
-
-      strong {
-        font-weight: 600;
-        color: var(--color-heading);
-      }
-
-      .step-number {
-        color: var(--color-link);
-        font-weight: 700;
-        font-size: 1.125rem;
-        margin-right: 0.75rem;
-        flex-shrink: 0;
-        line-height: 1.6;
-      }
-
-      .step {
-        display: flex;
-        align-items: flex-start;
-        margin-bottom: 1.5rem;
-      }
-
-      .step-content {
-        flex: 1;
-        min-width: 0;
-      }
-
-      footer {
-        margin-top: 3rem;
-        padding-top: 2rem;
-        border-top: 1px solid var(--color-border);
-        text-align: center;
-        color: var(--color-muted);
-        font-size: 0.875rem;
-      }
-
-      /* Tomorrow (light) token colors */
-      code[class*='language-'],
-      pre[class*='language-'] {
-        color: #8959a8;
-        text-shadow: none;
-      }
-      .token.comment,
-      .token.block-comment,
-      .token.prolog,
-      .token.doctype,
-      .token.cdata {
-        color: #8e908c;
-      }
-      .token.punctuation {
-        color: #8959a8;
-      }
-      .token.tag,
-      .token.attr-name,
-      .token.namespace,
-      .token.deleted {
-        color: #c82829;
-      }
-      .token.function-name {
-        color: #4271ae;
-      }
-      .token.boolean,
-      .token.number,
-      .token.function {
-        color: #f5871f;
-      }
-      .token.property,
-      .token.class-name,
-      .token.constant,
-      .token.symbol {
-        color: #eab700;
-      }
-      .token.selector,
-      .token.important,
-      .token.atrule,
-      .token.keyword,
-      .token.builtin {
-        color: #8959a8;
-      }
-      .token.string,
-      .token.char,
-      .token.attr-value,
-      .token.regex,
-      .token.variable {
-        color: #718c00;
-      }
-      .token.operator,
-      .token.entity,
-      .token.url {
-        color: #3e999f;
-      }
-      .token.inserted {
-        color: #718c00;
-      }
-
-      /* Tomorrow Night (dark) token colors */
-      @media (prefers-color-scheme: dark) {
-        code[class*='language-'],
-        pre[class*='language-'] {
-          color: #b294bb;
-        }
-        .token.comment,
-        .token.block-comment,
-        .token.prolog,
-        .token.doctype,
-        .token.cdata {
-          color: #969896;
-        }
-        .token.punctuation {
-          color: #b294bb;
-        }
-        .token.tag,
-        .token.attr-name,
-        .token.namespace,
-        .token.deleted {
-          color: #cc6666;
-        }
-        .token.function-name {
-          color: #81a2be;
-        }
-        .token.boolean,
-        .token.number,
-        .token.function {
-          color: #de935f;
-        }
-        .token.property,
-        .token.class-name,
-        .token.constant,
-        .token.symbol {
-          color: #f0c674;
-        }
-        .token.selector,
-        .token.important,
-        .token.atrule,
-        .token.keyword,
-        .token.builtin {
-          color: #b294bb;
-        }
-        .token.string,
-        .token.char,
-        .token.attr-value,
-        .token.regex,
-        .token.variable {
-          color: #b5bd68;
-        }
-        .token.operator,
-        .token.entity,
-        .token.url {
-          color: #8abeb7;
-        }
-        .token.inserted {
-          color: #b5bd68;
-        }
-      }
-    </style>
+    <meta name="color-scheme" content="light dark" />
+    <title>Welcome to Travel Browser</title>
+    <link rel="icon" href="../icons/travel-agent-logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./welcome.css" />
+    <script type="module" src="./welcome.ts"></script>
   </head>
   <body>
-    <main>
-      <section>
-        <h2>Getting Started with Penguin Browser</h2>
-
-        <p>Connect Travel Agent or a local Playwright CLI to task tabs in your Chrome profile.</p>
-
-        <h3>Installation</h3>
-
-        <div class="step">
-          <span class="step-number">1</span>
-          <div class="step-content">
-            <strong>Pin the extension</strong>
-            <p>Click the puzzle icon in Chrome's toolbar, then pin Penguin Browser so it's always visible.</p>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></symbol>
+        <symbol id="pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 7 4 4v2H6v-2l4-4-1-7Zm3 13v5" /></symbol>
+        <symbol id="browser" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="16" rx="3" />
+          <path d="M3 9h18M7 6.5h.01M10 6.5h.01" />
+        </symbol>
+        <symbol id="message" viewBox="0 0 24 24">
+          <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-1 1v-9.5a9 9 0 0 1 18 0Z" />
+          <path d="M7 10h10M7 14h6" />
+        </symbol>
+        <symbol id="chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
+        <symbol id="link" viewBox="0 0 24 24">
+          <path
+            d="m10 13 4-4m-6 6-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 2 2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"
+            transform="translate(1 -1)"
+          />
+        </symbol>
+        <symbol id="shield" viewBox="0 0 24 24">
+          <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
+          <path d="m8 12 3 3 5-6" />
+        </symbol>
+        <symbol id="puzzle" viewBox="0 0 24 24">
+          <path d="M8 3h3a3 3 0 1 1 6 0h4v6a3 3 0 1 0 0 6v6h-6a3 3 0 1 0-6 0H3v-6a3 3 0 1 0 0-6V3h5Z" />
+        </symbol>
+      </defs>
+    </svg>
+    <a class="skip-link" href="#setup" data-i18n="skip">Skip to setup</a>
+    <div class="page">
+      <header class="header">
+        <a class="brand" href="#top" aria-label="Travel Browser">
+          <img src="../icons/travel-agent-logo.svg" width="46" height="46" alt="" />
+          <span
+            >Travel Browser<span class="brand-caption" data-i18n="brandCaption">A companion to Travel Agent</span></span
+          >
+        </a>
+        <nav class="header-actions" aria-label="Page navigation" data-i18n-aria="navigation">
+          <a class="help-link" href="./connection.html" data-i18n="connectionLink">Connection</a>
+          <a class="help-link" href="#help" data-i18n="helpLink">Need a hand?</a>
+          <div class="language-switch" role="group" aria-label="Language" data-i18n-aria="language">
+            <button type="button" data-language="en" aria-pressed="true" lang="en">EN</button>
+            <button type="button" data-language="zh" aria-pressed="false" lang="zh-CN">中文</button>
           </div>
-        </div>
-
-        <div class="step">
-          <span class="step-number">2</span>
-          <div class="step-content">
-            <strong>Choose how to connect</strong>
-            <p>In Travel Agent, select “My own Chrome (extension)” in the right-side Browser menu. The agent may create its own task tabs.</p>
+        </nav>
+      </header>
+      <main id="top">
+        <section class="hero" aria-labelledby="welcome-title">
+          <div class="hero-copy">
+            <p class="eyebrow"><span></span><span data-i18n="eyebrow">YOUR CHROME TRAVEL COMPANION</span></p>
+            <h1 id="welcome-title">
+              <span data-i18n="titleOne">Connect Chrome.</span><br /><span class="title-accent" data-i18n="titleTwo"
+                >Travel with an agent.</span
+              >
+            </h1>
+            <p class="hero-description" data-i18n="intro">
+              Bring the travel websites and accounts you already use into your conversations with Travel Agent.
+            </p>
+            <a class="primary-button" href="#setup"
+              ><span data-i18n="getStarted">Set up in three steps</span><svg class="icon"><use href="#arrow" /></svg
+            ></a>
+            <p class="hero-note" data-i18n="desktopNote">Keep Travel Agent Desktop open while you use the extension.</p>
           </div>
-        </div>
-
-        <div class="step">
-          <span class="step-number">3</span>
-          <div class="step-content">
-            <strong>Authorize an existing tab only when needed</strong>
-            <p>To let the agent use a tab you already opened, click the extension icon on that tab. It joins the cyan Penguin Browser group.</p>
+          <figure class="hero-art">
+            <div class="art-halo"></div>
+            <div class="browser-preview" aria-hidden="true">
+              <div class="preview-tabs">
+                <span class="preview-group">Travel Browser</span
+                ><span class="preview-tab" data-i18n="previewTab">Your travel plans</span
+                ><span class="preview-plus">+</span>
+              </div>
+              <div class="preview-address">
+                <svg class="icon"><use href="#shield" /></svg
+                ><span data-i18n="previewAddress">Your favorite travel websites</span
+                ><span class="preview-extension"
+                  ><img src="../icons/icon-green-32.png" width="22" height="22" alt=""
+                /></span>
+              </div>
+              <div class="preview-content">
+                <img class="hero-penguin" src="../icons/travel-agent-logo.svg" width="104" height="104" alt="" />
+                <p data-i18n="previewTitle">A familiar browser.<br />A little help along the way.</p>
+                <div class="preview-lines"><span></span><span></span></div>
+              </div>
+            </div>
+            <div class="agent-note" aria-hidden="true">
+              <span class="note-icon"
+                ><svg class="icon"><use href="#message" /></svg
+              ></span>
+              <div>
+                <strong>Travel Agent</strong
+                ><span data-i18n="previewPrompt">Find a hotel near the Bund in Shanghai.</span>
+              </div>
+            </div>
+            <figcaption data-i18n="previewCaption">An example of a connected tab</figcaption>
+          </figure>
+        </section>
+        <section id="setup" class="setup-section" aria-labelledby="setup-title">
+          <div class="section-heading">
+            <h2 id="setup-title" data-i18n="setupTitle">A quick setup. Then you're off.</h2>
+            <span data-i18n="setupSubtitle">Three steps to your first conversation</span>
           </div>
-        </div>
-
-        <div class="step">
-          <span class="step-number">4</span>
-          <div class="step-content">
-            <strong>Standalone development</strong>
-            <pre><code class="language-bash"># from the travel-agent checkout
-pnpm install
-pnpm build
-penguin-browser session new
+          <ol class="steps">
+            <li class="step-card">
+              <div class="step-top">
+                <span class="step-icon"
+                  ><svg class="icon"><use href="#pin" /></svg></span
+                ><span class="step-number">01</span>
+              </div>
+              <h3 data-i18n="pinTitle">Pin Travel Browser</h3>
+              <p data-i18n="pinBody">
+                Open the puzzle menu in Chrome's toolbar, find Travel Browser, and click the pin.
+              </p>
+              <div class="step-detail">
+                <svg class="icon"><use href="#puzzle" /></svg><svg class="small-arrow icon"><use href="#arrow" /></svg
+                ><img src="../icons/icon-black-32.png" alt="" width="21" height="21" /><span>Travel Browser</span
+                ><svg class="icon pin-icon"><use href="#pin" /></svg>
+              </div>
+            </li>
+            <li class="step-card">
+              <div class="step-top">
+                <span class="step-icon"
+                  ><svg class="icon"><use href="#browser" /></svg></span
+                ><span class="step-number">02</span>
+              </div>
+              <h3 data-i18n="chooseTitle">Choose Chrome in the app</h3>
+              <p data-i18n="chooseBody">
+                Open New trip in Travel Agent. After Budget, choose Chrome extension before sending your first message.
+              </p>
+              <div class="choice-preview">
+                <span data-i18n="budget">Budget</span><svg class="small-arrow icon"><use href="#arrow" /></svg
+                ><strong
+                  ><svg class="icon"><use href="#browser" /></svg
+                  ><span data-i18n="chromeChoice">Chrome extension</span></strong
+                >
+              </div>
+            </li>
+            <li class="step-card">
+              <div class="step-top">
+                <span class="step-icon"
+                  ><svg class="icon"><use href="#message" /></svg></span
+                ><span class="step-number">03</span>
+              </div>
+              <h3 data-i18n="askTitle">Start with a travel question</h3>
+              <p data-i18n="askBody">
+                Send your request in Travel Agent. The agent can open task tabs in your connected Chrome profile.
+              </p>
+              <p class="example-prompt" data-i18n="example">“Help me compare hotels near the Bund.”</p>
+            </li>
+          </ol>
+        </section>
+        <section class="existing-tab" aria-labelledby="existing-title">
+          <span class="existing-icon"
+            ><svg class="icon"><use href="#link" /></svg
+          ></span>
+          <div>
+            <h2 id="existing-title" data-i18n="existingTitle">Already have a webpage open?</h2>
+            <p data-i18n="existingBody">
+              Click Travel Browser on that tab to let the agent use it. It joins the cyan Travel Browser group. Click
+              the extension again to disconnect that tab.
+            </p>
+          </div>
+          <span class="group-example" aria-hidden="true">Travel Browser</span>
+        </section>
+        <section id="help" class="help-section" aria-labelledby="help-title">
+          <div class="help-heading">
+            <p class="eyebrow" data-i18n="helpEyebrow">GOOD TO KNOW</p>
+            <h2 id="help-title" data-i18n="helpTitle">A little help<br />along the way.</h2>
+            <p data-i18n="helpIntro">You choose the browser and the pages the agent can use.</p>
+          </div>
+          <div class="questions">
+            <details>
+              <summary>
+                <span data-i18n="statusQuestion">What do the extension icons mean?</span
+                ><svg class="icon"><use href="#chevron" /></svg>
+              </summary>
+              <div class="answer status-list">
+                <div>
+                  <span class="status-icon"
+                    ><img src="../icons/icon-green-32.png" width="28" height="28" alt=""
+                  /></span>
+                  <p>
+                    <strong data-i18n="readyTitle">Connected</strong
+                    ><span data-i18n="readyBody"
+                      >A colored penguin marks a connected tab. Connected tabs appear in the cyan Travel Browser
+                      group.</span
+                    >
+                  </p>
+                </div>
+                <div>
+                  <span class="status-icon"
+                    ><img src="../icons/icon-black-32.png" width="28" height="28" alt=""
+                  /></span>
+                  <p>
+                    <strong data-i18n="idleTitle">Not connected</strong
+                    ><span data-i18n="idleBody"
+                      >A black penguin means this tab is not connected. Click it to authorize the tab.</span
+                    >
+                  </p>
+                </div>
+                <div>
+                  <span class="status-icon"
+                    ><img src="../icons/icon-gray-32.png" width="28" height="28" alt="" /><b class="status-badge"
+                      >…</b
+                    ></span
+                  >
+                  <p>
+                    <strong data-i18n="waitingTitle">Connecting</strong
+                    ><span data-i18n="waitingBody"
+                      >A gray icon with a dots badge is waiting to connect. Check that Travel Agent Desktop is
+                      running.</span
+                    >
+                  </p>
+                </div>
+                <div>
+                  <span class="status-icon"
+                    ><img src="../icons/icon-gray-32.png" width="28" height="28" alt="" /><b
+                      class="status-badge error-badge"
+                      >!</b
+                    ></span
+                  >
+                  <p>
+                    <strong data-i18n="errorTitle">Needs attention</strong
+                    ><span data-i18n="errorBody"
+                      >A red exclamation mark signals a connection error. Hover over the icon for details. Gray without
+                      a badge can mean Chrome does not allow access to that page.</span
+                    >
+                  </p>
+                </div>
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span data-i18n="existingChatQuestion">Can I use Chrome in an existing chat?</span
+                ><svg class="icon"><use href="#chevron" /></svg>
+              </summary>
+              <div class="answer">
+                <p data-i18n="existingChatAnswer">
+                  Yes. When no task is running, open the Browser panel's menu in Travel Agent and choose My own Chrome
+                  (extension). Each new chat starts with the in-app browser, so choose Chrome for the chats where you
+                  want it.
+                </p>
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span data-i18n="privacyQuestion">What happens to my browser data?</span
+                ><svg class="icon"><use href="#chevron" /></svg>
+              </summary>
+              <div class="answer">
+                <p data-i18n="privacyAnswer">
+                  Your Chrome profile stays on your device. The extension connects to Travel Agent locally. To carry out
+                  your request, page content may be sent to the model provider you configured, and websites receive
+                  normal browsing traffic.
+                </p>
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span data-i18n="connectionQuestion">Chrome isn't connecting. What can I check?</span
+                ><svg class="icon"><use href="#chevron" /></svg>
+              </summary>
+              <div class="answer">
+                <p data-i18n="connectionAnswer">
+                  Keep Travel Agent Desktop running and Travel Browser enabled in Chrome. Select Chrome extension in
+                  your chat. If you updated the extension files, reload Travel Browser in chrome://extensions. For a tab
+                  you already opened, click the extension on that tab to reconnect it.
+                </p>
+              </div>
+            </details>
+            <details class="developer-details">
+              <summary>
+                <span data-i18n="developerQuestion">Developer tools: CLI & MCP</span
+                ><svg class="icon"><use href="#chevron" /></svg>
+              </summary>
+              <div class="answer">
+                <p data-i18n="developerIntro">
+                  Optional for developers. No terminal commands are needed to use the extension with Travel Agent
+                  Desktop.
+                </p>
+                <p data-i18n="developerCli">From a built travel-agent checkout, create a standalone CLI session:</p>
+                <pre><code>penguin-browser session new
 penguin-browser -s 1 -e "await page.goto('https://example.com')"</code></pre>
+                <p data-i18n="developerMcp">
+                  To start the local stdio MCP server, run penguin-browser. Editor setup is documented in MCP.md in the
+                  checkout.
+                </p>
+              </div>
+            </details>
           </div>
-        </div>
-
-        <h3>CLI Examples</h3>
-
-        <pre><code class="language-bash"># create a stateful sandbox, outputs session id (e.g. 1)
-penguin-browser session new
-# navigate to a URL
-penguin-browser -s 1 -e "await page.goto('https://example.com')"
-# get the accessibility tree of the page
-penguin-browser -s 1 -e "console.log(await snapshot({ page }))"
-# click an element by its accessibility reference
-penguin-browser -s 1 -e "await page.locator('aria-ref=e5').click()"</code></pre>
-      </section>
-
-      <section>
-        <h2>How It Works</h2>
-
-        <ul>
-          <li><strong>No new Chrome instances:</strong> Works with your current browser session</li>
-          <li><strong>No CDP mode required:</strong> No need to restart Chrome with special flags</li>
-          <li><strong>Full CDP access:</strong> Complete Chrome DevTools Protocol capabilities</li>
-          <li><strong>Visual feedback:</strong> Extension icon changes color to indicate connection status</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>Icon States</h2>
-
-        <ul>
-          <li><strong>Gray:</strong> Not connected to any tab</li>
-          <li><strong>Cyan/light blue group:</strong> Successfully connected and ready</li>
-          <li><strong>Orange badge (...):</strong> Connecting to relay server</li>
-          <li><strong>Red badge (!):</strong> Error occurred</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>Privacy &amp; Security</h2>
-
-        <p>
-          Penguin Browser MCP runs locally in your browser and does not send any data to external servers. All browser
-          control happens through the standard Chrome DevTools Protocol on your machine.
-        </p>
-      </section>
-
-      <section>
-        <h2>MCP Setup (Optional)</h2>
-
-        <p>The CLI is the recommended way to use Penguin Browser. To start the local stdio MCP server:</p>
-
-        <pre><code class="language-bash">penguin-browser</code></pre>
-
-        <p>For full editor configuration, open <code>MCP.md</code> in the travel-agent checkout.</p>
-      </section>
-
-      <section>
-        <h2>Need Help?</h2>
-
-        <p>Open <code>README.md</code> in the travel-agent checkout for local setup, security notes, and troubleshooting.</p>
-      </section>
-
+        </section>
+      </main>
       <footer>
-        <p>Penguin Browser &middot; Licensed under Apache-2.0</p>
+        <span class="footer-brand"
+          ><img src="../icons/travel-agent-logo.svg" width="26" height="26" alt="" />Travel Browser
+          <span>·</span> Travel Agent</span
+        ><span data-i18n="footer">Made for the journey. Open source, Apache-2.0.</span>
       </footer>
-    </main>
+    </div>
   </body>
 </html>

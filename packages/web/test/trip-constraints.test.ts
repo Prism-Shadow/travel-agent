@@ -11,6 +11,7 @@ import { zh } from "../src/lib/strings";
 import {
   EMPTY_TRIP_CONSTRAINTS,
   applyTripPrefix,
+  applySharedTrip,
   composeTripPrefix,
   constraintsToTripPatch,
   isEmptyTrip,
@@ -208,6 +209,7 @@ describe("chips as a trip's identity", () => {
   const trip: TripSummary = {
     tripId: "t-1",
     projectId: "proj",
+    notes: "",
     name: "Autumn",
     destination: "Tokyo",
     when: { kind: "flexible", days: 5, months: ["2026-10"] },
@@ -220,6 +222,29 @@ describe("chips as a trip's identity", () => {
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",
   };
+
+  it("carries shared notes and current identity without changing the original user input", () => {
+    const userText: TaskInputPart = { type: "text", text: "Find a quiet place" };
+    const attachment: TaskInputPart = {
+      type: "file",
+      fileName: "preferences.txt",
+      dataUrl: "data:text/plain;base64,cXVpZXQ=",
+    };
+    const input = [userText, attachment];
+    const result = applySharedTrip(input, { ...trip, notes: "No early starts" }, EN, "USD");
+    expect(result[0]).toMatchObject({ type: "text" });
+    const text = result[0]!.type === "text" ? result[0]!.text : "";
+    expect(text).toContain("Trip folder: /trips/t-1");
+    expect(text).toContain("No early starts");
+    expect(text).toContain("Where: Tokyo");
+    expect(text).toContain("Find a quiet place");
+    expect(input).toEqual([userText, attachment]);
+    expect(result[1]).toBe(attachment);
+    expect(applySharedTrip([attachment], trip, EN)[1]).toBe(attachment);
+    expect(JSON.stringify(applySharedTrip(input, { ...trip, notes: "" }, EN))).toContain(
+      "Trip notes: None",
+    );
+  });
 
   it("round-trips a trip's stored identity through the chips", () => {
     const asChips = tripToConstraints(trip);

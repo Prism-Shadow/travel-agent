@@ -35,6 +35,50 @@ function memStorage(): DraftStorage & { map: Map<string, string> } {
 }
 
 describe("parseDraft (field-by-field validation)", () => {
+  it("restores independent constraints without accepting malformed chip values", () => {
+    const constraints = {
+      where: "Kyoto",
+      when: { kind: "flexible", days: 5, months: ["2026-10"] },
+      who: { adults: 2, children: 0, infants: 0, pets: 0 },
+      budget: "mid",
+      budgetAmount: 2000,
+      budgetCurrency: "USD",
+    };
+    expect(parseDraft(JSON.stringify({ constraints })).constraints).toEqual(constraints);
+    expect(
+      parseDraft(
+        JSON.stringify({
+          constraints: {
+            ...constraints,
+            when: { kind: "flexible", days: "five", months: [] },
+            who: { adults: 2, children: -1, infants: 0 },
+            budget: "unknown",
+            budgetCurrency: "XYZ",
+          },
+        }),
+      ).constraints,
+    ).toEqual({
+      ...constraints,
+      when: null,
+      who: null,
+      budget: null,
+      budgetCurrency: null,
+      budgetAmount: null,
+    });
+    expect(parseDraft(JSON.stringify({ text: "Keep me", constraints: [] }))).toEqual({
+      text: "Keep me",
+    });
+  });
+  it("restores topic ownership without accepting malformed Trip ids", () => {
+    expect(parseDraft(JSON.stringify({ tripId: "t-1234abcd", text: "Find a hotel" }))).toEqual({
+      tripId: "t-1234abcd",
+      text: "Find a hotel",
+    });
+    expect(parseDraft(JSON.stringify({ tripId: null }))).toEqual({ tripId: null });
+    expect(parseDraft(JSON.stringify({ tripId: "../trip", text: "Keep me" }))).toEqual({
+      text: "Keep me",
+    });
+  });
   it("null / empty string / bad JSON / non-objects all yield an empty draft", () => {
     expect(parseDraft(null)).toEqual({});
     expect(parseDraft("")).toEqual({});

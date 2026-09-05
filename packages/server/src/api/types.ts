@@ -165,8 +165,10 @@ export type SessionSource = "schedule" | "subagent";
 // ---------------------------------------------------------------------------
 
 export interface UserInfo {
-  /** Semantic id, i.e. login name: `^[a-z][a-z0-9_-]{1,31}$`, immutable after creation. */
+  /** Semantic login id; only the explicit legacy administrator upgrade changes it. */
   userId: string;
+  /** Original login id before known administrator upgrades, used to recover the account's drafts. */
+  previousUserId?: string;
   /** Built-in admin (seeded at startup). */
   isAdmin: boolean;
   /** Still using the initial password (seeded/set by admin): frontend prompts the user to change it soon. */
@@ -917,6 +919,8 @@ export const TRIP_CURRENCIES: readonly TripCurrency[] = [
 
 /** A Trip as the sidebar and the trip page read it. */
 export interface TripSummary {
+  /** User-maintained context shared by every conversation in this Trip. */
+  notes: string;
   tripId: string;
   projectId: string;
   name: string;
@@ -942,6 +946,7 @@ export interface TripSummary {
 
 /** Everything is optional: a Trip may be created from a sentence with nothing filled in. */
 export interface TripCreateRequest {
+  notes?: string;
   name?: string;
   destination?: string;
   when?: TripWhen | null;

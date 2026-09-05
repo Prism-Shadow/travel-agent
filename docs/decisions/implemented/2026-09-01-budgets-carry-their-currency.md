@@ -24,7 +24,7 @@ both into `trip.json`, now `version: 2`. A database formed under the old shape g
 columns added on open and its `budget_amount_cny` rows carried over once as CNY; the retired
 column stays in place, unread, because this repository's migrations are additive.
 
-The account menu's setting is the **home currency**: the one the person thinks in. It defaults
+The Language & region setting is the **home currency**: the one the person thinks in. It defaults
 the unit of a new budget and selects the model-cost display currency, and when unset it follows
 the UI language (zh → CNY, otherwise USD). It stays in `localStorage` beside theme and font,
 because the trip itself now carries its unit and there is no product state left to split.

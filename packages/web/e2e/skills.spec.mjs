@@ -115,17 +115,27 @@ test("skills: built-in on every agent, and nowhere for a person to choose one", 
   await sessionTa.fill("你好");
   await page.getByRole("button", { name: "发送" }).click();
   await expect(page.getByText("你好", { exact: true })).toBeVisible();
-  const messages = await (
-    await page.request.get(`${BASE}/api/sessions/${sess.session.sessionId}/messages`)
-  ).json();
   // Scoped to the user's own message, not the whole payload. The literal `[use_skills]` also
   // appears in the system prompt, where the Skills section explains that a message may begin with
   // one — so a substring search over the transcript matches every session ever recorded and
   // proves nothing about this one.
-  const userText = messages.messages
-    .filter((m) => m.type === "model_msg" && m.payload?.role === "user")
-    .map((m) => m.payload?.text ?? "")
-    .join("\n");
-  expect(userText, "the user message reached storage").toContain("你好");
+  // The bubble is optimistic; its visibility does not establish server persistence.
+  // Wait for the stored message before asserting what was delivered to the model.
+  let userText = "";
+  await expect
+    .poll(
+      async () => {
+        const messages = await (
+          await page.request.get(`${BASE}/api/sessions/${sess.session.sessionId}/messages`)
+        ).json();
+        userText = messages.messages
+          .filter((m) => m.type === "model_msg" && m.payload?.role === "user")
+          .map((m) => m.payload?.text ?? "")
+          .join("\n");
+        return userText;
+      },
+      { message: "the user message reached storage" },
+    )
+    .toContain("你好");
   expect(userText, "no marker block was added to it").not.toContain("[use_skills]");
 });

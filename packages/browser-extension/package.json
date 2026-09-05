@@ -1,7 +1,7 @@
 {
   "name": "penguin-browser-extension",
-  "version": "0.0.107",
-  "description": "Penguin Browser Chrome extension for Playwright and PenguinHarness",
+  "version": "0.0.108",
+  "description": "Travel Browser Chrome extension for Travel Agent",
   "private": true,
   "engines": {
     "node": ">=24"

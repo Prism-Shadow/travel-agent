@@ -130,7 +130,7 @@ export function initPenguinBrowserToolbar(penguinLogoUrl: string): void {
   const toolbarEl = document.createElement('div')
   toolbarEl.className = 'toolbar'
   toolbarEl.setAttribute('role', 'toolbar')
-  toolbarEl.setAttribute('aria-label', 'Penguin Browser tools')
+  toolbarEl.setAttribute('aria-label', 'Travel Browser tools')
 
   shadow.appendChild(styleEl)
   shadow.appendChild(toolbarEl)
@@ -328,7 +328,7 @@ export function initPenguinBrowserToolbar(penguinLogoUrl: string): void {
     else hideOverlay()
   }
 
-  // Build a tiny eval that delegates all logging and React inspection to Penguin Browser.
+  // Build a tiny eval that delegates all logging and React inspection to Travel Browser.
   // JSON.stringify does NOT escape literal ' characters, so "Don't save"
   // stays "Don't save" in the output. That would break the outer bash '…'
   // wrapper. Replace ' with \u0027 — valid JSON, parses back to ' in the
@@ -358,7 +358,7 @@ export function initPenguinBrowserToolbar(penguinLogoUrl: string): void {
     const code = buildInspectionCode(n, url)
     const clipboardText = "penguin-browser -e '" + code + "'"
     copyText(clipboardText)
-    showToast('Copied penguin-browser element reference, use it in your agent prompt', target.getBoundingClientRect())
+    showToast('Copied Travel Browser element reference, use it in your agent prompt', target.getBoundingClientRect())
     setPinMode(false)
   }
 
@@ -400,7 +400,7 @@ export function initPenguinBrowserToolbar(penguinLogoUrl: string): void {
 
   // ── SVG icon strings (defined inside function — required for func injection) ─
 
-  const PENGUIN_LOGO = `<img class="penguin-logo" src="${penguinLogoUrl}" alt="Penguin Browser" />`
+  const PENGUIN_LOGO = `<img class="penguin-logo" src="${penguinLogoUrl}" alt="Travel Browser" />`
 
   // Lucide x icon
   const CLOSE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
@@ -428,7 +428,7 @@ export function initPenguinBrowserToolbar(penguinLogoUrl: string): void {
   // Close button
   const closeBtn = document.createElement('button')
   closeBtn.className = 'btn'
-  closeBtn.setAttribute('aria-label', 'Close Penguin Browser toolbar')
+  closeBtn.setAttribute('aria-label', 'Close Travel Browser toolbar')
   closeBtn.setAttribute('title', 'Close toolbar')
   closeBtn.innerHTML = CLOSE_SVG
   closeBtn.addEventListener('click', (e: MouseEvent) => {

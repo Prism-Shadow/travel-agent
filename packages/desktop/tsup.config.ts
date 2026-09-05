@@ -1,11 +1,16 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
+  // main selects the restricted Native Messaging host before importing the application.
   // launcher.ts is a second entry on purpose: scripts/stage.mjs imports dist/launcher.js
   // at stage time (plain node, no Electron) to generate the CLI launcher scripts.
   // preload-browser.ts is a third: Electron loads it by path into the app window, so it has to
   // exist as its own file rather than be inlined into main.
-  entry: ["src/main.ts", "src/launcher.ts", "src/preload-browser.ts"],
+  entry: {
+    main: "src/entry.ts",
+    launcher: "src/launcher.ts",
+    "preload-browser": "src/preload-browser.ts",
+  },
   format: ["cjs", "esm"],
   target: "node22",
   platform: "node",

@@ -1,27 +1,7 @@
 /**
- * The small shared-state files under `~/.penguin-browser`, and the rules for reading them.
- *
- * Two of them, both written by the desktop shell and read by a `penguin-browser` the agent starts
- * later: the relay's endpoint (below) and the user's choice of browser backend (at the end of this
- * file). They live together because they are the same kind of thing — a fact one process needs to
- * tell another that has no other channel to it — and because a reader outside the app has exactly
- * one directory to look in.
- *
- * ## The relay endpoint
- *
- * The shell prefers the conventional port 19989 — the Chrome extension has it compiled in, so
- * moving off it by default would break the extension for every user who never turns the in-app
- * browser on. But it will not *share*: the `/iab` key is minted per launch and given only to the
- * relay this process forks, so a relay someone else started has never heard of it and the transport
- * would 401 forever. When 19989 is already taken by a stranger, the shell binds a dynamic port
- * instead and publishes it here.
- *
- * **The record holds a port and an owner. It never holds the key.** Discovery answers "where", not
- * "who may"; the secret travels only through the environment of processes the app forks.
- *
- * It lives in `~/.penguin-browser`, next to the relay's own log, rather than in Electron's
- * `userData` — a `penguin-browser` invoked from the user's shell has no idea where a platform's
- * application-support directory is, and this file exists precisely for readers outside the app.
+ * Shared browser preferences and relay discovery under ~/.penguin-browser.
+ * Desktop publishes authenticated per-installation records through desktop-registry.ts.
+ * The legacy single-record reader remains for older local installations.
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -141,21 +121,9 @@ export async function isDiscoveryUsable(
 }
 
 /**
- * Where a client should send `--iab` requests.
- *
- * The order is a trust order, not a convenience one:
- *
- *   1. **An explicit `--host`.** The caller named a machine; discovery describes *this* one, and a
- *      stale local record must not be read — let alone deleted — because someone pointed the CLI at
- *      a remote relay.
- *   2. **`PENGUIN_BROWSER_HOST`.** Same reasoning, set once in an environment instead of per call.
- *   3. **`PENGUIN_BROWSER_PORT`.** Names a port on this machine, so it overrides discovery but not
- *      a host.
- *   4. **A healthy discovery record**, which is how the desktop app announces a relay that had to
- *      move off the conventional port.
- *   5. **The conventional port.**
- *
- * A stale record is removed as it is found, but only on the paths that actually consulted it.
+ * Desktop-scoped calls pin their launch identity and cannot override it. Other calls honor
+ * explicit host/port, then one live authenticated Desktop, legacy discovery, and standalone port.
+ * Multiple live applications require an explicit choice; discovery never chooses arbitrarily.
  */
 export async function resolveRelayEndpoint(options: {
   baseDir?: string
@@ -163,10 +131,19 @@ export async function resolveRelayEndpoint(options: {
   host?: string
   envHost?: string
   envPort?: string
+  envInstanceId?: string
   checks?: { isPidAlive: (pid: number) => boolean; isPortListening: (port: number) => Promise<boolean> }
-}): Promise<{ host: string; port: number; source: 'host' | 'env-host' | 'env-port' | 'discovery' | 'default' }> {
+}): Promise<{ host: string; port: number; source: 'host' | 'env-host' | 'env-port' | 'discovery' | 'desktop' | 'default'; instanceId?: string }> {
   const explicitPort = Number(options.envPort)
-  const portFromEnv = Number.isInteger(explicitPort) && explicitPort > 0 ? explicitPort : null
+  const portFromEnv = Number.isInteger(explicitPort) && explicitPort > 0 && explicitPort <= 65535 ? explicitPort : null
+
+  const instanceId = options.envInstanceId ?? process.env.PENGUIN_RELAY_INSTANCE_ID
+  if (instanceId) {
+    if (!portFromEnv) throw new Error('The Desktop browser connection is unavailable. Reopen the application; no replacement relay was started.')
+    if (options.host || options.envHost) throw new Error('Desktop browser endpoint cannot be overridden')
+    await verifyDesktopInstance(portFromEnv, instanceId)
+    return { host: '127.0.0.1', port: portFromEnv, source: 'desktop', instanceId }
+  }
 
   if (options.host) {
     return { host: options.host, port: portFromEnv ?? options.defaultPort, source: 'host' }
@@ -179,6 +156,13 @@ export async function resolveRelayEndpoint(options: {
   }
 
   const baseDir = options.baseDir ?? DISCOVERY_BASE_DIR
+  const { liveDesktopRecords } = await import('./desktop-registry.js')
+  const desktops = await liveDesktopRecords(baseDir)
+  if (desktops.length > 1) throw new Error('Multiple Travel Agent instances are running. Start this task from the intended application.')
+  if (desktops.length === 1) {
+    const desktop = desktops[0]!
+    return { host: '127.0.0.1', port: desktop.port, source: 'desktop', instanceId: desktop.instanceId }
+  }
   const checks = options.checks ?? { isPidAlive, isPortListening }
   const record = readDiscovery(baseDir)
   if (await isDiscoveryUsable(record, checks)) {
@@ -193,6 +177,15 @@ export async function resolveRelayEndpoint(options: {
     }
   }
   return { host: '127.0.0.1', port: options.defaultPort, source: 'default' }
+}
+
+export async function verifyDesktopInstance(port: number, instanceId: string): Promise<void> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/version`, { signal: AbortSignal.timeout(1500) })
+    const identity = await response.json() as { instanceId?: string }
+    if (response.ok && identity.instanceId === instanceId) return
+  } catch { /* A missing or replaced relay must not trigger standalone auto-start. */ }
+  throw new Error('The task\'s Travel Agent browser connection is unavailable. Reopen the application; no replacement relay was started.')
 }
 
 // —— The user's choice of browser backend ————————————————————————————————————————————————

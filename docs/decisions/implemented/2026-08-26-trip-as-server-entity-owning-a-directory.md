@@ -159,8 +159,9 @@ mechanism does not exist: an interaction card carries a choice back to the agent
 to the server, so closing the loop would need either a trip tool in the pinned engine's tool set
 or the Web pattern-matching a card's prose to infer what it meant. The first changes the engine;
 the second puts code in the business of guessing at the model's meaning. Both would be mechanism
-ahead of a caller, which this repository has paid for twice. "New trip" and moving a conversation
-into a trip already serve the need.
+ahead of a caller, which this repository has paid for twice. The explicit Add to trip action serves the need; the
+[single-entry decision](2026-09-05-one-trip-entry-with-explicit-promotion.md) governs the consumer
+flow.
 
 **Any booking or receipt record.** The run stops at the payment page and cannot observe whether
 payment happened, so a stored "booked" state would be a guess.

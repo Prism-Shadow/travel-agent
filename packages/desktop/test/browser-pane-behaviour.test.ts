@@ -610,7 +610,7 @@ describe("browser backend choice", () => {
     expect(pane.state().backend).toBe("iab");
   });
 
-  it("keeps a draft choice in memory and persists it only under the real conversation id", () => {
+  it("persists the draft choice and promotes it before the first task", () => {
     const draft = "draft-scope-0123456789abcdef0123456789abcdef";
     const changes: Array<[string, string]> = [];
     const { pane } = makePane({
@@ -622,11 +622,45 @@ describe("browser backend choice", () => {
     pane.setActiveSession(draft);
 
     pane.setBackend("extension");
-    expect(changes).toEqual([]);
+    expect(changes).toEqual([[draft, "extension"]]);
 
     pane.reassignActiveSession("session-created");
-    expect(changes).toEqual([["session-created", "extension"]]);
+    expect(changes).toEqual([
+      [draft, "extension"],
+      ["session-created", "extension"],
+    ]);
     expect(pane.state().backend).toBe("extension");
+  });
+
+  it("restores a draft choice across restart and keeps fresh drafts on IAB", () => {
+    const draft = "draft-scope-0123456789abcdef0123456789abcdef";
+    const choices: Record<string, "iab" | "extension"> = {};
+    const { pane } = makePane({
+      onBackendChange: (id, backend) => {
+        choices[id] = backend;
+        return true;
+      },
+    });
+    pane.setActiveSession(draft);
+    pane.setBackend("extension");
+    pane.destroy();
+    const restored = makePane({ initialBackends: choices, extensionBackendAvailable: false }).pane;
+    restored.setActiveSession(draft);
+    expect(restored.state()).toMatchObject({
+      backend: "extension",
+      extensionBackendAvailable: false,
+    });
+    restored.setActiveSession("draft-scope-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    expect(restored.state().backend).toBe("iab");
+    restored.setActiveSession(draft);
+    expect(restored.state().backend).toBe("extension");
+  });
+
+  it("keeps the prior draft selection when persistence fails", () => {
+    const { pane } = makePane({ onBackendChange: () => false });
+    pane.setActiveSession("draft-scope-0123456789abcdef0123456789abcdef");
+    expect(() => pane.setBackend("extension")).toThrow(/could not be saved/i);
+    expect(pane.state().backend).toBe("iab");
   });
 
   it("keeps a stored Chrome choice visible when Chrome is temporarily unavailable", () => {
@@ -647,6 +681,16 @@ describe("browser backend choice", () => {
       extensionBackendAvailable: false,
     });
     expect(changes).toEqual([]);
+  });
+
+  it("publishes relay failure without rewriting an existing Chrome choice", () => {
+    const { pane } = makePane({ initialBackends: { "session-1": "extension" } });
+    pane.setActiveSession("session-1");
+    pane.setExtensionBackendAvailable(false);
+    expect(pane.state()).toMatchObject({ backend: "extension", extensionBackendAvailable: false });
+    expect(() => pane.setBackend("extension")).toThrow("connection helper is unavailable");
+    pane.setExtensionBackendAvailable(true);
+    expect(pane.state()).toMatchObject({ backend: "extension", extensionBackendAvailable: true });
   });
 
   it("lets the user explicitly switch an unavailable Chrome conversation back to IAB", () => {

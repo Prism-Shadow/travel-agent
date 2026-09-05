@@ -198,6 +198,28 @@ describe("selectTravelCovers", () => {
     expect(selected[0]?.id).toBe("autumn-forest");
   });
 
+  it("allows eligible repeats after neutral candidates run out on a long trip list", () => {
+    const subjects = Array.from({ length: 60 }, (_, index) => ({
+      sessionId: `trip-${index}`,
+      title: "Untitled",
+    }));
+    const selected = selectTravelCovers(subjects);
+    expect(selected).toHaveLength(60);
+    expect(selected.every((cover) => cover.kind === "generic")).toBe(true);
+    expect(new Set(selected.slice(0, 24).map((cover) => cover.id)).size).toBe(24);
+    expect(selectTravelCovers(subjects)).toEqual(selected);
+  });
+
+  it("never borrows another destination after a repeated city's neutral fallbacks run out", () => {
+    const selected = selectTravelCovers(
+      Array.from({ length: 50 }, (_, index) => ({ sessionId: `trip-${index}`, title: "Shanghai" })),
+    );
+    expect(
+      selected.every((cover) => cover.id === "shanghai-night" || cover.kind === "generic"),
+    ).toBe(true);
+    expect(new Set(selected.slice(0, 25).map((cover) => cover.id)).size).toBe(25);
+  });
+
   it("is stable for the same Session and title", () => {
     const subject = [{ sessionId: "stable-session", title: "Weekend plan" }];
     expect(selectTravelCovers(subject)[0]?.id).toBe(selectTravelCovers(subject)[0]?.id);

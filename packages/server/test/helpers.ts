@@ -28,7 +28,7 @@ export async function makeTempRoot(): Promise<string> {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Fixed seeded-admin password injected into every test app (in production the seed generates a random one). */
-export const TEST_ADMIN_PASSWORD = "penguin-0000";
+export const TEST_ADMIN_PASSWORD = "travel-0000";
 
 export function testConfig(root: string): ServerConfig {
   return {

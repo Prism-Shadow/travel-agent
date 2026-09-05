@@ -3,12 +3,13 @@
  *
  * Single process, single writer: a synchronous API is sufficient and avoids a connection
  * pool; WAL mode and foreign key constraints are enabled. Table-creation SQL runs on open
- * (idempotent), with no migration branches (product not yet released).
+ * (idempotent), with additive columns and the explicit legacy administrator identity upgrade.
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { SCHEMA_SQL } from "./schema.js";
+import { migrateTravelAdministrator } from "./travel-admin-migration.js";
 
 // Fetch the runtime module via process.getBuiltinModule (node >=22.3): avoids static
 // resolution of `node:sqlite` by bundlers/vite (some tools' builtin lists don't yet
@@ -34,6 +35,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   ensureColumn(db, "sessions", "trip_id", "TEXT");
   ensureColumn(db, "trips", "budget_amount", "INTEGER");
   ensureColumn(db, "trips", "budget_currency", "TEXT");
+  ensureColumn(db, "trips", "notes", "TEXT NOT NULL DEFAULT ''");
   // A budget used to be a bare number of yuan (`budget_amount_cny`). A row written then still
   // states the fact the person gave, so it is carried over once, with the unit it always had;
   // a row that already has a unit is left alone. The retired column stays in place (this list
@@ -47,7 +49,14 @@ export function openDatabase(dbPath: string): DatabaseSync {
   ensureColumn(db, "sessions", "has_trace", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "auth_sessions", "via", "TEXT");
   ensureColumn(db, "trace_files", "page_stats", "TEXT");
-  return db;
+  ensureColumn(db, "users", "previous_user_id", "TEXT");
+  try {
+    migrateTravelAdministrator(db);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
 
 function hasColumn(db: DatabaseSync, table: string, column: string): boolean {

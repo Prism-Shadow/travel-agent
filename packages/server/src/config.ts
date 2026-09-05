@@ -52,7 +52,7 @@ export interface ServerConfig {
   /**
    * Fixed initial password for the seeded built-in admin (PENGUIN_SEED_ADMIN_PASSWORD),
    * used by automated tests and e2e; null (the norm) makes the seed generate a random
-   * `penguin-<4 digits>` password, printed once to the server console. In desktop mode
+   * `travel-<4 digits>` password, printed once to the server console. In desktop mode
    * an unpinned value resolves to a FULLY random password instead (never printed):
    * sign-in there goes through the shell's one-shot token, so nobody needs to read the
    * seed.
@@ -138,7 +138,7 @@ export function resolveServerConfig(env: NodeJS.ProcessEnv = process.env): Serve
     previewOrigin: normalizePreviewOrigin(env.PENGUIN_PREVIEW_ORIGIN),
     // An empty/whitespace value is treated as unset (→ random seed password). Desktop
     // mode without a pinned value seeds a FULLY random password rather than the
-    // printable penguin-<4 digits>: desktop sign-in goes through the shell's token, so
+    // printable travel-<4 digits>: desktop sign-in goes through the shell's token, so
     // the seed never needs to be read — and index.ts deliberately does not print it.
     seedAdminPassword:
       env.PENGUIN_SEED_ADMIN_PASSWORD?.trim() ||

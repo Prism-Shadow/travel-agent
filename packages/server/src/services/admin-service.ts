@@ -47,6 +47,9 @@ export class AdminService {
   }
 
   async createUser(userId: string, password: string): Promise<UserInfo> {
+    if (userId === "admin" || userId === "travel") {
+      throw new HttpError(400, "invalid_user_id", "The legacy administrator name is reserved.");
+    }
     if (!USERNAME_PATTERN.test(userId)) {
       throw new HttpError(
         400,

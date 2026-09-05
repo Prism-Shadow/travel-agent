@@ -37,6 +37,26 @@ browser's existence.
 - **Handover state** (`src/executor/handover-state.ts`): when the person takes the wheel, and when
   the agent may take it back.
 
+## Relay identity and discovery
+
+Desktop starts a private loopback relay with an OS-assigned port and a per-launch instance id.
+The extension transport requires the matching instance id and extension credential in addition
+to its allowlisted Chrome origin. That credential is distinct from the IAB key and is never
+included in public status output.
+
+Installation records in `~/.penguin-browser/desktop-instances/` are owner-only and atomically
+published. Discovery checks file ownership, live owner and a fresh HMAC challenge to the endpoint.
+One live Desktop can be discovered automatically; more than one requires explicit selection.
+Desktop-scoped CLI calls pin the inherited port and launch identity. Ensure, status, IAB creation,
+session operations and execution share the same endpoint for the invocation. An unavailable or
+replaced instance fails without starting, stopping or substituting a relay. Standalone startup
+honors its configured port and never kills an occupied listener automatically; explicit `serve
+--replace` refuses an application-owned relay.
+
+A recorded Desktop conversation on an external dev server also requires authenticated application
+discovery. Without a launch identity, an inherited port from an older shell cannot override that
+discovery. An explicit remote host cannot redirect such a conversation.
+
 ## Boundary
 
 This package has **no workspace dependencies**. Nothing in the engine may depend on it

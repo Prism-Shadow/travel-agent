@@ -59,11 +59,14 @@ import { toastError } from "../../components/ui/toast";
 import { MessageStream } from "./message-stream";
 import type { StreamRenderContext } from "./message-stream";
 import { taskStartCount } from "./subagent-meta";
+import { ConversationTripBar } from "../trips/conversation-trip-bar";
+import { sessionTripInput } from "./session-trip-input";
+import { useStartConversation } from "./use-start-conversation";
 import { ChatInput } from "./chat-input";
 import { ConversationOutline, OutlineMenuButton, useOutlineRailFit } from "./conversation-outline";
 import { DraftView } from "./draft-view";
 import { createDraftBrowserScopeId, draftBrowserScope, draftKey, loadDraft } from "./draft-cache";
-import { getDraftSession, parkActiveDraft } from "./draft-sessions";
+import { getDraftSession } from "./draft-sessions";
 import { CHAT_DEFAULTS_CHANGED_EVENT, chatDefaultsChangedDetail } from "./chat-defaults-event";
 import { advanceCostStat, applyUsageFetch, createCostStatHold } from "./header-stats";
 import type { CostStatDisplay } from "./header-stats";
@@ -239,6 +242,9 @@ const STAT_PATHS_PER_REQUEST = 100;
 export function ChatPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  // Settings changes the query, not the identity or initialization intent of this conversation.
+  const entryKey =
+    (location.state as { settingsEntryKey?: string } | null)?.settingsEntryKey ?? location.key;
   const params = useParams<{ sessionId?: string }>();
   const { user } = useAuth();
   const { currency } = useTheme();
@@ -319,7 +325,7 @@ export function ChatPage() {
 
   // A draft has no server Session id yet, but it keeps a desktop browser scope so existing tabs can
   // survive until the first send. Read the opaque id that moves with its cache (including into a
-  // parked draft), or mint one for an older cache/new draft. location.key deliberately remints only
+  // parked draft), or mint one for an older cache/new draft. entryKey deliberately remints only
   // when `/chat/new` was entered as a new history entry and the active cache was cleared by parking
   // the previous typed draft.
   const draftBrowserScopeId = useMemo(() => {
@@ -329,7 +335,7 @@ export function ChatPage() {
         ? getDraftSession(userId, projectId, parkedDraftId)?.draft
         : loadDraft(draftKey(userId, projectId));
     return cached?.browserScopeId ?? createDraftBrowserScopeId();
-  }, [draft, userId, projectId, parkedDraftId, location.key]);
+  }, [draft, userId, projectId, parkedDraftId, entryKey]);
   const browserScope =
     selected?.sessionId ??
     (draftBrowserScopeId !== null ? draftBrowserScope(draftBrowserScopeId) : null);
@@ -788,7 +794,7 @@ export function ChatPage() {
         // sends nothing — the server/core falls back to the Agent config, so config edits
         // keep taking effect mid-session until the user pins a level.
         const res = await api.postTask(selected.sessionId, {
-          input,
+          input: await sessionTripInput(selected.sessionId, input, currency),
           ...(turnThinkingLevel
             ? { thinkingLevel: turnThinkingLevel as TaskCreateRequest["thinkingLevel"] }
             : {}),
@@ -802,7 +808,7 @@ export function ChatPage() {
         return false;
       }
     },
-    [selected, turnThinkingLevel, discardSessionDraft, syncHealedSessionId],
+    [selected, turnThinkingLevel, discardSessionDraft, syncHealedSessionId, currency],
   );
 
   // /model switch (handoff-style, mirroring onHandoff exactly): opens a NEW session for the
@@ -838,14 +844,18 @@ export function ChatPage() {
       };
       let createdId: string | null = null;
       try {
+        const source = (await api.getSession(selected.sessionId)).session;
         const created = await api.createSession(projectId, selected.agentId, {
+          ...(source.tripId ? { tripId: source.tripId } : {}),
           provider: ref.provider,
           modelId: ref.modelId,
           workspace: selected.workspace,
           approvalMode: selected.approvalMode,
         });
         createdId = created.session.sessionId;
-        const res = await api.postTask(createdId, { input: [origin, ...input] });
+        const res = await api.postTask(createdId, {
+          input: await sessionTripInput(createdId, [origin, ...input], currency),
+        });
         addSession(created.session);
         // The remainder text has been carried into the new chat: discard the source session's input draft along with it.
         discardSessionDraft();
@@ -857,7 +867,7 @@ export function ChatPage() {
         return false;
       }
     },
-    [projectId, selected, addSession, discardSessionDraft, navigate],
+    [projectId, selected, addSession, discardSessionDraft, navigate, currency],
   );
 
   // /agent handoff: doesn't use the current Session — creates a new chat for the picked agent
@@ -881,11 +891,15 @@ export function ChatPage() {
       };
       let createdId: string | null = null;
       try {
+        const source = (await api.getSession(selected.sessionId)).session;
         const created = await api.createSession(projectId, target.agentId, {
+          ...(source.tripId ? { tripId: source.tripId } : {}),
           approvalMode: selected.approvalMode,
         });
         createdId = created.session.sessionId;
-        const res = await api.postTask(createdId, { input: [origin, ...input] });
+        const res = await api.postTask(createdId, {
+          input: await sessionTripInput(createdId, [origin, ...input], currency),
+        });
         addSession(created.session);
         // The text body has been handed off into the new chat: discard the current session's input draft along with it.
         discardSessionDraft();
@@ -900,7 +914,16 @@ export function ChatPage() {
         return false;
       }
     },
-    [projectId, currentAgent, selected, addSession, discardSessionDraft, navigate, models],
+    [
+      projectId,
+      currentAgent,
+      selected,
+      addSession,
+      discardSessionDraft,
+      navigate,
+      models,
+      currency,
+    ],
   );
 
   const onStop = useCallback(async () => {
@@ -920,7 +943,7 @@ export function ChatPage() {
       if (!selected) return false;
       try {
         const res = await api.postTask(selected.sessionId, {
-          input,
+          input: await sessionTripInput(selected.sessionId, input, currency),
           queueIfBusy: true,
           ...(turnThinkingLevel
             ? { thinkingLevel: turnThinkingLevel as TaskCreateRequest["thinkingLevel"] }
@@ -934,7 +957,7 @@ export function ChatPage() {
         return false;
       }
     },
-    [selected, turnThinkingLevel, discardSessionDraft, syncHealedSessionId],
+    [selected, turnThinkingLevel, discardSessionDraft, syncHealedSessionId, currency],
   );
 
   // Mid-run steering: the message is queued on the server and delivered between turns as a
@@ -954,8 +977,16 @@ export function ChatPage() {
     ): Promise<"queued" | "not_running" | "failed"> => {
       if (!selected) return "failed";
       try {
+        const parts = await sessionTripInput(
+          selected.sessionId,
+          [{ type: "text", text }],
+          currency,
+        );
         await api.postSteer(selected.sessionId, {
-          text,
+          text: parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("\n\n"),
           ...(images.length > 0 ? { images } : {}),
           ...(files.length > 0 ? { files } : {}),
         });
@@ -967,7 +998,7 @@ export function ChatPage() {
         return "failed";
       }
     },
-    [selected, discardSessionDraft],
+    [selected, discardSessionDraft, currency],
   );
 
   const onApprove = useCallback(
@@ -1012,21 +1043,16 @@ export function ChatPage() {
     }
   }, [selected, syncHealedSessionId]);
 
-  // "New Chat" = enter draft state: no Session is created until the first message is sent.
-  // Typed-but-unsent text in the ACTIVE new-chat draft first becomes a parked draft
-  // conversation (a sidebar row, sendable anytime) instead of lingering invisibly in the
-  // cache — the sidebar's own new-chat entries do the same (sidebar.tsx).
-  const newChat = useCallback(() => {
-    if (user && projectId) parkActiveDraft(user.userId, projectId);
-    navigate(`/chat/${DRAFT_SESSION_ID}`);
-  }, [user, projectId, navigate]);
+  const startConversation = useStartConversation();
+  const newChat = () => startConversation();
 
-  // "Back home" returns to the existing welcome draft rather than starting another one. Unlike
-  // New Chat, it must not park or clear text the user left on the home screen before opening a
-  // recent Session from Jump back in.
-  const backHome = useCallback(() => {
-    navigate(`/chat/${DRAFT_SESSION_ID}`);
-  }, [navigate]);
+  // Saved supplies an explicit return destination in this history entry, which survives reloads.
+  // Ordinary entries return to the existing welcome draft without parking or clearing its text.
+  const returnToSaved = (location.state as { returnTo?: string } | null)?.returnTo === "/saved";
+  const backLabel = returnToSaved ? S.saved.backToSaved : S.chat.backHome;
+  const goBack = useCallback(() => {
+    navigate(returnToSaved ? "/saved" : `/chat/${DRAFT_SESSION_ID}`);
+  }, [navigate, returnToSaved]);
 
   // Auth-dead notice primary CTA: the Models page is where the credential is actually fixed.
   const openModels = useCallback(() => {
@@ -1194,9 +1220,9 @@ export function ChatPage() {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
               type="button"
-              onClick={backHome}
-              title={S.chat.backHome}
-              aria-label={S.chat.backHome}
+              onClick={goBack}
+              title={backLabel}
+              aria-label={backLabel}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white dark:focus-visible:ring-gray-500"
             >
               <ArrowLeftIcon size={14} weight="bold" aria-hidden />
@@ -1511,6 +1537,8 @@ export function ChatPage() {
         </div>
       )}
 
+      {selected && <ConversationTripBar key={selected.sessionId} session={selected} />}
+
       {/* Body: chat column + the docked panels on the right (message file cards jump to and locate a file in the tree via onOpenFile). */}
       {/* The splitter converts a pointer x into a fraction of *this* row, so it needs the row's box. */}
       <div className="flex min-h-0 flex-1" ref={browserPane.containerRef}>
@@ -1521,15 +1549,16 @@ export function ChatPage() {
             // Draft state: DraftView's vertically centered input card + Agent / Workspace
             // selection panel; the Session is only created once the first message is sent. Keyed
             // by Project (switching Project remounts onto that Project's draft cache) and by the
-            // parked-draft id — falling back to location.key for `/chat/new`, so clicking "New
+            // parked-draft id — falling back to entryKey for `/chat/new`, so clicking "New
             // chat" while already on the draft page (which just parked the typed text) remounts
             // onto the freshly cleared cache. (Agent selection happens inside the draft itself,
             // so it's not part of the key.)
             <DraftView
-              key={`draft:${projectId}:${parkedDraftId ?? location.key}`}
+              key={`draft:${projectId}:${parkedDraftId ?? entryKey}`}
               projectId={projectId}
               models={models}
               browserScopeId={draftBrowserScopeId!}
+              browserState={browserPane}
               onReassignBrowserScope={browserPane.actions.reassignSession}
               {...(parkedDraftId !== null ? { draftId: parkedDraftId } : {})}
             />
@@ -1621,7 +1650,7 @@ export function ChatPage() {
               ) : (
                 <EmptyState
                   title={S.chat.noSessions}
-                  action={<Button onClick={newChat}>{S.nav.newChat}</Button>}
+                  action={<Button onClick={newChat}>{S.trip.newTrip}</Button>}
                 />
               )}
             </div>
