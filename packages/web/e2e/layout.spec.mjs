@@ -756,6 +756,10 @@ test("layout: login — autoplay world map, reduced motion and responsive sign-i
     );
   }
   await page.setViewportSize({ width: 1280, height: 800 });
+  // The page shows the product's fixed initial credentials, and they are the ones that sign in.
+  const shown = page.locator("[data-initial-credentials]");
+  await expect(shown.getByRole("definition").nth(0)).toHaveText(ADMIN_ID);
+  await expect(shown.getByRole("definition").nth(1)).toHaveText(ADMIN_PASSWORD);
   await page.getByRole("textbox", { name: /^Username/ }).fill(ADMIN_ID);
   await page
     .getByRole("textbox", { name: "Password Show password", exact: true })

@@ -164,6 +164,15 @@ export type SessionSource = "schedule" | "subagent";
 // Authentication and users
 // ---------------------------------------------------------------------------
 
+/**
+ * The credentials every fresh installation starts with. Deliberately fixed and public: the
+ * login page, the server's startup notice and the README all show them, and the account keeps
+ * its "initial password" flag — with the change-it reminder — until the password is changed.
+ * `PENGUIN_SEED_ADMIN_PASSWORD` still overrides the password for tests and hardened deploys.
+ * The trade-off is recorded in docs/decisions/implemented/2026-09-05-fixed-initial-credentials.md.
+ */
+export const INITIAL_ADMIN_CREDENTIALS = { userId: "traveler", password: "traveler-2026" } as const;
+
 export interface UserInfo {
   /** Semantic login id; only the explicit legacy administrator upgrade changes it. */
   userId: string;

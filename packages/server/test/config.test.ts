@@ -6,7 +6,7 @@
  * validation and bind to a random port; explicit "0" is preserved (explicit semantics
  * for a random available port); invalid values throw. (These semantics were shared
  * with the since-retired upstream CLI's serve command.)
- * PENGUIN_SEED_ADMIN_PASSWORD: unset/empty/whitespace → null (random seed password).
+ * PENGUIN_SEED_ADMIN_PASSWORD: unset/empty/whitespace → null (the fixed default at seed time).
  */
 import { describe, expect, it } from "vitest";
 import { resolveServerConfig } from "../src/config.js";
@@ -32,14 +32,12 @@ describe("resolveServerConfig: PORT parsing", () => {
 });
 
 describe("resolveServerConfig: desktop-mode seed password", () => {
-  it("desktop mode without a pinned value generates a fully random seed password", () => {
-    const a = resolveServerConfig({ ...base, PENGUIN_DESKTOP_TOKEN: "tok" }).seedAdminPassword;
-    const b = resolveServerConfig({ ...base, PENGUIN_DESKTOP_TOKEN: "tok" }).seedAdminPassword;
-    expect(a).not.toBeNull();
-    // base64url of 24 random bytes: far beyond the printable travel-<4 digits> space.
-    expect(a!.length).toBeGreaterThanOrEqual(24);
-    expect(a).not.toMatch(/^travel-\d{4}$/);
-    expect(a).not.toBe(b);
+  it("desktop mode without a pinned value seeds the same fixed default as web mode", () => {
+    // One rule in every mode: a data root opened later with `penguin web` answers to the
+    // documented credentials, and the desktop token flow never needed the value anyway.
+    expect(
+      resolveServerConfig({ ...base, PENGUIN_DESKTOP_TOKEN: "tok" }).seedAdminPassword,
+    ).toBeNull();
   });
 
   it("an explicit PENGUIN_SEED_ADMIN_PASSWORD still wins in desktop mode", () => {
@@ -47,13 +45,9 @@ describe("resolveServerConfig: desktop-mode seed password", () => {
       resolveServerConfig({
         ...base,
         PENGUIN_DESKTOP_TOKEN: "tok",
-        PENGUIN_SEED_ADMIN_PASSWORD: "travel-2026",
+        PENGUIN_SEED_ADMIN_PASSWORD: "pinned-password",
       }).seedAdminPassword,
-    ).toBe("travel-2026");
-  });
-
-  it("outside desktop mode the unpinned value stays null (random travel-<4 digits> at seed time)", () => {
-    expect(resolveServerConfig({ ...base }).seedAdminPassword).toBeNull();
+    ).toBe("pinned-password");
   });
 });
 
@@ -67,8 +61,8 @@ describe("resolveServerConfig: PENGUIN_SEED_ADMIN_PASSWORD parsing", () => {
       resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: "  " }).seedAdminPassword,
     ).toBeNull();
     expect(
-      resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: " travel-9999 " })
+      resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: " pinned-9999 " })
         .seedAdminPassword,
-    ).toBe("travel-9999");
+    ).toBe("pinned-9999");
   });
 });

@@ -61,12 +61,10 @@ pnpm dev:web      # Vite dev server at 127.0.0.1:7365; /api proxied (SSE passes 
 
 The proxy target defaults to `http://127.0.0.1:7368` — the development backend, kept off the installed server's 7364 so the two can run at once (`PORT` moves both, `PENGUIN_API_PROXY` overrides the target outright). Auth is a same-origin HttpOnly cookie, so the proxy keeps everything same-origin.
 
-For a local acceptance instance with deliberately public credentials, set both
-`VITE_PUBLIC_LOGIN_USERNAME` and `VITE_PUBLIC_LOGIN_PASSWORD` in
-`packages/web/.env.development.local`. The login form displays those values directly. They must
-match an already provisioned account; this display configuration does not create users or change
-passwords. Update or remove it when the local credentials change. Production builds omit this
-development-only panel and use the ordinary initial-password guidance.
+The login page always shows the product's fixed initial credentials, imported from the server's
+`INITIAL_ADMIN_CREDENTIALS` (`traveler` / `traveler-2026`). A fresh data root signs in with them;
+an installation whose password was changed simply ignores the panel. There is no build-time
+configuration for this display.
 
 ```bash
 pnpm --filter @prismshadow/penguin-web typecheck

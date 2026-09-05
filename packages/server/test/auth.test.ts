@@ -5,9 +5,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MeResponse, ProjectsResponse } from "../src/api/types.js";
+import {
+  INITIAL_ADMIN_CREDENTIALS,
+  type MeResponse,
+  type ProjectsResponse,
+} from "../src/api/types.js";
 import { buildAppDeps } from "../src/app.js";
-import { generateInitialAdminPassword } from "../src/auth/service.js";
 import {
   apiClient,
   createTestApp,
@@ -172,13 +175,18 @@ describe("auth", () => {
     expect(got.prefs.theme).toBe("dark");
   });
 
-  it("seedAdmin without an injected password generates travel-<4 digits> and returns it", async () => {
-    // Bypass the fixed test password: null matches the production default (random generation).
+  it("seedAdmin without an injected password seeds the fixed public default and returns it", async () => {
+    // Bypass the test override: null is what a real installation runs with.
     const fresh = await createTestApp({ config: { seedAdminPassword: null } });
     try {
-      expect(fresh.adminPassword).toMatch(/^travel-\d{4}$/);
-      // The returned password is the one that actually logs in.
-      await loginUser(fresh.app, "traveler", fresh.adminPassword);
+      expect(fresh.adminPassword).toBe(INITIAL_ADMIN_CREDENTIALS.password);
+      // The documented pair is the one that actually logs in, flagged as initial.
+      const login = await loginUser(
+        fresh.app,
+        INITIAL_ADMIN_CREDENTIALS.userId,
+        INITIAL_ADMIN_CREDENTIALS.password,
+      );
+      expect(login.user).toMatchObject({ isAdmin: true, passwordIsInitial: true });
       // Users exist now: re-seeding reports that nothing was seeded.
       expect(await fresh.deps.authService.seedAdmin()).toBeNull();
     } finally {
@@ -186,11 +194,17 @@ describe("auth", () => {
     }
   });
 
-  it("seedAdmin honors the injected seedAdminPassword", async () => {
-    const fresh = await createTestApp({ config: { seedAdminPassword: "travel-7777" } });
+  it("seedAdmin honors the injected seedAdminPassword and rejects the default then", async () => {
+    const fresh = await createTestApp({ config: { seedAdminPassword: "pinned-7777" } });
     try {
-      expect(fresh.adminPassword).toBe("travel-7777");
-      await loginUser(fresh.app, "traveler", "travel-7777");
+      expect(fresh.adminPassword).toBe("pinned-7777");
+      await loginUser(fresh.app, "traveler", "pinned-7777");
+      const withDefault = await fresh.app.request("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(INITIAL_ADMIN_CREDENTIALS),
+      });
+      expect(withDefault.status).toBe(401);
     } finally {
       await fresh.cleanup();
     }
@@ -258,10 +272,9 @@ describe("auth", () => {
     }
   });
 
-  it("generateInitialAdminPassword matches travel-<4 digits>", () => {
-    for (let i = 0; i < 32; i++) {
-      expect(generateInitialAdminPassword()).toMatch(/^travel-\d{4}$/);
-    }
+  it("the fixed default satisfies the password policy it is seeded under", () => {
+    expect(INITIAL_ADMIN_CREDENTIALS.userId).toBe("traveler");
+    expect(INITIAL_ADMIN_CREDENTIALS.password.length).toBeGreaterThanOrEqual(8);
   });
 
   it("PUT prefs shallow-merges without clobbering other writers' fields", async () => {

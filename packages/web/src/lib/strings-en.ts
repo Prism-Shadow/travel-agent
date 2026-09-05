@@ -306,7 +306,7 @@ export const en: Strings = {
       },
     },
     defaultAdminNote:
-      "Initial username: traveler. Use the initial password provided when the server starts.",
+      "Every new installation starts with these. Change the password after your first sign-in.",
   },
 
   account: {

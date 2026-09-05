@@ -9,7 +9,6 @@
  * detected to exist.
  * Docs: /docs/configuration § "Environment variables".
  */
-import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,12 +49,11 @@ export interface ServerConfig {
    */
   previewOrigin: string | null;
   /**
-   * Fixed initial password for the seeded built-in admin (PENGUIN_SEED_ADMIN_PASSWORD),
-   * used by automated tests and e2e; null (the norm) makes the seed generate a random
-   * `travel-<4 digits>` password, printed once to the server console. In desktop mode
-   * an unpinned value resolves to a FULLY random password instead (never printed):
-   * sign-in there goes through the shell's one-shot token, so nobody needs to read the
-   * seed.
+   * Override for the seeded built-in admin's password (PENGUIN_SEED_ADMIN_PASSWORD), for
+   * tests, e2e and deployments that must not start on the public default; null (the norm)
+   * seeds INITIAL_ADMIN_CREDENTIALS.password in every mode, desktop included — the shell
+   * signs its window in by token and never needs the value, but a data root later opened
+   * with `penguin web` must still answer to the documented credentials.
    */
   seedAdminPassword: string | null;
   /** Login session validity period (7 days). */
@@ -136,13 +134,8 @@ export function resolveServerConfig(env: NodeJS.ProcessEnv = process.env): Serve
     tripsDir: env.PENGUIN_TRIPS_DIR?.trim() || path.join(root, "trips"),
     webDist: env.PENGUIN_WEB_DIST ?? defaultWebDist(),
     previewOrigin: normalizePreviewOrigin(env.PENGUIN_PREVIEW_ORIGIN),
-    // An empty/whitespace value is treated as unset (→ random seed password). Desktop
-    // mode without a pinned value seeds a FULLY random password rather than the
-    // printable travel-<4 digits>: desktop sign-in goes through the shell's token, so
-    // the seed never needs to be read — and index.ts deliberately does not print it.
-    seedAdminPassword:
-      env.PENGUIN_SEED_ADMIN_PASSWORD?.trim() ||
-      (desktopToken !== null ? randomBytes(24).toString("base64url") : null),
+    // An empty/whitespace value is treated as unset (→ the fixed default at seed time).
+    seedAdminPassword: env.PENGUIN_SEED_ADMIN_PASSWORD?.trim() || null,
     authSessionTtlMs: 7 * DAY_MS,
     authSessionRenewMs: 6 * DAY_MS,
     desktopToken,

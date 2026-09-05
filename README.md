@@ -85,7 +85,9 @@ pnpm desktop
 ```
 
 This builds the workspace and opens the desktop app with its embedded server and browser.
-The app window signs in automatically.
+The app window signs in automatically. If you ever meet the sign-in page (for example `pnpm dev`
+in a browser), every new installation starts as **`traveler` / `traveler-2026`** — change the
+password after your first sign-in.
 
 1. Open **Models** and add your model provider's API key.
 2. Choose **New trip**. New conversations use the **in-app browser** by default.

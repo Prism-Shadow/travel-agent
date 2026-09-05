@@ -137,17 +137,18 @@ pnpm --filter @prismshadow/penguin-web test:e2e   # browser e2e against a mock L
 pnpm test:e2e                                     # core live-model e2e; needs DEEPSEEK_API_KEY
 ```
 
-### Local browser QA login
+### Browser QA login
 
-For this checkout's current `~/.penguin/dev-data` only, use the following account for local
-Playwriter QA against `pnpm dev`:
+Every fresh data root seeds the product's fixed initial credentials, and `~/.penguin/dev-data`
+uses the same pair for local Playwriter QA against `pnpm dev`:
 
 - Username: `traveler`
 - Password: `traveler-2026`
 
-This is a machine-local development credential, not the product's seeded default. A fresh data root
-still receives a random initial password unless `PENGUIN_SEED_ADMIN_PASSWORD` pins one. Revalidate
-this login after resetting the development data or changing the admin password.
+The pair is `INITIAL_ADMIN_CREDENTIALS` in `packages/server/src/api/types.ts`, public by decision
+(`docs/decisions/implemented/2026-09-05-fixed-initial-credentials.md`). `PENGUIN_SEED_ADMIN_PASSWORD`
+overrides the password for a run that must not start on the default. Revalidate this login after
+changing the admin password in the development data.
 
 ## The gate before a push
 

@@ -28,10 +28,9 @@ The browser uses it before mounting draft consumers, copies account-scoped draft
 overwriting destination data, and records completion. Copy failures preserve the source for retry;
 conflicts preserve both values. Stale tabs cannot reintroduce completed drafts after migration.
 
-Fresh web installations retain random initial passwords with a `travel-` prefix. The environment
-override and desktop token authentication retain their contracts. A machine-local acceptance
-password is an operational setting, not a shared product default; an upgrade never resets an
-existing password.
+Fresh installations seed the fixed initial password decided in
+[fixed initial credentials](2026-09-05-fixed-initial-credentials.md). The environment override and
+desktop token authentication retain their contracts; an upgrade never resets an existing password.
 
 The upgrade is one hop, `admin` -> `traveler`. During development the identity briefly went
 through `travel`, and the branch carried a two-hop chain with both retired names reserved; that

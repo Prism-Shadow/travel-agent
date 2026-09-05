@@ -25,8 +25,14 @@ Two things live here, and keeping them distinguishable is this module's main dis
 
 ## What it owns
 
-- **The built-in administrator is `traveler`.** Fresh web-mode data roots receive a random
-  `travel-<4 digits>` initial password unless `PENGUIN_SEED_ADMIN_PASSWORD` supplies one.
+- **The built-in administrator is `traveler`, and every fresh data root seeds it with the fixed
+  password `traveler-2026`** — `INITIAL_ADMIN_CREDENTIALS`, exported from the API contract so
+  the login page shows the same pair the seed writes. The default is public by decision
+  ([fixed initial credentials](../../docs/decisions/implemented/2026-09-05-fixed-initial-credentials.md));
+  the account carries `passwordIsInitial` until the password is changed, web mode re-prints the
+  reminder on every start until then, and `PENGUIN_SEED_ADMIN_PASSWORD` overrides the password
+  for tests and deployments that must not start on the default. Desktop mode seeds the same
+  value; its window signs in by token and never needs it.
   Opening an existing index applies `admin` -> `traveler` in one transaction to a privileged
   legacy account and its project ownership, memberships, preferences and schedule creators,
   preserving its password hash and initial-password flag. Existing login sessions for that
@@ -35,8 +41,8 @@ Two things live here, and keeping them distinguishable is this module's main dis
   including a non-privileged `admin`, are untouched. The retired name `admin` is reserved against
   new account creation and supplies no login alias. `previousUserId` retains the original login
   id (`admin`) so browsers that have not visited since the upgrade can recover their own cached
-  drafts. Desktop token sign-in resolves the same `traveler` identity and uses an unprinted
-  random seed password when no override is set. The inherited-baseline decision is recorded
+  drafts. Desktop token sign-in resolves the same `traveler` identity. The inherited-baseline
+  decision is recorded
   [here](../../docs/decisions/implemented/2026-09-05-traveler-administrator-identity.md).
 - **The Trip.** A row in the server's index that *owns* a directory rather than being one, so a
   conversation's membership is a nullable `sessions.trip_id` and attach / move / detach never touch

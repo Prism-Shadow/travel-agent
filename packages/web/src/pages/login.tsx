@@ -5,9 +5,9 @@
 import { lazy, Suspense, useState } from "react";
 import { ArrowRightIcon, LockKeyIcon, UserIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
+import { INITIAL_ADMIN_CREDENTIALS } from "@prismshadow/penguin-server/api";
 import { S } from "../lib/strings";
 import { apiErrorText } from "../lib/api-error";
-import { developmentLoginHint } from "../lib/login-hint";
 import { useDocumentTitle } from "../lib/use-document-title";
 import { useAuth } from "../state/auth";
 import { useLocale } from "../state/locale";
@@ -34,7 +34,6 @@ export function LoginPage() {
   // Per-field required errors sit next to their input; `form` holds the auth failure (wrong user/password), which isn't specific to one field.
   const [errors, setErrors] = useState<{ userId?: string; password?: string; form?: string }>({});
   const [busy, setBusy] = useState(false);
-  const initialLogin = developmentLoginHint();
   const clearErrors = () => setErrors((p) => (p.userId || p.password || p.form ? {} : p));
 
   const submit = async () => {
@@ -151,20 +150,20 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {initialLogin ? (
-            <dl className="login-credentials">
-              <div>
-                <dt>{S.auth.initialUsername}</dt>
-                <dd>{initialLogin.userId}</dd>
-              </div>
-              <div>
-                <dt>{S.auth.initialPassword}</dt>
-                <dd>{initialLogin.password}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="login-account-note">{S.auth.defaultAdminNote}</p>
-          )}
+          {/* The product's fixed initial credentials: public by decision (see INITIAL_ADMIN_CREDENTIALS),
+              so a first sign-in never depends on reading a server console. The account keeps its
+              change-it banner until the password is changed. */}
+          <dl className="login-credentials" data-initial-credentials>
+            <div>
+              <dt>{S.auth.initialUsername}</dt>
+              <dd>{INITIAL_ADMIN_CREDENTIALS.userId}</dd>
+            </div>
+            <div>
+              <dt>{S.auth.initialPassword}</dt>
+              <dd>{INITIAL_ADMIN_CREDENTIALS.password}</dd>
+            </div>
+          </dl>
+          <p className="login-account-note">{S.auth.defaultAdminNote}</p>
         </section>
       </main>
     </div>

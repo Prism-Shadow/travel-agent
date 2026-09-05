@@ -36,11 +36,10 @@ MOCK_PORT=$MOCK_PORT node "$HERE/mock-llm.mjs" &
 MOCK_PID=$!
 
 echo "== start server =="
-# PENGUIN_SEED_ADMIN_PASSWORD pins the otherwise-random seeded admin password to the
-# constant the specs use (ADMIN_PASSWORD in auth.mjs).
+# No PENGUIN_SEED_ADMIN_PASSWORD: the fresh data root seeds the product's fixed initial
+# credentials, which are the constants the specs use (ADMIN_ID / ADMIN_PASSWORD in auth.mjs).
 PENGUIN_HOME="$DATA" PORT=$SRV_PORT HOST=127.0.0.1 PENGUIN_WEB_DB="$DATA/web.db" \
   PENGUIN_WEB_DIST="$DATA/web-dist" \
-  PENGUIN_SEED_ADMIN_PASSWORD=travel-2026 \
   node "$ROOT/packages/server/dist/index.js" &
 SRV_PID=$!
 

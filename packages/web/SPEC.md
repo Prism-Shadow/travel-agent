@@ -45,11 +45,12 @@ and supports password reset or removal.
   system's reduced-motion preference. It is hidden from assistive technology and never intercepts
   form input. Narrow and short screens retain scroll access to
   every field, setting and credential hint. No account, Trip or task is created by the decoration.
-- **Login guidance.** The Vite development UI displays the initial username and password as two
-  labeled values when both `VITE_PUBLIC_LOGIN_USERNAME` and `VITE_PUBLIC_LOGIN_PASSWORD` are
-  explicitly configured. These are public display values, not account provisioning or password
-  recovery. Production builds and unconfigured development instances name the `traveler` account
-  and direct the person to their server-provided initial password.
+- **Login guidance.** The login page displays the product's fixed initial username and password
+  as two labeled values, read from the server contract's `INITIAL_ADMIN_CREDENTIALS`, followed by
+  a note that every new installation starts with them and the password should be changed after
+  the first sign-in. The panel is static: it neither knows nor reveals whether this installation
+  still uses the initial password. It is a display of public values, not account provisioning or
+  password recovery.
 - **Default user avatar.** Expanded, collapsed and mobile account controls share a local circular
   penguin portrait in the Route Penguin palette, with a blue route-like scarf and highlighted eye.
   The adjacent username or control label identifies the account; the avatar is decorative.

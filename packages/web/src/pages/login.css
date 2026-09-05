@@ -216,6 +216,12 @@
 .login-account-note {
   text-align: center;
 }
+/* The note follows the credentials in the same block: one divider, not two. */
+.login-credentials + .login-account-note {
+  margin-top: 10px;
+  padding-top: 0;
+  border-top: 0;
+}
 @media (min-width: 1600px) {
   .login-map-background {
     left: max(-3%, calc((100vw - 1660px) / 2));

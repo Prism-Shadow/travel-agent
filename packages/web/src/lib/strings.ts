@@ -293,7 +293,7 @@ export const zh = {
         sydney: "悉尼",
       },
     },
-    defaultAdminNote: "初始账号：traveler。请使用服务启动时提供的初始密码。",
+    defaultAdminNote: "每个新安装都使用这组初始凭据。首次登录后请修改密码。",
   },
 
   account: {
