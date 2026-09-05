@@ -7,11 +7,13 @@
  * grant was issued for. Both must be refused *and recorded*, because a refusal nobody can see
  * afterwards is indistinguishable from a call that never happened.
  */
+import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { brokerSocketPath } from "@prismshadow/penguin-server/broker-protocol";
 
 import { startBrokerServer, type BrokerHandlers, type BrokerServer } from "../src/broker/server.js";
 
@@ -25,7 +27,9 @@ let audited: Array<Record<string, unknown>>;
 
 beforeEach(async () => {
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "broker-"));
-  socketPath = path.join(dir, "broker.sock");
+  // The production shape, not a file under the temp dir: on Windows a local socket is a named
+  // pipe under \\.\pipe\, and a filesystem path there neither listens nor connects.
+  socketPath = brokerSocketPath({ dataRoot: dir, id: randomBytes(6).toString("hex") });
   audited = [];
   handlers = {
     request_grant: vi.fn(async () => ({ ok: true as const, result: { grantId: "g-test001" } })),
@@ -127,13 +131,17 @@ describe("the token", () => {
     expect(await clientWith("short").call(fill)).toMatchObject({ code: "unauthorized" });
   });
 
-  it("creates the socket so that only its owner can open it", async () => {
+  // A named pipe has no file mode and leaves nothing behind: both are POSIX-socket properties,
+  // and the server skips both steps on win32 for that reason.
+  const posixSocket = it.skipIf(process.platform === "win32");
+
+  posixSocket("creates the socket so that only its owner can open it", async () => {
     await start();
     const stat = await fs.stat(socketPath);
     expect(stat.mode & 0o777).toBe(0o600);
   });
 
-  it("takes over a socket path left behind by a killed run", async () => {
+  posixSocket("takes over a socket path left behind by a killed run", async () => {
     await fs.writeFile(socketPath, "stale");
     const started = await start();
     expect(await clientWith(started.token).call(fill)).toMatchObject({ ok: true });

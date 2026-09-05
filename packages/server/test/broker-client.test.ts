@@ -7,6 +7,7 @@
  * went away mid-call, something on the path that does not speak this protocol — throws, because the
  * tool has to say something different in that case: not "you may not", but "this build cannot".
  */
+import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
@@ -40,7 +41,9 @@ let received: Array<{ token?: unknown; request?: unknown }>;
 
 beforeEach(async () => {
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "broker-client-"));
-  socketPath = path.join(dir, "broker.sock");
+  // The production shape, not a file under the temp dir: on Windows a local socket is a named
+  // pipe under \\.\pipe\, and a filesystem path there neither listens nor connects.
+  socketPath = brokerSocketPath({ dataRoot: dir, id: randomBytes(6).toString("hex") });
   received = [];
 });
 
