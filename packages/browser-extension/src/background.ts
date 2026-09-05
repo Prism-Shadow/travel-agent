@@ -1,3 +1,4 @@
+import { resolveExtensionEndpoint, extensionSocketUrl, extensionSocketProtocols, availableDesktops, readConnectionChoice, CONNECTION_CHOICE_KEY, type RelayEndpoint, type ConnectionChoice } from './desktop-connection'
 declare const process: { env: { PENGUIN_BROWSER_PORT: string } }
 // Injected by vite at build time from penguin-browser/package.json version.
 // CLI/MCP compare this against their own version to warn when the extension is outdated.
@@ -231,7 +232,7 @@ async function getExtensionIdentity(): Promise<ExtensionIdentity> {
 }
 
 const TAB_GROUP_COLOR: chrome.tabGroups.ColorEnum = 'cyan'
-const TAB_GROUP_TITLE = 'penguin-browser'
+const TAB_GROUP_TITLE = 'Travel Browser'
 const OWNED_TAB_GROUPS_STORAGE_KEY = 'penguinBrowserOwnedTabGroupsByWindow'
 
 let childSessions: Map<string, { tabId: number; targetId?: string }> = new Map()
@@ -306,16 +307,19 @@ function flushRecordingChunkBuffer(ws: WebSocket): void {
 
 class ConnectionManager {
   ws: WebSocket | null = null
+  endpoint: RelayEndpoint | null = null
   private connectionPromise: Promise<void> | null = null
+  private changingChoice = false
   preserveTabsOnDetach = false
 
   async ensureConnection(): Promise<void> {
+    if (this.changingChoice) throw new Error('Application selection is changing')
     if (this.ws?.readyState === WebSocket.OPEN) {
       return
     }
 
     if (store.getState().connectionState === 'extension-replaced') {
-      throw new Error('Another Penguin Browser extension is already connected')
+      throw new Error('Another Travel Browser extension is already connected')
     }
 
     // Reuse in-progress connection attempt - prevents races between user clicks and maintain loop
@@ -349,14 +353,16 @@ class ConnectionManager {
   }
 
   private async connect(abortSignal: AbortSignal): Promise<void> {
-    logger.debug(`Waiting for server at http://${RELAY_HOST}:${RELAY_PORT}...`)
+    const endpoint = await resolveExtensionEndpoint(RELAY_PORT)
+    this.endpoint = endpoint
+    logger.debug(`Connecting to ${endpoint.desktop ? "paired Travel Agent" : "standalone relay"}`)
 
     // Retry for up to 5 seconds with 1s intervals, then give up (maintain loop will retry later)
     // Using fewer attempts since maintainLoop retries every 3 seconds anyway
     const maxAttempts = 5
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        await fetch(`http://${RELAY_HOST}:${RELAY_PORT}`, {
+        await fetch(`http://${RELAY_HOST}:${endpoint.port}`, {
           method: 'HEAD',
           signal: AbortSignal.any([abortSignal, AbortSignal.timeout(2000)]),
         })
@@ -375,7 +381,7 @@ class ConnectionManager {
 
     const identity = await getExtensionIdentity()
     if (abortSignal.aborted) throw new Error('Connection timeout')
-    const relayUrl = new URL(`ws://${RELAY_HOST}:${RELAY_PORT}/extension`)
+    const relayUrl = extensionSocketUrl(endpoint)
     if (identity.browser) {
       relayUrl.searchParams.set('browser', identity.browser)
     }
@@ -391,8 +397,8 @@ class ConnectionManager {
     if (typeof __PENGUIN_BROWSER_VERSION__ !== 'undefined') {
       relayUrl.searchParams.set('v', __PENGUIN_BROWSER_VERSION__)
     }
-    logger.debug('Creating WebSocket connection to:', relayUrl)
-    const socket = new WebSocket(relayUrl.toString())
+    logger.debug('Connecting browser transport')
+    const socket = new WebSocket(relayUrl.toString(), extensionSocketProtocols(endpoint))
 
     await new Promise<void>((resolve, reject) => {
       let settled = false
@@ -433,8 +439,8 @@ class ConnectionManager {
         })
       }
 
-      socket.onerror = (error) => {
-        logger.debug('WebSocket error during connection:', error)
+      socket.onerror = () => {
+        logger.debug('WebSocket connection failed')
         settle(() => reject(new Error('WebSocket connection failed')))
       }
 
@@ -601,8 +607,8 @@ class ConnectionManager {
       this.handleClose(event.reason, event.code)
     }
 
-    this.ws.onerror = (event: Event) => {
-      logger.debug('WebSocket error:', event)
+    this.ws.onerror = () => {
+      logger.debug('WebSocket connection failed')
     }
 
     chrome.debugger.onEvent.addListener(onDebuggerEvent)
@@ -647,21 +653,21 @@ class ConnectionManager {
     // Code 4001: Another extension replaced this one (this extension was idle)
     // Code 4002: This extension tried to connect but another is actively in use
     if (isExtensionReplaced) {
-      logger.debug('Disconnected: another Penguin Browser extension connected (this one was idle)')
+      logger.debug('Disconnected: another Travel Browser extension connected (this one was idle)')
       store.setState({
         tabs: new Map(),
         connectionState: 'extension-replaced',
-        errorText: 'Another Penguin Browser extension took over the connection',
+        errorText: 'Another Travel Browser extension took over the connection',
       })
       return
     }
 
     if (isExtensionInUse) {
-      logger.debug('Rejected: another Penguin Browser extension is actively in use')
+      logger.debug('Rejected: another Travel Browser extension is actively in use')
       store.setState({
         tabs: new Map(),
         connectionState: 'extension-replaced',
-        errorText: 'Another Penguin Browser extension is actively in use',
+        errorText: 'Another Travel Browser extension is actively in use',
       })
       return
     }
@@ -676,6 +682,20 @@ class ConnectionManager {
     })
   }
 
+  async setChoice(choice: ConnectionChoice): Promise<void> {
+    if (this.changingChoice || this.ws || this.connectionPromise) {
+      throw new Error('Close the connected application before changing the pairing. Active tasks cannot switch applications.')
+    }
+    this.changingChoice = true
+    try {
+      // Authorization must never move from the previous application to another one.
+      await disconnectEverything()
+      await chrome.storage.local.set({ [CONNECTION_CHOICE_KEY]: choice })
+      this.endpoint = null
+      store.setState({ connectionState: 'idle', errorText: undefined })
+    } finally { this.changingChoice = false }
+  }
+
   async maintainLoop(): Promise<void> {
     while (true) {
       if (this.ws?.readyState === WebSocket.OPEN) {
@@ -683,14 +703,15 @@ class ConnectionManager {
         continue
       }
 
-      // When another Penguin Browser extension took over, poll until no same-key replacement is
+      // When another Travel Browser extension took over, poll until no same-key replacement is
       // connected anymore. Reclaiming while another worker is merely idle is racy: a fresh
       // replacement reports activeTargets=0 before it re-attaches tabs, so the old worker can
       // steal the slot back and disconnect the live browser instance.
       if (store.getState().connectionState === 'extension-replaced') {
         try {
           const identity = await getExtensionIdentity()
-          const statusUrl = new URL(`http://${RELAY_HOST}:${RELAY_PORT}/extension/status`)
+          const endpoint = await resolveExtensionEndpoint(RELAY_PORT)
+          const statusUrl = new URL(`http://${RELAY_HOST}:${endpoint.port}/extension/status`)
           if (identity.browser) statusUrl.searchParams.set('browser', identity.browser)
           if (identity.email) statusUrl.searchParams.set('email', identity.email)
           if (identity.id) statusUrl.searchParams.set('id', identity.id)
@@ -775,10 +796,10 @@ class ConnectionManager {
         if (error.message === 'Extension Already In Use') {
           store.setState({
             connectionState: 'extension-replaced',
-            errorText: 'Another Penguin Browser extension is actively in use',
+            errorText: 'Another Travel Browser extension is actively in use',
           })
         } else {
-          store.setState({ connectionState: 'idle' })
+          store.setState({ connectionState: 'idle', errorText: error.message })
         }
       }
 
@@ -1045,7 +1066,7 @@ async function syncTabGroup(): Promise<void> {
     }
 
     // Ownership is recorded when this extension creates a group. Never discover or
-    // adopt groups by title: users are allowed to have their own "penguin-browser"
+    // adopt groups by title: users are allowed to have their own "Travel Browser"
     // groups, and every browser window needs a separate extension-owned group.
     const ownedGroups = await getOwnedTabGroups()
     const windowIds = new Set([...ownedGroups.keys(), ...connectedTabsByWindow.keys()])
@@ -1062,7 +1083,7 @@ async function syncTabGroup(): Promise<void> {
           await chrome.tabs.ungroup(tabIdsToUngroup)
         }
         await forgetOwnedTabGroup(windowId, groupId)
-        logger.debug('Cleared owned penguin-browser group:', groupId, 'in window:', windowId)
+        logger.debug('Cleared owned Travel Browser group:', groupId, 'in window:', windowId)
         continue
       }
 
@@ -1943,7 +1964,7 @@ async function connectTab(tabId: number): Promise<void> {
     // Extension in use: set global 'extension-replaced' state to enter polling mode
     const isExtensionInUse =
       error.message === 'Extension Already In Use' ||
-      error.message === 'Another Penguin Browser extension is already connected'
+      error.message === 'Another Travel Browser extension is already connected'
 
     const isWsError =
       error.message === 'Server not available' ||
@@ -1958,7 +1979,7 @@ async function connectTab(tabId: number): Promise<void> {
         return {
           tabs: newTabs,
           connectionState: 'extension-replaced',
-          errorText: 'Another Penguin Browser extension is actively in use',
+          errorText: 'Another Travel Browser extension is actively in use',
         }
       })
     } else if (isWsError) {
@@ -2140,7 +2161,7 @@ const icons = {
       '48': '/icons/icon-gray-48.png',
       '128': '/icons/icon-gray-128.png',
     },
-    title: 'Another Penguin Browser extension connected - Click to retry',
+    title: 'Another Travel Browser extension connected - Click to retry',
     badgeText: '!',
     badgeColor: [220, 38, 38, 255] as [number, number, number, number],
   },
@@ -2254,7 +2275,7 @@ async function onActionClicked(tab: chrome.tabs.Tab): Promise<void> {
   const { tabs, connectionState } = store.getState()
   const tabInfo = tabs.get(tab.id)
 
-  // If another Penguin Browser extension took over, clear error state and try to reconnect this tab
+  // If another Travel Browser extension took over, clear error state and try to reconnect this tab
   if (connectionState === 'extension-replaced') {
     logger.debug('Clearing extension-replaced state, attempting to reconnect')
     store.setState({ connectionState: 'idle', errorText: undefined })
@@ -2294,7 +2315,7 @@ chrome.contextMenus
   .finally(() => {
     chrome.contextMenus?.create({
       id: 'penguin-browser-pin-element',
-      title: 'Copy Penguin Browser Element Reference',
+      title: 'Copy Travel Browser Element Reference',
       contexts: ['all'],
       visible: false,
     })
@@ -2354,7 +2375,7 @@ store.subscribe((state, prevState) => {
   }
 })
 
-logger.debug(`Using relay host: ${RELAY_HOST}, port: ${RELAY_PORT}`)
+logger.debug('Travel Browser connection discovery ready')
 
 // Memory monitoring - helps debug service worker termination issues
 let lastMemoryUsage = 0
@@ -2438,7 +2459,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
           const validatedGroupId = await getValidatedOwnedTabGroupId(currentTab.windowId)
           if (validatedGroupId === undefined) return
           if (!tabs.has(tabId) && !isRestrictedUrl(currentTab.url)) {
-            logger.debug('Tab manually added to owned penguin-browser group:', tabId)
+            logger.debug('Tab manually added to owned Travel Browser group:', tabId)
             await connectTab(tabId)
           }
         } else if (tabs.has(tabId)) {
@@ -2447,7 +2468,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
             logger.debug('Tab removed from group while connecting, ignoring:', tabId)
             return
           }
-          logger.debug('Tab manually removed from owned penguin-browser group:', tabId)
+          logger.debug('Tab manually removed from owned Travel Browser group:', tabId)
           await disconnectTab(tabId)
         }
       })
@@ -2497,11 +2518,11 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
   })()
 })
 
-// Relocate popup windows opened by a Penguin Browser-connected tab into the
-// source tab's window as a regular tab, since Penguin Browser cannot attach
+// Relocate popup windows opened by a Travel Browser-connected tab into the
+// source tab's window as a regular tab, since Travel Browser cannot attach
 // its debugger to separate popup windows. When the source tab is NOT
 // connected, leave the popup alone so unrelated sites keep normal Chrome
-// popup behavior. After relocation, auto-attach Penguin Browser to the new
+// popup behavior. After relocation, auto-attach Travel Browser to the new
 // tab so it appears in context.pages().
 chrome.windows.onCreated.addListener(async (popupWindow) => {
   if (popupWindow.type !== 'popup' || popupWindow.id === undefined) {
@@ -2540,7 +2561,7 @@ chrome.windows.onCreated.addListener(async (popupWindow) => {
     }
     if (sourceTabId === undefined) {
       logger.debug(
-        `Popup window ${popupWindow.id} not opened by a Penguin Browser-connected tab, leaving alone (tabs=${JSON.stringify(tabIds)})`,
+        `Popup window ${popupWindow.id} not opened by a Travel Browser-connected tab, leaving alone (tabs=${JSON.stringify(tabIds)})`,
       )
       return
     }
@@ -2803,6 +2824,34 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
 
 // Sync icons on first load
 void updateIcons()
+
+// Only the extension's own settings page can inspect or change its pairing.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL('src/connection.html'))) return
+  if (message.action !== 'connectionStatus' && message.action !== 'connectionChoose') return
+  void (async () => {
+    if (message.action === 'connectionChoose') {
+      const choice = message.choice as ConnectionChoice
+      if (choice?.mode !== 'standalone' && !(choice?.mode === 'desktop' && /^[a-f0-9]{32}$/.test(choice.installationId ?? ''))) {
+        throw new Error('Invalid application selection')
+      }
+      if (choice.mode === 'desktop') {
+        const apps = await availableDesktops()
+        if (!apps.some(app => app.installationId === choice.installationId)) throw new Error('That application is no longer running')
+      }
+      await connectionManager.setChoice(choice)
+    }
+    let apps: Awaited<ReturnType<typeof availableDesktops>> = []
+    let discoveryError: string | undefined
+    try { apps = await availableDesktops() } catch (error) { discoveryError = (error as Error).message }
+    const endpoint = connectionManager.endpoint
+    return { choice: await readConnectionChoice(), apps, discoveryError,
+      connected: connectionManager.ws?.readyState === WebSocket.OPEN,
+      application: endpoint?.desktop?.name,
+      error: store.getState().errorText }
+  })().then(sendResponse, error => sendResponse({ error: error.message }))
+  return true
+})
 
 // Handle messages from offscreen document (recording chunks)
 chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {

@@ -33,6 +33,7 @@ function emptyState(scopeSettled: boolean): BrowserPaneState {
     activeTab: null,
     backend: "iab",
     backendLocked: false,
+    backendChanging: false,
     extensionBackendAvailable: true,
     profileResetLocked: false,
     actions: {

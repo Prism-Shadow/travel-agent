@@ -4,13 +4,12 @@
 
 ## The problem
 
-A Trip is materialized by the first message, and its identity comes from the chips above the
-composer. Someone who writes
+A Trip can have a name without a destination in its structured identity. Someone who writes
 
 > I'm going to Shanghai on a business trip tomorrow
 
-and never touches the chips gets a Trip called *Untitled trip*, in a folder named for a date. That
-is what happened on 2026-08-27: `t-790ab97a`, destination empty, while the whole conversation was
+and supplies no structured destination can leave that field blank. The first-send creation flow
+produced a Trip called *Untitled trip*, in a folder named for a date; that is what happened on 2026-08-27: `t-790ab97a`, destination empty, while the whole conversation was
 about Shanghai.
 
 The product's claim is that one sentence is enough. Trip naming listened only to the form.
@@ -65,3 +64,6 @@ it so the model can rely on it, but a model that ignores the instruction still c
 anything. `packages/server/test/trips.test.ts` pins all four cases: the blank is filled, a person's
 destination stands, a person's name survives an adopted destination, and a malformed mirror is
 ignored.
+
+The [single-entry flow](2026-09-05-one-trip-entry-with-explicit-promotion.md) creates Trips through
+explicit promotion. Blank-destination adoption remains the same bounded server behavior.

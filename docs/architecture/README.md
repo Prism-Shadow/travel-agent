@@ -56,6 +56,11 @@ main process. The main process forks the server (`src/server-process.ts`) and st
 (`src/browser-relay.ts`) so a packaged install needs no second terminal. `pnpm dev` runs the same
 server and web app without the shell.
 
+Chrome pairs with this application's private relay through a restricted Native Messaging helper.
+The extension remembers the installation and discovers its endpoint after restart; standalone
+CLI relays have a separate lifetime. [Application discovery and pairing](iab-in-app-browser.md#application-discovery-and-pairing)
+defines the authentication and no-fallback rules; [[module-browser-extension]] owns the Chrome side.
+
 ## The agent's browser chain
 
 The engine gains no browser tools. The agent drives the browser the same way it runs any command:

@@ -5,9 +5,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MeResponse, ProjectsResponse } from "../src/api/types.js";
+import {
+  INITIAL_ADMIN_CREDENTIALS,
+  type MeResponse,
+  type ProjectsResponse,
+} from "../src/api/types.js";
 import { buildAppDeps } from "../src/app.js";
-import { generateInitialAdminPassword } from "../src/auth/service.js";
 import {
   apiClient,
   createTestApp,
@@ -56,6 +59,7 @@ describe("auth", () => {
 
   it("seeded admin manages default_project; initial password carries the flag", async () => {
     const admin = await loginAdmin(t.app);
+    expect(admin.user.userId).toBe("traveler");
     expect(admin.user.isAdmin).toBe(true);
     expect(admin.user.passwordIsInitial).toBe(true);
     const api = apiClient(t.app, admin.cookie);
@@ -170,13 +174,18 @@ describe("auth", () => {
     expect(got.prefs.theme).toBe("dark");
   });
 
-  it("seedAdmin without an injected password generates penguin-<4 digits> and returns it", async () => {
-    // Bypass the fixed test password: null matches the production default (random generation).
+  it("seedAdmin without an injected password seeds the fixed public default and returns it", async () => {
+    // Bypass the test override: null is what a real installation runs with.
     const fresh = await createTestApp({ config: { seedAdminPassword: null } });
     try {
-      expect(fresh.adminPassword).toMatch(/^penguin-\d{4}$/);
-      // The returned password is the one that actually logs in.
-      await loginUser(fresh.app, "admin", fresh.adminPassword);
+      expect(fresh.adminPassword).toBe(INITIAL_ADMIN_CREDENTIALS.password);
+      // The documented pair is the one that actually logs in, flagged as initial.
+      const login = await loginUser(
+        fresh.app,
+        INITIAL_ADMIN_CREDENTIALS.userId,
+        INITIAL_ADMIN_CREDENTIALS.password,
+      );
+      expect(login.user).toMatchObject({ isAdmin: true, passwordIsInitial: true });
       // Users exist now: re-seeding reports that nothing was seeded.
       expect(await fresh.deps.authService.seedAdmin()).toBeNull();
     } finally {
@@ -184,11 +193,17 @@ describe("auth", () => {
     }
   });
 
-  it("seedAdmin honors the injected seedAdminPassword", async () => {
-    const fresh = await createTestApp({ config: { seedAdminPassword: "penguin-7777" } });
+  it("seedAdmin honors the injected seedAdminPassword and rejects the default then", async () => {
+    const fresh = await createTestApp({ config: { seedAdminPassword: "pinned-7777" } });
     try {
-      expect(fresh.adminPassword).toBe("penguin-7777");
-      await loginUser(fresh.app, "admin", "penguin-7777");
+      expect(fresh.adminPassword).toBe("pinned-7777");
+      await loginUser(fresh.app, "traveler", "pinned-7777");
+      const withDefault = await fresh.app.request("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(INITIAL_ADMIN_CREDENTIALS),
+      });
+      expect(withDefault.status).toBe(401);
     } finally {
       await fresh.cleanup();
     }
@@ -216,7 +231,7 @@ describe("auth", () => {
         fresh.app.request("/api/auth/login", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ userId: "admin", password }),
+          body: JSON.stringify({ userId: "traveler", password }),
         });
       // Five free failures, and the sixth still reaches verification (backoff starts after it).
       for (let i = 0; i < 6; i++) expect((await attempt("wrong-password")).status).toBe(401);
@@ -228,7 +243,7 @@ describe("auth", () => {
       expect((await attempt(TEST_ADMIN_PASSWORD)).status).toBe(429);
       // Past the window, the correct password signs in and clears the counter…
       clock += 1100;
-      await loginUser(fresh.app, "admin", TEST_ADMIN_PASSWORD);
+      await loginUser(fresh.app, "traveler", TEST_ADMIN_PASSWORD);
       // …so the next failure is an ordinary 401 again, not a 429.
       expect((await attempt("wrong-password")).status).toBe(401);
     } finally {
@@ -256,10 +271,9 @@ describe("auth", () => {
     }
   });
 
-  it("generateInitialAdminPassword matches penguin-<4 digits>", () => {
-    for (let i = 0; i < 32; i++) {
-      expect(generateInitialAdminPassword()).toMatch(/^penguin-\d{4}$/);
-    }
+  it("the fixed default satisfies the password policy it is seeded under", () => {
+    expect(INITIAL_ADMIN_CREDENTIALS.userId).toBe("traveler");
+    expect(INITIAL_ADMIN_CREDENTIALS.password.length).toBeGreaterThanOrEqual(8);
   });
 
   it("PUT prefs shallow-merges without clobbering other writers' fields", async () => {

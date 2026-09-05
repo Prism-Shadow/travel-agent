@@ -145,6 +145,32 @@ describe("TaskSupervisor", () => {
     expect(applied).toEqual([[state("session-1", "task-a")]]);
   });
 
+  it("reports a persisting failure once, and again only when it changes or clears", async () => {
+    // The common case is a window on the login page while the pane holds restored tabs: every
+    // tick is a 401 until the person signs in. One line says so; one per tick buries everything
+    // else the shell prints.
+    const script: Array<string | null> = ["401", "401", "401", "ECONNREFUSED", null, null, "401"];
+    const log: string[] = [];
+    const supervisor = new TaskSupervisor({
+      fetchState: async () => {
+        const next = script.shift();
+        if (next) throw new Error(`the server answered ${next}`);
+        return [state("session-1", null)];
+      },
+      sessionsOfInterest: () => ["session-1"],
+      apply: () => {},
+      log: (message) => log.push(message.trim()),
+    });
+
+    for (let i = 0; i < 7; i++) await supervisor.reconcile();
+    expect(log).toEqual([
+      "[iab] could not reconcile task state: the server answered 401 (retrying every tick; repeats are not logged)",
+      "[iab] could not reconcile task state: the server answered ECONNREFUSED (retrying every tick; repeats are not logged)",
+      "[iab] task state reconciled again (was: the server answered ECONNREFUSED)",
+      "[iab] could not reconcile task state: the server answered 401 (retrying every tick; repeats are not logged)",
+    ]);
+  });
+
   it("answers a caller about the conversation it asked about, not the one in flight", async () => {
     // The race: a tick goes out while only conversation A has tabs, so it asks about A alone. A
     // turn then starts in B and its first `tabs.open()` waits for a refresh. Joining the tick

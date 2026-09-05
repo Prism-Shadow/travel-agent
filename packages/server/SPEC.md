@@ -25,14 +25,28 @@ Two things live here, and keeping them distinguishable is this module's main dis
 
 ## What it owns
 
+- **The built-in administrator is `traveler`, and every fresh data root seeds it with the fixed
+  password `traveler-2026`** — `INITIAL_ADMIN_CREDENTIALS`, exported from the API contract so
+  the login page shows the same pair the seed writes. The default is public by decision
+  ([fixed initial credentials](../../docs/decisions/implemented/2026-09-05-fixed-initial-credentials.md));
+  the account carries `passwordIsInitial` until the password is changed, web mode re-prints the
+  reminder on every start until then, and `PENGUIN_SEED_ADMIN_PASSWORD` overrides the password
+  for tests and deployments that must not start on the default. Desktop mode seeds the same
+  value; its window signs in by token and never needs it. There is no upgrade path from the
+  inherited `admin` name: nothing has been installed, so no data root carries it. The
+  inherited-baseline decision is recorded
+  [here](../../docs/decisions/implemented/2026-09-05-traveler-administrator-identity.md).
 - **The Trip.** A row in the server's index that *owns* a directory rather than being one, so a
   conversation's membership is a nullable `sessions.trip_id` and attach / move / detach never touch
   a Session's `workspace`. The reasoning, the four engine invariants that forced it, and the six
   rejected alternatives are in
   [the decision note](../../docs/decisions/implemented/2026-08-26-trip-as-server-entity-owning-a-directory.md);
   they are not restated here.
+- **Trip directory allocation.** Readable basenames try the bare name and numeric suffixes
+  through `-50`, then use an atomically created random suffix. Occupied names never impose a
+  fixed creation ceiling or reuse another Trip's files; real filesystem failures propagate.
 - **The split of ownership inside a trip directory.** The server writes what it renders — the row
-  and its `trip.json` mirror; the model owns `itinerary.md` and everything else the work produces.
+  and its `trip.json` mirror, including user-maintained shared notes (up to 8,000 characters); the model owns `itinerary.md` and everything else the work produces.
   The server never edits the model's documents. It deletes a trip directory only when nothing but
   its own `trip.json` is in it.
 - **The one field the model may write back.** The model may set `destination` in `trip.json` when

@@ -52,7 +52,8 @@ describe("admin users backend", () => {
         .status,
     ).toBe(409);
     expect(
-      (await admin.post("/api/admin/users", { userId: "admin", password: "password-123" })).status,
+      (await admin.post("/api/admin/users", { userId: "traveler", password: "password-123" }))
+        .status,
     ).toBe(409);
   });
 
@@ -69,7 +70,7 @@ describe("admin users backend", () => {
   it("user list: seeded admin and newly created user, all fields present", async () => {
     await provisionUser(t.app, "kate");
     const list = (await (await admin.get("/api/admin/users")).json()) as AdminUsersResponse;
-    expect(list.users.map((u) => u.userId)).toEqual(["admin", "kate"]);
+    expect(list.users.map((u) => u.userId)).toEqual(["traveler", "kate"]);
     const a = list.users[0]!;
     expect(a.isAdmin).toBe(true);
     expect(a.passwordIsInitial).toBe(true);
@@ -116,7 +117,7 @@ describe("admin users backend", () => {
     expect((await goneApi.get("/api/me")).status).toBe(401);
     await expect(loginUser(t.app, "gone", "password-123")).rejects.toThrow();
     const list = (await (await admin.get("/api/admin/users")).json()) as AdminUsersResponse;
-    expect(list.users.map((u) => u.userId)).toEqual(["admin"]);
+    expect(list.users.map((u) => u.userId)).toEqual(["traveler"]);
 
     // Both the DB row and the directory for the owned Project are gone.
     const rows = t.deps.db.prepare("SELECT project_id FROM projects ORDER BY project_id").all();
@@ -128,11 +129,11 @@ describe("admin users backend", () => {
     const members = (await (
       await admin.get("/api/projects/default_project/members")
     ).json()) as MembersResponse;
-    expect(members.members.map((m) => m.userId)).toEqual(["admin"]);
+    expect(members.members.map((m) => m.userId)).toEqual(["traveler"]);
   });
 
   it("built-in admin cannot be deleted; unknown user 404", async () => {
-    expect((await admin.delete("/api/admin/users/admin")).status).toBe(409);
+    expect((await admin.delete("/api/admin/users/traveler")).status).toBe(409);
     expect((await admin.delete("/api/admin/users/ghost")).status).toBe(404);
   });
 });

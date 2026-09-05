@@ -27,7 +27,8 @@ import {
   IAB_KEY,
   browserRelayPort,
   iabInstallId,
-  relayMovedOffConventionalPort,
+  browserExtensionAvailable,
+  onBrowserExtensionAvailability,
   startBrowserRelay,
   stopBrowserRelay,
   revealBrowserExtension,
@@ -249,15 +250,16 @@ function createWindow(url: string): void {
       // in-app browser session — so it is persisted where that process looks. Per conversation,
       // because two chats can legitimately want different browsers.
       initialBackends: readAllBackendPreferences(),
-      // The extension connects to the conventional relay port, which this run may not own. Every
-      // command the agent runs resolves *this* relay, so offering a backend that lives on another
-      // one would produce a conversation whose browser sessions cannot be created.
-      // Two conditions, both real. The flag is the product decision that the Chrome backend is
-      // offered at all; the port is whether it could work in this run.
-      extensionBackendAvailable: chromeFallbackEnabled && !relayMovedOffConventionalPort(),
+      // Availability follows this application's registered connection helper, not a shared port.
+      extensionBackendAvailable: chromeFallbackEnabled && browserExtensionAvailable(),
       onBackendChange: (sessionId, backend) => writeBackendPreference(sessionId, backend),
       onBackendSelected: (backend) => {
-        if (backend === "extension") void revealBrowserExtensionStatus(win, relayPort);
+        if (backend !== "extension") return;
+        const scope = pane.state().sessionScope;
+        void revealBrowserExtensionStatus(win, relayPort, () => {
+          const current = pane.state();
+          return current.sessionScope === scope && current.backend === "extension";
+        });
       },
       // Feeds the address bar's completion. Goes through the importer because it owns the history
       // store's lifetime — the import fills it, ordinary browsing keeps it current.
@@ -287,6 +289,10 @@ function createWindow(url: string): void {
       log: (message) => process.stdout.write(message),
     });
     browserPane = pane;
+    const stopWatchingAvailability = onBrowserExtensionAvailability((available) => {
+      pane.setExtensionBackendAvailable(chromeFallbackEnabled && available);
+    });
+    win.once("closed", stopWatchingAvailability);
 
     // The authority for which turns are running, owned here rather than in the renderer: the chat
     // page disposes its stream on a route change and a reload takes its bookkeeping with it, so a

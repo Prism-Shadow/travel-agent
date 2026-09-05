@@ -120,7 +120,8 @@ test("trip constraint dialogs use content-sized layouts and stable confirmation"
   ).toBeVisible();
   // The exact total: digits only in the field, the formatted form on the chip, and the
   // sharper fact wins the pill over the tier.
-  await dialog.getByLabel("Total budget").fill("20000");
+  const amountInput = dialog.getByRole("textbox", { name: /^Total budget/ });
+  await amountInput.fill("20000");
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: "$20,000", exact: true })).toBeVisible();
@@ -129,7 +130,56 @@ test("trip constraint dialogs use content-sized layouts and stable confirmation"
   // as yen — and the tier scale follows the currency the budget now counts in.
   await page.getByRole("button", { name: "$20,000", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Currency", { exact: true }).selectOption("CNY");
+  const currency = dialog.getByRole("combobox", { name: "Currency", exact: true });
+  const currencies = page.getByRole("listbox", { name: "Currency", exact: true });
+  await currency.click();
+  await expect(currencies.getByRole("option")).toHaveCount(10);
+  await expect(currencies.getByRole("option", { selected: true })).toContainText("USD");
+  await currencies.getByRole("option", { name: "CNY Chinese Yuan", exact: true }).click();
+  await expect(currencies).toHaveCount(0);
+  await expect(currency).toBeFocused();
+  await expect(amountInput).toHaveValue("20000");
+
+  // Browsing with the keyboard and dismissing the menu must not silently commit a currency.
+  await currency.press("ArrowDown");
+  await currency.press("End");
+  await expect(
+    currencies.getByRole("option", { name: "THB Thai Baht", exact: true }),
+  ).toBeInViewport();
+  await currency.press("Escape");
+  await expect(currencies).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(currency).toHaveText("CNY");
+  await currency.press("ArrowUp");
+  await currency.press("Home");
+  await currency.press("ArrowDown");
+  await currency.press("Enter");
+  await expect(currency).toHaveText("USD");
+  await currency.press("c");
+  await currency.press("Enter");
+  await expect(currency).toHaveText("CNY");
+
+  await currency.click();
+  await currency.press("Tab");
+  await expect(currencies).toHaveCount(0);
+  await expect(amountInput).toBeFocused();
+
+  // The same menu stays inside a narrow viewport, including its last currency.
+  await page.setViewportSize({ width: 390, height: 700 });
+  await currency.click();
+  await expect(currencies).toBeVisible();
+  const menuBox = await currencies.boundingBox();
+  expect(menuBox.x).toBeGreaterThanOrEqual(0);
+  expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(390);
+  expect(menuBox.y).toBeGreaterThanOrEqual(0);
+  expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(700);
+  await currency.press("End");
+  await expect(
+    currencies.getByRole("option", { name: "THB Thai Baht", exact: true }),
+  ).toBeInViewport();
+  await amountInput.click();
+  await expect(currencies).toHaveCount(0);
+  await expect(currency).toHaveText("CNY");
   await expect(
     dialog.getByRole("radio", { name: "sensibly priced (¥¥)", exact: true }),
   ).toHaveAttribute("aria-checked", "true");

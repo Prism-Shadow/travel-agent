@@ -27,7 +27,21 @@ export const zh = {
     settings: "设置",
   },
 
-  /** 行程：产品的第一对象。侧边栏、行程卡片与归属菜单共用这组文案。 */
+  saved: {
+    title: "收藏",
+    backToSaved: "返回收藏",
+    description: "值得再次打开的对话，集中保存在这里。",
+    count: (n: number) => `${n} 段收藏的对话`,
+    emptyTitle: "还没有收藏的对话",
+    emptyDescription: "点击侧边栏对话旁的书签按钮，就能将它收藏到这里。",
+    loadFailed: "部分收藏的对话未能加载，请重试。",
+    retry: "重试",
+    more: "加载更多对话",
+    actions: "对话操作",
+    createdOn: (date: string) => `创建于 ${date}`,
+  },
+
+  /** Trips: the product's first-class object, shared by navigation and trip surfaces. */
   trip: {
     trips: "行程",
     newTrip: "新行程",
@@ -39,6 +53,7 @@ export const zh = {
     openTrip: "打开行程",
     notFound: "找不到这个行程。它可能已在别处被删除。",
     backToChat: "返回对话",
+    backToTrips: "返回我的行程",
     rename: "重命名",
     deleteTrip: "删除行程",
     deleteTripConfirm: (name: string) =>
@@ -52,6 +67,62 @@ export const zh = {
     removeFromTrip: "移出行程",
     folderMissing: (dir: string) => `找不到行程文件夹：${dir}`,
     folderMissingShort: "文件夹已移动或删除",
+    flow: {
+      add: "加入行程",
+      new: "新建行程",
+      existing: "加入已有行程",
+      joinTitle: "加入我的行程",
+      joinDescription: "保留当前对话，加入后继续在这里聊。",
+      createAndJoin: "建立行程并继续",
+      joinAndContinue: "加入并继续",
+      keepChatting: "继续聊聊",
+      name: "行程名称",
+      namePlaceholder: "例如：京都五日游",
+      nameRequired: "请填写行程名称。",
+      sharedTitle: "共享行程资料",
+      sharedHint: "目的地、日期、同行人、预算和备注会带入这趟行程的每段对话。",
+      notes: "行程备注",
+      notesPlaceholder: "已确定的安排、住宿偏好、出行节奏…",
+      noNotes: "把想让每个话题都知道的安排和偏好记在这里。",
+      edit: "编辑资料",
+      newTopic: "新对话",
+      topicHint: "共享行程资料，各话题保留独立聊天记录",
+      topicPrompts: {
+        accommodation: { label: "住宿", prompt: "帮我比较这趟行程的住宿选择。" },
+        transport: { label: "交通", prompt: "帮我规划这趟行程的交通安排。" },
+        days: { label: "每天怎么玩", prompt: "帮我按轻松的节奏安排这趟行程的每一天。" },
+      },
+      startHint: "对话自动保留 · 准备好后再加入行程",
+      loose: "独立对话 · 尚未加入行程",
+      topicsHint: "同一个话题接着聊，住宿、交通等不同话题可以分开讨论。",
+      chooseTrip: "选择行程",
+      noTargets: "还没有行程，可以先新建一个。",
+      attachFailed: "行程已建立，但对话尚未加入。请重试加入，或继续独立聊天。",
+      joined: "对话已加入行程",
+      filesHint: "已有文件保留在原位置，可从当前对话继续访问。",
+      saved: "行程资料已保存",
+      loadingError: "暂时无法读取行程资料，请重试。",
+      topicSubtitle: (name: string) => `已经带入「${name}」的行程资料。`,
+    },
+    overview: {
+      title: "我的行程",
+      subtitle: "按出发时间整理，随时继续准备",
+      newTrip: "新建行程",
+      upcoming: "即将出发",
+      underwayAndUpcoming: "进行中与即将出发",
+      unscheduled: "时间未定",
+      past: "过去的行程",
+      viewTrip: "查看行程",
+      inProgress: "旅途中",
+      departed: "已出发",
+      datesNotSet: "日期未定",
+      emptyTitle: "下一段旅程，从这里开始",
+      emptyDescription: "告诉我想去哪里，一起把旅行的想法变成行程。",
+      emptyHint: "目的地和日期还没想好也没关系。",
+      loadError: "暂时无法加载行程，请重试。",
+      retry: "重新加载",
+      loading: "正在加载行程…",
+    },
     meta: {
       dateRange: (start: string, end: string) => `${start} 至 ${end}`,
       dateFrom: (start: string) => `${start} 出发`,
@@ -74,6 +145,29 @@ export const zh = {
   },
 
   settings: {
+    appearance: "外观",
+    regional: "语言与地区",
+    security: "账户与安全",
+    advanced: "高级设置",
+    about: "关于",
+    appearanceHint: "按你的习惯调整 Travel Agent 的显示效果。",
+    regionalHint: "选择界面语言和金额的显示方式。",
+    securityHint: "管理账户，以及旅行中使用的个人资料。",
+    advancedHint: "配置此服务的网络连接。",
+    aboutHint: "查看当前版本和可用更新。",
+    savedAutomatically: "偏好设置会自动保存在此设备上。",
+    fontSmallLabel: "小",
+    fontMediumLabel: "标准",
+    fontLargeLabel: "大",
+    currencyHint: "用于新预算的默认币种和模型费用显示，已有行程的预算币种保持原值。",
+    languageHint: "跟随系统会使用浏览器或设备的语言。",
+    adminOnly: "仅管理员可用",
+    proxyHint: "修改会影响此服务的所有用户及其 Agent 任务。",
+    profileUnavailable: "当前版本暂不支持编辑个人资料。",
+    viewProfileStatus: "查看可用状态",
+    desktopUpdates: "桌面版更新由桌面应用管理。",
+    userManagement: "用户管理",
+    accountMenu: "账户菜单",
     language: "语言",
     /** Admin-only user-menu row opening the proxy options dialog. */
     proxyMenu: "代理选项",
@@ -185,14 +279,27 @@ export const zh = {
     login: "登录",
     logout: "登出",
     admin: "管理员",
-    defaultAdminNote:
-      "首次使用请以内置管理员 admin 登录，初始密码在服务端首次启动时打印（形如 penguin-1234），登录后请尽快修改密码",
+    initialUsername: "初始账号",
+    initialPassword: "初始密码",
+    journey: {
+      welcome: "欢迎回来",
+      signInHint: "登录，继续你的下一段旅程。",
+      cities: {
+        newYork: "纽约",
+        london: "伦敦",
+        shanghai: "上海",
+        tokyo: "东京",
+        singapore: "新加坡",
+        sydney: "悉尼",
+      },
+    },
+    defaultAdminNote: "每个新安装都使用这组初始凭据。首次登录后请修改密码。",
   },
 
   account: {
     changePassword: "修改密码",
     oldPassword: "当前密码",
-    oldPasswordHint: "内置管理员的初始密码在服务端首次启动时打印（形如 penguin-1234）",
+    oldPasswordHint: "内置管理员的初始密码在服务端首次启动时打印（形如 travel-1234）",
     newPassword: "新密码",
     confirmPassword: "确认新密码",
     passwordMismatch: "两次输入的新密码不一致",
@@ -923,6 +1030,21 @@ export const zh = {
       clearProfile: "清除浏览器数据并退出登录",
       clearProfileConfirm:
         "将清除本应用内置浏览器的全部 Cookie 与存储，并关闭所有标签页。你在这些网站的登录状态会丢失。",
+      chooseBrowser: "选择浏览器",
+      choiceTitle: "本次对话使用的浏览器",
+      choiceHint: "从第一条消息开始生效，每次新对话默认使用应用内浏览器。",
+      choiceIabHint: "在桌面应用中，与对话并排查看网页。",
+      choiceChrome: "Chrome 扩展",
+      choiceChromeHint: "使用自己的 Chrome 和网站登录状态；未连接时会打开配置说明。",
+      choiceUnavailable: "暂不可用",
+      choiceUnavailableHint: "Chrome 连接助手尚未就绪。请重启更新后的 Travel Agent 完成配置。",
+      choiceSaving: "正在切换浏览器…",
+      connectionReadyTitle: "Chrome 已连接",
+      connectionReadyBody:
+        "告诉 Travel Agent 你的旅行需求，接下来就能在 Chrome 中打开网页、开始任务。",
+      connectionExistingTabTitle: "想使用已打开的网页？",
+      connectionExistingTabHint: "在那个标签页点击 Travel Browser 扩展图标，即可授权助手使用该页。",
+      connectionContinue: "继续对话",
       backend: "浏览器后端",
       backendIab: "应用内浏览器",
       backendExtension: "我自己的 Chrome（扩展）",
@@ -935,7 +1057,7 @@ export const zh = {
       chromePanelBody:
         "下一项 Agent 任务会在 Chrome 中创建并控制自己的标签页。这里不会镜像 Chrome，也不会自动转移应用内浏览器的当前页面。",
       chromePanelUnavailable:
-        "Chrome 目前不可连接。请从右上角菜单改选应用内浏览器，或解决中继端口冲突后重启应用。",
+        "当前应用无法连接 Chrome。请重启 Travel Agent 并检查 Travel Browser 的连接设置。你也可以在任务结束后改选应用内浏览器。",
       chromePanelIabSafe: "应用内浏览器的页面仍会保留；改选回来即可继续查看。",
       chromePanelCheck: "检查或设置 Chrome 扩展",
       inAppBrowserData: "应用内浏览器数据",
@@ -1020,7 +1142,7 @@ export const zh = {
     tempWorkspaces: "临时工作区",
     newSessionInWorkspace: "在此工作区新建对话",
     draftGreeting: (name: string) => `今天想去哪里${name ? `，${name}` : ""}？`,
-    draftSubtitle: "告诉我想去哪里，我会替你搜索、比较，并把关键取舍讲清楚。",
+    draftSubtitle: "有了计划就一起安排，还没想好也可以先聊聊。",
     draftPrompt: "从一个想法开始",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations).
     // The returning-state rail leads with the person's own next trips (up to three), rendered
@@ -1069,6 +1191,9 @@ export const zh = {
     // trip-constraints.ts) + chip/popover UI copy. "预算" here is the trip's price TIER —
     tripChips: {
       lineFolder: "行程文件夹：",
+      lineShared: "当前行程资料（以此为准，未列出的条件尚未确定）：",
+      lineNotes: "行程备注：",
+      notesEmpty: "暂无",
       lineWhere: "目的地：",
       lineWhen: "日期：",
       lineWho: "人数：",
@@ -1409,8 +1534,8 @@ export const zh = {
     deleteDraft: "删除草稿",
     deleteDraftConfirm: (title: string) => `确定删除草稿「${title}」？未发送的内容将被丢弃。`,
     // The archive action is presented as "Saved": a conversation the person set aside on
-    // purpose and wants to find again, kept under its trip. The wire field, the category and
-    // the folder key stay `archived`; only the words changed.
+    // purpose and wants to find again on /saved. Trip membership and the wire field/category
+    // `archived` are preserved.
     archiveSession: "收藏",
     unarchiveSession: "取消收藏",
     /** Sidebar group "reveal/load next page" row (display cap + server paging). */

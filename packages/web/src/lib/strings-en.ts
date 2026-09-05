@@ -25,6 +25,20 @@ export const en: Strings = {
     settings: "Settings",
   },
 
+  saved: {
+    title: "Saved",
+    backToSaved: "Back to Saved",
+    description: "Conversations worth coming back to, all in one place.",
+    count: (n: number) => `${n} saved ${n === 1 ? "conversation" : "conversations"}`,
+    emptyTitle: "No saved conversations yet",
+    emptyDescription: "Use the bookmark beside a conversation in the sidebar to keep it here.",
+    loadFailed: "Some saved conversations could not be loaded. Try again.",
+    retry: "Try again",
+    more: "Load more conversations",
+    actions: "Conversation actions",
+    createdOn: (date: string) => `Started ${date}`,
+  },
+
   /** Trips: the product's first-class object. Shared by the sidebar, trip cards and the move menu. */
   trip: {
     trips: "Trips",
@@ -33,10 +47,11 @@ export const en: Strings = {
     untitled: "Untitled trip",
     /** Conversations belonging to no trip — an ordinary state, not a backlog. */
     scratch: "Loose questions",
-    newChatInTrip: "New conversation in this trip",
+    newChatInTrip: "New chat in this trip",
     openTrip: "Open trip",
     notFound: "This trip no longer exists. It may have been deleted elsewhere.",
     backToChat: "Back to chat",
+    backToTrips: "Back to My trips",
     rename: "Rename",
     deleteTrip: "Delete trip",
     deleteTripConfirm: (name: string) =>
@@ -51,6 +66,72 @@ export const en: Strings = {
     removeFromTrip: "Remove from trip",
     folderMissing: (dir: string) => `Trip folder not found: ${dir}`,
     folderMissingShort: "Folder moved or deleted",
+    flow: {
+      add: "Add to trip",
+      new: "Create a trip",
+      existing: "Join an existing trip",
+      joinTitle: "Add to my trips",
+      joinDescription: "Keep this conversation and continue it inside a trip.",
+      createAndJoin: "Create trip and continue",
+      joinAndContinue: "Join and continue",
+      keepChatting: "Keep chatting",
+      name: "Trip name",
+      namePlaceholder: "For example: Five days in Kyoto",
+      nameRequired: "Enter a trip name.",
+      sharedTitle: "Shared trip details",
+      sharedHint:
+        "Destination, dates, travellers, budget and notes carry into each conversation in this trip.",
+      notes: "Trip notes",
+      notesPlaceholder: "Confirmed plans, accommodation preferences, travel pace…",
+      noNotes: "Keep the plans and preferences you want every topic to know here.",
+      edit: "Edit details",
+      newTopic: "New chat",
+      topicHint: "Shared trip details, separate conversation histories",
+      topicPrompts: {
+        accommodation: {
+          label: "Accommodation",
+          prompt: "Help me compare accommodation options for this trip.",
+        },
+        transport: { label: "Transport", prompt: "Help me plan transport for this trip." },
+        days: {
+          label: "Daily plans",
+          prompt: "Help me arrange the days of this trip at a comfortable pace.",
+        },
+      },
+      startHint: "Conversations are saved · Add to a trip when you are ready",
+      loose: "Independent conversation · Not in a trip",
+      topicsHint:
+        "Continue the same topic, or discuss accommodation, transport and daily plans separately.",
+      chooseTrip: "Choose a trip",
+      noTargets: "No trips yet. Create one to get started.",
+      attachFailed:
+        "The trip was created, but this conversation has not joined it. Retry joining or keep chatting independently.",
+      joined: "Conversation added to trip",
+      filesHint: "Existing files stay in place and remain accessible from this conversation.",
+      saved: "Trip details saved",
+      loadingError: "Trip details could not be loaded. Please retry.",
+      topicSubtitle: (name: string) =>
+        `Trip details from “${name}” are ready for this conversation.`,
+    },
+    overview: {
+      title: "My trips",
+      subtitle: "Organized by departure, ready when you are",
+      newTrip: "New trip",
+      upcoming: "Upcoming",
+      underwayAndUpcoming: "In progress & upcoming",
+      unscheduled: "Dates not set",
+      past: "Past trips",
+      viewTrip: "View trip",
+      inProgress: "In progress",
+      departed: "Departed",
+      datesNotSet: "Dates not set",
+      emptyTitle: "Your next journey starts here",
+      emptyDescription: "Tell me where you want to go. Let's turn your travel ideas into a trip.",
+      emptyHint: "Still deciding where or when? That's a good start, too.",
+      loadError: "We couldn't load your trips. Please try again.",
+      retry: "Try again",
+      loading: "Loading trips…",
+    },
     meta: {
       dateRange: (start: string, end: string) => `${start} – ${end}`,
       dateFrom: (start: string) => `from ${start}`,
@@ -73,6 +154,30 @@ export const en: Strings = {
   },
 
   settings: {
+    appearance: "Appearance",
+    regional: "Language & region",
+    security: "Account & security",
+    advanced: "Advanced",
+    about: "About",
+    appearanceHint: "Make Travel Agent feel at home on your screen.",
+    regionalHint: "Choose how languages and amounts appear.",
+    securityHint: "Your account and the personal details used for travel.",
+    advancedHint: "Connection settings for this service.",
+    aboutHint: "Version information and available updates.",
+    savedAutomatically: "Preferences save automatically on this device.",
+    fontSmallLabel: "Small",
+    fontMediumLabel: "Standard",
+    fontLargeLabel: "Large",
+    currencyHint:
+      "Defaults new budgets and the model-cost display. Existing trip budgets keep their currency.",
+    languageHint: "System follows your browser or device language.",
+    adminOnly: "Administrator access required",
+    proxyHint: "Changes apply to this service and its agent tasks, for all users.",
+    profileUnavailable: "Profile editing is not available in this build.",
+    viewProfileStatus: "View availability",
+    desktopUpdates: "Desktop updates are managed by the desktop app.",
+    userManagement: "User management",
+    accountMenu: "Account menu",
     language: "Language",
     /** Admin-only user-menu row opening the proxy options dialog. */
     proxyMenu: "Proxy options…",
@@ -186,15 +291,29 @@ export const en: Strings = {
     login: "Sign in",
     logout: "Sign out",
     admin: "Admin",
+    initialUsername: "Initial username",
+    initialPassword: "Initial password",
+    journey: {
+      welcome: "Welcome back",
+      signInHint: "Sign in. Your next journey is waiting.",
+      cities: {
+        newYork: "New York",
+        london: "London",
+        shanghai: "Shanghai",
+        tokyo: "Tokyo",
+        singapore: "Singapore",
+        sydney: "Sydney",
+      },
+    },
     defaultAdminNote:
-      "First run: sign in as the built-in admin “admin” with the initial password printed in the server startup output (looks like penguin-1234), then change it soon",
+      "Every new installation starts with these. Change the password after your first sign-in.",
   },
 
   account: {
     changePassword: "Change password",
     oldPassword: "Current password",
     oldPasswordHint:
-      "The built-in admin's initial password is printed in the server startup output (looks like penguin-1234)",
+      "The built-in admin's initial password is printed in the server startup output (looks like travel-1234)",
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     passwordMismatch: "New passwords do not match",
@@ -980,6 +1099,23 @@ export const en: Strings = {
       clearProfile: "Clear browser data and sign out",
       clearProfileConfirm:
         "This clears every cookie and storage entry in the in-app browser and closes its tabs. You will be signed out of the sites you were using.",
+      chooseBrowser: "Choose browser",
+      choiceTitle: "Browser for this chat",
+      choiceHint: "Applies from the first message. Each new chat starts with the in-app browser.",
+      choiceIabHint: "Browse beside this conversation in the desktop app.",
+      choiceChrome: "Chrome extension",
+      choiceChromeHint: "Use your Chrome profile and website sign-ins. Setup opens if needed.",
+      choiceUnavailable: "Unavailable",
+      choiceUnavailableHint:
+        "The Chrome connection helper is not ready. Restart the updated Travel Agent app to finish setup.",
+      choiceSaving: "Switching browser…",
+      connectionReadyTitle: "Chrome is connected",
+      connectionReadyBody:
+        "Tell Travel Agent what you need. Your next task can open pages in Chrome.",
+      connectionExistingTabTitle: "Use a page you already opened?",
+      connectionExistingTabHint:
+        "Click the Travel Browser extension icon on that tab to let the agent use it.",
+      connectionContinue: "Continue chatting",
       backend: "Browser backend",
       backendIab: "In-app browser",
       backendExtension: "My own Chrome (extension)",
@@ -993,7 +1129,7 @@ export const en: Strings = {
       chromePanelBody:
         "The next agent task creates and controls its own tabs in Chrome. This pane does not mirror Chrome or transfer the current in-app page.",
       chromePanelUnavailable:
-        "Chrome cannot connect right now. Choose the in-app browser from the top-right menu, or resolve the relay-port conflict and restart the app.",
+        "Chrome is unavailable for this app. Restart Travel Agent and check the Travel Browser connection settings. You can choose the in-app browser between tasks.",
       chromePanelIabSafe:
         "Your in-app browser pages are still saved; choose it again to keep viewing them.",
       chromePanelCheck: "Check or set up the Chrome extension",
@@ -1081,7 +1217,7 @@ export const en: Strings = {
     newSessionInWorkspace: "New chat in this workspace",
     draftGreeting: (name: string) => `Where to today${name ? `, ${name}` : ""}?`,
     draftSubtitle:
-      "Tell me where you want to go. I’ll search, compare, and make the trade-offs clear.",
+      "Have a plan? Let's work it out together. Still deciding? We can start with a conversation.",
     draftPrompt: "Start with an idea",
     // Draft-screen "Jump back in" rail heading (recent resumable conversations).
     // The returning-state rail leads with the person's own next trips (up to three), rendered
@@ -1130,6 +1266,9 @@ export const en: Strings = {
     // trip-constraints.ts) + chip/popover UI copy. "Budget" is the trip's price TIER —
     tripChips: {
       lineFolder: "Trip folder: ",
+      lineShared: "Current trip details (use these; unlisted constraints are not set): ",
+      lineNotes: "Trip notes: ",
+      notesEmpty: "None",
       lineWhere: "Where: ",
       lineWhen: "When: ",
       lineWho: "Who: ",

@@ -179,6 +179,14 @@ needed.
 
 ## Testing and verification
 
+- **Copy macOS app bundles with preserved relative symlinks before changing fuses or signatures.**
+  Use `ditto` or `fs.cp` with `verbatimSymlinks: true`, and verify the copied framework resolves
+  inside the copy. Default `fs.cp` can leave links pointing into the source app; fuse changes then
+  mutate the installed test runtime. Record its fuse state before and after the experiment.
+- **Finish staging before starting package test discovery.** `pnpm deploy` temporarily copies
+  source tests into `stage/app` before pruning them. Running Vitest during that interval discovers
+  a second, incomplete suite. Build/stage mutations and test discovery run sequentially.
+
 - A double that accepts fewer arguments than the real caller passes tests a world that cannot
   express the bug: when the platform hands your callback an object (Electron's `createWindow`
   gets `options.webContents`), the fake must hand it over too

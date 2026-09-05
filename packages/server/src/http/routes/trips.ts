@@ -138,6 +138,8 @@ function parseBudgetCurrency(body: Record<string, unknown>): TripCurrency | null
 
 function readTripFields(body: Record<string, unknown>): TripPatchRequest {
   const req: TripPatchRequest = {};
+  const notes = optionalString(body, "notes", { maxLen: 8000, label: "notes" });
+  if (notes !== undefined) req.notes = notes;
   const name = optionalString(body, "name", { maxLen: 120, label: "name" });
   if (name !== undefined) req.name = name;
   const destination = optionalString(body, "destination", { maxLen: 200, label: "destination" });

@@ -23,7 +23,9 @@ describe('extension tab group ownership', () => {
     if (!testCtx) throw new Error('Browser not initialized')
     const serviceWorker = await getExtensionServiceWorker(testCtx.browserContext)
 
-    // Reproduce the collision before Penguin Browser has attached any tab.
+    expect(await serviceWorker.evaluate(() => chrome.runtime.getManifest().name)).toBe('Travel Browser')
+
+    // Reproduce the collision before Travel Browser has attached any tab.
     const userGroup = await serviceWorker.evaluate(async () => {
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (activeTab?.id === undefined) throw new Error('No active tab')
@@ -37,7 +39,7 @@ describe('extension tab group ownership', () => {
 
       const groupId = await chrome.tabs.group({ tabIds: [userTab.id] })
       await chrome.tabGroups.update(groupId, {
-        title: 'penguin-browser',
+        title: 'Travel Browser',
         color: 'red',
         collapsed: true,
       })
@@ -168,7 +170,7 @@ describe('extension tab group ownership', () => {
         async () => {
           const groups = await readGroups()
           return groups.filter(
-            (group) => group.id !== userGroup.groupId && group.title === 'penguin-browser' && group.color === 'cyan',
+            (group) => group.id !== userGroup.groupId && group.title === 'Travel Browser' && group.color === 'cyan',
           ).length
         },
         { timeout: 10000 },
@@ -197,7 +199,7 @@ describe('extension tab group ownership', () => {
     expect(groupsWhileConnected.find((group) => group.id === userGroup.groupId)).toEqual({
       id: userGroup.groupId,
       windowId: userGroup.windowId,
-      title: 'penguin-browser',
+      title: 'Travel Browser',
       color: 'red',
       collapsed: true,
       tabIds: [userGroup.tabId],
@@ -210,15 +212,53 @@ describe('extension tab group ownership', () => {
       (group) => group.id !== userGroup.groupId && group.windowId === secondConnection.windowId,
     )
     expect(firstOwnedGroup).toMatchObject({
-      title: 'penguin-browser',
+      title: 'Travel Browser',
       color: 'cyan',
       tabIds: [firstConnection.tabId],
     })
     expect(secondOwnedGroup).toMatchObject({
-      title: 'penguin-browser',
+      title: 'Travel Browser',
       color: 'cyan',
       tabIds: [secondConnection.tabId],
     })
+
+    if (!secondOwnedGroup) throw new Error('Missing second owned group')
+    // A group remembered by the extension can still carry the previous build's
+    // title. Reconciliation must restyle that exact group without adopting a
+    // user-created group with either the old or new display name.
+    const legacy = await serviceWorker.evaluate(
+      async ({ windowId, ownedGroupId }) => {
+        await chrome.tabGroups.update(ownedGroupId, { title: 'penguin-browser', collapsed: true })
+        const userTab = await chrome.tabs.create({ windowId, url: 'about:blank', active: false })
+        if (userTab.id === undefined) throw new Error('Missing legacy user tab')
+        const userGroupId = await chrome.tabs.group({ tabIds: [userTab.id], createProperties: { windowId } })
+        await chrome.tabGroups.update(userGroupId, { title: 'penguin-browser', color: 'red', collapsed: true })
+        await chrome.windows.update(windowId, { focused: true })
+        const taskTab = await chrome.tabs.create({ windowId, url: 'about:blank', active: true })
+        if (taskTab.id === undefined) throw new Error('Missing task tab')
+        const connected = await globalThis.toggleExtensionForActiveTab()
+        if (!connected.isConnected) throw new Error('Task tab did not connect')
+        return { userGroupId, userTabId: userTab.id, taskTabId: taskTab.id }
+      },
+      { windowId: secondConnection.windowId, ownedGroupId: secondOwnedGroup.id },
+    )
+
+    await expect
+      .poll(async () => (await readGroups()).find((group) => group.id === secondOwnedGroup.id))
+      .toMatchObject({
+        title: 'Travel Browser',
+        color: 'cyan',
+        tabIds: [secondConnection.tabId, legacy.taskTabId].sort((a, b) => a - b),
+      })
+    const legacyUserGroup = {
+      id: legacy.userGroupId,
+      windowId: secondConnection.windowId,
+      title: 'penguin-browser',
+      color: 'red',
+      collapsed: true,
+      tabIds: [legacy.userTabId],
+    }
+    expect((await readGroups()).find((group) => group.id === legacy.userGroupId)).toEqual(legacyUserGroup)
 
     const ownedGroupIds = [firstOwnedGroup?.id, secondOwnedGroup?.id].filter((id): id is number => id !== undefined)
     expect(ownedGroupIds).toHaveLength(2)
@@ -237,10 +277,11 @@ describe('extension tab group ownership', () => {
       )
       .toBe(0)
 
+    expect((await readGroups()).find((group) => group.id === legacy.userGroupId)).toEqual(legacyUserGroup)
     expect((await readGroups()).find((group) => group.id === userGroup.groupId)).toEqual({
       id: userGroup.groupId,
       windowId: userGroup.windowId,
-      title: 'penguin-browser',
+      title: 'Travel Browser',
       color: 'red',
       collapsed: true,
       tabIds: [userGroup.tabId],

@@ -88,6 +88,11 @@ async function main() {
 
   await emit("packages/web/public/travel-agent-logo.svg", Buffer.from(canonical), stale);
   await emit(
+    "packages/web/public/travel-agent-penguin.svg",
+    Buffer.from(canonical.replace(/\s*<rect\b[^>]*data-brand-part="field"[^>]*\/>/, "")),
+    stale,
+  );
+  await emit(
     "packages/browser-extension/icons/travel-agent-logo.svg",
     Buffer.from(canonical),
     stale,

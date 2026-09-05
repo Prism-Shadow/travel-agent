@@ -187,7 +187,7 @@ export function BrowserImportDialog({ open, onClose }: { open: boolean; onClose:
       headerless
       widthClass="max-w-[380px]"
       overlayClassName="!items-center !p-4"
-      panelClassName="!rounded-[18px] border-gray-200! !pb-0 shadow-2xl dark:!border-gray-800"
+      panelClassName="rounded-dialog! pb-0!"
       contentClassName="!max-h-[calc(100vh-2rem)] !px-5 !py-6"
     >
       <div className="relative">

@@ -68,7 +68,7 @@ export function sessionExtensionDisconnectedError(
     error: {
       code: SESSION_EXTENSION_DISCONNECTED,
       message:
-        `Session ${sessionId} is bound to a Penguin Browser extension installation that is currently disconnected. ` +
+        `Session ${sessionId} is bound to a Travel Browser extension installation that is currently disconnected. ` +
         'The session remains pinned to that installation and is not migrated automatically.',
       sessionId,
       boundExtensionKey,

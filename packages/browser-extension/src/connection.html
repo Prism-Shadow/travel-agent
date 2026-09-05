@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Travel Browser · Connection</title>
+    <link rel="icon" href="../icons/travel-agent-logo.svg" />
+    <link rel="stylesheet" href="./welcome.css" />
+    <link rel="stylesheet" href="./connection.css" />
+    <script type="module" src="./connection.ts"></script>
+  </head>
+  <body>
+    <main class="connection-page">
+      <a class="brand" href="./welcome.html"><img src="../icons/travel-agent-logo.svg" width="48" height="48" alt="" />Travel Browser</a>
+      <h1 id="heading">Connect to Travel Agent</h1>
+      <p id="description">Keep the desktop app open. Your pairing is remembered across restarts.</p>
+      <section class="connection-card" aria-labelledby="status-heading">
+        <h2 id="status-heading">Connection</h2>
+        <p id="status" role="status" aria-live="polite"></p>
+        <p id="error" role="alert"></p>
+        <div id="applications"></div>
+        <button id="refresh" type="button">Refresh</button>
+      </section>
+      <details class="connection-card">
+        <summary id="developer-heading">Standalone CLI</summary>
+        <p id="developer-description">Use a standalone local relay instead of a paired desktop app.</p>
+        <button id="standalone" type="button">Use standalone CLI</button>
+      </details>
+    </main>
+  </body>
+</html>

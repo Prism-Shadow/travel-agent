@@ -3,7 +3,7 @@
  *
  * Single process, single writer: a synchronous API is sufficient and avoids a connection
  * pool; WAL mode and foreign key constraints are enabled. Table-creation SQL runs on open
- * (idempotent), with no migration branches (product not yet released).
+ * (idempotent), with additive columns and no migration branches (product not yet released).
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -34,6 +34,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   ensureColumn(db, "sessions", "trip_id", "TEXT");
   ensureColumn(db, "trips", "budget_amount", "INTEGER");
   ensureColumn(db, "trips", "budget_currency", "TEXT");
+  ensureColumn(db, "trips", "notes", "TEXT NOT NULL DEFAULT ''");
   // A budget used to be a bare number of yuan (`budget_amount_cny`). A row written then still
   // states the fact the person gave, so it is carried over once, with the unit it always had;
   // a row that already has a unit is left alone. The retired column stays in place (this list

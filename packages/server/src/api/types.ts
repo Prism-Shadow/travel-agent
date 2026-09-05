@@ -164,6 +164,15 @@ export type SessionSource = "schedule" | "subagent";
 // Authentication and users
 // ---------------------------------------------------------------------------
 
+/**
+ * The credentials every fresh installation starts with. Deliberately fixed and public: the
+ * login page, the server's startup notice and the README all show them, and the account keeps
+ * its "initial password" flag — with the change-it reminder — until the password is changed.
+ * `PENGUIN_SEED_ADMIN_PASSWORD` still overrides the password for tests and hardened deploys.
+ * The trade-off is recorded in docs/decisions/implemented/2026-09-05-fixed-initial-credentials.md.
+ */
+export const INITIAL_ADMIN_CREDENTIALS = { userId: "traveler", password: "traveler-2026" } as const;
+
 export interface UserInfo {
   /** Semantic id, i.e. login name: `^[a-z][a-z0-9_-]{1,31}$`, immutable after creation. */
   userId: string;
@@ -917,6 +926,8 @@ export const TRIP_CURRENCIES: readonly TripCurrency[] = [
 
 /** A Trip as the sidebar and the trip page read it. */
 export interface TripSummary {
+  /** User-maintained context shared by every conversation in this Trip. */
+  notes: string;
   tripId: string;
   projectId: string;
   name: string;
@@ -942,6 +953,7 @@ export interface TripSummary {
 
 /** Everything is optional: a Trip may be created from a sentence with nothing filled in. */
 export interface TripCreateRequest {
+  notes?: string;
   name?: string;
   destination?: string;
   when?: TripWhen | null;

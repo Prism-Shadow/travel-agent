@@ -27,16 +27,19 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     && pnpm --filter @prismshadow/penguin-web build) || { echo "BUILD FAILED"; exit 1; }
 fi
 
+# Keep this run's assets stable if a developer rebuilds the checkout while tests are running.
+# Vite empties dist before writing; serving it directly can briefly return 404 for index.html.
+cp -R "$ROOT/packages/web/dist" "$DATA/web-dist" || { echo "COPY WEB BUILD FAILED"; exit 1; }
+
 echo "== start mock LLM =="
 MOCK_PORT=$MOCK_PORT node "$HERE/mock-llm.mjs" &
 MOCK_PID=$!
 
 echo "== start server =="
-# PENGUIN_SEED_ADMIN_PASSWORD pins the otherwise-random seeded admin password to the
-# constant the specs use (ADMIN_PASSWORD in auth.mjs).
+# No PENGUIN_SEED_ADMIN_PASSWORD: the fresh data root seeds the product's fixed initial
+# credentials, which are the constants the specs use (ADMIN_ID / ADMIN_PASSWORD in auth.mjs).
 PENGUIN_HOME="$DATA" PORT=$SRV_PORT HOST=127.0.0.1 PENGUIN_WEB_DB="$DATA/web.db" \
-  PENGUIN_WEB_DIST="$ROOT/packages/web/dist" \
-  PENGUIN_SEED_ADMIN_PASSWORD=penguin-2026 \
+  PENGUIN_WEB_DIST="$DATA/web-dist" \
   node "$ROOT/packages/server/dist/index.js" &
 SRV_PID=$!
 

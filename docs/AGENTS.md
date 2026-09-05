@@ -57,9 +57,9 @@ letting an old document answer the question.
 the report comes back with every id duplicated. That is the scan, not the graph: check the paths it
 names before believing it, and re-run once the worktree is removed.
 
-Today the graph covers the four packages carrying travel-agent's own concepts — `server`, `web`,
-`desktop`, `browser-cli` — plus the two architecture documents and the root. `core`, `skills` and
-`browser-extension` have no node: `core` is a pinned upstream snapshot this project does not design,
+Today the graph covers the five packages carrying travel-agent's own concepts — `server`, `web`,
+`desktop`, `browser-cli`, `browser-extension` — plus the two architecture documents and the root.
+`core` and `skills` have no node: `core` is a pinned upstream snapshot this project does not design,
 and a contract document for a package nobody is redesigning would be a document with no reader.
 Add a node when someone needs it, not to complete a picture.
 

@@ -189,6 +189,8 @@ export interface DesktopBrowserBridge {
   loginFill(request: { tabId: string; credentialId: string }): Promise<DesktopLoginFillResult>;
   onState(listener: (state: DesktopPaneState) => void): () => void;
   onFocusAddress(listener: () => void): () => void;
+  /** Optional for compatibility with shells predating the in-app connection confirmation. */
+  onExtensionReady?(listener: () => void): () => void;
 }
 
 /** The three things the import dialog can bring over. */

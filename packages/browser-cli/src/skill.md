@@ -20,6 +20,10 @@ penguin-browser session new
 The remaining examples use `penguin-browser`. If it is not on `PATH`, build this repository and use
 `node packages/browser-cli/dist/cli.js`; do not look for a separate source checkout.
 
+For independent Chrome use, select **Standalone CLI** in the extension's Connection settings.
+Set `PENGUIN_BROWSER_PORT=19989` explicitly if a Desktop application is also running. Desktop
+conversations inherit an application-owned endpoint and cannot start or replace it.
+
 ### Session management
 
 Each session runs in an **isolated sandbox** with its own `state` object. Use sessions to:
@@ -540,7 +544,7 @@ await snapshot({ page: state.page, search: /cookie|consent|accept/i }).then(cons
 ```
 
 **10. Login buttons that open popups**
-Popup windows (`window.open` with features, OAuth buttons) are auto-relocated to tabs in the main window by the Penguin Browser extension. The new tab appears in `context.pages()` and is fully controllable. You will receive a `[WARNING] New page opened from current page (index N, initial url: ...)` message pointing to the new tab — the `initial url` may be `about:blank` for blank-then-scripted popups, so check `context.pages()[N].url()` for the final URL:
+Popup windows (`window.open` with features, OAuth buttons) are auto-relocated to tabs in the main window by the Travel Browser extension. The new tab appears in `context.pages()` and is fully controllable. You will receive a `[WARNING] New page opened from current page (index N, initial url: ...)` message pointing to the new tab — the `initial url` may be `about:blank` for blank-then-scripted popups, so check `context.pages()[N].url()` for the final URL:
 
 ```js
 await state.page.locator('button:has-text("Login with Google")').click()
@@ -1036,7 +1040,7 @@ Labels are color-coded: yellow=links, orange=buttons, coral=inputs, pink=checkbo
 
 **resizeImageForAgent** - shrink an image so it consumes fewer tokens when read back into context. The resized image is automatically included in the response (visible to the LLM). `await resizeImageForAgent({ input: '/absolute/path/to/screenshot.png' })`. Also accepts `width`, `height`, `maxDimension`, `quality`, `format` (default: `'png'`), `output`. Alias: `resizeImage`.
 
-**recording.start / recording.stop** - record the page as a video at native FPS (30-60fps). MP4 is preferred when Chrome supports it; otherwise recording falls back to WebM and adjusts the output extension. Use the `outputPath`/`mimeType` returned by `recording.start()` and the final `path`/`mimeType` returned by `recording.stop()` rather than assuming the requested `.mp4` path. Uses `chrome.tabCapture` so **recording survives page navigation**. Auto-overlays a ghost cursor that follows mouse actions. Requires user to have clicked the Penguin Browser extension icon on the tab. Auto-resizes viewport to 16:9 (override with `aspectRatio: null`). Auto-stops after 15 min (override with `maxDurationMs`).
+**recording.start / recording.stop** - record the page as a video at native FPS (30-60fps). MP4 is preferred when Chrome supports it; otherwise recording falls back to WebM and adjusts the output extension. Use the `outputPath`/`mimeType` returned by `recording.start()` and the final `path`/`mimeType` returned by `recording.stop()` rather than assuming the requested `.mp4` path. Uses `chrome.tabCapture` so **recording survives page navigation**. Auto-overlays a ghost cursor that follows mouse actions. Requires user to have clicked the Travel Browser extension icon on the tab. Auto-resizes viewport to 16:9 (override with `aspectRatio: null`). Auto-stops after 15 min (override with `maxDurationMs`).
 
 For demos, use interaction methods (`locator.click()`, `page.mouse.move()`) instead of `goto()` to show realistic cursor motion.
 
@@ -1086,7 +1090,7 @@ const demoPath = await createDemoVideo({
 
 ## pinned elements
 
-Users can right-click → "Copy Penguin Browser Element Reference" to store elements in `globalThis.penguinBrowserPinnedElem1` (increments for each pin). The reference is copied to clipboard:
+Users can right-click → "Copy Travel Browser Element Reference" to store elements in `globalThis.penguinBrowserPinnedElem1` (increments for each pin). The reference is copied to clipboard:
 
 ```js
 const el = await state.page.evaluateHandle(() => globalThis.penguinBrowserPinnedElem1)

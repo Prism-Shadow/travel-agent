@@ -62,7 +62,7 @@ test("switching accounts: B does not restore A's draft; both drafts coexist", as
   // display name defaults to the username) and no longer renders at all when there is only one,
   // so "the last one" is now whatever else happens to be on the page.
   await page.getByRole("complementary").getByRole("button", { name: UA }).click();
-  await page.getByRole("button", { name: "登出" }).click();
+  await page.getByRole("menuitem", { name: "登出", exact: true }).click();
   await page.waitForURL(/\/login/);
 
   // B logs in on the same browser, landing on the draft page for the shared Project.

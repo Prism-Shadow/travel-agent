@@ -1,12 +1,11 @@
 /**
- * Login page: brand penguin logo above the form + centered large
- * title + full-width primary button. Background is only the circuit-trace animation (the logo belongs to
- * the form area, not the background graphics); top-right corner has language and theme settings (reuses
- * global preferences, defaults to following the device). No open registration: accounts are created by
- * admins in the user backend; first use logs in with the built-in admin account (hinted in the footer).
+ * Public sign-in surface: Route Penguin branding, decorative world routes and a readable form.
+ * Appearance follows the existing global preferences; authentication retains its account contract.
  */
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
+import { ArrowRightIcon, LockKeyIcon, UserIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
+import { INITIAL_ADMIN_CREDENTIALS } from "@prismshadow/penguin-server/api";
 import { S } from "../lib/strings";
 import { apiErrorText } from "../lib/api-error";
 import { useDocumentTitle } from "../lib/use-document-title";
@@ -20,7 +19,9 @@ import { Input } from "../components/ui/input";
 import { PasswordInput } from "../components/ui/password-input";
 import { TravelAgentLogo } from "../components/ui/travel-agent-logo";
 import { Segmented } from "../components/ui/segmented";
-import { LoginCircuit } from "./login-circuit";
+import "./login.css";
+
+const LoginMap = lazy(() => import("./login-map"));
 
 export function LoginPage() {
   useDocumentTitle(S.auth.login);
@@ -67,28 +68,37 @@ export function LoginPage() {
   ];
 
   return (
-    // relative + overflow-hidden: the circuit-trace background fills this page and clips lines that go out
-    // of bounds; the form area uses relative positioning to sit above the background (otherwise the
-    // absolutely positioned SVG would render in front of the static content).
-    <div className="relative flex min-h-full items-center justify-center overflow-hidden p-4">
-      <LoginCircuit />
-      {/* Language / theme settings: compact segmented control in the top-right corner (stacks vertically on narrow screens to avoid competing with the form for width). */}
-      <div className="absolute right-4 top-4 flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-        <div aria-label={S.settings.language}>
-          <Segmented options={langOptions} value={lang} onChange={setLang} />
-        </div>
-        <div aria-label={S.settings.theme}>
-          <Segmented options={themeOptions} value={mode} onChange={setMode} />
-        </div>
+    <div className="login-page">
+      <div className="login-map-background" aria-hidden="true">
+        <Suspense fallback={null}>
+          <LoginMap />
+        </Suspense>
       </div>
-      <div className="anim-rise relative w-full max-w-sm">
-        {/* Brand penguin logo (part of the form area, not background graphics, so it doesn't clash with the trace animation) */}
-        <TravelAgentLogo className="mx-auto mb-3 h-16 w-16 rounded-2xl" />
-        <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight">{S.appName}</h1>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <header className="login-header">
+        <div className="login-brand">
+          <TravelAgentLogo className="h-11 w-11 shrink-0" />
+          <span>{S.appName}</span>
+        </div>
+        <div className="login-settings">
+          <div aria-label={S.settings.language}>
+            <Segmented options={langOptions} value={lang} onChange={setLang} />
+          </div>
+          <div aria-label={S.settings.theme}>
+            <Segmented options={themeOptions} value={mode} onChange={setMode} />
+          </div>
+        </div>
+      </header>
+      <main className="login-main">
+        <section className="login-card" aria-labelledby="login-heading">
+          <div className="login-card-heading">
+            <div className="login-card-mark" aria-hidden="true">
+              <TravelAgentLogo className="h-10 w-10" />
+            </div>
+            <h1 id="login-heading">{S.auth.journey.welcome}</h1>
+            <p>{S.auth.journey.signInHint}</p>
+          </div>
           <form
-            className="space-y-4"
+            className="login-form"
             onSubmit={(e) => {
               e.preventDefault();
               void submit();
@@ -96,6 +106,7 @@ export function LoginPage() {
           >
             <Input
               label={S.common.username}
+              leadingIcon={<UserIcon size={17} />}
               required
               value={userId}
               onChange={(e) => {
@@ -104,10 +115,11 @@ export function LoginPage() {
               }}
               error={errors.userId}
               autoComplete="username"
-              autoFocus
+              className="login-input"
             />
             <PasswordInput
               label={S.auth.password}
+              leadingIcon={<LockKeyIcon size={17} />}
               required
               value={password}
               onChange={(e) => {
@@ -116,27 +128,44 @@ export function LoginPage() {
               }}
               error={errors.password}
               autoComplete="current-password"
+              className="login-input"
             />
             {errors.form && (
-              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
+              <p
+                role="alert"
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300"
+              >
                 {errors.form}
               </p>
             )}
             <Button
               type="submit"
               variant="primary"
-              className="w-full justify-center py-2.5 text-sm font-semibold"
+              className="login-submit w-full justify-center py-2.5 text-sm font-semibold"
               disabled={busy}
+              aria-busy={busy}
             >
               {S.auth.login}
+              <ArrowRightIcon size={16} aria-hidden="true" />
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
-            {S.auth.defaultAdminNote}
-          </p>
-        </div>
-      </div>
+          {/* The product's fixed initial credentials: public by decision (see INITIAL_ADMIN_CREDENTIALS),
+              so a first sign-in never depends on reading a server console. The account keeps its
+              change-it banner until the password is changed. */}
+          <dl className="login-credentials" data-initial-credentials>
+            <div>
+              <dt>{S.auth.initialUsername}</dt>
+              <dd>{INITIAL_ADMIN_CREDENTIALS.userId}</dd>
+            </div>
+            <div>
+              <dt>{S.auth.initialPassword}</dt>
+              <dd>{INITIAL_ADMIN_CREDENTIALS.password}</dd>
+            </div>
+          </dl>
+          <p className="login-account-note">{S.auth.defaultAdminNote}</p>
+        </section>
+      </main>
     </div>
   );
 }

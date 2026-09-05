@@ -40,6 +40,7 @@ import { useLocale } from "../../state/locale";
 import { agentDisplayName, useProject } from "../../state/project";
 import { useSessions } from "../../state/sessions";
 import { useTrips } from "../../state/trips";
+import { daysUntil, localTodayIso, pickUpNextTrips } from "../../lib/trip-order";
 import { travellerCount, whenText } from "../../lib/trip-format";
 
 /** Three cards keep the rail useful without duplicating the sidebar as another long list. */
@@ -55,46 +56,6 @@ export const INSPIRATION_CARDS = [
 ] as const;
 
 export type InspirationCardId = (typeof INSPIRATION_CARDS)[number]["id"];
-
-/** Local calendar day as `YYYY-MM-DD` — not UTC, because "departs in 2 days" is asked at home. */
-function localTodayIso(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
-
-/**
- * The trips the rail leads with, most pressing first. A deterministic data rule, deliberately
- * not a judgement: future departures order soonest-first (today counts — departure day is the
- * day the card matters most), then the remaining trips by latest touch, capped at the rail
- * size so the rail never duplicates the sidebar as another long list.
- */
-export function pickUpNextTrips(
-  trips: readonly TripSummary[],
-  todayIso: string,
-  count: number = RAIL_SIZE,
-): TripSummary[] {
-  const isFuture = (t: TripSummary) => t.when?.kind === "dates" && t.when.start.trim() >= todayIso;
-  const dated = trips.filter(isFuture).sort((a, b) => {
-    const sa = a.when!.kind === "dates" ? a.when!.start : "";
-    const sb = b.when!.kind === "dates" ? b.when!.start : "";
-    return sa < sb ? -1 : sa > sb ? 1 : 0;
-  });
-  const touched = trips
-    .filter((t) => !isFuture(t))
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
-  return [...dated, ...touched].slice(0, count);
-}
-
-/** Whole days from `todayIso` to `startIso`, both local calendar days (0 = departs today). */
-export function daysUntil(startIso: string, todayIso: string): number {
-  const parse = (iso: string) => {
-    const [y, m, d] = iso.split("-").map(Number);
-    return Date.UTC(y!, m! - 1, d!, 12);
-  };
-  return Math.round((parse(startIso) - parse(todayIso)) / 86_400_000);
-}
 
 /** Shared resize-aware behavior for the horizontal card rails. */
 function useHorizontalRail(itemCount: number, resetKey?: string) {

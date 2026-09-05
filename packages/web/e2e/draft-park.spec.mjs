@@ -1,6 +1,6 @@
 /**
  * Parked draft conversations (draft-sessions.ts): typing in the new-chat composer and
- * clicking "New chat" again parks the text as a draft row in the sidebar list; opening
+ * clicking "New trip" again parks the text as a draft row in the sidebar list; opening
  * the row resumes the full draft at /chat/draft-…; sending it creates the real session
  * and removes the row; deleting from the row's hover action discards it after a confirm.
  */
@@ -12,7 +12,9 @@ const MOCK = process.env.MOCK_URL;
 const U = "parkuser";
 const P = "password123";
 
-test("new-chat click parks typed text as a sendable draft conversation", async ({ page }) => {
+test("new-chat click parks typed text as a sendable draft conversation", async ({
+  page,
+}, testInfo) => {
   await provisionAndLogin(page.request, U, P);
   const projects = await (await page.request.get(`${BASE}/api/projects`)).json();
   const projectId = projects.projects[0].projectId;
@@ -37,9 +39,9 @@ test("new-chat click parks typed text as a sendable draft conversation", async (
   await ta.waitFor();
   await ta.fill("draft to park: build me a metronome");
 
-  // Clicking "New chat" parks the typed text: a 草稿 group appears with the row, and the
+  // Clicking "New trip" parks the typed text: a 草稿 group appears with the row, and the
   // composer comes back empty.
-  await page.getByRole("button", { name: "新建对话" }).first().click();
+  await page.getByRole("button", { name: "新行程" }).first().click();
   const draftGroup = page.getByRole("button", { name: /折叠|展开/ }).filter({ hasText: "草稿" });
   await expect(draftGroup).toBeVisible();
   const row = page.getByText("draft to park: build me a metronome").first();
@@ -58,13 +60,18 @@ test("new-chat click parks typed text as a sendable draft conversation", async (
   await expect(draftGroup).toHaveCount(0); // group hides once the list is empty
 
   // Park another one and delete it from the row (confirm dialog).
-  await page.getByRole("button", { name: "新建对话" }).first().click();
+  await page.getByRole("button", { name: "新行程" }).first().click();
   await composer(page).fill("second parked draft");
-  await page.getByRole("button", { name: "新建对话" }).first().click();
+  await page.getByRole("button", { name: "新行程" }).first().click();
   const row2 = page.getByText("second parked draft").first();
   await expect(row2).toBeVisible();
   await row2.hover();
   await page.getByRole("button", { name: "删除草稿" }).first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("delete-confirmation.png"),
+    animations: "disabled",
+  });
   await page.getByRole("dialog").getByRole("button", { name: "删除", exact: true }).click();
   await expect(page.getByText("second parked draft")).toHaveCount(0);
 });

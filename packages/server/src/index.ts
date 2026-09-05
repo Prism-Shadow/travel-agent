@@ -66,13 +66,13 @@ applyProxySettings({
 const app = createApp(deps);
 
 // Built-in admin seed (idempotent): creates admin and adopts default_project when the
-// users table is empty. The returned initial password (random unless pinned via
-// PENGUIN_SEED_ADMIN_PASSWORD) is persisted in the data root while it remains the
+// users table is empty. The returned initial password (the fixed default unless pinned
+// via PENGUIN_SEED_ADMIN_PASSWORD) is persisted in the data root while it remains the
 // initial one, and EVERY startup re-prints the framed reminder until the password is
 // changed (any password update for admin removes the file — see initial-password.ts).
-// Never printed (or persisted) in desktop mode: the seed there is fully random by design
-// (config.ts) and sign-in goes through the shell's one-shot token, so showing it would
-// only leak a credential into a log nobody needs.
+// Not printed (or persisted) in desktop mode: sign-in there goes through the shell's
+// one-shot token, the window hides the change-it banner, and the value is the public
+// default anyway — a reminder in a log nobody reads would be pure noise.
 const seededAdminPassword = await deps.authService.seedAdmin();
 if (config.desktopToken === null) {
   if (seededAdminPassword !== null) {

@@ -34,6 +34,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { VERSION, EXTENSION_IDS, IAB_BACKEND_ID, isLoopbackAddress, shouldAutoEnablePenguinBrowser } from '../shared/utils.js'
 import { isIdentityValue } from './agent-identity.js'
+import type { DesktopEndpoint } from '../shared/desktop-connection.js'
 import { tabRegistry } from './tab-ownership.js'
 import { createCdpLogger, type CdpLogEntry, type CdpLogger } from './cdp-log.js'
 import { RecordingRelay } from '../media/recording-relay.js'
@@ -127,6 +128,7 @@ const NOISY_LOG_EVENTS = new Set([
 ])
 
 export type RelayServer = {
+  port: number
   close(): void
   on<K extends keyof RelayServerEvents>(event: K, listener: RelayServerEvents[K]): void
   off<K extends keyof RelayServerEvents>(event: K, listener: RelayServerEvents[K]): void
@@ -137,6 +139,7 @@ export async function startPenguinBrowserCDPRelayServer({
   host = '127.0.0.1',
   token,
   iabKey,
+  desktop,
   logger,
   cdpLogger,
 }: {
@@ -150,6 +153,7 @@ export async function startPenguinBrowserCDPRelayServer({
    * standalone `penguin-browser serve`.
    */
   iabKey?: string
+  desktop?: Omit<DesktopEndpoint, 'port'>
   logger?: { log(...args: any[]): void; error(...args: any[]): void }
   cdpLogger?: CdpLogger
 } = {}): Promise<RelayServer> {
@@ -1502,7 +1506,17 @@ export async function startPenguinBrowserCDPRelayServer({
   })
 
   app.get('/version', (c) => {
-    return c.json({ version: VERSION })
+    return c.json({ version: VERSION, ...(desktop ? { instanceId: desktop.instanceId } : {}) })
+  })
+
+  app.get('/desktop/identity', (c) => {
+    if (!desktop) return c.text('Not a desktop relay', 404)
+    if (!isLoopbackAddress(getConnInfo(c).remote.address) || c.req.header('origin')) return c.text('Forbidden', 403)
+    const challenge = c.req.query('challenge') ?? ''
+    if (!/^[a-f0-9]{64}$/.test(challenge)) return c.text('Invalid challenge', 400)
+    return c.json({ protocol: desktop.protocol, installationId: desktop.installationId,
+      instanceId: desktop.instanceId, name: desktop.name,
+      proof: crypto.createHmac('sha256', desktop.extensionKey).update(challenge).digest('hex') })
   })
 
   app.get('/extension/status', (c) => {
@@ -2551,6 +2565,13 @@ export async function startPenguinBrowserCDPRelayServer({
         return c.text('Forbidden', 403)
       }
 
+      const extensionCredential = (c.req.header('sec-websocket-protocol') ?? '').split(',')
+        .map(value => value.trim()).find(value => value.startsWith('travel-auth.'))?.slice('travel-auth.'.length) ?? ''
+      if (desktop && (!timingSafeEqualString(extensionCredential, desktop.extensionKey) ||
+          c.req.query('instanceId') !== desktop.instanceId)) {
+        return c.text('Unauthorized - pair with this desktop instance', 401)
+      }
+
       return next()
   }
 
@@ -3354,7 +3375,7 @@ export async function startPenguinBrowserCDPRelayServer({
           error: {
             code: 'EXTENSION_UPGRADE_REQUIRED',
             message:
-              'This Penguin Browser extension does not provide an installation identity and cannot back a persistent session safely.',
+              'This Travel Browser extension does not provide an installation identity and cannot back a persistent session safely.',
             recovery: [
               'Rebuild the current extension and reload packages/browser-extension/dist.',
               'Authorize a tab, then create the session again.',
@@ -3803,6 +3824,9 @@ export async function startPenguinBrowserCDPRelayServer({
     server.listen(port, host)
   })
 
+  const address = server.address()
+  if (address && typeof address !== 'string') port = address.port
+
   // Clean up orphaned cloud sessions from a previous relay crash.
   // Must run AFTER successful listen — if another relay is already running,
   // we'd fail with EADDRINUSE but only after killing its live VMs.
@@ -3819,6 +3843,7 @@ export async function startPenguinBrowserCDPRelayServer({
   logger?.log('CDP endpoint:', cdpEndpoint)
 
   return {
+    port,
     close() {
       const { extensions, playwrightClients } = store.getState()
 

@@ -85,6 +85,7 @@ const trip = (over: Partial<TripSummary> = {}): TripSummary => ({
   tripId: "t-1",
   projectId: "proj",
   name: "Trip",
+  notes: "",
   destination: "",
   when: null,
   who: null,

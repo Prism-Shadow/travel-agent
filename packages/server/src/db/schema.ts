@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS trips (       -- travel-agent's own first-class objec
   trip_id     TEXT PRIMARY KEY,
   project_id  TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
   name        TEXT NOT NULL,                   -- display name; seeded from the destination, renameable
+  notes       TEXT NOT NULL DEFAULT '',        -- user-maintained shared context
   destination TEXT NOT NULL DEFAULT '',        -- free text, possibly several places ('Tokyo, Osaka'); '' = not set yet
   when_json   TEXT,                            -- JSON TripWhen: {kind:'dates',start,end} | {kind:'flexible',days,months[]}; NULL = not set
   who_json    TEXT,                            -- JSON TripWho: {adults,children,infants,pets}; NULL = not set

@@ -21,20 +21,17 @@
  *   visible only with a second Agent below a long list) or something that cannot shrink no
  *   longer fits — checked at 420/320/240px tall in both sidebar states, since the sidebar's
  *   chrome used to stop fitting below ~412px;
- * - the sidebar's "New chat" button has no background fill (same gray-scale style as nav items);
+ * - the sidebar's "New trip" button carries the selected navy fill;
  * - the collapsed rail shows, in product-specified order, last conversation / new chat /
  *   Agents / Models / Cost Center / Trajectories / Evaluation Center with localized
  *   (en + zh) hover
  *   tooltips; "last conversation" targets the newest non-archived session and is disabled
  *   while none exists; expanding from the rail restores the pinned sidebar;
- * - login page: a single brand penguin logo above the form (part of the form area; the
- *   background still only has the trace animation), the trace animation grows in after a
- *   delayed blank first paint, no two trace segments cross or touch (except where a fork shares
- *   an endpoint with its parent line), the language / theme controls work, and English sits
- *   left of 中文.
+ * - login page: decorative routes share the theme, animation can stop, and the form
+ *   remains accessible on narrow screens and with reduced motion.
  */
 import { test, expect } from "@playwright/test";
-import { composer, provisionAndLogin } from "./auth.mjs";
+import { ADMIN_ID, ADMIN_PASSWORD, composer, provisionAndLogin } from "./auth.mjs";
 
 const BASE = process.env.BASE_URL;
 const MOCK = process.env.MOCK_URL;
@@ -180,17 +177,17 @@ test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   ).toEqual([]);
   await page.keyboard.press("Escape");
 
-  // --- Sidebar "New chat" button: no background fill (its resting state outside the draft page should have a transparent background) ---
+  // --- The unified New trip entry uses the compact navigation style: transparent off the draft page. ---
   //
   // Scoped to the sidebar rather than to `nav`: the expanded sidebar has no `nav` element at all
   // now -- that markup belongs to the collapsed rail, and the rail lost its page links when the
   // engine's console moved behind the settings row.
   await page.setViewportSize({ width: 1280, height: 720 });
-  const newChat = page.getByRole("complementary").getByRole("button", { name: "New chat" }).first();
+  const newChat = page.getByRole("complementary").getByRole("button", { name: "New trip" }).first();
   await expect(newChat).toBeVisible();
   expect(
     await newChat.evaluate((el) => getComputedStyle(el).backgroundColor),
-    "new-chat button has no background fill",
+    "new-trip button has no background fill outside the draft page",
   ).toBe("rgba(0, 0, 0, 0)");
 });
 
@@ -215,14 +212,38 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   // there is room for almost nothing: it holds only what someone on a trip would reach for.
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`${BASE}/chat`);
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  const accountAvatar = page.getByRole("complementary").locator('img[src="/user-avatar.png"]');
+  await expect(accountAvatar).toBeVisible();
+  await expect.poll(() => accountAvatar.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+  const collapse = page.getByRole("button", { name: "Collapse sidebar" });
+  const brand = page.getByRole("complementary").getByText("Travel Agent", { exact: true });
+  const brandBox = await brand.boundingBox();
+  const collapseBox = await collapse.boundingBox();
+  expect(
+    collapseBox.x,
+    "collapse control follows the brand without overlapping it",
+  ).toBeGreaterThan(brandBox.x + brandBox.width);
+  expect(
+    Math.abs(brandBox.y + brandBox.height / 2 - collapseBox.y - collapseBox.height / 2),
+    "brand and collapse control share a header row",
+  ).toBeLessThan(3);
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  await collapse.click();
+  await expect(page.getByRole("button", { name: "Expand sidebar", exact: true })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  const railAvatar = page.getByRole("button", { name: "railuser", exact: true }).locator("img");
+  await expect(railAvatar).toHaveAttribute("src", "/user-avatar.png");
+  await expect(railAvatar).toBeVisible();
+  await expect.poll(() => railAvatar.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
   const rail = page.locator("aside nav");
   const entries = rail.locator("a, button");
   await expect(entries).toHaveCount(2);
   await expect(rail.getByRole("button", { name: "Last conversation" })).toBeDisabled();
 
   // --- Order and tooltips (en): aria-label defines the order, title carries the same copy ---
-  const EN = ["Last conversation", "New chat"];
+  const EN = ["Last conversation", "New trip"];
   const attrs = (name) =>
     entries.evaluateAll((els, n) => els.map((el) => el.getAttribute(n)), name);
   expect(await attrs("aria-label"), "rail order (en)").toEqual(EN);
@@ -263,9 +284,9 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   await expect(rail.getByRole("button", { name: "Last conversation" })).toHaveClass(ACTIVE_FILL);
 
   // --- New chat enters the draft page and shows the rail's gray active fill there ---
-  await rail.getByRole("button", { name: "New chat" }).click();
+  await rail.getByRole("button", { name: "New trip" }).click();
   await expect(page).toHaveURL(`${BASE}/chat/new`);
-  await expect(rail.getByRole("button", { name: "New chat" })).toHaveClass(ACTIVE_FILL);
+  await expect(rail.getByRole("button", { name: "New trip" })).toHaveClass(ACTIVE_FILL);
   // The draft belongs to the new-chat entry: the last-conversation one must not stay lit here.
   await expect(rail.getByRole("button", { name: "Last conversation" })).not.toHaveClass(
     ACTIVE_FILL,
@@ -279,7 +300,7 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   await page.addInitScript(() => localStorage.setItem("penguin.lang", "zh"));
   await page.reload();
   await expect(entries).toHaveCount(2);
-  const ZH = ["最近一次对话", "新建对话"];
+  const ZH = ["最近一次对话", "新行程"];
   expect(await attrs("aria-label"), "rail order (zh)").toEqual(ZH);
   expect(await attrs("title"), "rail tooltips (zh)").toEqual(ZH);
 
@@ -673,81 +694,26 @@ test("layout: no page grows the document (absolute descendants stay in their scr
   }
 });
 
-test("layout: login — blank start, non-crossing traces, lang/theme controls", async ({ page }) => {
+test("layout: login — autoplay world map, reduced motion and responsive sign-in", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
   await page.goto(`${BASE}/login`);
-  // The login page is headed by the product name, not the draft screen's greeting.
-  await page.getByRole("heading", { name: "Travel Agent" }).waitFor();
-
-  // The only graphic asset is the brand penguin logo above the form; the
-  // background still has only the trace animation, and the page must have no other img elements.
-  await expect(page.locator("img")).toHaveCount(1);
-  await expect(page.locator('img[src*="travel-agent-logo"]')).toBeVisible();
-
-  // Asserting the mechanism behind the blank first paint: every trace's delay is non-negative
-  // (no line is mid-animation on the first frame), and the base state (style before the
-  // animation starts) is fully hidden — temporarily disable the animation to read the base
-  // state, then restore it.
-  const delays = await page.evaluate(() =>
-    [...document.querySelectorAll(".login-trace")].map((el) =>
-      parseFloat(getComputedStyle(el).animationDelay),
-    ),
-  );
-  expect(delays.length, "traces rendered").toBeGreaterThanOrEqual(6);
-  for (const d0 of delays) expect(d0, "non-negative delay").toBeGreaterThanOrEqual(0);
-  const base = await page.evaluate(() => {
-    const el = document.querySelector(".login-trace");
-    el.style.animation = "none";
-    const s = getComputedStyle(el);
-    const r = { opacity: parseFloat(s.opacity), dashoffset: parseFloat(s.strokeDashoffset) };
-    el.style.animation = "";
-    return r;
-  });
-  expect(base.opacity, "pre-animation base state hidden").toBe(0);
-  expect(base.dashoffset, "pre-animation base state undrawn").toBe(1);
-
-  // No two trace segments cross or touch (judged by zero gap between bounding boxes; excludes a fork sharing an endpoint with its parent line).
-  const touching = await page.evaluate(() => {
-    const segs = [];
-    document.querySelectorAll(".login-trace").forEach((p) => {
-      const n = (p.getAttribute("d")?.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
-      for (let i = 0; i + 3 < n.length; i += 2) {
-        segs.push({ x1: n[i], y1: n[i + 1], x2: n[i + 2], y2: n[i + 3] });
-      }
-    });
-    const ends = (s) => [
-      [s.x1, s.y1],
-      [s.x2, s.y2],
-    ];
-    let bad = 0;
-    for (let i = 0; i < segs.length; i += 1) {
-      for (let j = i + 1; j < segs.length; j += 1) {
-        const a = segs[i];
-        const b = segs[j];
-        if (ends(a).some(([x, y]) => ends(b).some(([u, v]) => x === u && y === v))) continue;
-        if (
-          Math.min(a.x1, a.x2) <= Math.max(b.x1, b.x2) &&
-          Math.max(a.x1, a.x2) >= Math.min(b.x1, b.x2) &&
-          Math.min(a.y1, a.y2) <= Math.max(b.y1, b.y2) &&
-          Math.max(a.y1, a.y2) >= Math.min(b.y1, b.y2)
-        ) {
-          bad += 1;
-        }
-      }
-    }
-    return bad;
-  });
-  expect(touching, "no crossing or touching trace segments").toBe(0);
-
-  // Traces grow in after load: after a short wait, some trace should have entered its visible segment.
-  await page.waitForTimeout(2600);
-  const maxOpacity = await page.evaluate(() =>
-    Math.max(
-      ...[...document.querySelectorAll(".login-trace")].map((el) =>
-        parseFloat(getComputedStyle(el).opacity),
-      ),
-    ),
-  );
-  expect(maxOpacity, "traces grow in after load").toBeGreaterThan(0.5);
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(page.locator('header img[src*="travel-agent-logo"]')).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Welcome back" }).locator('img[src*="travel-agent-logo"]'),
+  ).toBeVisible();
+  const map = page.getByTestId("world-map");
+  await expect(map).toBeVisible();
+  await expect(map).toHaveAttribute("aria-hidden", "true");
+  await expect(map).toHaveAttribute("data-motion", "animated");
+  const basemap = await page.request.get(`${BASE}/maps/world-dots.svg`);
+  expect(basemap.ok()).toBe(true);
+  expect(basemap.headers()["content-type"]).toContain("image/svg+xml");
+  await expect(
+    page.getByRole("button", { name: /(?:Pause|Play) background animation/ }),
+  ).toHaveCount(0);
 
   // The English language option sits left of 中文 (asserted by geometric position); switching takes effect immediately (headless defaults to the en environment).
   const enBtn = page.getByRole("button", { name: "English", exact: true });
@@ -764,4 +730,41 @@ test("layout: login — blank start, non-crossing traces, lang/theme controls", 
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: "Light", exact: true }).click();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+  // The operating system setting disables both SVG travel and path-drawing motion.
+  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
+  await page.getByRole("button", { name: "System", exact: true }).last().click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(map).toHaveAttribute("data-motion", "static");
+  await expect(map.locator("animateMotion")).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(map).toHaveAttribute("data-motion", "animated");
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 320, height: 568 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const { scrollWidth, clientWidth } = await docWidths(page);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+    const submit = page.getByRole("button", { name: "Sign in", exact: true });
+    await submit.scrollIntoViewIfNeeded();
+    await submit.click();
+    await expect(page.getByRole("textbox", { name: /^Username/ })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  // The page shows the product's fixed initial credentials, and they are the ones that sign in.
+  const shown = page.locator("[data-initial-credentials]");
+  await expect(shown.getByRole("definition").nth(0)).toHaveText(ADMIN_ID);
+  await expect(shown.getByRole("definition").nth(1)).toHaveText(ADMIN_PASSWORD);
+  await page.getByRole("textbox", { name: /^Username/ }).fill(ADMIN_ID);
+  await page
+    .getByRole("textbox", { name: "Password Show password", exact: true })
+    .fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/chat/);
+  await expect(page.getByRole("button", { name: ADMIN_ID, exact: true })).toBeVisible();
 });

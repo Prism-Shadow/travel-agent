@@ -15,7 +15,7 @@
     "pack:linux": "node scripts/stage.mjs && electron-builder --linux",
     "pack:mac": "node scripts/stage.mjs && electron-builder --mac",
     "pack:win": "node scripts/stage.mjs && electron-builder --win",
-    "test:e2e": "node e2e/run-iab-e2e.mjs",
+    "test:e2e": "node e2e/run-iab-e2e.mjs && node e2e/native-pairing.mjs",
     "check:debug-switches": "node scripts/check-debug-switches.mjs",
     "check:fuses": "node scripts/check-fuses.mjs"
   },

@@ -19,6 +19,7 @@
  * chip; everything clears together after a successful send.
  */
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { CalendarBlankIcon } from "@phosphor-icons/react/dist/csr/CalendarBlank";
 import { MapPinIcon } from "@phosphor-icons/react/dist/csr/MapPin";
 import { UsersIcon } from "@phosphor-icons/react/dist/csr/Users";
@@ -33,8 +34,9 @@ import { useTheme } from "../../state/theme";
 import { CloseButton } from "../../components/ui/icons";
 import { Modal } from "../../components/ui/modal";
 import { RangeCalendar } from "./range-calendar";
+import { BudgetCurrencySelect } from "./budget-currency-select";
 import { pillClass } from "./workspace-select";
-import { BUDGET_CURRENCIES, BUDGET_TIERS, whenIsSet } from "./trip-constraints";
+import { BUDGET_TIERS, whenIsSet } from "./trip-constraints";
 import type { TripConstraints, TripCurrency, TripWhen, TripWho } from "./trip-constraints";
 
 /** Who defaults when the traveller dialog is first touched (Mindtrip's own default: 1 adult). */
@@ -45,7 +47,9 @@ type ChipId = "where" | "when" | "who" | "budget";
 export function TripConstraintChips({
   value,
   onChange,
+  children,
 }: {
+  children?: ReactNode;
   value: TripConstraints;
   onChange: (next: TripConstraints) => void;
 }) {
@@ -165,6 +169,7 @@ export function TripConstraintChips({
           />
         </div>
       </Chip>
+      {children}
     </div>
   );
 }
@@ -480,8 +485,7 @@ function Chip({
         onClose={() => setOpen(null)}
         headerless
         widthClass={dialogWidthClass[id]}
-        overlayClassName="bg-black/50 backdrop-blur-[1px]"
-        panelClassName={`${id === "where" ? "overflow-visible" : "overflow-hidden"} rounded-t-3xl! border-gray-200/80 shadow-2xl sm:rounded-3xl! dark:border-gray-700/80`}
+        panelClassName={id === "where" ? "overflow-visible!" : undefined}
         contentClassName={`${id === "where" ? "max-h-none! overflow-visible!" : "max-h-[min(88vh,54rem)]! overflow-y-auto!"} p-0!`}
       >
         <section data-trip-constraint-dialog={id}>
@@ -731,19 +735,9 @@ function BudgetAmountField({
         </span>
         <span className="text-xs text-gray-400 dark:text-gray-500">{T.budgetAmountHint}</span>
       </label>
-      <div className="mt-2 flex h-11 items-center gap-1.5 rounded-2xl border border-gray-300 px-3.5 focus-within:border-gray-500 dark:border-gray-700 dark:focus-within:border-gray-500">
-        <select
-          aria-label={T.budgetCurrencyLabel}
-          value={currency}
-          onChange={(event) => onChange(amount, event.target.value as TripCurrency)}
-          className="h-8 cursor-pointer rounded-lg bg-transparent pr-1 text-sm font-medium text-gray-600 focus:outline-none dark:text-gray-300"
-        >
-          {BUDGET_CURRENCIES.map((code) => (
-            <option key={code} value={code}>
-              {code}
-            </option>
-          ))}
-        </select>
+      <div className="mt-2 flex h-11 items-center gap-2.5 rounded-2xl border border-gray-300 pl-1 pr-3.5 focus-within:border-gray-500 dark:border-gray-700 dark:focus-within:border-gray-500">
+        <BudgetCurrencySelect value={currency} onChange={(next) => onChange(amount, next)} />
+        <span aria-hidden className="h-5 w-px shrink-0 bg-gray-200 dark:bg-gray-700" />
         <input
           id="trip-budget-amount"
           type="text"

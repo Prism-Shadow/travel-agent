@@ -8,13 +8,48 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pc from 'picocolors'
-import { getListeningPidsForPort, killPortProcess } from '../browser/kill-port.js'
+import { getListeningPidsForPort } from '../browser/kill-port.js'
 import { packageRoot } from '../shared/package-paths.js'
 import { VERSION, sleep, LOG_FILE_PATH } from '../shared/utils.js'
+import { readAgentIdentity } from './agent-identity.js'
+import { resolveRelayEndpoint, verifyDesktopInstance, readBackendPreference } from './relay-discovery.js'
 
 const __filename = fileURLToPath(import.meta.url)
 
 export const RELAY_PORT = Number(process.env.PENGUIN_BROWSER_PORT) || 19989
+
+/**
+ * One resolution per (host, desktop-task) pair for the life of the process. A CLI invocation asks
+ * once; a long-lived importer (an MCP server) may ask with different hosts, and must not be handed
+ * the first caller's answer. A rejected resolution is dropped rather than cached, so a relay that
+ * was briefly unreachable is asked about again on the next call instead of failing forever.
+ */
+const localEndpoints = new Map<string, ReturnType<typeof resolveRelayEndpoint>>()
+export async function resolveLocalRelay(host?: string) {
+  // An externally hosted dev server cannot inherit Desktop's launch environment. Its recorded
+  // conversation choice still requires a live application; losing discovery must not auto-start CLI.
+  const identity = readAgentIdentity()
+  const desktopTask = identity !== null && readBackendPreference(identity.sessionId) !== null
+  const externalDesktopTask = desktopTask && !process.env.PENGUIN_RELAY_INSTANCE_ID
+  if (externalDesktopTask && host) throw new Error('A Desktop conversation cannot override its application endpoint')
+  // A long-lived external server may still carry an older shell's unscoped port. A recorded
+  // Desktop conversation follows authenticated application discovery, never that stale override.
+  const cacheKey = `${externalDesktopTask ? 'desktop' : 'any'}\u0000${host ?? ''}`
+  let pending = localEndpoints.get(cacheKey)
+  if (!pending) {
+    pending = resolveRelayEndpoint({ defaultPort: RELAY_PORT, host,
+      envHost: externalDesktopTask ? undefined : process.env.PENGUIN_BROWSER_HOST,
+      envPort: externalDesktopTask ? undefined : process.env.PENGUIN_BROWSER_PORT })
+    localEndpoints.set(cacheKey, pending)
+    pending.catch(() => { if (localEndpoints.get(cacheKey) === pending) localEndpoints.delete(cacheKey) })
+  }
+  const endpoint = await pending
+  if (desktopTask && endpoint.source !== 'desktop') {
+    throw new Error('This conversation requires its Travel Agent application. Reopen it; no replacement relay was started.')
+  }
+  if (endpoint.instanceId) await verifyDesktopInstance(endpoint.port, endpoint.instanceId)
+  return endpoint
+}
 
 export type ExtensionStatus = {
   extensionId: string
@@ -30,7 +65,8 @@ function relayAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export async function getRelayServerVersion(port: number = RELAY_PORT): Promise<string | null> {
+export async function getRelayServerVersion(port?: number): Promise<string | null> {
+  port ??= (await resolveLocalRelay()).port
   try {
     const response = await fetch(`http://127.0.0.1:${port}/version`, {
       signal: AbortSignal.timeout(2000),
@@ -72,8 +108,9 @@ export async function waitForRelayVersion({
 }
 
 export async function getExtensionStatus(
-  port: number = RELAY_PORT,
+  port?: number,
 ): Promise<{ connected: boolean; activeTargets: number; penguinBrowserVersion: string | null } | null> {
+  port ??= (await resolveLocalRelay()).port
   try {
     const response = await fetch(`http://127.0.0.1:${port}/extension/status`, {
       signal: AbortSignal.timeout(500),
@@ -92,7 +129,8 @@ export async function getExtensionStatus(
   }
 }
 
-export async function getExtensionsStatus(port: number = RELAY_PORT): Promise<ExtensionStatus[]> {
+export async function getExtensionsStatus(port?: number): Promise<ExtensionStatus[]> {
+  port ??= (await resolveLocalRelay()).port
   try {
     const response = await fetch(`http://127.0.0.1:${port}/extensions/status`, {
       signal: AbortSignal.timeout(2000),
@@ -153,7 +191,8 @@ export async function waitForConnectedExtensions(
     logger?: { log: (...args: any[]) => void }
   } = {},
 ): Promise<ExtensionStatus[]> {
-  const { port = RELAY_PORT, timeoutMs = 5000, pollIntervalMs = 200, logger } = options
+  const { timeoutMs = 5000, pollIntervalMs = 200, logger } = options
+  const port = options.port ?? (await resolveLocalRelay()).port
   const startTime = Date.now()
 
   logger?.log(pc.dim('Waiting for extension to connect...'))
@@ -171,23 +210,19 @@ export async function waitForConnectedExtensions(
   return []
 }
 
-async function killRelayServer(options: { port: number; waitForFreeMs?: number }): Promise<void> {
-  const { port, waitForFreeMs = 3000 } = options
-
+/** Explicit replacement is a standalone operation; an application owns its own lifetime. */
+export async function assertStandaloneRelayReplacement(port: number): Promise<void> {
+  if (process.env.PENGUIN_RELAY_INSTANCE_ID) throw new Error('Desktop owns this relay. Restart the application instead.')
+  let identity: { version?: string; instanceId?: string }
   try {
-    await killPortProcess({ port })
-  } catch {
-    return
-  }
-
-  const startTime = Date.now()
-  while (Date.now() - startTime < waitForFreeMs) {
-    const pids = await getListeningPidsForPort({ port }).catch(() => [])
-    if (pids.length === 0) {
-      return
-    }
-    await sleep(100)
-  }
+    const response = await fetch(`http://127.0.0.1:${port}/version`, {
+      signal: AbortSignal.timeout(1500), headers: relayAuthHeaders(),
+    })
+    if (!response.ok) throw new Error('Unrecognized listener')
+    identity = await response.json() as typeof identity
+  } catch { throw new Error(`Port ${port} belongs to an unrecognized process; it was not stopped.`) }
+  if (identity.instanceId) throw new Error('Desktop owns this relay. Restart the application instead.')
+  if (typeof identity.version !== 'string') throw new Error('Unrecognized relay; it was not stopped.')
 }
 
 /**
@@ -229,7 +264,7 @@ export function getExtensionOutdatedWarning(extensionPenguinBrowserVersion: stri
 
 export interface EnsureRelayServerOptions {
   logger?: { log: (...args: any[]) => void }
-  /** If true, will kill and restart server on version mismatch. Default: true */
+  /** Require a compatible version; an incompatible existing relay is never stopped automatically. */
   restartOnVersionMismatch?: boolean
   /** Pass additional environment variables to the relay server process */
   env?: Record<string, string>
@@ -246,7 +281,7 @@ let pendingEnsure: Promise<true | undefined> | null = null
 
 /**
  * Ensures the relay server is running. Starts it if not running.
- * Optionally restarts on version mismatch.
+ * Never stops an existing process. Replacement is an explicit standalone CLI operation.
  * Concurrent calls within the same process are deduplicated.
  */
 export async function ensureRelayServer(options: EnsureRelayServerOptions = {}): Promise<true | undefined> {
@@ -261,7 +296,10 @@ export async function ensureRelayServer(options: EnsureRelayServerOptions = {}):
 
 async function ensureRelayServerImpl(options: EnsureRelayServerOptions = {}): Promise<true | undefined> {
   const { logger, restartOnVersionMismatch = true, env: additionalEnv } = options
-  const serverVersion = await getRelayServerVersion(RELAY_PORT)
+  const endpoint = await resolveLocalRelay()
+  if (endpoint.source === 'desktop') return
+  const port = endpoint.port
+  const serverVersion = await getRelayServerVersion(port)
 
   if (serverVersion === VERSION) {
     return
@@ -275,21 +313,18 @@ async function ensureRelayServerImpl(options: EnsureRelayServerOptions = {}): Pr
 
   if (serverVersion !== null) {
     if (restartOnVersionMismatch) {
-      logger?.log(
-        pc.yellow(`CDP relay server version mismatch (server: ${serverVersion}, client: ${VERSION}), restarting...`),
-      )
-      await killRelayServer({ port: RELAY_PORT })
+      throw new Error(`Relay version mismatch (server: ${serverVersion}, client: ${VERSION}). Restart its owning application or explicitly replace a standalone relay; it was not stopped.`)
     } else {
       // Server is running but different version, just use it
       return
     }
   } else {
-    const listeningPids = await getListeningPidsForPort({ port: RELAY_PORT }).catch(() => [])
+    const listeningPids = await getListeningPidsForPort({ port: port }).catch(() => [])
     if (listeningPids.length > 0) {
       // Something is on the port but /version didn't respond. It might be a
       // relay that's still starting (race with another CLI/MCP instance).
-      // Poll /version briefly before deciding to kill it (issue #75).
-      const foundVersion = await waitForRelayVersion({ port: RELAY_PORT })
+      // Poll /version briefly before reporting an occupied port (issue #75).
+      const foundVersion = await waitForRelayVersion({ port: port })
       if (foundVersion) {
         // A relay came up while we waited; use it
         if (foundVersion === VERSION || compareVersions(foundVersion, VERSION) > 0) {
@@ -298,17 +333,10 @@ async function ensureRelayServerImpl(options: EnsureRelayServerOptions = {}): Pr
         if (!restartOnVersionMismatch) {
           return
         }
-        logger?.log(
-          pc.yellow(`CDP relay server version mismatch (server: ${foundVersion}, client: ${VERSION}), restarting...`),
-        )
+        throw new Error(`Relay version mismatch on port ${port}; the existing process was not stopped.`)
       } else {
-        logger?.log(
-          pc.yellow(
-            `Port ${RELAY_PORT} is already in use (pid(s): ${listeningPids.join(', ')}). Attempting to stop the existing process...`,
-          ),
-        )
+        throw new Error(`Port ${port} is already in use; the existing process was not stopped. Choose another standalone port.`)
       }
-      await killRelayServer({ port: RELAY_PORT })
     }
 
     logger?.log(pc.dim('CDP relay server not running, starting it...'))
@@ -326,7 +354,7 @@ async function ensureRelayServerImpl(options: EnsureRelayServerOptions = {}): Pr
   const serverProcess = spawn(isRunningFromSource ? 'tsx' : process.execPath, [scriptPath], {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, ...additionalEnv },
+    env: { ...process.env, ...additionalEnv, PENGUIN_BROWSER_PORT: String(port) },
   })
 
   serverProcess.unref()
@@ -336,7 +364,7 @@ async function ensureRelayServerImpl(options: EnsureRelayServerOptions = {}): Pr
 
   while (Date.now() - startTime < startTimeoutMs) {
     await sleep(200)
-    const newVersion = await getRelayServerVersion(RELAY_PORT)
+    const newVersion = await getRelayServerVersion(port)
     if (newVersion) {
       logger?.log(pc.green('CDP relay server started successfully'))
       await sleep(1000)

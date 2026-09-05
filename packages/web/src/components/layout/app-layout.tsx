@@ -1,6 +1,6 @@
 /**
  * App main layout:
- * - >=md: left single-column sidebar (Project / new chat / nav / Session list / user config) + main content;
+ * - >=md: left single-column sidebar (New trip / My Trips / Models / conversations / account) + main content;
  * - <md: top thin bar (hamburger -> sidebar drawer + brand name) + main content.
  * All chrome uses solid backgrounds and avoids stacking contexts (frosted-glass/transform would trap overlay z-index).
  */
@@ -16,10 +16,15 @@ import { useSessions } from "../../state/sessions";
 import { useCompletionNotifications } from "../../state/use-completion-notifications";
 import { Drawer } from "../ui/drawer";
 import { GlyphIcon } from "../ui/glyph-icon";
-import { NEW_CHAT_ICON, Sidebar } from "./sidebar";
+import { UserAvatar } from "../ui/user-avatar";
+import { Sidebar } from "./sidebar";
 import { DRAFT_SESSION_ID } from "../../features/chat/chat-page";
-import { parkActiveDraft } from "../../features/chat/draft-sessions";
+import { useStartConversation } from "../../features/chat/use-start-conversation";
+import { SuitcaseSimpleIcon } from "@phosphor-icons/react/dist/csr/SuitcaseSimple";
+import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
 import { ChangePasswordDialog } from "../account/change-password-dialog";
+import { SettingsDialog } from "../account/settings-dialog";
+import { BrowserConnectionDialog } from "../../features/chat/browser-connection-dialog";
 
 /** "Last conversation" glyph (chat lines + resume arrow), used only by the rail. */
 const LAST_CHAT_ICON = "M8 10h8M8 14h5M21 12a9 9 0 1 1-4.2-7.6L21 4v5h-5";
@@ -33,14 +38,14 @@ const railItemClass = (active: boolean) =>
   }`;
 
 /**
- * Collapsed narrow rail: expand button on top; below it, last conversation / new chat (every
+ * Collapsed narrow rail: expand button on top; below it, last conversation / New trip (every
  * entry carries a localized title + aria-label, so hover tooltips follow the UI language);
  * user avatar at the bottom. No Logo shown.
  */
 function CollapsedRail({ onExpand }: { onExpand: () => void }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { agents, currentProject, setCurrentAgentId } = useProject();
+  const { setCurrentAgentId } = useProject();
   const { sessions, loading } = useSessions();
   /**
    * Passive (active=false): never triggers a fetch — the rail mirrors whatever the lazy
@@ -64,13 +69,8 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
     navigate(`/chat/${lastSession.sessionId}`);
   };
 
-  /** Mirrors the pinned sidebar's "New chat": parks any typed-but-unsent draft text first (draft-sessions.ts), then a default_agent draft, falling back to the first Agent (an unresolved list defers resolution to the draft page). */
-  const newChat = () => {
-    if (user && currentProject) parkActiveDraft(user.userId, currentProject.projectId);
-    const agentId = (agents.find((a) => a.agentId === "default_agent") ?? agents[0])?.agentId;
-    if (agentId) setCurrentAgentId(agentId);
-    navigate(`/chat/${DRAFT_SESSION_ID}`, agentId ? { state: { agentId } } : undefined);
-  };
+  const startConversation = useStartConversation();
+  const newChat = () => startConversation();
 
   return (
     <div className="flex h-full flex-col items-center gap-1 py-2.5">
@@ -78,10 +78,11 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
         type="button"
         title={S.nav.expandSidebar}
         aria-label={S.nav.expandSidebar}
+        aria-expanded={false}
         onClick={onExpand}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-200/70 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       >
-        <GlyphIcon d="M9 6l6 6-6 6M20 4v16" size={18} />
+        <SidebarSimpleIcon size={18} aria-hidden />
       </button>
       {/* The entries scroll as one block, like the pinned sidebar's nav + session list: the rail
           keeps only the expand control and the account avatar at fixed height, so a window too
@@ -106,19 +107,19 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
         >
           <GlyphIcon d={LAST_CHAT_ICON} size={18} />
         </button>
-        {/* 2. New chat: shows the same gray active fill while on the draft page (pinned-sidebar convention). */}
+        {/* 2. New trip: shows the rail's active fill while on the draft page. */}
         <button
           type="button"
-          title={S.chat.newSessionMenu}
-          aria-label={S.chat.newSessionMenu}
+          title={S.trip.newTrip}
+          aria-label={S.trip.newTrip}
           onClick={newChat}
           className={railItemClass(activeSessionId === DRAFT_SESSION_ID)}
         >
-          <GlyphIcon d={NEW_CHAT_ICON} size={18} />
+          <SuitcaseSimpleIcon size={18} aria-hidden />
         </button>
         {/* The rail carries only ways to start and to get back: expand, the last
-            conversation, a new one. Agents / Models / Settings live behind the settings
-            fold in the expanded sidebar. */}
+            conversation, a new one. My Trips, Models and account settings remain
+            accessible in the expanded sidebar. */}
       </nav>
       <button
         type="button"
@@ -131,9 +132,9 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
             : (user?.userId ?? S.auth.admin)
         }
         onClick={onExpand}
-        className="relative mt-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white dark:bg-gray-200 dark:text-gray-900"
+        className="relative mt-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
       >
-        {(user?.userId ?? "?").slice(0, 1).toUpperCase()}
+        <UserAvatar />
         {/* Update reminder dot, mirroring the pinned sidebar's avatar (same look, same
             border trick against the rail background); the title/aria-label above name the
             release, since the rail has no update row of its own. */}
@@ -215,6 +216,7 @@ export function AppLayout() {
           <button
             type="button"
             aria-label={S.chat.sessionList}
+            data-sidebar-trigger
             onClick={() => setDrawerOpen(true)}
             className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
           >
@@ -284,6 +286,9 @@ export function AppLayout() {
         open={changePasswordOpen}
         onClose={() => setChangePasswordOpen(false)}
       />
+
+      <SettingsDialog />
+      <BrowserConnectionDialog />
 
       {/* Mobile: sidebar drawer */}
       <Drawer open={drawerOpen} side="left" title={S.appName} onClose={() => setDrawerOpen(false)}>

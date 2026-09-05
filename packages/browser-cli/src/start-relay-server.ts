@@ -23,7 +23,7 @@ process.on('exit', async (code) => {
 })
 
 export async function startServer({
-  port = 19989,
+  port = Number(process.env.PENGUIN_BROWSER_PORT) || 19989,
   host = '127.0.0.1',
   token,
 }: { port?: number; host?: string; token?: string } = {}) {

@@ -11,6 +11,11 @@ test("admin users: account provisioning is absent from the consumer surface", as
 
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add user" })).toHaveCount(0);
-  await expect(page.getByRole("cell", { name: /admin/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Reset password" })).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: `${ADMIN_ID} initial password`, exact: true }),
+  ).toBeVisible();
+  const administrator = page.getByRole("row").filter({
+    has: page.getByRole("cell", { name: `${ADMIN_ID} initial password`, exact: true }),
+  });
+  await expect(administrator.getByRole("button", { name: "Reset password" })).toBeVisible();
 });

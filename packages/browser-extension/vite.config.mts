@@ -14,6 +14,7 @@ const penguinBrowserPkg = JSON.parse(readFileSync(resolve(__dirname, '../browser
 
 const defineEnv: Record<string, string> = {
   'process.env.PENGUIN_BROWSER_PORT': JSON.stringify(process.env.PENGUIN_BROWSER_PORT || '19989'),
+  __TRAVEL_BROWSER_STANDALONE__: JSON.stringify(Boolean(process.env.TESTING || process.env.PENGUIN_BROWSER_PORT)),
   __PENGUIN_BROWSER_VERSION__: JSON.stringify(penguinBrowserPkg.version),
   __PENGUIN_BROWSER_OPEN_WELCOME_PAGE__: JSON.stringify(process.env.PENGUIN_BROWSER_OPEN_WELCOME_PAGE !== '0'),
 }
@@ -66,6 +67,7 @@ export default defineConfig({
         background: resolve(__dirname, 'src/background.ts'),
         offscreen: resolve(__dirname, 'src/offscreen.html'),
         welcome: resolve(__dirname, 'src/welcome.html'),
+        connection: resolve(__dirname, 'src/connection.html'),
       },
       output: {
         entryFileNames: '[name].js',

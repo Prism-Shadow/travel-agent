@@ -4,8 +4,8 @@ Status: implemented — discovery cards use a bounded local decorative library w
 
 ## Problem
 
-The draft screen needs visual differentiation for inspiration, upcoming-trip, and recent-session
-cards. A very small image set repeats visibly, but a live or scraped photo source introduces
+The draft screen and Trips overview need visual differentiation for inspiration, upcoming-trip,
+and recent-session cards. A very small image set repeats visibly, but a live or scraped photo source introduces
 availability, licensing, attribution, and provenance questions. A real-place photo also appears to
 substantiate a specific hotel, restaurant, flight, attraction, or POI even when the card has no such
 evidence.
@@ -32,8 +32,21 @@ screenshot or sourced POI image takes priority if a future surface has one.
 
 Selection uses the card's Session id and title without a model call. Explicit activity intent has
 precedence over a named destination, which has precedence over seasonal mood. A title with no known
-intent draws only from the neutral fallback group. The same input is deterministic, and a single
-selection pass excludes covers already assigned to another simultaneously visible card.
+intent draws only from the neutral fallback group. Selection is deterministic for the same
+ordered subjects and exclusions. A selection pass prefers unused eligible covers, then unused
+neutral fallbacks. Once these finite candidates are exhausted, eligible covers may repeat;
+unrelated destinations never become eligible merely to make a long list unique.
+
+The overview selects once over dated, unscheduled and past trips in render order, with Trip ids
+as subject ids and nonblank names (or destinations) as titles. Collapsed history reserves its
+covers, so expanding it does not alter another card. Independent surfaces may give a Trip a
+different decorative cover. Persisting cover identity or unifying unrelated presentation orders
+would add state for a property that is not part of the Trip's identity.
+
+The overview's empty state uses a separate generated coastal background at
+`packages/web/public/trips/empty-background.webp` (1586×992, 63,714 bytes). It is outside the 192-cover
+catalog and its byte budget. The left side leaves space for live localized text and the New trip
+action; the anonymous coast is atmosphere, not an example record or destination recommendation.
 
 The repository stores optimized runtime JPEGs and catalog metadata. Generation masters stay
 outside the repository. The four 36-image batch commits retain the prompt matrix, ImageGen output

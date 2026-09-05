@@ -15,7 +15,9 @@ import { ChatPage } from "./features/chat/chat-page";
 import { AdminUsersPage } from "./features/admin/admin-users-page";
 import { ModelsPage } from "./features/models/models-page";
 import { PrivateProfilePage } from "./features/private-profile/private-profile-page";
+import { TripsOverviewPage } from "./features/trips/trips-overview-page";
 import { TripPage } from "./features/trips/trip-page";
+import { SavedPage } from "./features/saved/saved-page";
 
 /** Route guard: shows blank while initializing, redirects to /login when not authenticated. */
 function RequireAuth() {
@@ -48,7 +50,9 @@ export function AppRouter() {
         <Route element={<RequireAuth />}>
           <Route index element={<Navigate to="/chat" replace />} />
           <Route path="/chat/:sessionId?" element={<ChatPage />} />
+          <Route path="/trips" element={<TripsOverviewPage />} />
           <Route path="/trips/:tripId" element={<TripPage />} />
+          <Route path="/saved" element={<SavedPage />} />
 
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/settings/private-profile" element={<PrivateProfilePage />} />

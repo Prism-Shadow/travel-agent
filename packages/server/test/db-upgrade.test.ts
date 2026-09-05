@@ -54,6 +54,8 @@ describe("openDatabase column upgrade", () => {
     // The stated fact keeps the unit it always had; a row that stated nothing gains no unit.
     expect(repo.findById("t-yuan")).toMatchObject({ budgetAmount: 20000, budgetCurrency: "CNY" });
     expect(repo.findById("t-none")).toMatchObject({ budgetAmount: null, budgetCurrency: null });
+    expect(repo.findById("t-yuan")!.notes).toBe("");
+    repo.update("t-yuan", { notes: "Quiet hotel" }, "2026-01-02T00:00:00.000Z");
     repo.update("t-yuan", { budgetCurrency: "USD" }, "2026-01-02T00:00:00.000Z");
     db.close();
 
@@ -61,6 +63,7 @@ describe("openDatabase column upgrade", () => {
     const again = openDatabase(dbPath);
     try {
       expect(new TripsRepo(again).findById("t-yuan")!.budgetCurrency).toBe("USD");
+      expect(new TripsRepo(again).findById("t-yuan")!.notes).toBe("Quiet hotel");
     } finally {
       again.close();
     }

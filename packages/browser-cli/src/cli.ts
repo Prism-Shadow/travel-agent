@@ -21,7 +21,6 @@ import {
   assertStandaloneBrowserModeAllowed,
   readBackendPreference,
   resolveBackendRequest,
-  resolveRelayEndpoint,
   type BrowserBackendRequest,
   type StandaloneBrowserMode,
 } from './relay/relay-discovery.js'
@@ -34,6 +33,8 @@ import {
 } from './executor/user-interaction.js'
 import {
   ensureRelayServer,
+  resolveLocalRelay,
+  assertStandaloneRelayReplacement,
   RELAY_PORT,
   waitForConnectedExtensions,
   getExtensionOutdatedWarning,
@@ -74,7 +75,7 @@ const cli = goke('penguin-browser')
 cli
   .command(
     'browser start [binaryPath]',
-    'Start Chromium or Chrome for Testing with the bundled Penguin Browser extension',
+    'Start Chromium or Chrome for Testing with the bundled Travel Browser extension',
   )
   .hidden()
   .option('--user-data-dir <dir>', 'Persistent browser profile directory used for the managed browser')
@@ -133,7 +134,7 @@ cli
       console.log('  Permissions: recording/tabCapture flags enabled')
 
       if (connectedExtensions.length > 0) {
-        console.log('Penguin Browser extension connected to the relay server.')
+        console.log('Travel Browser extension connected to the relay server.')
         return
       }
 
@@ -212,27 +213,9 @@ cli
     })
   })
 
-/**
- * Which relay this command talks to.
- *
- * Resolved the same way for every command, and that is the point. The desktop shell prefers the
- * conventional port but binds an ephemeral one when something else already owns it, and publishes
- * where it landed. If `session new --iab` followed that and `execute` did not, a session created on
- * the shell's relay would be executed against a different relay that has never heard of it — the
- * session id is a small integer, so the failure is "session 3 not found" rather than anything that
- * points at two relays.
- *
- * Precedence: an explicit host, then the environment, then the shell's published endpoint, then the
- * conventional port. A machine with no desktop app publishes nothing and lands on the default,
- * which is where a Chrome extension connects.
- */
+/** All CLI operations share one endpoint, pinned to the application for this invocation. */
 async function getServerUrl(host?: string): Promise<string> {
-  const endpoint = await resolveRelayEndpoint({
-    defaultPort: RELAY_PORT,
-    host,
-    envHost: process.env.PENGUIN_BROWSER_HOST,
-    envPort: process.env.PENGUIN_BROWSER_PORT,
-  })
+  const endpoint = await resolveLocalRelay(host)
   const { httpBaseUrl } = parseRelayHost(endpoint.host, endpoint.port)
   return httpBaseUrl
 }
@@ -570,17 +553,8 @@ cli
       }
 
       try {
-        // The desktop shell prefers 19989 but moves to a dynamic port when something else already
-        // owns it, so the port is discovered rather than assumed. A named host always wins, and on
-        // that path discovery is neither read nor cleaned — it describes this machine, not the one
-        // the caller pointed at.
-        const endpoint = await resolveRelayEndpoint({
-          defaultPort: 19989,
-          host: options.host,
-          envHost: process.env.PENGUIN_BROWSER_HOST,
-          envPort: process.env.PENGUIN_BROWSER_PORT,
-        })
-        const serverUrl = parseRelayHost(endpoint.host, endpoint.port).httpBaseUrl
+        // IAB creation uses the same invocation-scoped endpoint as status and execution.
+        const serverUrl = await getServerUrl(options.host)
         const response = await fetch(`${serverUrl}/cli/session/new`, {
           method: 'POST',
           headers: buildAuthHeaders({ token: options.token, json: true }),
@@ -1808,8 +1782,11 @@ cli
     '--token <token>',
     'Authentication token, required when --host is 0.0.0.0 (or use PENGUIN_BROWSER_TOKEN env var)',
   )
-  .option('--replace', 'Kill existing server if running')
+  .option('--replace', 'Replace an existing standalone relay')
   .action(async (options) => {
+    if (process.env.PENGUIN_RELAY_INSTANCE_ID) {
+      throw new Error('Desktop owns this relay. Restart the application instead.')
+    }
     const token = options.token || process.env.PENGUIN_BROWSER_TOKEN
     const isPublicHost = options.host === '0.0.0.0' || options.host === '::'
     if (isPublicHost && !token) {
@@ -1852,7 +1829,8 @@ cli
         process.exit(0)
       }
 
-      // Kill existing process on the port
+      await assertStandaloneRelayReplacement(RELAY_PORT)
+      // Explicitly replace the recognized standalone relay.
       console.log(`Killing existing server on port ${RELAY_PORT}...`)
       await killPortProcess({ port: RELAY_PORT })
     }

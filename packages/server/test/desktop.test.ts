@@ -28,7 +28,7 @@ describe("desktop-login", () => {
       });
       expect(me.status).toBe(200);
       const body = (await me.json()) as MeResponse;
-      expect(body.user.userId).toBe("admin");
+      expect(body.user.userId).toBe("traveler");
       expect(body.desktopMode).toBe(true);
 
       const replay = await t.app.request(`/api/auth/desktop-login?token=${TOKEN}`);
@@ -139,7 +139,7 @@ describe("desktop single-user mode", () => {
         await api.post("/api/admin/users", { userId: "eve", password: "password-123" }),
       );
       await expectSingleUser403(
-        await api.post("/api/admin/users/admin/password", { password: "password-456" }),
+        await api.post("/api/admin/users/traveler/password", { password: "password-456" }),
       );
       await expectSingleUser403(
         await t.app.request("/api/admin/users/eve", {

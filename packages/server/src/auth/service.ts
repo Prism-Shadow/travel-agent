@@ -3,17 +3,17 @@
  * login / logout / password change / session validation.
  *
  * - No open registration: on startup, if there are no users at all, the built-in
- *   admin `admin` is seeded with a random `penguin-<4 digits>` initial password
- *   (printed once by the startup entrypoint; PENGUIN_SEED_ADMIN_PASSWORD injects
- *   a fixed one for tests/e2e), and it adopts `default_project`; all other users
- *   are created by an admin via the user backend (admin-service).
+ *   administrator is seeded with the fixed, public INITIAL_ADMIN_CREDENTIALS
+ *   (PENGUIN_SEED_ADMIN_PASSWORD overrides the password), and it adopts
+ *   `default_project`; all other users are created by an admin via the user backend
+ *   (admin-service).
  * - An initial password (whether seeded or set by an admin) is flagged with
  *   password_is_initial, which the frontend uses to prompt for a password change soon.
  * - Sessions: a 32-byte random token, with only its sha256 hash stored in the DB;
  *   valid for 7 days, with sliding renewal once less than 6 days remain.
  */
-import { createHash, randomBytes, randomInt } from "node:crypto";
-import type { UserInfo } from "../api/types.js";
+import { createHash, randomBytes } from "node:crypto";
+import { INITIAL_ADMIN_CREDENTIALS, type UserInfo } from "../api/types.js";
 import { HttpError } from "../http/errors.js";
 import type { AuthSessionsRepo } from "../db/repos/auth-sessions.js";
 import type { UserRow, UsersRepo } from "../db/repos/users.js";
@@ -22,16 +22,16 @@ import { hashPassword, verifyPassword } from "./password.js";
 export const MIN_PASSWORD_LENGTH = 8;
 
 /** Built-in admin user_id. */
-export const ADMIN_USER_ID = "admin";
+export const ADMIN_USER_ID = INITIAL_ADMIN_CREDENTIALS.userId;
 
 /**
- * Login throttling (per userId): the seeded initial password is `penguin-<4 digits>` —
- * 10,000 combinations — so unthrottled guessing would enumerate it in minutes. After
- * LOGIN_FREE_ATTEMPTS consecutive failures, the next attempt is admitted only after an
- * exponentially growing delay from the last failure (1s, 2s, … capped at 60s; attempts
- * inside the window are 429 `too_many_attempts` and do not extend it). Beyond ~40
- * failures that is one guess per minute, so the 10k space stops being enumerable, while
- * a legitimate user who mistyped a few times never waits more than the cap. A successful
+ * Login throttling (per userId). The initial password is public, so throttling protects
+ * nothing until it is changed; from then on it keeps a short user-chosen password from
+ * being enumerated. After LOGIN_FREE_ATTEMPTS consecutive failures, the next attempt is
+ * admitted only after an exponentially growing delay from the last failure (1s, 2s, …
+ * capped at 60s; attempts inside the window are 429 `too_many_attempts` and do not
+ * extend it). Beyond ~40 failures that is one guess per minute, while a legitimate user
+ * who mistyped a few times never waits more than the cap. A successful
  * login clears the counter. Counters are process memory (a restart clears them —
  * restarting is slower than waiting out the cap) and are kept for nonexistent userIds
  * too, so throttling is not an account-existence oracle. Known limit: a concurrent burst
@@ -43,15 +43,6 @@ const LOGIN_BACKOFF_START_MS = 1000;
 const LOGIN_BACKOFF_CAP_MS = 60_000;
 /** Failure entries idle longer than this are swept (bounds the map; far above the cap). */
 const LOGIN_FAILURE_IDLE_MS = 15 * 60_000;
-
-/**
- * Random initial password for the seeded admin: `penguin-<4 digits>` — brand-related and
- * easy to type, shown once in the server startup output (the README, docs and login-page
- * hint all describe this form).
- */
-export function generateInitialAdminPassword(): string {
-  return "penguin-" + String(randomInt(0, 10000)).padStart(4, "0");
-}
 
 function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -79,7 +70,7 @@ export interface AuthServiceDeps {
   authSessions: AuthSessionsRepo;
   /** Provisions the initial Project at signup (injected by project-service, to avoid a circular dependency). */
   provisionInitialProject: (user: UserRow, isAdmin: boolean) => Promise<void>;
-  /** Fixed initial password for the seeded admin (config.seedAdminPassword); null generates a random one at seed time. */
+  /** Override for the seeded admin password (config.seedAdminPassword); null seeds INITIAL_ADMIN_CREDENTIALS.password. */
   seedAdminPassword: string | null;
   /**
    * Fired after any successful password update (self change / desktop set). The server
@@ -109,11 +100,11 @@ export class AuthService {
    */
   async seedAdmin(): Promise<string | null> {
     if (this.deps.users.count() > 0) return null;
-    const password = this.deps.seedAdminPassword ?? generateInitialAdminPassword();
+    const password = this.deps.seedAdminPassword ?? INITIAL_ADMIN_CREDENTIALS.password;
     // The override (PENGUIN_SEED_ADMIN_PASSWORD) must meet the same policy as every
     // other initial/reset password; rejecting it here, before any insert, keeps a
-    // configuration typo from creating a trivially weak privileged account. Generated
-    // passwords are always 12 characters and never trip this.
+    // configuration typo from creating a trivially weak privileged account. The fixed
+    // default is 13 characters and never trips this.
     if (password.length < MIN_PASSWORD_LENGTH) {
       throw new Error(
         `PENGUIN_SEED_ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`,

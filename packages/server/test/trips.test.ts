@@ -82,6 +82,30 @@ describe("trips", () => {
     });
   });
 
+  it("persists shared notes, mirrors edits and clears them without changing other identity", async () => {
+    const trip = await createTrip({
+      destination: "Kyoto",
+      notes: "Quiet rooms.\nKeep afternoons free.",
+    });
+    expect(trip.notes).toBe("Quiet rooms.\nKeep afternoons free.");
+    const read = async () =>
+      ((await (await api.get(`/api/trips/${trip.tripId}`)).json()) as TripResponse).trip;
+    const mirror = async () =>
+      JSON.parse(await fs.readFile(path.join(trip.dir, "trip.json"), "utf8"));
+    expect((await mirror()).notes).toBe(trip.notes);
+    await api.patch(`/api/trips/${trip.tripId}`, { name: "Autumn" });
+    expect((await read()).notes).toBe(trip.notes);
+    await api.patch(`/api/trips/${trip.tripId}`, { notes: "Near a station" });
+    expect((await mirror()).notes).toBe("Near a station");
+    await api.patch(`/api/trips/${trip.tripId}`, { notes: "" });
+    expect(await read()).toMatchObject({ notes: "", destination: "Kyoto", name: "Autumn" });
+    expect((await mirror()).notes).toBe("");
+    for (const notes of [42, {}, "x".repeat(8001)]) {
+      expect((await api.patch(`/api/trips/${trip.tripId}`, { notes })).status).toBe(400);
+    }
+    expect((await createTrip()).notes).toBe("");
+  });
+
   it("reads rows written in the retired shapes as today's shapes", async () => {
     // Before 2026-08-30, flexible `when` carried one `month: string` and `who` had no `pets`.
     // Dev databases hold such rows; they must translate on read, not crash the sidebar's
@@ -164,6 +188,44 @@ describe("trips", () => {
     const second = await createTrip({ destination: "Kyoto" });
     expect(first.dir).not.toBe(second.dir);
     expect(path.basename(second.dir)).toBe("kyoto-2");
+  });
+
+  it("reports a filesystem failure without creating a Trip or replacing the blocking file", async () => {
+    const root = path.join(t.root, "trips");
+    await fs.writeFile(root, "Keep this file");
+    const response = await api.post(`/api/projects/${projectId}/trips`, { destination: "Kyoto" });
+    expect(response.status).toBe(500);
+    expect(await fs.readFile(root, "utf8")).toBe("Keep this file");
+    const listed = (await (
+      await api.get(`/api/projects/${projectId}/trips`)
+    ).json()) as TripsResponse;
+    expect(listed.trips).toEqual([]);
+  });
+
+  it.each([
+    { destination: "" },
+    { destination: "Kyoto", when: { kind: "dates", start: "2026-10-01", end: "2026-10-05" } },
+  ])("allocates concurrent trips beyond 50 occupied names: %j", async (body) => {
+    const first = await createTrip(body);
+    const root = path.dirname(first.dir);
+    const basename = path.basename(first.dir);
+    const occupied = Array.from({ length: 50 }, (_, i) =>
+      path.join(root, i === 0 ? basename : `${basename}-${i + 1}`),
+    );
+    for (const dir of occupied) {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, "keep.txt"), "Existing travel notes");
+    }
+    const created = await Promise.all(Array.from({ length: 3 }, () => createTrip(body)));
+    expect(new Set(created.map((trip) => trip.dir)).size).toBe(3);
+    for (const trip of created) {
+      expect(occupied).not.toContain(trip.dir);
+      const mirror = JSON.parse(await fs.readFile(path.join(trip.dir, "trip.json"), "utf8"));
+      expect(mirror.tripId).toBe(trip.tripId);
+    }
+    for (const dir of occupied) {
+      expect(await fs.readFile(path.join(dir, "keep.txt"), "utf8")).toBe("Existing travel notes");
+    }
   });
 
   it("names the folder for the destination the sender stated, not the day they clicked", async () => {

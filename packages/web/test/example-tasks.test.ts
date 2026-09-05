@@ -1,21 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { EXAMPLE_TASKS } from "../src/features/chat/example-tasks";
-import { buildSkillsMessage } from "../src/features/chat/skill-use";
 import { en } from "../src/lib/strings-en";
 import { zh } from "../src/lib/strings";
 
 describe("travel starter tasks", () => {
   it("keeps exactly the three real-site starters, in display order", () => {
     expect(EXAMPLE_TASKS.map((task) => task.id)).toEqual(["ctripFlight", "otaCompare", "xhsTrip"]);
-  });
-
-  it("submits every starter without an implicit development Skill block", () => {
-    for (const task of EXAMPLE_TASKS) {
-      expect(task.skills).toEqual([]);
-      expect(buildSkillsMessage([...task.skills], zh.chat.exampleTasks[task.id].prompt)).toBe(
-        zh.chat.exampleTasks[task.id].prompt,
-      );
-    }
   });
 
   it.each([

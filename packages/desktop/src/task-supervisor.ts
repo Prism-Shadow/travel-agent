@@ -69,6 +69,12 @@ export class TaskSupervisor {
   private trailing: NodeJS.Timeout | null = null;
   private lastRunAt = 0;
   private stopped = false;
+  /**
+   * The failure the last tick ended in, so a state that persists across ticks — a window sitting on
+   * the login page while the pane holds restored tabs is the common one — is reported once, not
+   * every three seconds. A different failure, or the first success after one, is reported again.
+   */
+  private lastFailure: string | null = null;
 
   constructor(private readonly options: TaskSupervisorOptions) {}
 
@@ -130,11 +136,21 @@ export class TaskSupervisor {
         // it, with an answer about the conversations the old one cared about.
         if (this.stopped) return;
         this.options.apply(states);
+        if (this.lastFailure !== null) {
+          this.options.log?.(`[iab] task state reconciled again (was: ${this.lastFailure})\n`);
+          this.lastFailure = null;
+        }
       } catch (error) {
         // A failed tick changes nothing and the next one asks again. Refusing to apply a *partial*
         // answer is the point: treating an unreachable server as "nothing is running" would release
         // the tabs of every turn still in progress.
-        this.options.log?.(`[iab] could not reconcile task state: ${(error as Error).message}\n`);
+        const message = (error as Error).message;
+        if (message !== this.lastFailure) {
+          this.options.log?.(
+            `[iab] could not reconcile task state: ${message} (retrying every tick; repeats are not logged)\n`,
+          );
+          this.lastFailure = message;
+        }
       } finally {
         this.lastRunAt = Date.now();
         this.inFlight = null;
