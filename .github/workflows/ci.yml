@@ -109,6 +109,13 @@ jobs:
       - name: Install the web suite's Chromium
         run: pnpm --filter @prismshadow/penguin-web exec playwright install --with-deps chromium
 
+      # The desktop native-pairing e2e (below) drives a real Chromium through browser-cli's
+      # vendored @xmorse/playwright-core, which pins its own browser build (chromium-1209) — a
+      # different one from the web suite's. Same command as the penguin-browser job, same reason
+      # for `playwright-core` and for no `--with-deps` (see that job).
+      - name: Install Chromium for the vendored Playwright
+        run: pnpm --filter penguin-browser exec playwright-core install chromium
+
       - name: Web end-to-end (Playwright, mock LLM)
         run: pnpm --filter @prismshadow/penguin-web test:e2e
 
