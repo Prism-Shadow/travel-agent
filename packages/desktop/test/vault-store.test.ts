@@ -89,7 +89,9 @@ describe("opening a vault", () => {
   it("creates the file on first unlock, readable only by its owner", async () => {
     await vault.unlock();
     const stat = await fs.stat(path.join(dir, "profile-vault.json"));
-    expect(stat.mode & 0o777).toBe(0o600);
+    // POSIX mode bits only: Windows reports a synthetic mode, and the owner-only property there
+    // comes from the per-user data directory's ACL rather than from anything this bit says.
+    if (process.platform !== "win32") expect(stat.mode & 0o777).toBe(0o600);
     expect(vault.unlocked).toBe(true);
   });
 
