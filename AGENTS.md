@@ -152,9 +152,9 @@ changing the admin password in the development data.
 
 ## The gate before a push
 
-**GitHub Actions CI is paused** (`ci.yml`, disabled manually on 2026-08-27; re-enable with
-`gh workflow enable ci.yml`). Nothing verifies a push but this, so run it — all of it, not the part
-that looks related:
+`ci.yml` runs on every push to main and every pull request (re-enabled 2026-09-05; it was paused
+from 2026-08-27 for cost). It is a second opinion, not a substitute: it reproduces the gate below
+on Linux, after the push. Run the gate locally first — all of it, not the part that looks related:
 
 ```bash
 node packages/desktop/scripts/check-debug-switches.mjs && \
@@ -184,8 +184,6 @@ Two things this gate does **not** cover, and neither is a reason to skip it:
   the stream and the token usage. It proves the model is reachable. It does not prove a task runs
   end to end — there is no end-to-end agent acceptance test today.
 
-Re-enable CI before anything ships.
-
 Every `dev:*` command runs `scripts/dev-prebuild.mjs` first, behind a lock that serializes
 concurrent invocations: it keeps `pnpm install` current, prebuilds the workspace deps, dedupes
 back-to-back builds so `pnpm dev` installs and builds exactly once, and clears the web app's Vite
@@ -195,14 +193,19 @@ it would otherwise keep serving the browser the previous core.
 Dev entry points that touch data default to `~/.penguin/dev-data`, separate from an installed app's
 `~/.penguin/data`. Never point them at real user state.
 
-CI is three workflows. `ci.yml` runs on every push to main and every pull request — **paused
-today**, see the gate above. `pre-release.yml` is manual and holds what is only worth paying for
-before a build ships — the Windows suite. `desktop-build.yml` is manual too, and nothing calls it
-since the upstream release chain was removed; it produces the three-OS Electron installers as
-workflow artifacts. This repository is private, so Actions minutes are billed, and Windows bills at
-2x, macOS at 10x: a full `ci.yml` run is 16 billed minutes across its three jobs, which at four to
-nine pushes a day is what made pausing worth considering. Pushing once per batch of commits costs
-one run instead of one per push, and is the lever that does not trade away verification.
+CI is four workflows. `ci.yml` runs on every push to main and every pull request. `pre-release.yml`
+is manual and holds what is only worth paying for before a build ships — the Windows suite; run it
+before cutting a Release. `release.yml` is manual: given a tag it calls `desktop-build.yml` for the
+three-OS Electron installers, then creates a **draft** GitHub Release with the installers, the
+updater metadata and SHA256SUMS; a person reviews the draft and publishes it, which is what creates
+the tag. `desktop-build.yml` can also be dispatched alone for a dry run. macOS artifacts are signed
+and notarized only when the `apple-signing` environment holds the Apple secrets and the run asks
+for it; Windows artifacts are unsigned today. This repository is private, so Actions minutes are
+billed, and Windows bills at 2x, macOS at 10x: a full `ci.yml` run is 16 billed minutes across its
+three jobs, and a Release run is the most expensive thing here. Pushing once per batch of commits
+costs one run instead of one per push, and is the lever that does not trade away verification.
+A private repository's Releases are visible to collaborators only; they become public downloads
+when the repository does.
 
 Pull requests branch from `main` and keep to one topic; new user-facing behaviour comes with tests,
 and with the spec update that keeps Hard Rule 2 true.

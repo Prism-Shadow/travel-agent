@@ -3,11 +3,10 @@
 # Three-OS matrix: stage the pnpm-deploy app tree, run electron-builder, and upload the
 # installers as workflow artifacts named desktop-<OS>.
 #
-# **Manual only, and expensive.** Its former caller — upstream's release.yml, which published
-# to the public npm `@prismshadow` scope and an Alibaba OSS bucket that belong to
-# PenguinHarness — was removed with the rest of that release chain; nothing calls this
-# workflow now. The `workflow_call` trigger is kept so a future release workflow of this
-# fork's own can call it without rebuilding the matrix. Run it by hand until then.
+# **Expensive.** Called by release.yml (workflow_call) when a Release is cut, or by hand
+# (workflow_dispatch) for a dry run. Its former caller — upstream's release.yml, which
+# published to the public npm `@prismshadow` scope and an Alibaba OSS bucket that belong to
+# PenguinHarness — was removed with the rest of that release chain.
 #
 # On a private repository this is the costliest thing here: Actions bills macOS minutes at
 # **10x** and Windows at 2x, and this job builds on all three. Reach for it when you intend
@@ -224,11 +223,12 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
+          # The product is "Travel Agent" (electron-builder.yml productName), so the macOS and
+          # Windows binaries carry the space; Linux uses executableName travel-agent.
           targets=(
-            packages/desktop/stage/out/mac*/PenguinHarness.app
-            packages/desktop/stage/out/*-unpacked/PenguinHarness.exe
-            packages/desktop/stage/out/*-unpacked/penguinharness
-            packages/desktop/stage/out/*-unpacked/PenguinHarness
+            packages/desktop/stage/out/mac*/"Travel Agent.app"
+            packages/desktop/stage/out/*-unpacked/"Travel Agent.exe"
+            packages/desktop/stage/out/*-unpacked/travel-agent
           )
           if ((${#targets[@]} == 0)); then
             echo "::error title=No packaged binary::fuse guard found nothing under stage/out to check"
@@ -347,8 +347,8 @@ jobs:
           set -euo pipefail
 
           apps=(
-            packages/desktop/stage/out/mac-arm64/PenguinHarness.app
-            packages/desktop/stage/out/mac/PenguinHarness.app
+            "packages/desktop/stage/out/mac-arm64/Travel Agent.app"
+            "packages/desktop/stage/out/mac/Travel Agent.app"
           )
           for app in "${apps[@]}"; do
             if [[ ! -d "$app" ]]; then
@@ -387,11 +387,11 @@ jobs:
           name: desktop-${{ runner.os }}
           if-no-files-found: error
           path: |
-            packages/desktop/stage/out/penguin-desktop-*.AppImage
-            packages/desktop/stage/out/penguin-desktop-*.deb
-            packages/desktop/stage/out/penguin-desktop-*.dmg
-            packages/desktop/stage/out/penguin-desktop-*.zip
-            packages/desktop/stage/out/penguin-desktop-*.exe
+            packages/desktop/stage/out/travel-agent-*.AppImage
+            packages/desktop/stage/out/travel-agent-*.deb
+            packages/desktop/stage/out/travel-agent-*.dmg
+            packages/desktop/stage/out/travel-agent-*.zip
+            packages/desktop/stage/out/travel-agent-*.exe
             # Update metadata: electron-updater reads latest*.yml from the Release, and
             # the blockmaps are what make differential downloads possible. Without these
             # the installers ship but nothing can auto-update.

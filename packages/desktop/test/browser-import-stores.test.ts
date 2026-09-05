@@ -282,13 +282,18 @@ describe("the credential store", () => {
     expect(() => store.useForFill("nope", (p) => p)).toThrow(CredentialStoreError);
   });
 
-  it("writes the file so only its owner can read it", async () => {
-    const store = makeStore();
-    await store.unlock();
-    store.put({ origin: "https://a.example", username: "u", password: "p", source: "x" });
-    const mode = fs.statSync(path.join(dir, "logins.json")).mode & 0o777;
-    expect(mode).toBe(0o600);
-  });
+  // POSIX mode bits only: Windows reports a synthetic mode, and the owner-only property there
+  // comes from the per-user data directory's ACL rather than from anything this bit says.
+  it.skipIf(process.platform === "win32")(
+    "writes the file so only its owner can read it",
+    async () => {
+      const store = makeStore();
+      await store.unlock();
+      store.put({ origin: "https://a.example", username: "u", password: "p", source: "x" });
+      const mode = fs.statSync(path.join(dir, "logins.json")).mode & 0o777;
+      expect(mode).toBe(0o600);
+    },
+  );
 
   it("deletes and clears", async () => {
     const store = makeStore();

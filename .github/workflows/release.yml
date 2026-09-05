@@ -1,0 +1,130 @@
+# Cut a Release: build the three desktop installers and attach them to a **draft** GitHub
+# Release, together with the electron-updater metadata and a SHA256SUMS file.
+#
+# Manual, by design. The decision to ship is taken by a person after pre-release.yml (the
+# Windows suite) and the local gate in AGENTS.md have passed; this workflow turns that
+# decision into artifacts. It publishes nothing on its own: the Release is created as a
+# draft, pointing at the commit the workflow was dispatched from, and the tag is created by
+# GitHub when the draft is published. Review the assets, edit the notes, then publish.
+#
+# Signing: pass require_macos_signing=true only when the `apple-signing` environment holds
+# the six Apple secrets (see desktop-build.yml). Without them the macOS artifacts are
+# unsigned and Gatekeeper will refuse them until the person allows the app in Privacy &
+# Security. Windows artifacts are unsigned either way today; SmartScreen warns on first run.
+#
+# Cost: this is the most expensive workflow in the repository on a private plan — macOS
+# minutes bill at 10x and Windows at 2x — because it builds on all three operating systems.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, vX.Y.Z (optionally -suffix). Stamped into the app; created when the draft is published."
+        required: true
+        type: string
+      require_macos_signing:
+        description: "Sign and notarize macOS artifacts; fails if the apple-signing secrets are missing."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate the tag before spending build minutes
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error title=Invalid tag::'$TAG' is not vX.Y.Z (optionally -suffix)"
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error title=Tag exists::$TAG already exists; a Release is cut once"
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error title=Release exists::a Release (draft or published) already uses $TAG"
+            exit 1
+          fi
+
+  packages:
+    needs: check-tag
+    uses: ./.github/workflows/desktop-build.yml
+    with:
+      ref: ${{ github.sha }}
+      tag: ${{ inputs.tag }}
+      require_macos_signing: ${{ inputs.require_macos_signing }}
+    # No `secrets:` here, deliberately: the macOS job attaches the `apple-signing`
+    # environment itself, and declaring the names here would shadow those values with
+    # empty caller-passed ones (desktop-build.yml explains the v0.2.2 failure).
+
+  draft-release:
+    needs: packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: assets
+
+      - name: Checksums and inventory
+        working-directory: assets
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          installers=(*.dmg *.zip *.exe *.AppImage *.deb)
+          if ((${#installers[@]} == 0)); then
+            echo "::error title=No installers::the build jobs uploaded no installer"
+            exit 1
+          fi
+          for os in darwin win32 linux; do
+            if ! compgen -G "travel-agent-$os-*" >/dev/null; then
+              echo "::error title=Missing platform::no travel-agent-$os-* artifact; every Release ships all three"
+              exit 1
+            fi
+          done
+          sha256sum "${installers[@]}" > SHA256SUMS
+          ls -la
+
+      - name: Create the draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          SIGNED: ${{ inputs.require_macos_signing && 'signed and notarized' || 'unsigned' }}
+        run: |
+          set -euo pipefail
+          cat > notes.md <<EOF
+          Travel Agent $TAG — desktop installers for macOS, Windows and Linux.
+
+          | Platform | File |
+          | --- | --- |
+          | macOS (Apple Silicon) | travel-agent-darwin-arm64.dmg |
+          | macOS (Intel) | travel-agent-darwin-x64.dmg |
+          | Windows (x64) | travel-agent-win32-x64.exe |
+          | Linux (AppImage) | travel-agent-linux-x86_64.AppImage |
+          | Linux (Debian/Ubuntu) | travel-agent-linux-amd64.deb |
+
+          macOS artifacts in this build are **$SIGNED**. SHA256SUMS covers every installer. The
+          latest*.yml and .blockmap files are read by the in-app updater and are not for download.
+
+          Built from $GITHUB_SHA by run $GITHUB_RUN_ID.
+          EOF
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Travel Agent $TAG" \
+            --notes-file notes.md \
+            assets/*
+          echo "Draft Release $TAG created; review and publish it from the Releases page."
