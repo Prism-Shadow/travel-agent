@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useMemo, useSyncExternalStore } from "react";
-import { motion } from "framer-motion";
 import { useTheme } from "../../state/theme";
 import {
   curvedMapPath,
@@ -22,8 +21,11 @@ export interface MapProps {
   className?: string;
 }
 
-// Subscribe directly: the animation library's hook snapshots this preference only on mount.
+// Subscribed directly so a preference change mid-session stops the animation, not only a reload.
 const motionQuery = "(prefers-reduced-motion: reduce)";
+
+/** SMIL's ease-in-out, one spline per segment. */
+const EASE_IN_OUT = "0.42 0 0.58 1";
 function subscribeReducedMotion(onChange: () => void) {
   const media = window.matchMedia(motionQuery);
   media.addEventListener("change", onChange);
@@ -50,6 +52,26 @@ export function WorldMap({
   const duration = Number.isFinite(animationDuration) ? Math.max(0.2, animationDuration) : 3;
   const cycle = duration + 4;
   const drawEnd = duration / cycle;
+  // Route drawing and the travelling dot are both SMIL on the SVG's own timeline, so they cannot
+  // drift apart: the same `begin`, `dur` and key times drive both. The stroke is drawn by sliding a
+  // one-unit dash along a path normalised to `pathLength="1"`.
+  const routeTiming = loop
+    ? {
+        keyTimes: `0;${drawEnd};${drawEnd + (1 - drawEnd) * 0.65};1`,
+        keySplines: [EASE_IN_OUT, EASE_IN_OUT, EASE_IN_OUT].join(";"),
+        dashoffset: "1;0;0;0",
+        opacity: "0;1;1;0",
+        dur: `${cycle}s`,
+        repeatCount: "indefinite" as const,
+      }
+    : {
+        keyTimes: "0;1",
+        keySplines: EASE_IN_OUT,
+        dashoffset: "1;0",
+        opacity: "0;1",
+        dur: `${duration}s`,
+        repeatCount: "1" as const,
+      };
   const routes = useMemo(
     () =>
       dots.flatMap(({ start, end }) => {
@@ -96,34 +118,44 @@ export function WorldMap({
         {routes.map(({ path }, i) => (
           <g key={`${path}-${i}`}>
             <path d={path} fill="none" stroke={color} strokeWidth="0.8" opacity="0.12" />
-            <motion.path
-              key={animate ? "animated" : "static"}
+            <path
               d={path}
               fill="none"
               stroke={`url(#${gradientId})`}
               strokeWidth="1.4"
-              initial={animate ? { pathLength: 0, opacity: 0 } : false}
-              animate={
-                animate && loop
-                  ? { pathLength: [0, 1, 1, 1], opacity: [0, 1, 1, 0] }
-                  : { pathLength: 1, opacity: 1 }
-              }
-              transition={
-                animate
-                  ? {
-                      duration: loop ? cycle : duration,
-                      delay: i * 0.65,
-                      ...(loop
-                        ? {
-                            times: [0, drawEnd, drawEnd + (1 - drawEnd) * 0.65, 1],
-                            repeat: Infinity,
-                          }
-                        : {}),
-                      ease: "easeInOut",
-                    }
-                  : { duration: 0 }
-              }
-            />
+              pathLength="1"
+              strokeDasharray="1"
+              // Before a delayed animation begins, the route is hidden; static mode shows it whole.
+              strokeDashoffset={animate ? 1 : 0}
+              opacity={animate ? 0 : 1}
+            >
+              {animate && (
+                <>
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    values={routeTiming.dashoffset}
+                    keyTimes={routeTiming.keyTimes}
+                    keySplines={routeTiming.keySplines}
+                    calcMode="spline"
+                    dur={routeTiming.dur}
+                    begin={`${i * 0.65}s`}
+                    repeatCount={routeTiming.repeatCount}
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values={routeTiming.opacity}
+                    keyTimes={routeTiming.keyTimes}
+                    keySplines={routeTiming.keySplines}
+                    calcMode="spline"
+                    dur={routeTiming.dur}
+                    begin={`${i * 0.65}s`}
+                    repeatCount={routeTiming.repeatCount}
+                    fill="freeze"
+                  />
+                </>
+              )}
+            </path>
             {animate && (
               <circle r="2.8" fill={color} opacity="0">
                 <animateMotion

@@ -37,8 +37,9 @@ and tokens before using `add`. No framework or styling setup is required to use 
 `src/components/ui/map.tsx` exports `WorldMap`. `src/pages/login-map.tsx` is the product-specific
 usage example: illustrative city pairs, with no external images or account data. Props include
 `dots`, `lineColor`, `showLabels`, `labelClassName`, `animationDuration`, `loop`, `paused` and
-`className`. It uses `framer-motion`; `dotted-map` is a development-only generator dependency,
-so country geometry and map computation do not enter the login bundle. Both the basemap and
+`className`. Route drawing and the travelling dot are SMIL animations on the SVG's own timeline
+(no animation library); `dotted-map` is a development-only generator dependency, so country
+geometry and map computation do not enter the login bundle. Both the basemap and
 overlay use shared equirectangular bounds rather than mixing geographic projections.
 
 Regenerate the committed `public/maps/world-dots.svg` after changing those bounds:
