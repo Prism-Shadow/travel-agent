@@ -17,6 +17,7 @@ import { hashPassword } from "../auth/password.js";
 import type { AuthSessionsRepo } from "../db/repos/auth-sessions.js";
 import type { ProjectsRepo } from "../db/repos/projects.js";
 import type { UserRow, UsersRepo } from "../db/repos/users.js";
+import { LEGACY_ADMIN_USER_ID } from "../db/travel-admin-migration.js";
 import { SEMANTIC_ID_RULE, USERNAME_PATTERN } from "./ids.js";
 import type { ProjectService } from "./project-service.js";
 
@@ -47,7 +48,9 @@ export class AdminService {
   }
 
   async createUser(userId: string, password: string): Promise<UserInfo> {
-    if (userId === "admin" || userId === "travel") {
+    // The retired name stays reserved: an ordinary `admin` would be mistaken for the
+    // administrator by every older document and hint that still names it.
+    if (userId === LEGACY_ADMIN_USER_ID) {
       throw new HttpError(400, "invalid_user_id", "The legacy administrator name is reserved.");
     }
     if (!USERNAME_PATTERN.test(userId)) {

@@ -1,16 +1,14 @@
 import type { UserInfo } from "@prismshadow/penguin-server/api";
 
+const LEGACY_USER_ID = "admin";
+const TARGET_USER_ID = "traveler";
+
 /** Restore only a server-confirmed administrator upgrade before its draft consumers mount. */
 export function migrateAccountDrafts(user: UserInfo, injected?: Storage): void {
-  if (!user.isAdmin || user.userId !== "traveler") return;
-  if (user.previousUserId !== "admin" && user.previousUserId !== "travel") return;
+  if (!user.isAdmin || user.userId !== TARGET_USER_ID) return;
+  if (user.previousUserId !== LEGACY_USER_ID) return;
   try {
-    const storage = injected ?? localStorage;
-    if (storage.getItem("penguin.accountMigration.travel.traveler") === "done") return;
-    if (user.previousUserId === "admin") {
-      moveDrafts(storage, "admin", "travel");
-    }
-    moveDrafts(storage, "travel", "traveler");
+    moveDrafts(injected ?? localStorage, LEGACY_USER_ID, TARGET_USER_ID);
   } catch {
     // Storage can be unavailable/full. A failed copy leaves its source intact for a retry.
   }

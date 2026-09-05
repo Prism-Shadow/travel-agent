@@ -59,45 +59,21 @@ describe("administrator draft migration", () => {
     }
   });
 
-  it("honors a completed admin upgrade and carries all travel draft namespaces forward", () => {
-    const s = storage({
-      "penguin.accountMigration.admin.travel": "done",
-      "penguin.chatDraft.admin.p": "stale tab",
-      "penguin.chatDraft.travel.p": "current text",
-      "penguin.chatDraft.session.travel.s": "session text",
-      "penguin.chatDrafts.travel.p": "parked text",
-    });
-    migrateAccountDrafts(migrated, s);
-    expect(s.getItem("penguin.chatDraft.traveler.p")).toBe("current text");
-    expect(s.getItem("penguin.chatDraft.session.traveler.s")).toBe("session text");
-    expect(s.getItem("penguin.chatDrafts.traveler.p")).toBe("parked text");
-    expect(s.getItem("penguin.chatDraft.travel.p")).toBeNull();
-    expect(s.getItem("penguin.chatDraft.admin.p")).toBe("stale tab");
-    s.removeItem("penguin.chatDraft.traveler.p");
-    s.setItem("penguin.chatDraft.travel.p", "stale travel tab");
-    migrateAccountDrafts(migrated, s);
+  it("ignores an unknown previous identity rather than guessing a namespace", () => {
+    const s = storage({ "penguin.chatDraft.someone.p": "other account" });
+    migrateAccountDrafts({ ...migrated, previousUserId: "someone" }, s);
     expect(s.getItem("penguin.chatDraft.traveler.p")).toBeNull();
-  });
-
-  it("does not inherit admin drafts when the account originated as travel", () => {
-    const s = storage({
-      "penguin.chatDraft.admin.p": "unrelated private text",
-      "penguin.chatDraft.travel.p": "my text",
-    });
-    migrateAccountDrafts({ ...migrated, previousUserId: "travel" }, s);
-    expect(s.getItem("penguin.chatDraft.traveler.p")).toBe("my text");
-    expect(s.getItem("penguin.chatDraft.admin.p")).toBe("unrelated private text");
-    expect(s.getItem("penguin.accountMigration.admin.travel")).toBeNull();
+    expect(s.getItem("penguin.chatDraft.someone.p")).toBe("other account");
   });
 
   it("preserves both sides of a collision and retains the source when storage is full", () => {
     const s = storage({
-      "penguin.chatDraft.travel.p": "old",
+      "penguin.chatDraft.admin.p": "old",
       "penguin.chatDraft.traveler.p": "new",
     });
-    migrateAccountDrafts({ ...migrated, previousUserId: "travel" }, s);
+    migrateAccountDrafts(migrated, s);
     expect(s.getItem("penguin.chatDraft.traveler.p")).toBe("new");
-    expect(s.getItem("penguin.chatDraft.travel.p")).toBe("old");
+    expect(s.getItem("penguin.chatDraft.admin.p")).toBe("old");
     const full = storage({ "penguin.chatDraft.admin.p": "only copy" });
     full.setItem = () => {
       throw new Error("Storage full");

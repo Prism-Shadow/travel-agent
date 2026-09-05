@@ -55,11 +55,11 @@ and supports password reset or removal.
   The adjacent username or control label identifies the account; the avatar is decorative.
 - **Account continuity.** Before authenticated draft consumers mount,
   a server-confirmed administrator migration moves this origin's active, session and parked
-  drafts through `admin` -> `travel` -> `traveler`, starting at the server-reported original
-  identity. Existing per-step completion markers are honored. Existing destination values are
-  never overwritten; conflicts retain their source. Completion markers prevent stale tabs from
-  restoring old drafts a second time. A fresh account without the server marker inherits no
-  legacy drafts; an account originally seeded as `travel` inherits no `admin` drafts.
+  drafts from `admin` to `traveler`, only when the server reports `admin` as the original
+  identity. Existing destination values are never overwritten; conflicts retain their source. A
+  completion marker prevents stale tabs from restoring old drafts a second time. A fresh account
+  without the server marker, or one reporting an unknown original identity, inherits no legacy
+  drafts.
 - **Sidebar identity.** The expanded sidebar pairs the canonical Route Penguin mark with the
   application name or current Project switcher. The adjacent text supplies the accessible name.
   A 2rem mark and a slightly larger wordmark keep the brand legible above the navigation.

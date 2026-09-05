@@ -1,6 +1,9 @@
 # Traveler login identity
 
-Status: complete.
+Status: complete. The two-hop chain below was collapsed to a single `admin` -> `traveler` step
+before merge, and `travel` is no longer reserved: that name never shipped, and the only data roots
+that carried it were this machine's. The current contract is
+[the identity decision](../docs/decisions/implemented/2026-09-05-traveler-administrator-identity.md).
 
 The owner selects `traveler` and `traveler-2026` for the local acceptance account. The built-in
 username follows that identity; fresh installations retain the existing random-password policy.
