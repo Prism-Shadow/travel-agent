@@ -394,6 +394,7 @@ jobs:
             packages/desktop/stage/out/travel-agent-*.exe
             # Update metadata: electron-updater reads latest*.yml from the Release, and
             # the blockmaps are what make differential downloads possible. Without these
-            # the installers ship but nothing can auto-update.
-            packages/desktop/stage/out/*.yml
+            # the installers ship but nothing can auto-update. `latest*`, not `*`: the
+            # first Release also carried electron-builder's builder-debug.yml.
+            packages/desktop/stage/out/latest*.yml
             packages/desktop/stage/out/*.blockmap
