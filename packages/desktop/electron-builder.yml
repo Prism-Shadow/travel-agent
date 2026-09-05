@@ -15,12 +15,13 @@ appId: com.prismshadow.travelagent
 productName: Travel Agent
 # Declaring the publish target is what makes electron-builder emit the update metadata
 # (latest.yml / latest-mac.yml / latest-linux.yml and the .blockmap files) next to the
-# installers; nothing is uploaded from here. This fork has no release workflow yet — the
-# target names where its own releases would live, so a build never points an installed
-# app at upstream's releases. electron-updater reads the same metadata from the Release.
+# installers; nothing is uploaded from here — release.yml attaches them to the GitHub
+# Release. electron-updater reads the same metadata from that Release, so the target must
+# be this repository and never upstream's. While the repository is private the updater
+# cannot read it anonymously and reports no update; it starts working when it goes public.
 publish:
   provider: github
-  owner: Youhai020616
+  owner: Prism-Shadow
   repo: travel-agent
 directories:
   app: stage/app
@@ -48,11 +49,10 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   notarize: true
-  # Version-less artifact names, following the CLI bundles (penguin-darwin-arm64.tar.gz):
-  # the version lives in the Release tag and SHA256SUMS.desktop, so the download page and
-  # the OSS mirror manifest can address every installer by a stable name — and GitHub's
+  # Version-less artifact names: the version lives in the Release tag and SHA256SUMS, so a
+  # download page can address every installer by a stable name — and GitHub's
   # `releases/latest/download/<name>` stays a working static link across releases.
-  artifactName: penguin-desktop-darwin-${arch}.${ext}
+  artifactName: travel-agent-darwin-${arch}.${ext}
   target:
     - target: dmg
       arch: [arm64, x64]
@@ -63,7 +63,7 @@ win:
   # Same source PNG; electron-builder converts it to the multi-size ico embedded in the
   # exe (>=256px required).
   icon: build/icon.png
-  artifactName: penguin-desktop-win32-${arch}.${ext}
+  artifactName: travel-agent-win32-${arch}.${ext}
   target:
     - target: nsis
       arch: [x64]
@@ -85,10 +85,9 @@ linux:
   # The scoped package name is not a valid executable file name.
   executableName: travel-agent
   # ${arch} expands to each Linux target's own convention — x86_64 for AppImage, amd64
-  # for deb — so the published names are penguin-desktop-linux-x86_64.AppImage and
-  # penguin-desktop-linux-amd64.deb; the OSS mirror manifest and the landing download
-  # page name them accordingly.
-  artifactName: penguin-desktop-linux-${arch}.${ext}
+  # for deb — so the published names are travel-agent-linux-x86_64.AppImage and
+  # travel-agent-linux-amd64.deb.
+  artifactName: travel-agent-linux-${arch}.${ext}
   category: Development
   maintainer: Prism Shadow <zheng@prismshadow.com>
   target:
