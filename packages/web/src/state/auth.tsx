@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import type { UserInfo } from "@prismshadow/penguin-server/api";
 import * as api from "../api/endpoints";
 import { ApiError, setUnauthorizedHandler } from "../api/client";
-import { migrateAccountDrafts } from "../lib/account-draft-migration";
 
 interface AuthContextValue {
   /** undefined = initializing; null = not logged in. */
@@ -64,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .getMe()
       .then((res) => {
         if (cancelled) return;
-        migrateAccountDrafts(res.user);
         setUser(res.user);
         setPreviewIsolated(res.previewIsolated);
         setDesktopMode(res.desktopMode);
@@ -82,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (userId: string, password: string) => {
     const res = await api.login({ userId, password });
-    migrateAccountDrafts(res.user);
     setUser(res.user);
     // previewIsolated only rides on GET /api/me, and the mount-time fetch ran before
     // this session existed — without a refetch, a deployment with no separate preview
@@ -93,7 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // until the next refresh.
     try {
       const me = await api.getMe();
-      migrateAccountDrafts(me.user);
       setUser(me.user);
       setPreviewIsolated(me.previewIsolated);
       setDesktopMode(me.desktopMode);
@@ -113,7 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const res = await api.getMe();
-    migrateAccountDrafts(res.user);
     setUser(res.user);
     setPreviewIsolated(res.previewIsolated);
     setDesktopMode(res.desktopMode);

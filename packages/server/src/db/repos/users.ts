@@ -1,6 +1,6 @@
 /**
  * users table repo: pure SQL wrapper, no business rules.
- * user_id is the login name; only the explicit legacy administrator upgrade changes it.
+ * user_id is the login name (a semantic id, specified at creation, immutable).
  */
 import type { DatabaseSync } from "node:sqlite";
 
@@ -11,7 +11,6 @@ export interface UserRow {
   /** Still using the initial password (seeded / set by an admin); cleared to 0 once the user changes it. */
   passwordIsInitial: boolean;
   createdAt: string;
-  previousUserId?: string;
 }
 
 function mapRow(r: Record<string, unknown>): UserRow {
@@ -21,7 +20,6 @@ function mapRow(r: Record<string, unknown>): UserRow {
     isAdmin: (r.is_admin as number) === 1,
     passwordIsInitial: (r.password_is_initial as number) === 1,
     createdAt: r.created_at as string,
-    ...(typeof r.previous_user_id === "string" ? { previousUserId: r.previous_user_id } : {}),
   };
 }
 

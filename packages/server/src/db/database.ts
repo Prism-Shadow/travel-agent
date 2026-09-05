@@ -3,13 +3,12 @@
  *
  * Single process, single writer: a synchronous API is sufficient and avoids a connection
  * pool; WAL mode and foreign key constraints are enabled. Table-creation SQL runs on open
- * (idempotent), with additive columns and the explicit legacy administrator identity upgrade.
+ * (idempotent), with additive columns and no migration branches (product not yet released).
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { SCHEMA_SQL } from "./schema.js";
-import { migrateTravelAdministrator } from "./travel-admin-migration.js";
 
 // Fetch the runtime module via process.getBuiltinModule (node >=22.3): avoids static
 // resolution of `node:sqlite` by bundlers/vite (some tools' builtin lists don't yet
@@ -49,14 +48,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   ensureColumn(db, "sessions", "has_trace", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "auth_sessions", "via", "TEXT");
   ensureColumn(db, "trace_files", "page_stats", "TEXT");
-  ensureColumn(db, "users", "previous_user_id", "TEXT");
-  try {
-    migrateTravelAdministrator(db);
-    return db;
-  } catch (error) {
-    db.close();
-    throw error;
-  }
+  return db;
 }
 
 function hasColumn(db: DatabaseSync, table: string, column: string): boolean {

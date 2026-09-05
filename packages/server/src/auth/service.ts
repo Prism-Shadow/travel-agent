@@ -62,7 +62,6 @@ export function toUserInfo(row: UserRow): UserInfo {
     isAdmin: row.isAdmin,
     passwordIsInitial: row.passwordIsInitial,
     createdAt: row.createdAt,
-    ...(row.previousUserId ? { previousUserId: row.previousUserId } : {}),
   };
 }
 

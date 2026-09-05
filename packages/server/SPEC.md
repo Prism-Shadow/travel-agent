@@ -32,17 +32,9 @@ Two things live here, and keeping them distinguishable is this module's main dis
   the account carries `passwordIsInitial` until the password is changed, web mode re-prints the
   reminder on every start until then, and `PENGUIN_SEED_ADMIN_PASSWORD` overrides the password
   for tests and deployments that must not start on the default. Desktop mode seeds the same
-  value; its window signs in by token and never needs it.
-  Opening an existing index applies `admin` -> `traveler` in one transaction to a privileged
-  legacy account and its project ownership, memberships, preferences and schedule creators,
-  preserving its password hash and initial-password flag. Existing login sessions for that
-  account are invalidated. Project, Session and Trip ids and directories stay unchanged. An
-  occupied `traveler` refuses startup and rolls back without merging accounts; unrelated users,
-  including a non-privileged `admin`, are untouched. The retired name `admin` is reserved against
-  new account creation and supplies no login alias. `previousUserId` retains the original login
-  id (`admin`) so browsers that have not visited since the upgrade can recover their own cached
-  drafts. Desktop token sign-in resolves the same `traveler` identity. The inherited-baseline
-  decision is recorded
+  value; its window signs in by token and never needs it. There is no upgrade path from the
+  inherited `admin` name: nothing has been installed, so no data root carries it. The
+  inherited-baseline decision is recorded
   [here](../../docs/decisions/implemented/2026-09-05-traveler-administrator-identity.md).
 - **The Trip.** A row in the server's index that *owns* a directory rather than being one, so a
   conversation's membership is a nullable `sessions.trip_id` and attach / move / detach never touch

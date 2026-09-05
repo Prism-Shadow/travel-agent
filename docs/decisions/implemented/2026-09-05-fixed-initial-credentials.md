@@ -56,8 +56,8 @@ for a first sign-in that never depends on a console.
 
 `packages/web/.env.development.local` is no longer read; the file may be deleted. The web e2e
 suite no longer pins `PENGUIN_SEED_ADMIN_PASSWORD` and signs in through the same seed path a real
-installation uses. Existing data roots are untouched: the seed only runs on an empty users table,
-and the administrator identity upgrade never resets a password. A server exposed beyond loopback
+installation uses. Existing data roots are untouched: the seed only runs on an empty users table.
+A server exposed beyond loopback
 must change the password or set `PENGUIN_SEED_ADMIN_PASSWORD` before first start; the server
 README says so.
 

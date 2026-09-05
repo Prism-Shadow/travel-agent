@@ -60,7 +60,6 @@ describe("auth", () => {
   it("seeded admin manages default_project; initial password carries the flag", async () => {
     const admin = await loginAdmin(t.app);
     expect(admin.user.userId).toBe("traveler");
-    expect(admin.user.previousUserId).toBeUndefined();
     expect(admin.user.isAdmin).toBe(true);
     expect(admin.user.passwordIsInitial).toBe(true);
     const api = apiClient(t.app, admin.cookie);

@@ -1,66 +1,46 @@
-# Agent Note: Traveler administrator identity with preserved account data
+# Agent Note: Traveler administrator identity
 
 Status: implemented.
 
 ## Problem
 
-The consumer product needs a travel-related sign-in identity without separating its owner from
-existing Trips, conversations, settings or unsent browser drafts. A username is also a foreign
-key and a browser-storage namespace, so changing only the seed would leave existing installations
-on a different identity from fresh ones.
+The consumer product needs a travel-related sign-in identity. The inherited PenguinHarness
+baseline seeds its built-in administrator as `admin`, and that name appears in the login page, the
+startup notice, the README and every place a person is told how to sign in for the first time.
 
 ## Decision
 
-The built-in administrator is `traveler`; the inherited PenguinHarness `admin` is retired. This is
-a deliberate change to the inherited authentication baseline. The implementation lives in
-[`server`](../../../packages/server/SPEC.md) and its cached-draft counterpart in
+The built-in administrator is `traveler`. Fresh data roots seed that name with the fixed initial
+password decided in [fixed initial credentials](2026-09-05-fixed-initial-credentials.md). This is a
+deliberate change to the inherited authentication baseline; the implementation is the seed in
+[`server`](../../../packages/server/SPEC.md) and the login page in
 [`web`](../../../packages/web/SPEC.md).
 
-Database opening applies a single transaction to the privileged legacy account and every user-id
-reference, including schedule creators. It preserves the password hash, initial-password flag,
-record ids and filesystem paths; it revokes the renamed account's login sessions. An occupied
-`traveler` identity stops the upgrade without transferring ownership or privileges. New account
-creation reserves the retired name `admin`. There is no alias or general-purpose account-renaming
-API.
-
-An optional previous-user marker distinguishes the migrated account from a fresh administrator.
-The browser uses it before mounting draft consumers, copies account-scoped drafts without
-overwriting destination data, and records completion. Copy failures preserve the source for retry;
-conflicts preserve both values. Stale tabs cannot reintroduce completed drafts after migration.
-
-Fresh installations seed the fixed initial password decided in
-[fixed initial credentials](2026-09-05-fixed-initial-credentials.md). The environment override and
-desktop token authentication retain their contracts; an upgrade never resets an existing password.
-
-The upgrade is one hop, `admin` -> `traveler`. During development the identity briefly went
-through `travel`, and the branch carried a two-hop chain with both retired names reserved; that
-intermediate name never shipped, so before merge the chain was collapsed and `travel` is an
-ordinary username again. Data roots that were on `travel` existed only on the author's machine
-and were migrated by hand.
+There is no upgrade path from `admin`, no alias, and no reserved name. The product has not been
+released and nothing has been installed, so no data root anywhere carries the old identity; the
+only one that ever did was the author's development root, which was migrated by hand.
 
 ## Alternatives considered
 
-- Change the seed only: leaves existing installations and their data under `admin`.
-- Keep an `admin` login alias: contradicts the selected retirement of that login identity.
-- Create a second administrator and copy its data: introduces duplicate ownership and separates
-  existing references from their original records.
-- Move storage directories with the username: changes paths that sessions and user artifacts
-  already reference, although project and session ids do not need to change.
-- Keep the two-hop `admin` -> `travel` -> `traveler` chain: reserves a username for an identity
-  no released version ever had, and encodes a branch's history into every future installation.
+- Keep `admin`: a generic name on a product whose every other surface says travel.
+- Ship a legacy upgrade (`admin` -> `traveler`, moving ownership, memberships, preferences and
+  schedule creators in one transaction, plus a browser-side draft migration keyed on a
+  `previousUserId` marker): built during this work, then removed before merge. It served a
+  population of zero, cost about four hundred lines of code and tests, and carried a failure mode
+  — an existing ordinary user named `traveler` made the server refuse to start with no way to fix
+  it short of editing SQLite by hand. If a population ever appears (a released build whose data
+  roots hold `admin`), the git history of this branch holds a reviewed implementation to start
+  from; the conflict case must be resolved before shipping it.
+- A two-hop `admin` -> `travel` -> `traveler` chain: an intermediate name the branch went through
+  during development; rejected for encoding one branch's history into every future installation.
 
 ## Consequences
 
-Existing web sessions require a new login. Browser drafts migrate per origin on that origin's next
-authenticated visit. A conflicting `traveler` account requires operator resolution before startup;
-accounts are never silently merged. Existing non-administrator users, including an unrelated
-non-privileged `admin`, retain their identity. The previous-user marker remains available for
-browsers that visit later; it grants no authorization.
+`ADMIN_USER_ID` is `traveler` everywhere: seeding, desktop token sign-in, the startup notice and
+the login page. Ordinary users may be named `admin` or `travel`; nothing treats those names
+specially. The database schema has no identity-migration column.
 
 ## Testing
 
-Server tests exercise fresh seeding, retained passwords and initial flags, ownership and membership,
-preferences, schedule creators, unchanged Trip and Session files, old-session rejection, desktop
-sign-in, password updates, repeated opening, conflict rejection, transactional rollback and the
-reserved name. Web tests exercise all three draft namespaces, fresh-account isolation, an unknown
-previous identity, destination conflicts, storage failure and stale-tab replay prevention.
+Server tests seed `traveler`, sign in with the fixed credentials, and resolve desktop token
+sign-in to the same identity. The web browser suite signs in as `traveler` throughout.

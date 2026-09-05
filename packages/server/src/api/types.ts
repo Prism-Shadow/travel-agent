@@ -174,10 +174,8 @@ export type SessionSource = "schedule" | "subagent";
 export const INITIAL_ADMIN_CREDENTIALS = { userId: "traveler", password: "traveler-2026" } as const;
 
 export interface UserInfo {
-  /** Semantic login id; only the explicit legacy administrator upgrade changes it. */
+  /** Semantic id, i.e. login name: `^[a-z][a-z0-9_-]{1,31}$`, immutable after creation. */
   userId: string;
-  /** Original login id before known administrator upgrades, used to recover the account's drafts. */
-  previousUserId?: string;
   /** Built-in admin (seeded at startup). */
   isAdmin: boolean;
   /** Still using the initial password (seeded/set by admin): frontend prompts the user to change it soon. */
