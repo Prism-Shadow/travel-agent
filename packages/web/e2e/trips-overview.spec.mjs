@@ -212,6 +212,43 @@ test("loading and retryable failure never masquerade as a first visit", async ({
   await expect(page.getByRole("heading", { name: "Your next journey starts here" })).toBeVisible();
 });
 
+test("a mutation revalidates in place: deleting from the sidebar never flashes the skeleton", async ({
+  page,
+}) => {
+  const projectId = await setup(page, "revalidate");
+  const keep = await createTrip(page, projectId, { name: "Keep me", destination: "Oslo" });
+  const doomed = await createTrip(page, projectId, { name: "Doomed", destination: "Bergen" });
+  await page.setViewportSize({ width: 1488, height: 1058 });
+  await page.goto(`${BASE}/trips`);
+  await expect(page.locator(`[data-trip-card="${doomed.tripId}"]`)).toBeVisible();
+  await expect(page.locator(".trips-load-state")).toHaveCount(0);
+
+  // Record the skeleton if it is ever attached from here on — a retrying assertion cannot see a
+  // one-frame flash, but an observer can.
+  await page.evaluate(() => {
+    window.__skeletonSeen = false;
+    new MutationObserver(() => {
+      if (document.querySelector(".trips-load-state")) window.__skeletonSeen = true;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
+  // The Trip's sidebar group header holds its name and, on hover, its delete button.
+  const header = page
+    .getByRole("complementary")
+    .locator("div", { has: page.getByText("Doomed", { exact: true }) })
+    .filter({ has: page.getByRole("button", { name: "Delete trip", exact: true }) })
+    .last();
+  await header.hover();
+  await header.getByRole("button", { name: "Delete trip", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+
+  await expect(page.locator(`[data-trip-card="${doomed.tripId}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-trip-card="${keep.tripId}"]`)).toBeVisible();
+  // The refetch after the delete has landed by the time the card is gone; the list stayed put.
+  expect(await page.evaluate(() => window.__skeletonSeen)).toBe(false);
+  expect((await listTrips(page, projectId)).map((trip) => trip.tripId)).toEqual([keep.tripId]);
+});
+
 test("header New trip preserves unsent text before starting another draft", async ({ page }) => {
   const projectId = await setup(page, "draft");
   await page.setViewportSize({ width: 1280, height: 900 });
