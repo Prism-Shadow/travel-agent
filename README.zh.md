@@ -10,13 +10,16 @@
 
 <p align="center">
   <a href="#对话旁边就是真实的浏览器">看看界面</a> ·
-  <a href="#快速开始">快速开始</a> ·
+  <a href="#下载">下载</a> ·
+  <a href="#快速开始">从源码运行</a> ·
   <a href="#travel-browser-浏览器扩展">Chrome 扩展</a> ·
   <a href="docs/architecture/README.md">项目文档</a> ·
   <a href="#参与开发">参与开发</a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/Prism-Shadow/travel-agent/releases/latest"><img src="https://img.shields.io/github/v/release/Prism-Shadow/travel-agent?style=flat-square&color=0B5CFF&label=Release" alt="最新版本" /></a>
+  &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-0B5CFF?style=flat-square" alt="许可证：Apache 2.0" /></a>
   &nbsp; <a href="README.md">English</a> · 简体中文
 </p>
@@ -68,6 +71,33 @@ Travel Agent 是一个**桌面旅行助手**。说出需求后，Agent 可以打
 比较酒店与房型，确认自己的选择，再查看预订表单；最后付款由你完成。
 [观看视频 · 76 秒](https://github.com/user-attachments/assets/25550205-88a4-4e31-8fff-03fea801fe69)。
 
+## 下载
+
+**桌面应用 · macOS、Windows 和 Linux · 使用自己的模型 API key**
+
+下面的链接始终指向[最新版本](https://github.com/Prism-Shadow/travel-agent/releases/latest)；
+那里的 `SHA256SUMS` 覆盖每一个安装包。
+
+| 平台 | 下载 |
+| --- | --- |
+| macOS（Apple 芯片） | [travel-agent-darwin-arm64.dmg](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-darwin-arm64.dmg) |
+| macOS（Intel） | [travel-agent-darwin-x64.dmg](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-darwin-x64.dmg) |
+| Windows（x64） | [travel-agent-win32-x64.exe](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-win32-x64.exe) |
+| Linux（AppImage） | [travel-agent-linux-x86_64.AppImage](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-linux-x86_64.AppImage) |
+| Linux（Debian / Ubuntu） | [travel-agent-linux-amd64.deb](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-linux-amd64.deb) |
+
+**安装包目前没有代码签名**，两个桌面平台首次启动都会弹出警告：
+
+- **macOS** 首次打开会被拒绝（“Apple 无法验证…”）。打开**系统设置 → 隐私与安全性**，找到关于
+  Travel Agent 的提示，选择**仍要打开**；或在终端执行一次 `xattr -cr "/Applications/Travel Agent.app"`。
+- **Windows** 会显示 SmartScreen 警告。选择**更多信息 → 仍要运行**。
+- **Linux** 不需要绕过：给 AppImage 加可执行权限（`chmod +x`），或
+  `sudo apt install ./travel-agent-linux-amd64.deb`。
+
+应用窗口会自动登录。如果看到登录页，每个新安装的初始账号都是 **`traveler` / `traveler-2026`**，
+首次登录后请修改密码。然后按[快速开始](#快速开始)里的第 1–4 步操作：第一次对话前需要先填入你的模型
+API key。安装版的数据保存在 `~/.penguin/data`。
+
 ## 快速开始
 
 **开发预览版 · 从源码运行 · 使用自己的模型 API key**
@@ -81,9 +111,8 @@ pnpm install
 pnpm desktop
 ```
 
-命令会构建工作区并打开桌面应用，同时启动内置服务和浏览器。应用窗口会自动登录。如果看到登录页
-（例如在浏览器里使用 `pnpm dev`），每个新安装的初始账号都是 **`traveler` / `traveler-2026`**，
-首次登录后请修改密码。
+命令会构建工作区并打开桌面应用，同时启动内置服务和浏览器。应用窗口会自动登录；登录页（例如在浏览器里
+使用 `pnpm dev`）的初始账号与安装版相同：**`traveler` / `traveler-2026`**。
 
 1. 打开**模型配置（Models）**，填写模型服务商的 API key。
 2. 点击**新行程**。新对话默认使用**应用内浏览器**。

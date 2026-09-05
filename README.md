@@ -10,13 +10,16 @@
 
 <p align="center">
   <a href="#a-browser-beside-your-conversation">See the app</a> ·
-  <a href="#quickstart">Quickstart</a> ·
+  <a href="#download">Download</a> ·
+  <a href="#quickstart">Run from source</a> ·
   <a href="#travel-browser-extension">Chrome extension</a> ·
   <a href="docs/architecture/README.md">Documentation</a> ·
   <a href="#contributing">Contribute</a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/Prism-Shadow/travel-agent/releases/latest"><img src="https://img.shields.io/github/v/release/Prism-Shadow/travel-agent?style=flat-square&color=0B5CFF&label=Release" alt="Latest release" /></a>
+  &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-0B5CFF?style=flat-square" alt="License: Apache 2.0" /></a>
   &nbsp; English · <a href="README.zh.md">简体中文</a>
 </p>
@@ -71,6 +74,35 @@ Read travel posts, organize the stops into a two-day plan, then open the generat
 Compare hotels and room options, confirm a choice, then review the booking form. The user makes
 the final payment. [Watch the video · 76 seconds](https://github.com/user-attachments/assets/25550205-88a4-4e31-8fff-03fea801fe69).
 
+## Download
+
+**Desktop app · macOS, Windows and Linux · Bring your own model API key**
+
+The links below always point at the [latest release](https://github.com/Prism-Shadow/travel-agent/releases/latest);
+`SHA256SUMS` there covers every installer.
+
+| Platform | Download |
+| --- | --- |
+| macOS (Apple Silicon) | [travel-agent-darwin-arm64.dmg](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-darwin-arm64.dmg) |
+| macOS (Intel) | [travel-agent-darwin-x64.dmg](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-darwin-x64.dmg) |
+| Windows (x64) | [travel-agent-win32-x64.exe](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-win32-x64.exe) |
+| Linux (AppImage) | [travel-agent-linux-x86_64.AppImage](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-linux-x86_64.AppImage) |
+| Linux (Debian / Ubuntu) | [travel-agent-linux-amd64.deb](https://github.com/Prism-Shadow/travel-agent/releases/latest/download/travel-agent-linux-amd64.deb) |
+
+**The builds are not code-signed yet**, so both desktop platforms warn on first launch:
+
+- **macOS** refuses to open the app at first ("Apple could not verify…"). Open **System Settings →
+  Privacy & Security**, find the message about Travel Agent and choose **Open Anyway** — or run
+  `xattr -cr "/Applications/Travel Agent.app"` once in Terminal.
+- **Windows** shows a SmartScreen warning. Choose **More info → Run anyway**.
+- **Linux** needs no bypass: `chmod +x` the AppImage, or
+  `sudo apt install ./travel-agent-linux-amd64.deb`.
+
+The app window signs in automatically. If you ever meet the sign-in page, every new installation
+starts as **`traveler` / `traveler-2026`** — change the password after your first sign-in. Then
+follow steps 1–4 under [Quickstart](#quickstart): the app needs your model API key before its
+first conversation. Installed-app data lives in `~/.penguin/data`.
+
 ## Quickstart
 
 **Development preview · Run from source · Bring your own model API key**
@@ -85,9 +117,8 @@ pnpm desktop
 ```
 
 This builds the workspace and opens the desktop app with its embedded server and browser.
-The app window signs in automatically. If you ever meet the sign-in page (for example `pnpm dev`
-in a browser), every new installation starts as **`traveler` / `traveler-2026`** — change the
-password after your first sign-in.
+The app window signs in automatically; the sign-in page (for example `pnpm dev` in a browser)
+takes the same initial credentials as an installed app, **`traveler` / `traveler-2026`**.
 
 1. Open **Models** and add your model provider's API key.
 2. Choose **New trip**. New conversations use the **in-app browser** by default.
