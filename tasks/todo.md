@@ -92,6 +92,36 @@ tests pass repeated runs under the reproducing conditions; the full gate passes;
 distinguishes repaired cases from cases still unconfirmed. Raising timeouts or hiding a suite does
 not establish this result.
 
+**Plan (2026-09-06).** Each named case read; each is a timer standing in for a state, the pattern
+of postmortem 0001. Two structural pressures sit underneath: browser-cli runs its twelve
+browser-launching files in parallel, one Chromium each, and the root `pnpm test` runs browser-cli
+concurrently with every other package.
+
+- [ ] Baseline: three full browser-cli runs and three web e2e runs under load (`pnpm test` in
+      parallel as the load source), recording per-run failures before any change.
+- [ ] `extension-connection` "keeps an active browser connected": wait until relay status shows a
+      second distinct extension key (bounded poll) before sampling stability; the four samples then
+      assert only that both stay.
+- [ ] `popup-relocation` "auto-connects a regular target=_blank tab": `context.waitForEvent('page')`
+      armed before the click, then `waitForURL(/\/target/)`, in place of `waitForTimeout(1500)`.
+- [ ] `relay-core` download test: a generous bound on `waitForEvent('download')` in place of 3 s;
+      poll the CDP log for the expected `Page.downloadWillBegin` entry instead of sleeping one flush
+      interval.
+- [x] Web `compact-abort` "compacting twice": gone with the manual `/compact` command
+      (`docs/decisions/implemented/2026-09-06-automatic-compaction-only.md`); the cause was a banner
+      that appears when compaction *starts* being read as "finished", so the second `/compact`
+      met `assertIdle`'s `compacting` 409 under load. No product path reaches it now.
+- [ ] browser-cli parallelism: cap vitest workers for this package so the suite-level MCP
+      `-32001` (a 60 s request timeout, not a test's own timer) stops being reachable by CPU
+      contention alone; measure wall-clock before and after.
+- [ ] Root gate: run browser-cli after, not beside, the other packages' unit tests, so server's
+      5 s cases are not timed against twelve Chromiums (the issue's own conclusion).
+- [ ] `snapshot-tools` "aria ref labels on real pages": skip under `CI`; two live external sites
+      are not a gate input. Kept as a local check.
+- [ ] After: same three-plus-three runs under the same load; record results per case in #8 and
+      close only what the runs support. The Windows SQLite stall stays open — nothing in that test
+      waits, and no fix is proposed for a stalled worker.
+
 ## T03 — Connect L1 Private Profile writes
 
 - [ ] Complete the desktop-owned L1 read/write path from
