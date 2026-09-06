@@ -38,8 +38,8 @@ illustrations, not live connection status or a completed agent task.
 
 ## Travel task videos
 
-The root READMEs link language-matched covers to two H.264 MP4 files with a music track, hosted
-as GitHub attachments on
+The root READMEs link language-matched covers to two H.264 MP4 files hosted as GitHub
+attachments on
 [PR #14](https://github.com/Prism-Shadow/travel-agent/pull/14#issuecomment-5556484220). The
 exports stay under the git-ignored `demos/` beside their covers; neither they nor the original,
 user-supplied recordings enter the repository history. Both links resolve anonymously.
@@ -57,14 +57,7 @@ user-supplied recordings enter the repository history. Both links resolve anonym
   request. The subsequent task is a historical recording, not a newly executed acceptance test.
   App branding and browser chrome are editorial overlays.
 
-The soundtrack is instrumental music, not narration: the audio of the owner's own Xiaohongshu note
-(`explore/68f40eb200000000040024ea`, author 村口修鞋师傅), which the owner states they hold the
-rights to reuse here. It replaces the recordings' original audio entirely. The track (37 s) is
-loudness-normalised to −19 LUFS / −2 dBTP, looped with a 1.2 s crossfade to the video's length,
-faded in over 0.65 s and out over 1.8 s, and encoded as AAC 128 kbps; the video stream is copied
-from the reviewed silent export unchanged (byte-identical, so the redaction audit below still
-holds). The silent first cut remains attached to the earlier PR comment
-(`issuecomment-5550067681`). The container carries no source metadata. Opaque masks cover visible personal
+The container carries no source metadata. Opaque masks cover visible personal
 contact details, repeated details in the conversation, account avatars, website account identity,
 URL parameters and saved-payment identity. Public destination and hotel details remain visible.
 Read the visible UI composition and historical-footage note together when describing the demo.
