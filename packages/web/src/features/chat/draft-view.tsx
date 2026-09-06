@@ -828,7 +828,6 @@ export function DraftView({
               sendDisabled={browserNotReady}
               onSend={sendWithTrip}
               onStop={async () => undefined}
-              onCompact={async () => undefined}
               modelRef={modelRef}
               models={models?.models ?? []}
               onChangeModel={setModelRef}

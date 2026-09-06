@@ -1438,7 +1438,6 @@ export const en: Strings = {
       `${n} follow-up ${n === 1 ? "message" : "messages"} queued — sent when this run finishes`,
     send: "Send",
     stop: "Stop",
-    compact: "Compact context",
     approve: "Allow",
     deny: "Deny",
     decisionAllow: "Approved",

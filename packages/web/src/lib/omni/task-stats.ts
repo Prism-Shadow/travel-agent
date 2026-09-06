@@ -16,7 +16,7 @@
  *   - Automatic compaction **mid-round** (engine compacts then keeps running with carry-over) →
  *     elapsed time is enclosed by the span, Token / cost count toward this round (see
  *     commitPendingCompaction) — it genuinely is time and cost spent finishing this round's work;
- *   - Compaction **after round end** (wrap-up auto-compaction / manual /compact) → falls after the
+ *   - Compaction **after round end** (wrap-up auto-compaction, or a manual one over the API) → falls after the
  *     round's end, elapsed time and Token both excluded from this round.
  * Neither case updates the context basis or counts toward TPS (compaction is not a user request).
  * The session's `session.total` always tracks the provider (including compaction, so nothing
@@ -98,7 +98,7 @@ export interface TaskStatsTracker {
   /**
    * **Pending** bucket for compaction request usage: when compaction arrives, it's not yet known
    * whether it's **mid-round** (a normal Request still follows in this round → usage belongs to
-   * this round) or **after round end** (wrap-up compaction / manual /compact → usage doesn't
+   * this round) or **after round end** (wrap-up compaction, or a manual one over the API → usage doesn't
    * belong to this round). Held here until the next non-compaction request_end arrives (proving
    * mid-round), at which point commitPendingCompaction settles it into this round; otherwise
    * discarded by resetTaskCounters when the Task closes. Counts only toward Token / cost, not
@@ -252,8 +252,8 @@ export function beginCompaction(t: TaskStatsTracker): void {
  * has been replaced by a summary, so the pre-compaction number no longer holds, and the new
  * occupancy isn't known until the next normal Request's `token_usage` (the provider-reported
  * prompt size) arrives. Meanwhile the live ring draws an empty ring for "unknown" — it must not
- * still show "almost full" right after the user runs `/compact`, since after a manual compaction
- * the user specifically wants to see whether space was freed. On non-completed status
+ * still show "almost full" right after a compaction, since the person specifically wants to see
+ * whether space was freed. On non-completed status
  * (abandoned/interrupted), the original context is retained (see core's
  * CompactionEndPayload.status) and the flag is not set.
  *

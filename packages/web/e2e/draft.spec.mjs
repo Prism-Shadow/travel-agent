@@ -64,18 +64,15 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
 
   const ta = composer(page);
 
-  // `/agent` is a SESSION command: a draft has no conversation to hand over, and its Agent is
-  // chosen by the draft page's own selector — so the slash menu must not offer it here (the
-  // staged-handoff flow itself is covered in the session section below). The bare "/" opens the
-  // menu with `/compact` in it — which is what makes the absent `/agent` row a real assertion
-  // rather than a menu that simply never appeared. It used to anchor on `/penguin-browser`, and
-  // skills no longer have slash commands: every skill here is built in, so there was nothing
-  // left for a person to pick.
+  // `/agent` and `/model` are SESSION commands: a draft has no conversation to hand over, and
+  // its Agent and model are chosen by the draft page's own selectors — so the slash menu must
+  // not offer them here (the staged-handoff flow itself is covered in the session section
+  // below). There is nothing else to offer either: compaction is automatic and has no command,
+  // and skills have no slash commands. So a bare "/" in a draft opens no menu at all and stays
+  // ordinary text; the session section proves the menu does open where it applies.
   await ta.fill("/");
-  await expect(page.getByRole("button", { name: /^\/compact/ })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "/agent 交给其他 Agent，发送时开启新会话" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^\/(agent|model)/ })).toHaveCount(0);
+  await expect(ta).toHaveValue("/");
   await ta.fill("Draft body must not be lost");
 
   // Switch the model: the selector sits to the left of the send button, opens downward, with a quick-search field at the top.

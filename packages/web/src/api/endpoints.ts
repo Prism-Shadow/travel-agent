@@ -71,7 +71,6 @@ import type {
   RetryNowResponse,
   SteerRequest,
   TaskCreateRequest,
-  CompactionResponse,
   TaskCreateResponse,
   TraceAnalysisResponse,
   TraceEventsResponse,
@@ -517,14 +516,6 @@ export const postSteer = (sessionId: string, body: SteerRequest) =>
   apiFetch<void>(`/api/sessions/${encodeURIComponent(sessionId)}/steer`, {
     method: "POST",
     body,
-  });
-
-export const postCompact = (sessionId: string) =>
-  // Like tasks, the response carries the actual current session_id (a new id after self-healing;
-  // the frontend updates its route accordingly) — but no task id: compaction is not a turn.
-  apiFetch<CompactionResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/compact`, {
-    method: "POST",
-    body: {},
   });
 
 // Trace browsing & performance analysis -----------------------------------------------------------

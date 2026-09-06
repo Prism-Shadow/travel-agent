@@ -1366,7 +1366,6 @@ export const zh = {
     followUpQueuedChip: (n: number) => `${n} 条跟进消息已排队，本轮结束后自动发送`,
     send: "发送",
     stop: "停止",
-    compact: "压缩上下文",
     approve: "允许",
     deny: "拒绝",
     decisionAllow: "已批准",

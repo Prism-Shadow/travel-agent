@@ -186,6 +186,13 @@ and supports password reset or removal.
   The budget currency picker uses a bounded, scrollable popover with localized currency names,
   ISO codes and a selected checkmark. Pointer selection or keyboard confirmation changes the unit;
   highlighting an option or dismissing the menu leaves the stated amount and currency intact.
+- **Context compaction is shown, never requested.** The engine compacts a conversation at its
+  configured threshold and the stream renders the compaction banner (running, done, failed) where
+  it happened. The composer's slash menu offers only the switch commands of an active Session
+  (`/model`, `/agent`); there is no `/compact`, and a draft, which has neither, opens no menu. The
+  server's manual compaction endpoint remains part of the engine baseline with no caller on this
+  surface. The reasoning is recorded in
+  [automatic compaction only](../../docs/decisions/implemented/2026-09-06-automatic-compaction-only.md).
 - **Rendering the model's documents without editing them.** `itinerary.md` and any map the agent
   drew are read-only here; relative image names resolve through the server's trip-file endpoint.
 - **The OmniMessage stream → view-model reduction** (`src/lib/omni/`): start/delta/stop aggregation,

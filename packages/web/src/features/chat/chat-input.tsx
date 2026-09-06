@@ -15,9 +15,8 @@
  * Agent settings: picking a level writes through to the Agent config and applies to the session
  * created on first send); in session state the level is fixed (llmConfig is assembled once per
  * session), shown as a read-only tag from session_meta;
- * `/` opens the slash command menu (`/compact` compresses context, replacing the button; each
- * installed skill gets its own entry; pressing Enter on `/<skill_name>` toggles that skill's
- * selection without sending). Matching is positional: a slash opens the menu from any caret
+ * `/` opens the slash command menu (`/model` and `/agent` in an active Session; context
+ * compaction is automatic and has no command). Matching is positional: a slash opens the menu from any caret
  * position, running a command removes just that token, and Escape only dismisses the menu —
  * the rest of the draft is never touched;
  * `/agent` and `/model` are the two **switch** commands, both offered in an active Session
@@ -737,7 +736,6 @@ export function ChatInput({
   onQueueFollowUp,
   queuedFollowUps = 0,
   onStop,
-  onCompact,
   modelRef,
   models,
   onChangeModel,
@@ -824,7 +822,6 @@ export function ChatInput({
    */
   onHandoff?: (target: AgentSummary, input: TaskInputPart[]) => Promise<boolean>;
   onStop: () => Promise<void>;
-  onCompact: () => Promise<void>;
   /** Currently selected model reference ((provider, modelId) is the unique key); null = not yet chosen. */
   modelRef: ModelRefDto | null;
   /**
@@ -964,7 +961,7 @@ export function ChatInput({
   // Slash token start where Escape closed the menu: it stays shut for that one token.
   const [slashDismissed, setSlashDismissed] = useState<number | null>(null);
   // Switch pickers (opened by /model — session state — and /agent). Each command consumes its
-  // slash token immediately (same as /compact), so closing a picker — Escape, click outside, or
+  // slash token immediately, so closing a picker — Escape, click outside, or
   // the picked-current-model no-op — can never re-open the slash menu, and there is no stale
   // token range to recompute at pick time; whatever text remains is the draft (and becomes the
   // new session's first message once the staged switch is sent).
@@ -1104,19 +1101,13 @@ export function ChatInput({
       setText(next);
       onTextChange?.(next);
     };
+    // No `/compact`: context compaction is the engine's decision (core compacts at its
+    // configured threshold and shows the banner); a traveller is never asked to manage it.
     return [
-      {
-        cmd: "/compact",
-        desc: S.chat.compact,
-        run: () => {
-          clearInput();
-          void onCompact();
-        },
-      },
       // Model switch (active idle session only — the parent passes onSwitchModel just there;
       // draft state has its own model picker). Gated on the model list being loaded: without
-      // it the picker would open empty. Running the command consumes the /model token (like
-      // /compact) and opens the picker; the rest of the draft stays.
+      // it the picker would open empty. Running the command consumes the /model token and
+      // opens the picker; the rest of the draft stays.
       ...(onSwitchModel && models && models.length > 0
         ? [
             {
@@ -1149,7 +1140,7 @@ export function ChatInput({
       // No `/<skill_name>` entries: with the picker gone this was the last way to put a skill
       // into a selection nothing displays, which is a state the person cannot see or undo.
     ];
-  }, [onCompact, onSwitchModel, models, agents, onTextChange, locale]);
+  }, [onSwitchModel, models, agents, onTextChange, locale]);
   // Positional matching: a slash opens the menu from any caret position; running a command
   // removes just the token, leaving the rest of the text intact. Doesn't reopen after Escape
   // until the caret sits on a different token; suppressed while a switch picker is open (the
@@ -1624,7 +1615,7 @@ export function ChatInput({
 
   return (
     <div className="relative" ref={anchorRef}>
-      {/* Slash command menu (triggered by typing /; /compact plus one entry per installed skill).
+      {/* Slash command menu (triggered by typing /; the switch commands of an active Session).
           Height is capped to the room measured above the composer (see upwardMaxH) with internal
           scrolling, so a long skill list never pushes the menu's top edge out of view; the active
           row keeps itself scrolled into view. */}

@@ -475,7 +475,7 @@ export interface StreamModel {
    *     compaction) sits **within** the span and is naturally counted into
    *     the round's duration — which is correct, since compaction did occupy this round's wall-clock time;
    *   - Compaction **after the round ends** (finalization's automatic
-   *     compaction / manual /compact), the next round's injected
+   *     compaction, or a manual one over the API), the next round's injected
    *     `[context_summary]`, and the session_meta rewritten after a file
    *     rotation all come **after** it, and are naturally excluded from the round.
    * So no compaction wall-clock addition/subtraction is needed at all —
@@ -1519,7 +1519,7 @@ function handleEvent(model: StreamModel, p: EventPayload, tsMs?: number, nowMs?:
       // compaction triggered **mid-round**, which keeps running with a
       // carry-over after compacting), so its usage belongs to this round
       // and is settled into this round's cost. After a finalization
-      // compaction / manual /compact, there's no more Request in this
+      // compaction, or a manual one over the API, there's no more Request in this
       // round, so the pending compaction usage never reaches this step and is discarded at finalization (not counted into this round).
       if (tsMs !== undefined) model.taskLastReqEndMs = tsMs;
       commitPendingCompaction(model.stats);

@@ -7,8 +7,8 @@
  * panel on the right (use-files-panel.ts), and each message's trailing file summary card jumps to
  * and locates the file in the tree via onOpenFile. Subagent chips in the stream navigate to the
  * child conversation itself (an ordinary session route) via onOpenSubagent.
- * Approval mode and Model/context usage live in the input area's toolbar; context is compacted
- * via the /compact slash command.
+ * Approval mode and Model/context usage live in the input area's toolbar; context compaction
+ * is automatic (core's threshold) and is only shown here, never requested.
  * Draft state (/chat/new) is carried by DraftView: Agent / Workspace / approval mode / Model are
  * chosen before sending, and everything except approval mode is locked once the Session is
  * created. The Session list and the new-chat entry point live in the global sidebar.
@@ -1032,17 +1032,6 @@ export function ChatPage() {
     [selected, modeSaving, replace],
   );
 
-  const onCompact = useCallback(async () => {
-    if (!selected) return;
-    try {
-      // compact shares get-or-resume-or-heal with tasks: it can likewise self-heal to a new session_id.
-      const res = await api.postCompact(selected.sessionId);
-      await syncHealedSessionId(selected.sessionId, res.sessionId);
-    } catch (e) {
-      toastError(apiErrorText(e, { modelId: selected.modelId }));
-    }
-  }, [selected, syncHealedSessionId]);
-
   const startConversation = useStartConversation();
   const newChat = () => startConversation();
 
@@ -1177,7 +1166,6 @@ export function ChatPage() {
       onQueueFollowUp={onQueueFollowUp}
       queuedFollowUps={stream.queuedFollowUps}
       onStop={onStop}
-      onCompact={onCompact}
       modelRef={activeModelRef}
       {...(models !== null ? { models: models.models } : {})}
       {...(models?.defaultModel !== undefined ? { defaultModel: models.defaultModel } : {})}
