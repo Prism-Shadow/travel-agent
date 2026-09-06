@@ -39,18 +39,27 @@ name: CI
 # packages/ are runtime content that tests assert on, and package READMEs ride along with code
 # anyway.
 on:
+  # Prose and README media never reach a build or a test. `*.md` is root-only on purpose:
+  # packages/skills/skills/**/*.md is content the skills suite validates, so a wider
+  # "**/*.md" would skip the one check those files have.
   push:
     branches: [main]
     paths-ignore:
       - "docs/**"
       - "tasks/**"
+      - "assets/**"
       - "*.md"
+      - "packages/*/README.md"
+      - "packages/*/SPEC.md"
       - "LICENSE"
   pull_request:
     paths-ignore:
       - "docs/**"
       - "tasks/**"
+      - "assets/**"
       - "*.md"
+      - "packages/*/README.md"
+      - "packages/*/SPEC.md"
       - "LICENSE"
   workflow_dispatch:
 

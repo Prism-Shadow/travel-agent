@@ -77,6 +77,11 @@ One more data point, 2026-09-05, from the first `pre-release.yml` runs on Window
 `browser-import-stores` > "does not let an old import move a page's last-visited time backwards" — a
 synchronous SQLite case that takes 1 ms locally — hit the 5 s timeout once and passed on rerun of
 the same commit. Nothing in the test waits; the worker itself stalled.
+And 2026-09-06 on ubuntu-latest (run 34007871171): browser-cli's `snapshot-tools` > "should show
+aria ref labels on real pages" spent 61.9 s inside `ensureA11yClient` — two `page.evaluate` calls —
+on news.ycombinator.com while `aria-snapshot.test.ts` was launching its own Chromium in parallel;
+the same tree had passed hours earlier. The case also depends on two live external sites, which is
+a second reason it does not belong in a gate as written.
 
 **First step:** record commands, host/load conditions, assertions and repeat count. Follow the
 [testing lessons](lessons.md#testing-and-verification); do not assume all failures share a cause
