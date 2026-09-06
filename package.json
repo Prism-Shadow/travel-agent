@@ -13,7 +13,7 @@
     "brand:generate": "node scripts/generate-brand-assets.mjs",
     "brand:check": "node scripts/generate-brand-assets.mjs --check",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r --filter='!penguin-browser' test && pnpm --filter penguin-browser test",
     "test:e2e": "pnpm --filter @prismshadow/penguin-core test:e2e",
     "build": "pnpm brand:check && pnpm -r build && pnpm link:browser-cli",
     "link:browser-cli": "node scripts/link-browser-cli.mjs",

@@ -739,7 +739,11 @@ describe('Snapshot & Screenshot Tests', () => {
     await page.close()
   }, 60000)
 
-  it('should show aria ref labels on real pages and save screenshots', async () => {
+  // Two live external sites (old.reddit.com, news.ycombinator.com) decide whether this case
+  // passes: their response time, rate limits and markup. That is a local check of the labeller
+  // against real-world pages, not a gate input, so CI does not run it (GitHub #8: 62 s spent in
+  // one page.evaluate on Hacker News while a sibling file launched its own Chromium).
+  it.skipIf(process.env.CI)('should show aria ref labels on real pages and save screenshots', async () => {
     const browserContext = getBrowserContext()
     const serviceWorker = await getExtensionServiceWorker(browserContext)
 

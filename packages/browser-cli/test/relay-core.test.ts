@@ -188,8 +188,11 @@ describe('Relay Core Tests', () => {
       throw new Error('Connected page not found for download reproduction test')
     }
 
+    // A bound, not an expectation: 3 s was the whole budget for Chrome to start the download
+    // and the relay to forward it, and a loaded machine spent it (GitHub #8). The test's own
+    // timeout still caps a download that never comes.
     const downloadResult = await Promise.all([
-      connectedPage.waitForEvent('download', { timeout: 3000 }).then(
+      connectedPage.waitForEvent('download', { timeout: 30_000 }).then(
         (download) => {
           return { timedOut: false, suggestedFilename: download.suggestedFilename() }
         },
@@ -211,63 +214,72 @@ describe('Relay Core Tests', () => {
     await page.close()
     await server.close()
 
-    // CDP logging is intentionally buffered in 500 ms batches. Wait for one
-    // flush interval before inspecting the file.
-    await new Promise((resolve) => setTimeout(resolve, 750))
+    // CDP logging is buffered in 500 ms batches, and the download's progress events trail the
+    // download itself. Poll the file for the complete picture rather than sleeping one flush
+    // interval: the deadline only bounds how long a *missing* entry is waited for, so a genuine
+    // gap still fails the snapshot below, just later.
+    //
+    // The read is guarded exactly like the one at the top of this test. The relay writes this
+    // file only when it has something to say; a missing file is the strongest form of "nothing
+    // was logged" and must not be reported as a failure.
+    const readSummary = () => {
+      const logLinesAfter = (fs.existsSync(logFilePath) ? fs.readFileSync(logFilePath, 'utf-8') : '')
+        .split('\n')
+        .filter((line) => {
+          return line.trim().length > 0
+        })
+        .slice(logLineCountBefore)
 
-    // Guarded exactly like the read at the top of this test. The relay writes this file only when
-    // it has something to say, so the *healthy* run — no crash, no log — reached an unguarded
-    // readFileSync and threw ENOENT. The assertion below is "no unhandled rejections were logged";
-    // a missing file is the strongest possible form of that, and it was being reported as a failure.
-    const logLinesAfter = (fs.existsSync(logFilePath) ? fs.readFileSync(logFilePath, 'utf-8') : '')
-      .split('\n')
-      .filter((line) => {
-        return line.trim().length > 0
-      })
-      .slice(logLineCountBefore)
+      const newEntries = logLinesAfter
+        .map((line) => {
+          return tryJsonParse(line)
+        })
+        .filter((entry): entry is { direction: string; message: { method?: string } } => {
+          return Boolean(entry && typeof entry === 'object' && 'direction' in entry && 'message' in entry)
+        })
 
-    const newEntries = logLinesAfter
-      .map((line) => {
-        return tryJsonParse(line)
-      })
-      .filter((entry): entry is { direction: string; message: { method?: string } } => {
-        return Boolean(entry && typeof entry === 'object' && 'direction' in entry && 'message' in entry)
-      })
+      const methods = newEntries
+        .map((entry) => {
+          return {
+            direction: entry.direction,
+            method: typeof entry.message?.method === 'string' ? entry.message.method : 'response',
+          }
+        })
+        .filter((entry) => {
+          return (
+            entry.method.includes('download') ||
+            entry.method === 'Browser.setDownloadBehavior' ||
+            entry.method === 'Page.setDownloadBehavior'
+          )
+        })
 
-    const methods = newEntries
-      .map((entry) => {
-        return {
-          direction: entry.direction,
-          method: typeof entry.message?.method === 'string' ? entry.message.method : 'response',
-        }
-      })
-      .filter((entry) => {
-        return (
-          entry.method.includes('download') ||
-          entry.method === 'Browser.setDownloadBehavior' ||
-          entry.method === 'Page.setDownloadBehavior'
-        )
-      })
+      return {
+        hasBrowserSetDownloadBehavior: methods.some((entry) => {
+          return entry.direction === 'from-playwright' && entry.method === 'Browser.setDownloadBehavior'
+        }),
+        hasPageSetDownloadBehavior: methods.some((entry) => {
+          return entry.direction === 'to-extension' && entry.method === 'Page.setDownloadBehavior'
+        }),
+        hasPageDownloadWillBegin: methods.some((entry) => {
+          return entry.method === 'Page.downloadWillBegin'
+        }),
+        hasPageDownloadProgress: methods.some((entry) => {
+          return entry.method === 'Page.downloadProgress'
+        }),
+        hasBrowserDownloadWillBegin: methods.some((entry) => {
+          return entry.method === 'Browser.downloadWillBegin'
+        }),
+        hasBrowserDownloadProgress: methods.some((entry) => {
+          return entry.method === 'Browser.downloadProgress'
+        }),
+      }
+    }
 
-    const summary = {
-      hasBrowserSetDownloadBehavior: methods.some((entry) => {
-        return entry.direction === 'from-playwright' && entry.method === 'Browser.setDownloadBehavior'
-      }),
-      hasPageSetDownloadBehavior: methods.some((entry) => {
-        return entry.direction === 'to-extension' && entry.method === 'Page.setDownloadBehavior'
-      }),
-      hasPageDownloadWillBegin: methods.some((entry) => {
-        return entry.method === 'Page.downloadWillBegin'
-      }),
-      hasPageDownloadProgress: methods.some((entry) => {
-        return entry.method === 'Page.downloadProgress'
-      }),
-      hasBrowserDownloadWillBegin: methods.some((entry) => {
-        return entry.method === 'Browser.downloadWillBegin'
-      }),
-      hasBrowserDownloadProgress: methods.some((entry) => {
-        return entry.method === 'Browser.downloadProgress'
-      }),
+    let summary = readSummary()
+    const logSettledBy = Date.now() + 15_000
+    while (!Object.values(summary).every(Boolean) && Date.now() < logSettledBy) {
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      summary = readSummary()
     }
 
     expect(summary).toMatchInlineSnapshot(`

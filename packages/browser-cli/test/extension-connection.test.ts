@@ -784,6 +784,22 @@ describe('Extension Connection Tests', () => {
     try {
       await getExtensionServiceWorker(secondContext)
 
+      // A ready service worker has not yet connected to the relay: its maintain loop retries on
+      // its own cadence, and under load the first attempt can land seconds later. Wait for the
+      // state the samples below assume — two distinct extensions known to the relay — then
+      // sample; the samples then test only that both *stay* (GitHub #8).
+      const keysOf = (statuses: Awaited<ReturnType<typeof getExtensionsStatus>>) =>
+        statuses.map((status) => status.stableKey || status.extensionId)
+      const secondJoinedBy = Date.now() + 30_000
+      for (;;) {
+        const keys = keysOf(await getExtensionsStatus(TEST_PORT))
+        if (new Set(keys).size >= 2) break
+        if (Date.now() > secondJoinedBy) {
+          throw new Error(`second extension never joined the relay; keys=${JSON.stringify(keys)}`)
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200))
+      }
+
       const statusSnapshots: Array<{ keys: string[]; activeTargets: number[] }> = []
       for (let i = 0; i < 4; i++) {
         await new Promise((resolve) => {
@@ -791,9 +807,7 @@ describe('Extension Connection Tests', () => {
         })
         const statuses = await getExtensionsStatus(TEST_PORT)
         statusSnapshots.push({
-          keys: statuses.map((status) => {
-            return status.stableKey || status.extensionId
-          }),
+          keys: keysOf(statuses),
           activeTargets: statuses.map((status) => {
             return status.activeTargets
           }),

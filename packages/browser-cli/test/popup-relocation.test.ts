@@ -19,6 +19,33 @@ import '../src/shared/test-declarations.js'
 
 const TEST_PORT = 19995
 
+/**
+ * Executor-side snippets: they run inside the `execute` tool's sandbox as plain JS, and stay
+ * under the executor's 10 s code limit.
+ *
+ * WAIT_FOR_NEW_TARGET_PAGE resolves to the first page at /target that is not in `before`.
+ * WAIT_FOR_NO_TEST_PAGES waits until the fixture pages have actually left context.pages(): a
+ * close in extension mode takes effect a moment after the call returns, and a page left over
+ * from one case must not be found by the next.
+ */
+const WAIT_FOR_NEW_TARGET_PAGE = `(async () => {
+  const deadline = Date.now() + 8000;
+  for (;;) {
+    const found = context.pages().find((p) => !before.has(p) && p.url().endsWith('/target'));
+    if (found) return found;
+    if (Date.now() > deadline) throw new Error('no new /target page: ' + JSON.stringify(context.pages().map((p) => p.url())));
+    await new Promise((r) => setTimeout(r, 100));
+  }
+})()`
+
+const WAIT_FOR_NO_TEST_PAGES = `(async () => {
+  const deadline = Date.now() + 8000;
+  while (context.pages().some((p) => p.url().endsWith('/opener') || p.url().endsWith('/target'))) {
+    if (Date.now() > deadline) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+})()`
+
 describe('Popup window relocation', () => {
   let client: Awaited<ReturnType<typeof createMCPClient>>['client']
   let cleanup: (() => Promise<void>) | null = null
@@ -80,12 +107,17 @@ describe('Popup window relocation', () => {
       },
     })
 
+    // The state under test is "a page that was not there before the click is now in
+    // context.pages() at /target". Which Playwright event announces it depends on the relocation
+    // path (the popup window's own target, or the tab it is moved into), so the test polls for the
+    // state itself instead of sleeping a fixed interval that a loaded machine outruns (GitHub #8).
     const clickResult = await client.callTool({
       name: 'execute',
       arguments: {
         code: js`
+          const before = new Set(context.pages());
           await state.popupTestPage.click('#open-popup');
-          await state.popupTestPage.waitForTimeout(1500);
+          await ${WAIT_FOR_NEW_TARGET_PAGE};
           return { pagesAfter: context.pages().length, allUrls: context.pages().map((p) => p.url()) };
         `,
       },
@@ -114,6 +146,7 @@ describe('Popup window relocation', () => {
           if (targetPage) { await targetPage.close(); }
           await state.popupTestPage.close();
           delete state.popupTestPage;
+          await ${WAIT_FOR_NO_TEST_PAGES};
         `,
       },
     })
@@ -136,8 +169,9 @@ describe('Popup window relocation', () => {
       name: 'execute',
       arguments: {
         code: js`
+          const before = new Set(context.pages());
           await state.targetBlankPage.click('#open-tab', { noWaitAfter: true });
-          await state.targetBlankPage.waitForTimeout(1500);
+          await ${WAIT_FOR_NEW_TARGET_PAGE};
           return { pagesAfter: context.pages().length, allUrls: context.pages().map((p) => p.url()) };
         `,
       },
@@ -156,6 +190,7 @@ describe('Popup window relocation', () => {
           if (targetPage) await targetPage.close();
           await state.targetBlankPage.close();
           delete state.targetBlankPage;
+          await ${WAIT_FOR_NO_TEST_PAGES};
         `,
       },
     })

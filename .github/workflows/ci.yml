@@ -215,7 +215,7 @@ jobs:
       # a parallelism of 1.06. On a 14-core laptop the same suite reports 5.6 and finishes in under
       # a minute instead of 202s. The flag was worth removing for whoever runs the suite locally;
       # the length of this step is the runner, not the flag.
-      - name: Unit tests (penguin-browser)
+      - name: Browser integration tests (penguin-browser)
         run: pnpm --filter penguin-browser test --reporter=default --reporter=junit --outputFile.junit=browser-cli-results.xml
 
       # A failure's diff, written where the log cannot lose it.

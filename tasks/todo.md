@@ -97,30 +97,38 @@ of postmortem 0001. Two structural pressures sit underneath: browser-cli runs it
 browser-launching files in parallel, one Chromium each, and the root `pnpm test` runs browser-cli
 concurrently with every other package.
 
-- [ ] Baseline: three full browser-cli runs and three web e2e runs under load (`pnpm test` in
-      parallel as the load source), recording per-run failures before any change.
-- [ ] `extension-connection` "keeps an active browser connected": wait until relay status shows a
-      second distinct extension key (bounded poll) before sampling stability; the four samples then
-      assert only that both stay.
-- [ ] `popup-relocation` "auto-connects a regular target=_blank tab": `context.waitForEvent('page')`
-      armed before the click, then `waitForURL(/\/target/)`, in place of `waitForTimeout(1500)`.
-- [ ] `relay-core` download test: a generous bound on `waitForEvent('download')` in place of 3 s;
-      poll the CDP log for the expected `Page.downloadWillBegin` entry instead of sleeping one flush
-      interval.
+- [x] Baseline, 2026-09-06 on a 14-core macOS host with 8, then 12, `yes` burners: five full
+      browser-cli runs, all green (≈60–80 s each). The named cases did not reproduce here; the
+      environments that do are the issue's 8-core Linux box and the 4-vCPU ubuntu runner (1 red
+      run in 6 since Actions were re-enabled). Fixes are therefore argued by construction — a
+      state wait in place of a timer — and measured on CI over subsequent runs.
+- [x] `extension-connection` "keeps an active browser connected": waits (≤30 s) until relay status
+      shows a second distinct extension key before the four stability samples.
+- [x] `popup-relocation`, both cases: poll (≤8 s, under the executor's 10 s code limit) for a page
+      at /target that was not in `context.pages()` before the click, and make each cleanup wait
+      until the fixture pages have left the context. Two findings on the way: which Playwright
+      event announces the relocated page (`page.on('popup')` vs `context.on('page')`) depends on the
+      relocation path, so neither is the state; and a close in extension mode lands after the call
+      returns, so the second case was sometimes reading the first case's leftover /target page.
+- [x] `relay-core` download test: 30 s bound on the download event; the CDP log is polled (≤15 s)
+      until all six expected entries are present instead of sleeping one flush interval.
 - [x] Web `compact-abort` "compacting twice": gone with the manual `/compact` command
       (`docs/decisions/implemented/2026-09-06-automatic-compaction-only.md`); the cause was a banner
       that appears when compaction *starts* being read as "finished", so the second `/compact`
       met `assertIdle`'s `compacting` 409 under load. No product path reaches it now.
-- [ ] browser-cli parallelism: cap vitest workers for this package so the suite-level MCP
-      `-32001` (a 60 s request timeout, not a test's own timer) stops being reachable by CPU
-      contention alone; measure wall-clock before and after.
-- [ ] Root gate: run browser-cli after, not beside, the other packages' unit tests, so server's
-      5 s cases are not timed against twelve Chromiums (the issue's own conclusion).
-- [ ] `snapshot-tools` "aria ref labels on real pages": skip under `CI`; two live external sites
-      are not a gate input. Kept as a local check.
-- [ ] After: same three-plus-three runs under the same load; record results per case in #8 and
-      close only what the runs support. The Windows SQLite stall stays open — nothing in that test
-      waits, and no fix is proposed for a stalled worker.
+- [x] browser-cli parallelism: `maxWorkers: CI ? 2 : 4`. Local full suite ≈90–115 s under load
+      (was ≈60–80 s with no cap and no burners); CI timing to be read from the next runs.
+- [x] Root gate: `pnpm test` runs browser-cli after the other packages; AGENTS.md says so. The CI
+      step is renamed "Browser integration tests" — it was never a unit suite.
+- [x] `snapshot-tools` "aria ref labels on real pages": `it.skipIf(process.env.CI)`.
+- [x] After: five full browser-cli runs under 12 burners. One red in the first three — not a named
+      case but `relay-navigation` "temporarily removes and restores restricted extension iframes",
+      the third failure of postmortem 0001, now through a *different* 5 s bound: `connectOverCDP`
+      wrapped in a `withTimeout(5000)` whose message reads "extension likely crashed". Attaching a
+      page with five restricted iframes takes the relay longer than that under load. That bound
+      and the toggle's are 30 s now; the file still holds ten other `withTimeout(5000)` calls of
+      the same shape that have not been seen failing and are left as they are. Two further full
+      runs green. Remaining open: the Windows SQLite stall (nothing in that test waits).
 
 ## T03 — Connect L1 Private Profile writes
 

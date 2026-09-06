@@ -936,12 +936,16 @@ describe('Relay Navigation Tests', () => {
       expect(beforeAttach.restrictedIframeCount).toBe(5)
       expect(beforeAttach.allOriginalNodesConnected).toBe(true)
 
-      // Enable penguin-browser on this page — this must NOT crash the debugger
+      // Enable penguin-browser on this page — this must NOT crash the debugger. The bounds here
+      // and below are bounds, not expectations: attaching a page with five restricted iframes
+      // takes the relay several seconds on a loaded machine, and the 5 s that used to sit here
+      // reported that as a crash (GitHub #8). A real crash still fails: the evaluate below needs
+      // a live debugger session.
       await withTimeout({
         promise: serviceWorker.evaluate(async () => {
           await globalThis.toggleExtensionForActiveTab()
         }),
-        timeoutMs: 5000,
+        timeoutMs: 30_000,
         errorMessage: 'Timed out toggling extension on page with chrome-extension:// iframe',
       })
       penguinBrowserConnected = true
@@ -954,7 +958,7 @@ describe('Relay Navigation Tests', () => {
       // Verify the extension is still connected by connecting over CDP and interacting
       const browser = await withTimeout({
         promise: chromium.connectOverCDP(getCdpUrl({ port: TEST_PORT })),
-        timeoutMs: 5000,
+        timeoutMs: 30_000,
         errorMessage: 'Timed out connecting over CDP — extension likely crashed',
       })
       const context = browser.contexts()[0]

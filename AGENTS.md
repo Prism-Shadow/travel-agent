@@ -164,8 +164,10 @@ pnpm --filter @prismshadow/penguin-desktop test:e2e && \
 pnpm test:e2e
 ```
 
-About eight minutes on an 8-core Linux box (the web browser suite and the browser-cli unit tests
-are the two largest shares), and it reproduces every CI step except one: **Linux**. The in-app
+About eight minutes on an 8-core Linux box (the web browser suite and the browser-cli browser
+suite are the two largest shares), and it reproduces every CI step except one: **Linux**.
+`pnpm test` runs browser-cli *after* the other packages, not beside them: its files each launch
+a Chromium, and server's five-second cases were being timed against a dozen of those. The in-app
 browser e2e needs `xvfb-run` only on Linux and runs natively on macOS; the live-model e2e needs
 `DEEPSEEK_API_KEY` in `.env` (leave `ANTHROPIC_API_KEY` empty, or the run takes the Claude path
 instead of the one CI used).
