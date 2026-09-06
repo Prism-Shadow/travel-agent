@@ -65,14 +65,13 @@ Useful conversations can also be kept in **Saved**.
 [![Watch the demo: turn Xiaohongshu travel tips into a two-day Beijing itinerary and an Amap route.](assets/readme/demos/route-cover-en.png)](https://github.com/user-attachments/assets/f785b356-7eaf-4535-927f-1912d3c88bc1)
 
 Read travel posts, organize the stops into a two-day plan, then open the generated map link.
-[Watch the video · 38 seconds](https://github.com/user-attachments/assets/f785b356-7eaf-4535-927f-1912d3c88bc1).
 
 **02 · Find a hotel on Ctrip, then stop at payment**
 
 [![Watch the demo: filter Ctrip hotels by budget, rating and cancellation policy, choose a room and continue to the payment page.](assets/readme/demos/hotel-cover-en.png)](https://github.com/user-attachments/assets/3665959b-3704-4f92-9cc6-cefd37326993)
 
 Compare hotels and room options, confirm a choice, then review the booking form. The user makes
-the final payment. [Watch the video · 76 seconds](https://github.com/user-attachments/assets/3665959b-3704-4f92-9cc6-cefd37326993).
+the final payment.
 
 ## Download
 
