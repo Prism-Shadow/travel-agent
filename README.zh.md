@@ -59,17 +59,17 @@ Travel Agent 是一个**桌面旅行助手**。说出需求后，Agent 可以打
 
 **01 · 从小红书攻略，到高德地图路线**
 
-[![观看演示：阅读小红书攻略，整理北京两日行程，并生成高德地图路线。](assets/readme/demos/route-cover-zh.png)](https://github.com/user-attachments/assets/ca3aa959-d8ee-4ae0-ad20-740afac84a32)
+[![观看演示：阅读小红书攻略，整理北京两日行程，并生成高德地图路线。](assets/readme/demos/route-cover-zh.png)](https://github.com/user-attachments/assets/f785b356-7eaf-4535-927f-1912d3c88bc1)
 
 阅读旅行攻略，把景点与游玩顺序整理成两日计划，再打开生成的地图链接。
-[观看视频 · 38 秒](https://github.com/user-attachments/assets/ca3aa959-d8ee-4ae0-ad20-740afac84a32)。
+[观看视频 · 38 秒](https://github.com/user-attachments/assets/f785b356-7eaf-4535-927f-1912d3c88bc1)。
 
 **02 · 按条件找酒店，确认后停在支付页**
 
-[![观看演示：按预算、评分与取消政策筛选携程酒店，选择房型并推进到支付页。](assets/readme/demos/hotel-cover-zh.png)](https://github.com/user-attachments/assets/25550205-88a4-4e31-8fff-03fea801fe69)
+[![观看演示：按预算、评分与取消政策筛选携程酒店，选择房型并推进到支付页。](assets/readme/demos/hotel-cover-zh.png)](https://github.com/user-attachments/assets/3665959b-3704-4f92-9cc6-cefd37326993)
 
 比较酒店与房型，确认自己的选择，再查看预订表单；最后付款由你完成。
-[观看视频 · 76 秒](https://github.com/user-attachments/assets/25550205-88a4-4e31-8fff-03fea801fe69)。
+[观看视频 · 76 秒](https://github.com/user-attachments/assets/3665959b-3704-4f92-9cc6-cefd37326993)。
 
 ## 下载
 

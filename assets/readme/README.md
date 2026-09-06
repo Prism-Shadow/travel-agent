@@ -38,25 +38,33 @@ illustrations, not live connection status or a completed agent task.
 
 ## Travel task videos
 
-The root READMEs link language-matched covers to two silent H.264 MP4 files hosted as GitHub
-attachments on [PR #14](https://github.com/Prism-Shadow/travel-agent/pull/14#issuecomment-5550067681).
-The exports stay under the git-ignored `demos/` beside their covers; neither they nor the original,
-user-supplied recordings enter the repository history. Both links were verified to resolve
-anonymously after the repository went public on 2026-09-05.
+The root READMEs link language-matched covers to two H.264 MP4 files with a music track, hosted
+as GitHub attachments on
+[PR #14](https://github.com/Prism-Shadow/travel-agent/pull/14#issuecomment-5556484220). The
+exports stay under the git-ignored `demos/` beside their covers; neither they nor the original,
+user-supplied recordings enter the repository history. Both links resolve anonymously.
 
-- `xiaohongshu-amap.mp4` (38 seconds, 6.8 MB):
-  <https://github.com/user-attachments/assets/ca3aa959-d8ee-4ae0-ad20-740afac84a32>
+- `xiaohongshu-amap.mp4` (38 seconds, 7.5 MB):
+  <https://github.com/user-attachments/assets/f785b356-7eaf-4535-927f-1912d3c88bc1>
   Reads Xiaohongshu travel posts, creates a two-day Beijing itinerary and opens an Amap route. The
   edit removes six seconds of blank browser startup and adds task-stage captions and a final hold.
-  Encoded at CRF 24 to stay under the 10 MB attachment limit of the organization's free plan;
-  SSIM 0.996 against the CRF 21 review export.
-- `ctrip-hotel.mp4` (76 seconds, 6.3 MB):
-  <https://github.com/user-attachments/assets/25550205-88a4-4e31-8fff-03fea801fe69>
-  Filters Ctrip hotels, compares room choices, reviews the booking form and reaches the payment page. Its three-second opening uses a current Travel Agent UI
-  capture with an unsent sample request. The subsequent task is a historical recording, not a
-  newly executed acceptance test. App branding and browser chrome are editorial overlays.
+  Encoded at CRF 24 to stay under the 10 MB attachment limit; SSIM 0.996 against the CRF 21
+  review export.
+- `ctrip-hotel.mp4` (76 seconds, 7.5 MB):
+  <https://github.com/user-attachments/assets/3665959b-3704-4f92-9cc6-cefd37326993>
+  Filters Ctrip hotels, compares room choices, reviews the booking form and reaches the payment
+  page. Its three-second opening uses a current Travel Agent UI capture with an unsent sample
+  request. The subsequent task is a historical recording, not a newly executed acceptance test.
+  App branding and browser chrome are editorial overlays.
 
-The videos are silent and omit source container metadata. Opaque masks cover visible personal
+The soundtrack is instrumental music, not narration: the audio of the owner's own Xiaohongshu note
+(`explore/68f40eb200000000040024ea`, author 村口修鞋师傅), which the owner states they hold the
+rights to reuse here. It replaces the recordings' original audio entirely. The track (37 s) is
+loudness-normalised to −19 LUFS / −2 dBTP, looped with a 1.2 s crossfade to the video's length,
+faded in over 0.65 s and out over 1.8 s, and encoded as AAC 128 kbps; the video stream is copied
+from the reviewed silent export unchanged (byte-identical, so the redaction audit below still
+holds). The silent first cut remains attached to the earlier PR comment
+(`issuecomment-5550067681`). The container carries no source metadata. Opaque masks cover visible personal
 contact details, repeated details in the conversation, account avatars, website account identity,
 URL parameters and saved-payment identity. Public destination and hotel details remain visible.
 Read the visible UI composition and historical-footage note together when describing the demo.
