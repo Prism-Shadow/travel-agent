@@ -11,7 +11,7 @@ Node 24+ and pnpm 11 are recommended. This directory has its own workspace and l
 ```bash
 cd website
 pnpm install
-pnpm dev --host 127.0.0.1 --port 4180
+pnpm dev --hostname 127.0.0.1 --port 4180
 ```
 
 The Chinese homepage is `/`; English is `/en`. The site selects the saved language or the browser's
