@@ -88,6 +88,9 @@ intended to be sent back to PenguinHarness as a product.
 
 ## Where the rest lives
 
+The standalone [product website](website/SPEC.md) presents the application, travel-task
+demonstrations and download/setup guidance. It does not execute agent tasks or access trip data.
+
 | Question | Home |
 | --- | --- |
 | How the shipped system fits together | [[arch-travel-agent]] |

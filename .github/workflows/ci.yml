@@ -69,6 +69,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  website:
+    name: Product website
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
+      - name: Install website dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build website
+        run: pnpm build
+      - name: Check website types, lint and content contracts
+        run: pnpm typecheck && pnpm lint && pnpm test
+      - name: Check localized pages, inline players and assets
+        env:
+          WEBSITE_PREVIEW_URL: http://127.0.0.1:4180
+        run: |
+          pnpm dev --host 127.0.0.1 --port 4180 > /tmp/travel-agent-website-preview.log 2>&1 &
+          website_preview_pid=$!
+          trap 'kill "$website_preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail "$WEBSITE_PREVIEW_URL" > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          node scripts/check-preview.mjs
+
   ci:
     name: Build, typecheck, test
     runs-on: ubuntu-latest
