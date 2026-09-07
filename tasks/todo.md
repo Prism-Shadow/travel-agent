@@ -67,8 +67,9 @@ failures actually observed.
 
 ## T02 — Stabilize the reported load-sensitive tests
 
-- [ ] Reproduce [GitHub #8](https://github.com/Prism-Shadow/travel-agent/issues/8), identify each
-      failing wait condition, and verify repairs under the same conditions.
+- [x] Reproduce [GitHub #8](https://github.com/Prism-Shadow/travel-agent/issues/8), identify each
+      failing wait condition, and verify repairs under the same conditions. Closed 2026-09-06 at
+      d1f3147; the per-case record is on the issue and in the plan below.
 
 **Evidence:** the issue reports failures in browser-cli's `relay-core`, `extension-connection` and
 `popup-relocation` suites, plus Web's `compact-abort`, under load while isolated runs pass. The latest
