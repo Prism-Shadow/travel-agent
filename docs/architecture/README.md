@@ -24,6 +24,10 @@ alternatives it beat:
 
 ## Process topology
 
+The standalone [product website](../../website/SPEC.md) serves Chinese and English product
+information, demonstration playback and installer links. Its own workspace and build in
+`website/` have no runtime dependency on the desktop, server, engine or browser relay below.
+
 ```mermaid
 flowchart TB
     subgraph desktop["Electron desktop (packages/desktop)"]

@@ -24,3 +24,8 @@ packages/desktop/dist-e2e/
 packages/skills/skills/amap-lbs-skill/
 # electron-builder staging tree (git-ignored build artifact; contains copied bundles)
 packages/desktop/stage/
+
+# The product website has an independent workspace and generated preview output.
+website/.next/
+website/.vercel/
+website/pnpm-lock.yaml

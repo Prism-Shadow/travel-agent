@@ -59,6 +59,7 @@ names before believing it, and re-run once the worktree is removed.
 
 Today the graph covers the five packages carrying travel-agent's own concepts — `server`, `web`,
 `desktop`, `browser-cli`, `browser-extension` — plus the two architecture documents and the root.
+The independent product presentation surface has its own [`website/SPEC.md`](../website/SPEC.md).
 `core` and `skills` have no node: `core` is a pinned upstream snapshot this project does not design,
 and a contract document for a package nobody is redesigning would be a document with no reader.
 Add a node when someone needs it, not to complete a picture.
