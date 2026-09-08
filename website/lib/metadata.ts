@@ -20,7 +20,7 @@ export function metadataFor(locale: Locale): Metadata {
       locale: locale === "zh" ? "zh_CN" : "en_US",
       alternateLocale: locale === "zh" ? "en_US" : "zh_CN",
       images: [
-        { url: new URL("/og.png", siteOrigin).href, width: 1729, height: 910, alt: "Travel Agent" },
+        { url: new URL("/og.png", siteOrigin).href, width: 1200, height: 630, alt: "Travel Agent" },
       ],
     },
     twitter: {

@@ -1,4 +1,4 @@
-import type { Locale } from "./content.ts";
+import type { Locale } from "./content";
 
 export type LanguagePreference = "system" | Locale;
 export type ThemePreference = "system" | "light" | "dark";

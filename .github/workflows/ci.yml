@@ -91,14 +91,13 @@ jobs:
         run: pnpm build
       - name: Check website types, lint and content contracts
         run: pnpm typecheck && pnpm lint && pnpm test
+      # Served from the production build the step above produced, the way Vercel serves it —
+      # not from a dev server, whose middleware, caching and asset paths differ.
       - name: Check localized pages, inline players and assets
         env:
           WEBSITE_PREVIEW_URL: http://127.0.0.1:4180
         run: |
-          # vinext takes `--hostname` (`-H`), not Vite's `--host`; the unknown flag was ignored and
-          # the server bound to `localhost`, which resolves to ::1 on the runner while this step
-          # dials 127.0.0.1. Bind explicitly to the address the check uses.
-          pnpm dev --hostname 127.0.0.1 --port 4180 > /tmp/travel-agent-website-preview.log 2>&1 &
+          pnpm start --hostname 127.0.0.1 --port 4180 > /tmp/travel-agent-website-preview.log 2>&1 &
           website_preview_pid=$!
           trap 'kill "$website_preview_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do

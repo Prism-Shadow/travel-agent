@@ -6,7 +6,8 @@ setup guidance, FAQs and platform-specific downloads. It does not run agent task
 
 ## Run
 
-Node 24+ and pnpm 11 are recommended. This directory has its own workspace and lockfile.
+Node 22 and pnpm 11. This directory has its own workspace and lockfile; it is a plain Next.js
+App Router site with no application runtime imports.
 
 ```bash
 cd website
@@ -19,8 +20,15 @@ preferred supported language, with English as the fallback. Language and theme m
 Follow system; light and dark themes follow system changes until explicitly overridden. Host-only
 cookies retain these two preferences across visits; no account or analytics service is involved.
 The local preview contains no real account,
-credentials or trip connection. Development and previews stay local under the user's current
-instruction; see [AGENTS.md](AGENTS.md). The existing hosted copy is pending removal.
+credentials or trip connection.
+
+## Deployment
+
+Production is the Vercel project `opentravelagent`, served at
+<https://opentravelagent.vercel.app>. Vercel builds this directory with `next build` (framework
+Next.js, Node 22, set in the project settings); nothing here publishes on its own. When the
+site moves to its own domain, add the domain in the Vercel project and update `siteOrigin` in
+`lib/site.ts`; the Vercel-issued address stays valid alongside.
 
 ```bash
 pnpm typecheck
@@ -31,8 +39,9 @@ pnpm build
 
 `SPEC.md` owns the website's behavior. This package is outside the desktop runtime workspace;
 its checks run from this directory. The root repository's checks do not replace these checks.
-The `Product website` CI job runs the independent build, type, lint, content, preference and local HTTP
-checks. It does not save hosted versions or deploy the website.
+The `Product website` CI job runs the independent build, type, lint, content and preference
+checks, then serves the production build with `next start` and runs the HTTP checks against
+it — the same build Vercel serves. It does not deploy.
 
 ## Content and interactions
 
@@ -41,12 +50,14 @@ checks. It does not save hosted versions or deploy the website.
 - `components/home.tsx` owns navigation, inline video playback, accessible browser-mode
   tabs, FAQ disclosures and explicit platform downloads.
 - `components/preferences.tsx` owns the language and appearance controls. `lib/preferences.ts`
-  defines validated preference values and locale negotiation; middleware selects the route and
-  the root layout applies the saved theme before rendering. Both preferences default to system.
-- `lib/site.ts` contains the trusted Site origin returned by provisioning. Metadata never derives
-  its public origin from untrusted request headers.
+  defines validated preference values and locale negotiation; `proxy.ts` (Next 16's name for
+  the request middleware) selects the route and the root layout applies the saved theme before
+  rendering. Both preferences default to system.
+- `lib/site.ts` holds the canonical production origin. Metadata never derives its public origin
+  from request headers, which a caller controls.
 - `lib/metadata.ts` produces locale-specific titles, descriptions, canonical URLs and social cards.
-- `app/globals.css` contains the responsive flat-color design and reduced-motion support.
+- `app/globals.css` contains the responsive flat-color design and reduced-motion support. It is
+  hand-written CSS with its own reset; the site uses no utility framework.
 
 The video links are the existing README recordings; they are not fresh acceptance evidence.
 The hotel demonstration includes historical footage and updated branding. The website retains
@@ -66,9 +77,10 @@ without resetting its progress. Native controls provide seeking, volume, caption
 - Product screenshots and video covers: `assets/readme`, documented in
   `../assets/readme/README.md`. Screenshots are preserved, including the example trip labels.
 - Videos: the two existing, redacted GitHub attachment URLs documented in the root READMEs.
-- `public/og.png`: an original ImageGen social card. Its exact prompt and original output are
-  retained in `artifacts/website-concept-20260907/social/` in the parent checkout. The generated
-  source bytes are preserved; it is an illustration, not a product screenshot.
+- `public/og.png`: an original ImageGen social card, resized to the 1200×630 Open Graph size
+  and palette-quantised (190 KB, from a 1 MB 1729×910 original). Its exact prompt and original
+  output are retained in `artifacts/website-concept-20260907/social/` in the parent checkout. It
+  is an illustration, not a product screenshot.
 - The small download icon reuses the existing `DownloadIcon` path from the application.
 - GitHub, Apple, Windows and Linux marks in `public/media/brands` are unmodified SVGs from
   [Simple Icons 11.15.0](https://github.com/simple-icons/simple-icons/tree/11.15.0/icons), used

@@ -12,10 +12,11 @@ depends-on:
 # Product website
 
 `website/` owns the standalone product presentation and download guide. It has its own pnpm
-workspace and dependency lockfile, independent of the desktop application. Current development
-and review are local-only; deployment requires a new explicit user request.
-The product-website CI job validates its independent workspace and local HTTP surface without
-publishing a hosted version.
+workspace and dependency lockfile, independent of the desktop application. Production is the
+Vercel project `opentravelagent` at `https://opentravelagent.vercel.app`, built with `next build`;
+the repository's GitHub homepage points there. The product-website CI job validates the
+independent workspace and runs its HTTP checks against the production build served by
+`next start`; it does not deploy.
 
 ## Responsibilities
 
@@ -45,7 +46,12 @@ publishing a hosted version.
   the right, then hotel description on the left with its video on the right. Narrow layouts
   stack each video above its description.
 - Play recordings in place only after a user action, with native controls, captions, textual
-  walkthroughs and an external-video recovery link. Starting one recording pauses the other
+  walkthroughs and an external-video recovery link. The recordings are the READMEs' GitHub
+  attachments, not files in this repository (the decision on PR #14 keeps the MP4s out of git
+  history); the poster and caption tracks are same-origin. Because that host sends no CORS
+  header, the `<video>` carries no `crossorigin` attribute, and a browser that requires one
+  for a text track on a cross-origin media element (Safari) shows the recording without its
+  captions; the textual walkthrough beside it carries the same content. Starting one recording pauses the other
   without resetting its position; video playback does not open a modal or lock page scrolling.
   Browser-mode tabs describe the product; they do not
   connect or change any real browser backend.
@@ -54,8 +60,8 @@ publishing a hosted version.
 
 This website does not execute agent tasks, access trip data, collect API keys, create user
 accounts, or process reservations. It has no database, analytics collector or model dependency.
-It imports no engine or application runtime code. The existing Sites-hosted copy is owner-only
-and pending removal; local preview does not require a hosted deployment.
+It imports no engine or application runtime code, and carries no build path other than Next's
+own: the OpenAI Sites and Cloudflare Workers scaffolding it was generated with is gone.
 
 Brand files and published presentation assets are copied into `public/media` so the website
 build is self-contained. Their provenance is recorded in `README.md`. Product facts are grounded

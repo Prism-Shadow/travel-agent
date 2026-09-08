@@ -26,7 +26,6 @@ packages/skills/skills/amap-lbs-skill/
 packages/desktop/stage/
 
 # The product website has an independent workspace and generated preview output.
-website/.wrangler/
 website/.next/
-website/.vinext/
+website/.vercel/
 website/pnpm-lock.yaml

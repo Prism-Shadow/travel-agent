@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { LANGUAGE_COOKIE, languagePreference, localePath, requestLocale } from "./lib/preferences";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const locale = requestLocale(
     languagePreference(request.cookies.get(LANGUAGE_COOKIE)?.value),
     request.headers.get("accept-language") || "",
